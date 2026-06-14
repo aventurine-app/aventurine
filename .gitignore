@@ -1,0 +1,23 @@
+# Local secrets and data — never commit these.
+.secret_key
+finance.db
+finance.db.bak*
+*.bak
+active-db.json
+
+# Dependencies and build outputs
+node_modules/
+electron/dist/
+electron/out/
+static/dist/
+
+# Claude Code local config — machine-local settings + product strategy; keep private.
+.claude/
+
+# Environment
+.env
+
+# Editor / OS scratch
+.DS_Store
+.vscode/
+.idea/

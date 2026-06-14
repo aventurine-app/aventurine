@@ -1,0 +1,551 @@
+/* ============================================================================
+   home.css — Dashboard page (Home).
+   ============================================================================
+   All typography flows through the tokens defined in style.css §2 (sizes,
+   weights, line-heights, tracking). Card titles compose the standard
+   "all-caps micro eyebrow" treatment from those tokens directly. No
+   hard-coded rem values in this file.
+
+   Section layout:
+     1. Page layout (two-column flex, 70/30, responsive collapse)
+     2. Card shell
+     3. Card header — eyebrow title + optional right-side widget
+     4. Shared chart container + empty state
+     5. Net Worth card
+     6. Accounts card (donut + legend)
+     7. Income & Expenses + Account Balances charts (legend, selector)
+     8. Range-selector dropdown
+     9. Upcoming Expenses card (predicted recurring spends)
+    10. Charts: unified frame chrome + entrance animation
+   ============================================================================ */
+
+
+/* ─── 1. Page layout ─────────────────────────────────────────────────────── */
+.page:has(.home-page) {
+    align-items: flex-start;
+    padding: 40px 40px 60px;
+    box-sizing: border-box;
+}
+
+.home-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+}
+
+.home-grid {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.home-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.home-col-main  { flex: 0 0 calc(70% - 8px); }
+.home-col-aside { flex: 1; }
+
+@media (max-width: 1200px) {
+    .home-grid { flex-direction: column; }
+    .home-col-main,
+    .home-col-aside { flex: none; width: 100%; }
+}
+
+
+/* ─── 2. Card shell ──────────────────────────────────────────────────────── */
+/* Flex column so the chart/body inside can be pushed to the bottom of the
+   card via margin-top: auto. When the grid row stretches a card taller than
+   its content (driven by a taller neighbour), the chart pins to the bottom
+   edge instead of floating below the header. */
+.home-card {
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface1);
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+}
+
+
+/* ─── 3. Card header ─────────────────────────────────────────────────────── */
+.home-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    min-height: 22px;
+}
+
+/* The card title is an all-caps section eyebrow. One step up from the
+   micro 11px tier so it reads as a section header, not a tag. Legend
+   labels inside the card stay at micro to create a hierarchy. */
+.home-card-title {
+    color: var(--text-primary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+    line-height: var(--lh-tight);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+}
+
+
+/* ─── 4. Shared chart container ──────────────────────────────────────────── */
+.chart-area {
+    width: 100%;
+    overflow: hidden;
+}
+
+#networth-chart {
+    width: 100%;
+    height: 100%;
+}
+
+.chart-empty {
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    text-align: center;
+    margin: 0;
+    padding: 80px 0;
+}
+
+
+/* ─── 5. Net Worth card ──────────────────────────────────────────────────── */
+/* Title hugs the value so the row reads as one stacked label/value group. */
+.networth-card .home-card-header {
+    margin-bottom: 2px;
+}
+
+.networth-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 18px;
+}
+
+/* Hero numerical value — paired with the small eyebrow above for contrast
+   (semibold tiny label sitting on top of a light display number). */
+.networth-value {
+    color: var(--text-primary);
+    font-family: var(--font-h1);
+    font-size: var(--size-h1);
+    font-weight: var(--weight-light);
+    line-height: var(--lh-tight);
+    letter-spacing: var(--track-wide);
+    font-variant-numeric: tabular-nums;
+}
+
+.networth-change {
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wide);
+    font-variant-numeric: tabular-nums;
+}
+
+
+/* ─── 6. Accounts card (donut + legend) ──────────────────────────────────── */
+/* Ring on top, legend list below. The aside column caps the card at
+   ~300px of content — a side-by-side donut + legend never fit, the legend
+   just overflowed the card edge. Stacked, both get the full width. */
+.accounts-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+}
+
+.accounts-pie {
+    flex: 0 0 auto;
+    width: 220px;
+    height: 220px;
+}
+
+.accounts-pie-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* Hovering the ring spotlights one segment by dimming the rest. The arcs'
+   opacity transition is declared inline in home.js (it shares a transition
+   list with the staggered sweep-in), so only the values change here. */
+.accounts-pie-svg:hover .donut-arc { opacity: 0.5; }
+.accounts-pie-svg .donut-arc:hover { opacity: 1; }
+
+/* Centre readout inside the ring — assets minus debt for the shown month. */
+.donut-center-label {
+    fill: var(--label-muted);
+    font-family: var(--font-h3);
+    font-size: 11px;
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+}
+
+.donut-center-value {
+    fill: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: 24px;
+    font-weight: var(--weight-light);
+    letter-spacing: var(--track-tight);
+    font-variant-numeric: tabular-nums;
+}
+
+.accounts-legend {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+
+.accounts-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.accounts-legend-item:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.accounts-legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.accounts-legend-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+/* Same eyebrow treatment as the card title — visually links the legend row
+   to the card it belongs to. */
+.accounts-legend-label {
+    color: var(--label-muted);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    line-height: var(--lh-tight);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+    /* Long type names must not run under the percentage column. */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.accounts-legend-value {
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-h3);
+    font-weight: var(--weight-light);
+    letter-spacing: var(--track-tight);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.accounts-legend-pct {
+    color: var(--text-secondary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-weight: var(--weight-light);
+    letter-spacing: var(--track-normal);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ─── 7. Income & Expenses + Account Balances ────────────────────────────── */
+
+/* Selector chips (shared by both cards) — click to toggle a series in/out
+   of the chart. */
+.account-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.account-toggle {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 12px 5px 8px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    color: var(--text-secondary);
+    user-select: none;
+}
+
+.account-toggle.active {
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: var(--text-primary);
+}
+
+.account-toggle:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    color: var(--text-primary);
+}
+
+.account-toggle-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    opacity: 0.4;
+    transition: opacity 0.15s;
+}
+
+.account-toggle.active .account-toggle-dot { opacity: 1; }
+
+
+/* ─── 8. Range-selector dropdown ─────────────────────────────────────────── */
+.range-selector { position: relative; }
+
+.range-selector-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+    padding: 6px 26px 6px 12px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    /* Caret drawn via background-image so the button text stays clean. */
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                      linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 14px) 50%, calc(100% - 10px) 50%;
+    background-size: 4px 4px;
+    background-repeat: no-repeat;
+}
+
+.range-selector-btn:hover {
+    background-color: var(--surface3);
+    color: var(--text-primary);
+    border-color: var(--text-tertiary);
+}
+
+.range-selector-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 140px;
+    z-index: 20;
+    padding: 4px 0;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+}
+
+.range-selector-menu[hidden] { display: none; }
+
+.range-selector-menu button {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-regular);
+    text-align: left;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+}
+
+.range-selector-menu button:hover {
+    background: var(--surface3);
+    color: var(--text-primary);
+}
+
+
+/* ─── 9. Upcoming Expenses card ──────────────────────────────────────────── */
+/* Row list mirroring the accounts legend: name + cycle/due meta on the
+   left, predicted amount on the right. Rows are JS-rendered (home.js). */
+.upcoming-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.upcoming-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.upcoming-item:first-child { padding-top: 0; }
+.upcoming-item:last-child  { padding-bottom: 0; border-bottom: none; }
+
+.upcoming-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+/* Merchant names come straight from bank statements and can run long —
+   ellipsize rather than wrap so every row stays one line tall. */
+.upcoming-name {
+    color: var(--text-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-regular);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Cycle + due date share the micro-eyebrow treatment used by the accounts
+   legend so the two aside cards read as one family. */
+.upcoming-meta {
+    display: flex;
+    gap: 10px;
+    color: var(--label-muted);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+}
+
+.upcoming-due     { color: var(--text-secondary); }
+.upcoming-due-now { color: var(--accent-tertiary); }
+
+.upcoming-amount {
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-h3);
+    font-weight: var(--weight-light);
+    letter-spacing: var(--track-tight);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+
+
+/* ─── 10. Charts: unified frame chrome + entrance animation ──────────────── */
+/* All three line charts share the .home-chart renderer in home.js — one
+   frame, one grid, one label style. Chrome colors come from theme variables
+   so a palette change (or the light theme) retones the charts too. */
+
+.home-chart .chart-grid {
+    stroke: var(--border);
+    stroke-width: 1;
+    stroke-dasharray: 3 5;
+}
+
+.home-chart .chart-zero {
+    stroke: var(--text-tertiary);
+    stroke-width: 1;
+    stroke-dasharray: 5 4;
+    opacity: 0.55;
+}
+
+.home-chart .chart-label {
+    fill: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: 11px;
+    font-weight: var(--weight-semibold);
+    letter-spacing: 0.05em;
+}
+
+/* Entrance: each line sweeps left→right (pathLength="1" in the markup
+   normalises the dash math to 0–1), then its area fill and dots fade in
+   behind it. Per-element delays are set inline by the renderer. The
+   animation replays on user-driven re-renders (range picker, account
+   toggles) but not on window resizes — observeChart() flags those renders
+   with .chart-no-anim. */
+.home-chart .chart-line {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: chart-draw 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.home-chart .chart-area-fill,
+.home-chart .chart-dot {
+    opacity: 0;
+    animation: chart-fade 0.5s ease forwards;
+}
+
+/* Hover affordance on every data dot, all charts alike. */
+.home-chart .chart-dot { transition: r 0.15s ease; }
+.home-chart .chart-dot:hover { r: 6; }
+
+/* Soft expanding halo on each series' latest point — draws the eye to
+   "now" without shouting. */
+.home-chart .chart-pulse {
+    fill: none;
+    stroke-width: 2;
+    opacity: 0;
+    animation: chart-pulse 3s ease-out infinite;
+}
+
+@keyframes chart-draw { to { stroke-dashoffset: 0; } }
+@keyframes chart-fade { to { opacity: 1; } }
+@keyframes chart-pulse {
+    0%   { r: 4;  opacity: 0.5; }
+    60%  { r: 13; opacity: 0; }
+    100% { r: 13; opacity: 0; }
+}
+
+/* Resize re-renders skip the entrance so charts don't strobe mid-drag. */
+.chart-no-anim .chart-line {
+    animation: none;
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+}
+.chart-no-anim .chart-area-fill,
+.chart-no-anim .chart-dot {
+    animation: none;
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .home-chart .chart-line {
+        animation: none;
+        stroke-dasharray: none;
+        stroke-dashoffset: 0;
+    }
+    .home-chart .chart-area-fill,
+    .home-chart .chart-dot {
+        animation: none;
+        opacity: 1;
+    }
+    .home-chart .chart-pulse { display: none; }
+    .accounts-pie-svg .donut-arc { transition: none !important; }
+}

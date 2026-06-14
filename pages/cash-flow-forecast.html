@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Finance Tools | Cash Flow Forecast</title>
+    <!-- @include head -->
+    <link rel="stylesheet" href="/static/css/forecast.css">
+</head>
+<body>
+    <!-- @include chrome -->
+
+    <div class="body_container">
+        <!-- @include sidebar -->
+
+        <div class="page">
+
+<div class="forecast-page">
+
+    <div class="forecast-card forecast-card-main">
+        <div class="home-card-header">
+            <span class="home-card-title">Cash Flow Forecast<span class="fc-info" tabindex="0" role="note"
+                aria-label="Projects your balance forward week by week, so cash crunches inside a month are visible. Each week adds your typical irregular spending and income (averaged from recent months and spread evenly) plus any recurring bills or paychecks detected in your history, dropped on the week they're due. Planned items you add below land in their own week too. Hover any point to see that week's balance and net. Everything is computed on your device — nothing leaves it."
+                data-tip="Projects your balance forward week by week, so cash crunches inside a month are visible. Each week adds your typical irregular spending and income (averaged from recent months and spread evenly) plus any recurring bills or paychecks detected in your history, dropped on the week they're due. Planned items you add below land in their own week too. Hover any point to see that week's balance and net. Everything is computed on your device — nothing leaves it.">i</span></span>
+            <div class="forecast-controls">
+                <label class="forecast-start">
+                    <span class="forecast-start-label">Starting account<span class="fc-info fc-info-right" tabindex="0" role="note"
+                        aria-label="Pick a cash account from your Balance Sheet to start the forecast from. The app uses that account's latest available balance as the starting balance."
+                        data-tip="Pick a cash account from your Balance Sheet to start the forecast from. The app uses that account's latest available balance as the starting balance.">i</span></span>
+                    <select id="forecast-account-select" class="forecast-account-select"></select>
+                </label>
+                <span class="forecast-savings">
+                    <button type="button" class="forecast-toggle active" id="forecast-savings-toggle" aria-pressed="true">
+                        Include savings &amp; investing
+                    </button>
+                    <span class="fc-info fc-info-right" tabindex="0" role="note"
+                        aria-label="When on, money you move to savings and investments counts as an outflow, so the forecast shows your real spendable balance. Turn it off to see the balance as if that money had stayed in this account."
+                        data-tip="When on, money you move to savings and investments counts as an outflow, so the forecast shows your real spendable balance. Turn it off to see the balance as if that money had stayed in this account.">i</span>
+                </span>
+                <div class="range-selector" id="forecast-range">
+                    <button class="range-selector-btn" id="forecast-range-btn" type="button">3 Months</button>
+                    <div class="range-selector-menu" id="forecast-range-menu" hidden>
+                        <button data-months="1" type="button">1 Month</button>
+                        <button data-months="3" type="button">3 Months</button>
+                        <button data-months="6" type="button">6 Months</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- starting-account hint + projected end / lowest point / warning, by forecast.js -->
+        <div class="forecast-summary" id="forecast-summary"></div>
+
+        <div class="chart-area">
+            <div id="forecast-chart"></div>
+        </div>
+    </div>
+
+    <div class="forecast-card">
+        <div class="home-card-header">
+            <span class="home-card-title">Planned Items</span>
+            <button class="forecast-add-btn" id="planned-add-btn" type="button">+ Add item</button>
+        </div>
+        <p class="forecast-hint">
+            One-off or scheduled income and expenses you already know about — these
+            bend the projected line on top of the recurring charges detected from your
+            transactions.
+        </p>
+        <!-- Rows + the add/edit form are rendered by forecast.js. -->
+        <div id="planned-list" class="planned-list"></div>
+    </div>
+
+</div>
+
+        </div>
+    </div>
+
+    <!-- @include scripts -->
+    <script src="/static/js/forecast.js"></script>
+</body>
+</html>

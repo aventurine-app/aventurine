@@ -1,0 +1,7 @@
+# package-lock.json is intentionally committed (this is an app, not a library)
+# so clone-and-build is reproducible.
+node_modules/
+out/
+dist/
+.data/
+.abi-cache/

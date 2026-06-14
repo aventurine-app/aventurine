@@ -1,0 +1,344 @@
+/* ============================================================================
+   budget.css — Budget Buckets (Account Tracking) page.
+
+   Page-scoped: the shared card + tooltip chrome lives elsewhere (home.css /
+   forecast.css, loaded only on their pages), so the slices this page needs are
+   restated here. Everything draws from theme variables so it retones with the
+   palette / light theme.
+   ============================================================================ */
+
+/* The base .page rule (style.css) centers its child on the cross axis
+   (align-items: center → vertical centering). Once the envelopes push the page
+   past one viewport — easy when zoomed in — the overflow spills above the
+   centered origin and can't be scrolled up to. Anchor to flex-start so the page
+   always starts from the top. Same pattern as Home and Settings. */
+.page:has(.budget-page) {
+    align-items: flex-start;
+}
+
+.budget-page {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 28px 32px;
+    /* Fixed width (~15% wider than the old 920px cap) so the card no longer
+       reflows as the calculated numbers change length; max-width keeps it from
+       overflowing a narrow window. */
+    width: 1060px;
+    max-width: 100%;
+}
+
+/* ─── Card (mirrors .home-card) ──────────────────────────────────────────── */
+.budget-card {
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface1);
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+}
+
+.home-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    min-height: 22px;
+    gap: 16px;
+}
+
+.home-card-title {
+    color: var(--text-primary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+    line-height: var(--lh-tight);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+}
+
+/* ─── Month navigator + copy ─────────────────────────────────────────────── */
+.budget-monthnav {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.budget-nav-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 16px;
+    line-height: 1;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.budget-nav-btn:hover {
+    background: var(--surface3);
+    color: var(--text-primary);
+    border-color: var(--text-tertiary);
+}
+
+.budget-month-label {
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-h3);
+    font-weight: var(--weight-light);
+    letter-spacing: var(--track-tight);
+    min-width: 150px;
+    text-align: center;
+}
+
+.budget-copy-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.budget-copy-btn:hover {
+    background: var(--surface3);
+    color: var(--text-primary);
+    border-color: var(--text-tertiary);
+}
+
+/* ─── Info tooltip ("i" badge + CSS hover/focus card) ────────────────────── */
+.fc-info {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    margin-left: 6px;
+    border-radius: 50%;
+    border: 1px solid var(--text-tertiary);
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: 9px;
+    font-weight: var(--weight-semibold);
+    font-style: normal;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: 0;
+    cursor: help;
+    position: relative;
+    vertical-align: middle;
+    transition: color 0.15s, border-color 0.15s;
+}
+.fc-info:hover,
+.fc-info:focus-visible {
+    color: var(--text-primary);
+    border-color: var(--text-primary);
+    outline: none;
+}
+.fc-info::after {
+    content: attr(data-tip);
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    z-index: 40;
+    width: max-content;
+    max-width: 280px;
+    padding: 10px 12px;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-regular);
+    line-height: 1.5;
+    letter-spacing: normal;
+    text-transform: none;
+    text-align: left;
+    white-space: normal;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-3px);
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+}
+.fc-info:hover::after,
+.fc-info:focus-visible::after {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+    .fc-info::after { transition: opacity 0.15s ease, visibility 0.15s; transform: none; }
+    .fc-info:hover::after,
+    .fc-info:focus-visible::after { transform: none; }
+}
+
+/* ─── Zero-based summary ─────────────────────────────────────────────────── */
+.budget-summary { margin-top: 4px; }
+
+.budget-stats {
+    display: flex;
+    gap: 44px;
+    flex-wrap: wrap;
+}
+
+.budget-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.budget-stat-label {
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+}
+
+.budget-stat-value {
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-h3);
+    font-weight: var(--weight-light);
+    letter-spacing: var(--track-tight);
+    font-variant-numeric: tabular-nums;
+}
+.budget-stat-value.pos { color: var(--accent-secondary); }
+.budget-stat-value.neg { color: var(--accent-tertiary); }
+
+/* Expected income is editable — styled to read like a stat value but typeable. */
+.budget-income-input {
+    width: 130px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-h3);
+    font-weight: var(--weight-light);
+    letter-spacing: var(--track-tight);
+    font-variant-numeric: tabular-nums;
+    padding: 2px 8px;
+}
+.budget-income-input:focus { outline: none; border-color: var(--accent-secondary); }
+
+.budget-stat-sub {
+    color: var(--label-muted);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wide);
+    text-transform: uppercase;
+}
+
+/* ─── Envelope rows ──────────────────────────────────────────────────────── */
+.budget-empty {
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    text-align: center;
+    padding: 40px 0;
+    margin: 0;
+}
+
+.budget-rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.budget-row { display: flex; flex-direction: column; gap: 7px; }
+
+.budget-row-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.budget-cat-name {
+    color: var(--text-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.budget-cat-spend {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: baseline;
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-variant-numeric: tabular-nums;
+}
+.budget-of { color: var(--text-tertiary); padding: 0 2px; }
+
+.budget-target-input {
+    width: 92px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-variant-numeric: tabular-nums;
+    padding: 4px 8px;
+    text-align: right;
+}
+.budget-target-input:focus { outline: none; border-color: var(--accent-secondary); }
+.budget-target-input::placeholder { color: var(--text-tertiary); }
+
+.budget-bar {
+    width: 100%;
+    height: 8px;
+    border-radius: 6px;
+    background: var(--surface3);
+    overflow: hidden;
+}
+
+.budget-bar-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+/* Spend-against-target bands: comfortable (green) until 75%, warning (amber)
+   75–90%, danger (red) past 90% — including over budget. */
+.budget-bar-fill.bar-green  { background: #5ba672; }
+.budget-bar-fill.bar-yellow { background: #d9a441; }
+.budget-bar-fill.bar-red    { background: var(--accent-tertiary); }
+
+.budget-bar-untracked { opacity: 0.5; }
+
+.budget-row-status {
+    align-self: flex-end;
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wide);
+    text-transform: uppercase;
+}
+.budget-row-status.pos   { color: var(--text-tertiary); }
+.budget-row-status.neg   { color: var(--accent-tertiary); }
+.budget-row-status.muted { color: var(--label-muted); }
+
+@media (prefers-reduced-motion: reduce) {
+    .budget-bar-fill { transition: none; }
+}

@@ -1,0 +1,1414 @@
+[
+{
+"today": "2026-06-11",
+"limit": 5,
+"transactions": [
+{
+"date": "2025-10-20",
+"description": "NETFLIX #1000",
+"amount": 15.39
+},
+{
+"date": "2025-11-18",
+"description": "NETFLIX #1001",
+"amount": 15.59
+},
+{
+"date": "2025-12-17",
+"description": "NETFLIX #1002",
+"amount": 15.24
+},
+{
+"date": "2026-01-15",
+"description": "NETFLIX #1003",
+"amount": 15.24
+},
+{
+"date": "2026-02-14",
+"description": "NETFLIX #1004",
+"amount": 15.52
+},
+{
+"date": "2026-03-17",
+"description": "NETFLIX #1005",
+"amount": 15.53
+},
+{
+"date": "2026-04-17",
+"description": "NETFLIX #1006",
+"amount": 15.48
+},
+{
+"date": "2026-05-17",
+"description": "NETFLIX #1007",
+"amount": 15.71
+}
+],
+"expected": [
+{
+"description": "NETFLIX #1007",
+"amount": 15.53,
+"cycle": "monthly",
+"next_date": "2026-06-17",
+"due_in_days": 6,
+"last_date": "2026-05-17",
+"occurrences": 8,
+"confidence": 1.0
+}
+]
+},
+{
+"today": "2026-06-11",
+"limit": 5,
+"transactions": [
+{
+"date": "2026-04-06",
+"description": "UBER EATS #1000",
+"amount": 21.82
+},
+{
+"date": "2026-04-13",
+"description": "UBER EATS #1001",
+"amount": 22.42
+},
+{
+"date": "2026-04-21",
+"description": "UBER EATS #1002",
+"amount": 21.81
+},
+{
+"date": "2026-04-28",
+"description": "UBER EATS #1003",
+"amount": 22.26
+},
+{
+"date": "2026-05-06",
+"description": "UBER EATS #1004",
+"amount": 21.94
+},
+{
+"date": "2026-05-14",
+"description": "UBER EATS #1005",
+"amount": 22.13
+},
+{
+"date": "2026-05-14",
+"description": "UBER EATS #1005b",
+"amount": 1.25
+},
+{
+"date": "2026-05-20",
+"description": "UBER EATS #1006",
+"amount": 22.07
+},
+{
+"date": "2026-05-27",
+"description": "UBER EATS #1007",
+"amount": 21.64
+},
+{
+"date": "2026-06-04",
+"description": "UBER EATS #1008",
+"amount": 21.61
+},
+{
+"date": "2026-06-10",
+"description": "UBER EATS #1009",
+"amount": 21.96
+}
+],
+"expected": [
+{
+"description": "UBER EATS #1009",
+"amount": 21.64,
+"cycle": "weekly",
+"next_date": "2026-06-17",
+"due_in_days": 6,
+"last_date": "2026-06-10",
+"occurrences": 10,
+"confidence": 1.0
+}
+]
+},
+{
+"today": "2026-06-11",
+"limit": 5,
+"transactions": [
+{
+"date": "2026-02-15",
+"description": "STORAGE UNIT #1000",
+"amount": 89.57
+},
+{
+"date": "2026-03-02",
+"description": "STORAGE UNIT #1001",
+"amount": 90.39
+},
+{
+"date": "2026-03-17",
+"description": "STORAGE UNIT #1002",
+"amount": 89.95
+},
+{
+"date": "2026-03-30",
+"description": "STORAGE UNIT #1003",
+"amount": 89.85
+},
+{
+"date": "2026-04-12",
+"description": "STORAGE UNIT #1004",
+"amount": 90.44
+},
+{
+"date": "2026-04-27",
+"description": "STORAGE UNIT #1005",
+"amount": 89.65
+},
+{
+"date": "2026-05-11",
+"description": "STORAGE UNIT #1006",
+"amount": 90.09
+},
+{
+"date": "2026-05-24",
+"description": "STORAGE UNIT #1007",
+"amount": 90.43
+},
+{
+"date": "2026-06-08",
+"description": "STORAGE UNIT #1008",
+"amount": 89.67
+}
+],
+"expected": [
+{
+"description": "STORAGE UNIT #1008",
+"amount": 90.09,
+"cycle": "biweekly",
+"next_date": "2026-06-22",
+"due_in_days": 11,
+"last_date": "2026-06-08",
+"occurrences": 9,
+"confidence": 1.0
+}
+]
+},
+{
+"today": "2026-06-11",
+"limit": 5,
+"transactions": [
+{
+"date": "2025-09-05",
+"description": "WATER BILL #1000",
+"amount": 119.52
+},
+{
+"date": "2025-12-08",
+"description": "WATER BILL #1001",
+"amount": 120.18
+},
+{
+"date": "2026-03-11",
+"description": "WATER BILL #1002",
+"amount": 119.58
+},
+{
+"date": "2026-06-12",
+"description": "WATER BILL #1003",
+"amount": 120.13
+}
+],
+"expected": [
+{
+"description": "WATER BILL #1003",
+"amount": 120.13,
+"cycle": "quarterly",
+"next_date": "2026-09-12",
+"due_in_days": 93,
+"last_date": "2026-06-12",
+"occurrences": 4,
+"confidence": 0.75
+}
+]
+},
+{
+"today": "2026-06-11",
+"limit": 5,
+"transactions": [
+{
+"date": "2023-06-20",
+"description": "AMAZON PRIME #1000",
+"amount": 138.81
+},
+{
+"date": "2024-06-16",
+"description": "AMAZON PRIME #1001",
+"amount": 138.88
+},
+{
+"date": "2025-06-14",
+"description": "AMAZON PRIME #1002",
+"amount": 139.02
+}
+],
+"expected": [
+{
+"description": "AMAZON PRIME #1002",
+"amount": 138.88,
+"cycle": "yearly",
+"next_date": "2026-06-14",
+"due_in_days": 3,
+"last_date": "2025-06-14",
+"occurrences": 3,
+"confidence": 0.67
+}
+]
+},
+{
+"today": "2026-06-11",
+"limit": 5,
+"transactions": [
+{
+"date": "2024-05-01",
+"description": "DOMAIN RENEWAL #1000",
+"amount": 12.4
+},
+{
+"date": "2025-05-01",
+"description": "DOMAIN RENEWAL #1001",
+"amount": 12.14
+}
+],
+"expected": []
+},
+{
+"today": "2026-06-11",
+"limit": 5,
+"transactions": [
+{
+"date": "2025-01-10",
+"description": "OLD GYM #1000",
+"amount": 44.76
+},
+{
+"date": "2025-02-09",
+"description": "OLD GYM #1001",
+"amount": 45.33
+},
+{
+"date": "2025-03-10",
+"description": "OLD GYM #1002",
+"amount": 44.85
+},
+{
+"date": "2025-04-10",
+"description": "OLD GYM #1003",
+"amount": 44.98
+},
+{
+"date": "2025-05-09",
+"description": "OLD GYM #1004",
+"amount": 44.63
+},
+{
+"date": "2025-06-09",
+"description": "OLD GYM #1005",
+"amount": 45.1
+}
+],
+"expected": []
+},
+{
+"today": "2026-06-11",
+"limit": 5,
+"transactions": [
+{
+"date": "2026-01-03",
+"description": "WHOLEFDS GRC",
+"amount": 72.04
+},
+{
+"date": "2026-01-12",
+"description": "WHOLEFDS GRC",
+"amount": 69.95
+},
+{
+"date": "2026-01-14",
+"description": "WHOLEFDS GRC",
+"amount": 71.49
+},
+{
+"date": "2026-01-17",
+"description": "WHOLEFDS GRC",
+"amount": 139.29
+},
+{
+"date": "2026-01-26",
+"description": "WHOLEFDS GRC",
+"amount": 71.64
+},
+{
+"date": "2026-01-29",
+"description": "WHOLEFDS GRC",
+"amount": 130.43
+},
+{
+"date": "2026-02-03",
+"description": "WHOLEFDS GRC",
+"amount": 121.65
+},
+{
+"date": "2026-02-06",
+"description": "WHOLEFDS GRC",
+"amount": 127.69
+},
+{
+"date": "2026-02-08",
+"description": "WHOLEFDS GRC",
+"amount": 128.63
+},
+{
+"date": "2026-02-13",
+"description": "WHOLEFDS GRC",
+"amount": 74.88
+},
+{
+"date": "2026-02-15",
+"description": "WHOLEFDS GRC",
+"amount": 100.1
+},
+{
+"date": "2026-02-17",
+"description": "WHOLEFDS GRC",
+"amount": 106.86
+}
+],
+"expected": []
+},
+{
+"today": "2026-06-11",
+"limit": 5,
+"transactions": [
+{
+"date": "2026-05-01",
+"description": "12345",
+"amount": 9.99
+},
+{
+"date": "2026-05-31",
+"description": "12345",
+"amount": 9.99
+},
+{
+"date": "2026-06-10",
+"description": "12345",
+"amount": 9.99
+}
+],
+"expected": []
+},
+{
+"today": "2026-06-11",
+"limit": 5,
+"transactions": [
+{
+"date": "2023-06-20",
+"description": "AMAZON PRIME #1000",
+"amount": 138.81
+},
+{
+"date": "2024-05-01",
+"description": "DOMAIN RENEWAL #1000",
+"amount": 12.4
+},
+{
+"date": "2024-06-16",
+"description": "AMAZON PRIME #1001",
+"amount": 138.88
+},
+{
+"date": "2025-01-10",
+"description": "OLD GYM #1000",
+"amount": 44.76
+},
+{
+"date": "2025-02-09",
+"description": "OLD GYM #1001",
+"amount": 45.33
+},
+{
+"date": "2025-03-10",
+"description": "OLD GYM #1002",
+"amount": 44.85
+},
+{
+"date": "2025-04-10",
+"description": "OLD GYM #1003",
+"amount": 44.98
+},
+{
+"date": "2025-05-01",
+"description": "DOMAIN RENEWAL #1001",
+"amount": 12.14
+},
+{
+"date": "2025-05-09",
+"description": "OLD GYM #1004",
+"amount": 44.63
+},
+{
+"date": "2025-06-09",
+"description": "OLD GYM #1005",
+"amount": 45.1
+},
+{
+"date": "2025-06-14",
+"description": "AMAZON PRIME #1002",
+"amount": 139.02
+},
+{
+"date": "2025-09-05",
+"description": "WATER BILL #1000",
+"amount": 119.52
+},
+{
+"date": "2025-10-20",
+"description": "NETFLIX #1000",
+"amount": 15.39
+},
+{
+"date": "2025-11-18",
+"description": "NETFLIX #1001",
+"amount": 15.59
+},
+{
+"date": "2025-12-08",
+"description": "WATER BILL #1001",
+"amount": 120.18
+},
+{
+"date": "2025-12-17",
+"description": "NETFLIX #1002",
+"amount": 15.24
+},
+{
+"date": "2026-01-03",
+"description": "WHOLEFDS GRC",
+"amount": 72.04
+},
+{
+"date": "2026-01-12",
+"description": "WHOLEFDS GRC",
+"amount": 69.95
+},
+{
+"date": "2026-01-14",
+"description": "WHOLEFDS GRC",
+"amount": 71.49
+},
+{
+"date": "2026-01-15",
+"description": "NETFLIX #1003",
+"amount": 15.24
+},
+{
+"date": "2026-01-17",
+"description": "WHOLEFDS GRC",
+"amount": 139.29
+},
+{
+"date": "2026-01-26",
+"description": "WHOLEFDS GRC",
+"amount": 71.64
+},
+{
+"date": "2026-01-29",
+"description": "WHOLEFDS GRC",
+"amount": 130.43
+},
+{
+"date": "2026-02-03",
+"description": "WHOLEFDS GRC",
+"amount": 121.65
+},
+{
+"date": "2026-02-06",
+"description": "WHOLEFDS GRC",
+"amount": 127.69
+},
+{
+"date": "2026-02-08",
+"description": "WHOLEFDS GRC",
+"amount": 128.63
+},
+{
+"date": "2026-02-13",
+"description": "WHOLEFDS GRC",
+"amount": 74.88
+},
+{
+"date": "2026-02-14",
+"description": "NETFLIX #1004",
+"amount": 15.52
+},
+{
+"date": "2026-02-15",
+"description": "STORAGE UNIT #1000",
+"amount": 89.57
+},
+{
+"date": "2026-02-15",
+"description": "WHOLEFDS GRC",
+"amount": 100.1
+},
+{
+"date": "2026-02-17",
+"description": "WHOLEFDS GRC",
+"amount": 106.86
+},
+{
+"date": "2026-03-02",
+"description": "STORAGE UNIT #1001",
+"amount": 90.39
+},
+{
+"date": "2026-03-11",
+"description": "WATER BILL #1002",
+"amount": 119.58
+},
+{
+"date": "2026-03-17",
+"description": "NETFLIX #1005",
+"amount": 15.53
+},
+{
+"date": "2026-03-17",
+"description": "STORAGE UNIT #1002",
+"amount": 89.95
+},
+{
+"date": "2026-03-30",
+"description": "STORAGE UNIT #1003",
+"amount": 89.85
+},
+{
+"date": "2026-04-06",
+"description": "UBER EATS #1000",
+"amount": 21.82
+},
+{
+"date": "2026-04-12",
+"description": "STORAGE UNIT #1004",
+"amount": 90.44
+},
+{
+"date": "2026-04-13",
+"description": "UBER EATS #1001",
+"amount": 22.42
+},
+{
+"date": "2026-04-17",
+"description": "NETFLIX #1006",
+"amount": 15.48
+},
+{
+"date": "2026-04-21",
+"description": "UBER EATS #1002",
+"amount": 21.81
+},
+{
+"date": "2026-04-27",
+"description": "STORAGE UNIT #1005",
+"amount": 89.65
+},
+{
+"date": "2026-04-28",
+"description": "UBER EATS #1003",
+"amount": 22.26
+},
+{
+"date": "2026-05-01",
+"description": "12345",
+"amount": 9.99
+},
+{
+"date": "2026-05-06",
+"description": "UBER EATS #1004",
+"amount": 21.94
+},
+{
+"date": "2026-05-11",
+"description": "STORAGE UNIT #1006",
+"amount": 90.09
+},
+{
+"date": "2026-05-14",
+"description": "UBER EATS #1005",
+"amount": 22.13
+},
+{
+"date": "2026-05-14",
+"description": "UBER EATS #1005b",
+"amount": 1.25
+},
+{
+"date": "2026-05-17",
+"description": "NETFLIX #1007",
+"amount": 15.71
+},
+{
+"date": "2026-05-20",
+"description": "UBER EATS #1006",
+"amount": 22.07
+},
+{
+"date": "2026-05-24",
+"description": "STORAGE UNIT #1007",
+"amount": 90.43
+},
+{
+"date": "2026-05-27",
+"description": "UBER EATS #1007",
+"amount": 21.64
+},
+{
+"date": "2026-05-31",
+"description": "12345",
+"amount": 9.99
+},
+{
+"date": "2026-06-04",
+"description": "UBER EATS #1008",
+"amount": 21.61
+},
+{
+"date": "2026-06-08",
+"description": "STORAGE UNIT #1008",
+"amount": 89.67
+},
+{
+"date": "2026-06-10",
+"description": "UBER EATS #1009",
+"amount": 21.96
+},
+{
+"date": "2026-06-10",
+"description": "12345",
+"amount": 9.99
+},
+{
+"date": "2026-06-12",
+"description": "WATER BILL #1003",
+"amount": 120.13
+}
+],
+"expected": [
+{
+"description": "AMAZON PRIME #1002",
+"amount": 138.88,
+"cycle": "yearly",
+"next_date": "2026-06-14",
+"due_in_days": 3,
+"last_date": "2025-06-14",
+"occurrences": 3,
+"confidence": 0.67
+},
+{
+"description": "NETFLIX #1007",
+"amount": 15.53,
+"cycle": "monthly",
+"next_date": "2026-06-17",
+"due_in_days": 6,
+"last_date": "2026-05-17",
+"occurrences": 8,
+"confidence": 1.0
+},
+{
+"description": "UBER EATS #1009",
+"amount": 21.64,
+"cycle": "weekly",
+"next_date": "2026-06-17",
+"due_in_days": 6,
+"last_date": "2026-06-10",
+"occurrences": 10,
+"confidence": 1.0
+},
+{
+"description": "STORAGE UNIT #1008",
+"amount": 90.09,
+"cycle": "biweekly",
+"next_date": "2026-06-22",
+"due_in_days": 11,
+"last_date": "2026-06-08",
+"occurrences": 9,
+"confidence": 1.0
+},
+{
+"description": "WATER BILL #1003",
+"amount": 120.13,
+"cycle": "quarterly",
+"next_date": "2026-09-12",
+"due_in_days": 93,
+"last_date": "2026-06-12",
+"occurrences": 4,
+"confidence": 0.75
+}
+]
+},
+{
+"today": "2026-06-11",
+"limit": 20,
+"transactions": [
+{
+"date": "2023-06-20",
+"description": "AMAZON PRIME #1000",
+"amount": 138.81
+},
+{
+"date": "2024-05-01",
+"description": "DOMAIN RENEWAL #1000",
+"amount": 12.4
+},
+{
+"date": "2024-06-16",
+"description": "AMAZON PRIME #1001",
+"amount": 138.88
+},
+{
+"date": "2025-01-10",
+"description": "OLD GYM #1000",
+"amount": 44.76
+},
+{
+"date": "2025-02-09",
+"description": "OLD GYM #1001",
+"amount": 45.33
+},
+{
+"date": "2025-03-10",
+"description": "OLD GYM #1002",
+"amount": 44.85
+},
+{
+"date": "2025-04-10",
+"description": "OLD GYM #1003",
+"amount": 44.98
+},
+{
+"date": "2025-05-01",
+"description": "DOMAIN RENEWAL #1001",
+"amount": 12.14
+},
+{
+"date": "2025-05-09",
+"description": "OLD GYM #1004",
+"amount": 44.63
+},
+{
+"date": "2025-06-09",
+"description": "OLD GYM #1005",
+"amount": 45.1
+},
+{
+"date": "2025-06-14",
+"description": "AMAZON PRIME #1002",
+"amount": 139.02
+},
+{
+"date": "2025-09-05",
+"description": "WATER BILL #1000",
+"amount": 119.52
+},
+{
+"date": "2025-10-20",
+"description": "NETFLIX #1000",
+"amount": 15.39
+},
+{
+"date": "2025-11-18",
+"description": "NETFLIX #1001",
+"amount": 15.59
+},
+{
+"date": "2025-12-08",
+"description": "WATER BILL #1001",
+"amount": 120.18
+},
+{
+"date": "2025-12-17",
+"description": "NETFLIX #1002",
+"amount": 15.24
+},
+{
+"date": "2026-01-03",
+"description": "WHOLEFDS GRC",
+"amount": 72.04
+},
+{
+"date": "2026-01-12",
+"description": "WHOLEFDS GRC",
+"amount": 69.95
+},
+{
+"date": "2026-01-14",
+"description": "WHOLEFDS GRC",
+"amount": 71.49
+},
+{
+"date": "2026-01-15",
+"description": "NETFLIX #1003",
+"amount": 15.24
+},
+{
+"date": "2026-01-17",
+"description": "WHOLEFDS GRC",
+"amount": 139.29
+},
+{
+"date": "2026-01-26",
+"description": "WHOLEFDS GRC",
+"amount": 71.64
+},
+{
+"date": "2026-01-29",
+"description": "WHOLEFDS GRC",
+"amount": 130.43
+},
+{
+"date": "2026-02-03",
+"description": "WHOLEFDS GRC",
+"amount": 121.65
+},
+{
+"date": "2026-02-06",
+"description": "WHOLEFDS GRC",
+"amount": 127.69
+},
+{
+"date": "2026-02-08",
+"description": "WHOLEFDS GRC",
+"amount": 128.63
+},
+{
+"date": "2026-02-13",
+"description": "WHOLEFDS GRC",
+"amount": 74.88
+},
+{
+"date": "2026-02-14",
+"description": "NETFLIX #1004",
+"amount": 15.52
+},
+{
+"date": "2026-02-15",
+"description": "STORAGE UNIT #1000",
+"amount": 89.57
+},
+{
+"date": "2026-02-15",
+"description": "WHOLEFDS GRC",
+"amount": 100.1
+},
+{
+"date": "2026-02-17",
+"description": "WHOLEFDS GRC",
+"amount": 106.86
+},
+{
+"date": "2026-03-02",
+"description": "STORAGE UNIT #1001",
+"amount": 90.39
+},
+{
+"date": "2026-03-11",
+"description": "WATER BILL #1002",
+"amount": 119.58
+},
+{
+"date": "2026-03-17",
+"description": "NETFLIX #1005",
+"amount": 15.53
+},
+{
+"date": "2026-03-17",
+"description": "STORAGE UNIT #1002",
+"amount": 89.95
+},
+{
+"date": "2026-03-30",
+"description": "STORAGE UNIT #1003",
+"amount": 89.85
+},
+{
+"date": "2026-04-06",
+"description": "UBER EATS #1000",
+"amount": 21.82
+},
+{
+"date": "2026-04-12",
+"description": "STORAGE UNIT #1004",
+"amount": 90.44
+},
+{
+"date": "2026-04-13",
+"description": "UBER EATS #1001",
+"amount": 22.42
+},
+{
+"date": "2026-04-17",
+"description": "NETFLIX #1006",
+"amount": 15.48
+},
+{
+"date": "2026-04-21",
+"description": "UBER EATS #1002",
+"amount": 21.81
+},
+{
+"date": "2026-04-27",
+"description": "STORAGE UNIT #1005",
+"amount": 89.65
+},
+{
+"date": "2026-04-28",
+"description": "UBER EATS #1003",
+"amount": 22.26
+},
+{
+"date": "2026-05-01",
+"description": "12345",
+"amount": 9.99
+},
+{
+"date": "2026-05-06",
+"description": "UBER EATS #1004",
+"amount": 21.94
+},
+{
+"date": "2026-05-11",
+"description": "STORAGE UNIT #1006",
+"amount": 90.09
+},
+{
+"date": "2026-05-14",
+"description": "UBER EATS #1005",
+"amount": 22.13
+},
+{
+"date": "2026-05-14",
+"description": "UBER EATS #1005b",
+"amount": 1.25
+},
+{
+"date": "2026-05-17",
+"description": "NETFLIX #1007",
+"amount": 15.71
+},
+{
+"date": "2026-05-20",
+"description": "UBER EATS #1006",
+"amount": 22.07
+},
+{
+"date": "2026-05-24",
+"description": "STORAGE UNIT #1007",
+"amount": 90.43
+},
+{
+"date": "2026-05-27",
+"description": "UBER EATS #1007",
+"amount": 21.64
+},
+{
+"date": "2026-05-31",
+"description": "12345",
+"amount": 9.99
+},
+{
+"date": "2026-06-04",
+"description": "UBER EATS #1008",
+"amount": 21.61
+},
+{
+"date": "2026-06-08",
+"description": "STORAGE UNIT #1008",
+"amount": 89.67
+},
+{
+"date": "2026-06-10",
+"description": "UBER EATS #1009",
+"amount": 21.96
+},
+{
+"date": "2026-06-10",
+"description": "12345",
+"amount": 9.99
+},
+{
+"date": "2026-06-12",
+"description": "WATER BILL #1003",
+"amount": 120.13
+}
+],
+"expected": [
+{
+"description": "AMAZON PRIME #1002",
+"amount": 138.88,
+"cycle": "yearly",
+"next_date": "2026-06-14",
+"due_in_days": 3,
+"last_date": "2025-06-14",
+"occurrences": 3,
+"confidence": 0.67
+},
+{
+"description": "NETFLIX #1007",
+"amount": 15.53,
+"cycle": "monthly",
+"next_date": "2026-06-17",
+"due_in_days": 6,
+"last_date": "2026-05-17",
+"occurrences": 8,
+"confidence": 1.0
+},
+{
+"description": "UBER EATS #1009",
+"amount": 21.64,
+"cycle": "weekly",
+"next_date": "2026-06-17",
+"due_in_days": 6,
+"last_date": "2026-06-10",
+"occurrences": 10,
+"confidence": 1.0
+},
+{
+"description": "STORAGE UNIT #1008",
+"amount": 90.09,
+"cycle": "biweekly",
+"next_date": "2026-06-22",
+"due_in_days": 11,
+"last_date": "2026-06-08",
+"occurrences": 9,
+"confidence": 1.0
+},
+{
+"description": "WATER BILL #1003",
+"amount": 120.13,
+"cycle": "quarterly",
+"next_date": "2026-09-12",
+"due_in_days": 93,
+"last_date": "2026-06-12",
+"occurrences": 4,
+"confidence": 0.75
+}
+]
+},
+{
+"today": "2026-06-11",
+"limit": 1,
+"transactions": [
+{
+"date": "2023-06-20",
+"description": "AMAZON PRIME #1000",
+"amount": 138.81
+},
+{
+"date": "2024-05-01",
+"description": "DOMAIN RENEWAL #1000",
+"amount": 12.4
+},
+{
+"date": "2024-06-16",
+"description": "AMAZON PRIME #1001",
+"amount": 138.88
+},
+{
+"date": "2025-01-10",
+"description": "OLD GYM #1000",
+"amount": 44.76
+},
+{
+"date": "2025-02-09",
+"description": "OLD GYM #1001",
+"amount": 45.33
+},
+{
+"date": "2025-03-10",
+"description": "OLD GYM #1002",
+"amount": 44.85
+},
+{
+"date": "2025-04-10",
+"description": "OLD GYM #1003",
+"amount": 44.98
+},
+{
+"date": "2025-05-01",
+"description": "DOMAIN RENEWAL #1001",
+"amount": 12.14
+},
+{
+"date": "2025-05-09",
+"description": "OLD GYM #1004",
+"amount": 44.63
+},
+{
+"date": "2025-06-09",
+"description": "OLD GYM #1005",
+"amount": 45.1
+},
+{
+"date": "2025-06-14",
+"description": "AMAZON PRIME #1002",
+"amount": 139.02
+},
+{
+"date": "2025-09-05",
+"description": "WATER BILL #1000",
+"amount": 119.52
+},
+{
+"date": "2025-10-20",
+"description": "NETFLIX #1000",
+"amount": 15.39
+},
+{
+"date": "2025-11-18",
+"description": "NETFLIX #1001",
+"amount": 15.59
+},
+{
+"date": "2025-12-08",
+"description": "WATER BILL #1001",
+"amount": 120.18
+},
+{
+"date": "2025-12-17",
+"description": "NETFLIX #1002",
+"amount": 15.24
+},
+{
+"date": "2026-01-03",
+"description": "WHOLEFDS GRC",
+"amount": 72.04
+},
+{
+"date": "2026-01-12",
+"description": "WHOLEFDS GRC",
+"amount": 69.95
+},
+{
+"date": "2026-01-14",
+"description": "WHOLEFDS GRC",
+"amount": 71.49
+},
+{
+"date": "2026-01-15",
+"description": "NETFLIX #1003",
+"amount": 15.24
+},
+{
+"date": "2026-01-17",
+"description": "WHOLEFDS GRC",
+"amount": 139.29
+},
+{
+"date": "2026-01-26",
+"description": "WHOLEFDS GRC",
+"amount": 71.64
+},
+{
+"date": "2026-01-29",
+"description": "WHOLEFDS GRC",
+"amount": 130.43
+},
+{
+"date": "2026-02-03",
+"description": "WHOLEFDS GRC",
+"amount": 121.65
+},
+{
+"date": "2026-02-06",
+"description": "WHOLEFDS GRC",
+"amount": 127.69
+},
+{
+"date": "2026-02-08",
+"description": "WHOLEFDS GRC",
+"amount": 128.63
+},
+{
+"date": "2026-02-13",
+"description": "WHOLEFDS GRC",
+"amount": 74.88
+},
+{
+"date": "2026-02-14",
+"description": "NETFLIX #1004",
+"amount": 15.52
+},
+{
+"date": "2026-02-15",
+"description": "STORAGE UNIT #1000",
+"amount": 89.57
+},
+{
+"date": "2026-02-15",
+"description": "WHOLEFDS GRC",
+"amount": 100.1
+},
+{
+"date": "2026-02-17",
+"description": "WHOLEFDS GRC",
+"amount": 106.86
+},
+{
+"date": "2026-03-02",
+"description": "STORAGE UNIT #1001",
+"amount": 90.39
+},
+{
+"date": "2026-03-11",
+"description": "WATER BILL #1002",
+"amount": 119.58
+},
+{
+"date": "2026-03-17",
+"description": "NETFLIX #1005",
+"amount": 15.53
+},
+{
+"date": "2026-03-17",
+"description": "STORAGE UNIT #1002",
+"amount": 89.95
+},
+{
+"date": "2026-03-30",
+"description": "STORAGE UNIT #1003",
+"amount": 89.85
+},
+{
+"date": "2026-04-06",
+"description": "UBER EATS #1000",
+"amount": 21.82
+},
+{
+"date": "2026-04-12",
+"description": "STORAGE UNIT #1004",
+"amount": 90.44
+},
+{
+"date": "2026-04-13",
+"description": "UBER EATS #1001",
+"amount": 22.42
+},
+{
+"date": "2026-04-17",
+"description": "NETFLIX #1006",
+"amount": 15.48
+},
+{
+"date": "2026-04-21",
+"description": "UBER EATS #1002",
+"amount": 21.81
+},
+{
+"date": "2026-04-27",
+"description": "STORAGE UNIT #1005",
+"amount": 89.65
+},
+{
+"date": "2026-04-28",
+"description": "UBER EATS #1003",
+"amount": 22.26
+},
+{
+"date": "2026-05-01",
+"description": "12345",
+"amount": 9.99
+},
+{
+"date": "2026-05-06",
+"description": "UBER EATS #1004",
+"amount": 21.94
+},
+{
+"date": "2026-05-11",
+"description": "STORAGE UNIT #1006",
+"amount": 90.09
+},
+{
+"date": "2026-05-14",
+"description": "UBER EATS #1005",
+"amount": 22.13
+},
+{
+"date": "2026-05-14",
+"description": "UBER EATS #1005b",
+"amount": 1.25
+},
+{
+"date": "2026-05-17",
+"description": "NETFLIX #1007",
+"amount": 15.71
+},
+{
+"date": "2026-05-20",
+"description": "UBER EATS #1006",
+"amount": 22.07
+},
+{
+"date": "2026-05-24",
+"description": "STORAGE UNIT #1007",
+"amount": 90.43
+},
+{
+"date": "2026-05-27",
+"description": "UBER EATS #1007",
+"amount": 21.64
+},
+{
+"date": "2026-05-31",
+"description": "12345",
+"amount": 9.99
+},
+{
+"date": "2026-06-04",
+"description": "UBER EATS #1008",
+"amount": 21.61
+},
+{
+"date": "2026-06-08",
+"description": "STORAGE UNIT #1008",
+"amount": 89.67
+},
+{
+"date": "2026-06-10",
+"description": "UBER EATS #1009",
+"amount": 21.96
+},
+{
+"date": "2026-06-10",
+"description": "12345",
+"amount": 9.99
+},
+{
+"date": "2026-06-12",
+"description": "WATER BILL #1003",
+"amount": 120.13
+}
+],
+"expected": [
+{
+"description": "AMAZON PRIME #1002",
+"amount": 138.88,
+"cycle": "yearly",
+"next_date": "2026-06-14",
+"due_in_days": 3,
+"last_date": "2025-06-14",
+"occurrences": 3,
+"confidence": 0.67
+}
+]
+}
+]

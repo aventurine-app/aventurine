@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Finance Tools | Transactions</title>
+    <!-- @include head -->
+    <link rel="stylesheet" href="/static/css/tables.css">
+    <link rel="stylesheet" href="/static/css/transactions.css">
+</head>
+<body>
+    <!-- @include chrome -->
+
+    <div class="body_container">
+        <!-- @include sidebar -->
+
+        <div class="page">
+             
+<div class="db-page tx-page">
+    <div class="db-page-header">
+        <div>
+            <h1 class="page-title">Transactions</h1>
+            <p class="page-subtitle">Add, edit, and categorize your transactions.</p>
+        </div>
+        <div class="db-actions">
+            <button class="button-secondary tx-import-btn" type="button">
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path d="M10 14V4M6 8l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M4 17h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                Import
+            </button>
+            <button class="button-primary tx-add-btn" type="button">
+                Add Transaction
+            </button>
+        </div>
+    </div>
+
+    <!-- Transactions Search — every filled-in filter narrows the table below
+         in real time; Export saves exactly the rows the filters leave. -->
+    <div class="tx-search">
+        <div class="tx-search-field">
+            <span class="tx-search-label">Date</span>
+            <div class="tx-search-range">
+                <input type="date" class="tx-input tx-search-date" id="tx-search-date-from" aria-label="From date">
+                <span class="tx-search-range-sep">&ndash;</span>
+                <input type="date" class="tx-input tx-search-date" id="tx-search-date-to" aria-label="To date">
+            </div>
+        </div>
+        <div class="tx-search-field tx-search-field-name">
+            <span class="tx-search-label">Name</span>
+            <input type="text" class="tx-input" id="tx-search-name" placeholder="Search descriptions" spellcheck="false" autocomplete="off">
+        </div>
+        <div class="tx-search-field">
+            <span class="tx-search-label">Amount</span>
+            <div class="tx-search-range">
+                <input type="text" inputmode="decimal" class="tx-input tx-input-amount tx-search-amount" id="tx-search-amount-min" placeholder="Min" aria-label="Minimum amount" autocomplete="off">
+                <span class="tx-search-range-sep">&ndash;</span>
+                <input type="text" inputmode="decimal" class="tx-input tx-input-amount tx-search-amount" id="tx-search-amount-max" placeholder="Max" aria-label="Maximum amount" autocomplete="off">
+            </div>
+        </div>
+        <div class="tx-search-field">
+            <span class="tx-search-label">Type</span>
+            <select class="tx-select" id="tx-search-type">
+                <option value="">All</option>
+                <option value="income">Income</option>
+                <option value="expense">Expense</option>
+                <option value="savings">Savings</option>
+                <option value="investing">Investing</option>
+            </select>
+        </div>
+        <div class="tx-search-field">
+            <span class="tx-search-label">Category</span>
+            <select class="tx-select" id="tx-search-category">
+                <option value="">All</option>
+            </select>
+        </div>
+        <div class="tx-search-actions">
+            <button class="button-secondary tx-export-btn" type="button">
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path d="M10 4v10M6 10l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M4 17h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                Export
+            </button>
+            <button class="tx-search-clear" type="button" id="tx-search-clear">Clear all</button>
+        </div>
+    </div>
+
+    <div class="tx-wrapper">
+        <table class="tx-table">
+            <thead>
+                <tr class="tx-header-row">
+                    <th class="tx-col-date">Date</th>
+                    <th class="tx-col-description">Description</th>
+                    <th class="tx-col-type">Type</th>
+                    <th class="tx-col-category">Category</th>
+                    <th class="tx-col-amount">Amount</th>
+                    <th class="tx-col-notes">Notes</th>
+                    <th class="tx-col-actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="tx-tbody"></tbody>
+        </table>
+    </div>
+</div>
+        </div>
+    </div>
+
+    <!-- @include scripts -->
+    <script src="/static/js/txfileimport.js"></script>
+    <script src="/static/js/txexport.js"></script>
+    <script src="/static/js/transactions.js"></script>
+</body>
+</html>

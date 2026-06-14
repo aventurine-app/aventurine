@@ -1,0 +1,444 @@
+/* The base .page rule (style.css) centers content vertically. That works
+   when the page fits, but settings now extends past one viewport thanks to
+   the categories editor — anything above the viewport center gets clipped
+   off the top. Anchor to flex-start + scrollable so longer settings always
+   start from the top. Same pattern used by Insights and the db-* trackers. */
+.page:has(.settings-page) {
+  align-items: flex-start;
+  padding: 40px 40px 60px;
+  box-sizing: border-box;
+}
+
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  max-width: 640px;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-section-header {
+  font-family: var(--font-h3);
+  font-size: var(--size-micro);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--track-widest);
+  color: var(--label-muted);
+  padding-left: 2px;
+}
+
+.settings-card {
+  background: var(--surface1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  backdrop-filter: blur(5px) saturate(100%);
+  overflow: hidden;
+}
+
+.settings-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 20px;
+}
+
+.settings-row + .settings-row {
+  border-top: 1px solid var(--border);
+}
+
+.settings-row-label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.settings-row-name {
+  font-family: var(--font-menu);
+  font-size: var(--size-body);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.settings-row-desc {
+  font-family: var(--font-h3);
+  font-size: var(--size-small);
+  color: var(--label-muted);
+  line-height: var(--lh-relaxed);
+}
+
+/* ── Color theme swatches ───────────────────────────────────────────────
+   Row of three clickable cards: colored preview + label. Active card gets
+   an accent border; inline style custom properties drive the preview colors
+   so they're immune to the current theme. */
+.settings-theme-options {
+    display: flex;
+    gap: 10px;
+}
+
+.settings-theme-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    background: var(--surface2);
+    transition: border-color 0.15s ease;
+    overflow: hidden;
+}
+
+.settings-theme-btn:hover  { border-color: var(--text-tertiary); }
+.settings-theme-btn.active { border-color: var(--accent-primary); }
+
+/* Three-band preview: top strip = background, middle = surface, bottom = accent */
+.settings-theme-swatch {
+    width: 76px;
+    height: 46px;
+    flex-shrink: 0;
+    position: relative;
+    background-color: var(--sw-surface);
+}
+
+.settings-theme-swatch::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 35%;
+    background-color: var(--sw-bg);
+}
+
+.settings-theme-swatch::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 7px;
+    background-color: var(--sw-accent);
+}
+
+.settings-theme-label {
+    display: block;
+    text-align: center;
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wide);
+    color: var(--text-secondary);
+    padding: 5px 0 6px;
+}
+
+/* ── Currency symbol row ────────────────────────────────────────────────
+   Compact text input + live preview chip. The input is intentionally narrow
+   (single short symbol like "$", "€", "CHF") and the preview shows what the
+   chosen symbol will look like in a typical formatted number. */
+.settings-currency-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-currency-input {
+  width: 70px;
+  background: var(--frost-3);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-numeric);
+  font-size: var(--size-body);
+  text-align: center;
+  padding: 8px 10px;
+  caret-color: var(--frost-caret);
+  transition: border-color 0.15s ease;
+}
+
+.settings-currency-input:focus {
+  border-color: var(--border);
+}
+
+.settings-currency-preview {
+  font-family: var(--font-numeric);
+  font-size: var(--size-body);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Transaction match mode toggle ─────────────────────────────────────
+   Two-option pill toggle (Exact / Fuzzy). Rendered beside the row label.
+   Uses radio inputs hidden behind styled labels so the browser handles
+   keyboard navigation automatically. */
+.settings-match-toggle {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.settings-match-option {
+  cursor: pointer;
+}
+
+.settings-match-option input[type="radio"] {
+  display: none;
+}
+
+.settings-match-label {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  font-size: var(--size-small);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+  background: transparent;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  user-select: none;
+}
+
+.settings-match-option input[type="radio"]:checked + .settings-match-label {
+  background: color-mix(in srgb, var(--accent-primary) 20%, transparent);
+  border-color: var(--accent-primary);
+  color: var(--accent400);
+}
+
+.settings-match-option:hover .settings-match-label {
+  border-color: var(--text-tertiary);
+  color: var(--text-primary);
+}
+
+/* ── Fuzzy match strength slider ───────────────────────────────────────
+   A range input + live percentage chip, shown only while Fuzzy matching is
+   active (the [hidden] attribute is toggled by settings.js). */
+.settings-threshold-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.settings-threshold-slider {
+  width: 160px;
+  accent-color: var(--accent-primary);
+  cursor: pointer;
+}
+
+.settings-threshold-value {
+  min-width: 42px;
+  text-align: right;
+  font-family: var(--font-numeric);
+  font-size: var(--size-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+/* ── Categories editor ──────────────────────────────────────────────────
+   Lists every Category row with reorder arrows, inline rename, a type
+   pill (Income/Expense), and a delete X. Rendered into the
+   .settings-row-categories cell by settingsCategories.js. (Sync is set per
+   table on the Cash Flow page, not here.) */
+.settings-row-categories {
+  align-items: stretch;
+}
+
+.settings-categories-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cat-section { display: flex; flex-direction: column; gap: 6px; }
+
+.cat-section-title {
+  color: var(--label-muted);
+  font-family: var(--font-h3);
+  font-size: var(--size-micro);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--track-widest);
+  text-transform: uppercase;
+  padding-left: 2px;
+}
+
+.cat-list { display: flex; flex-direction: column; gap: 4px; }
+
+.cat-empty {
+  color: var(--text-tertiary);
+  font-family: var(--font-h3);
+  font-size: var(--size-small);
+  padding: 6px 2px;
+}
+
+/* One category row, ONE line: name input · type dropdown · up · down · delete.
+   The name input flex-grows; everything else holds its intrinsic width so the
+   row reads cleanly even on narrow viewports. */
+.cat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--frost-2);
+  border: 1px solid var(--border);
+}
+
+/* Rename input — same chrome as the Transactions edit-mode .tx-input so
+   the two editors feel like one design system. Rounded box, gray border
+   that turns accent-green on focus. */
+.cat-name {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-menu);
+  font-size: var(--size-body);
+  padding: 8px 10px;
+  caret-color: var(--frost-caret);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.cat-name:focus {
+  border-color: var(--accent-primary);
+}
+
+.cat-name::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Native <select> styled like .tx-select — same caret, same border, same
+   focus state. Width auto so it sizes to its longest option label. */
+.cat-type-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--surface1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-menu);
+  font-size: var(--size-body);
+  padding: 8px 28px 8px 10px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.cat-type-select:focus {
+  border-color: var(--accent-primary);
+}
+
+/* Shared icon-button shell for the reorder chevrons + delete X. All three
+   live on the same line as the row's controls, same size, same border
+   treatment — they read as one cluster of trailing actions. */
+.cat-icon-btn {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface1);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.cat-icon-btn:hover {
+  background: var(--surface2);
+  color: var(--text-primary);
+  border-color: var(--text-tertiary);
+}
+
+.cat-icon-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.cat-icon-btn.cat-disabled,
+.cat-icon-btn.cat-disabled:hover {
+  color: var(--text-tertiary);
+  background: var(--surface1);
+  border-color: var(--border);
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Delete X gets a red hover tint so the destructive action is obvious. */
+.cat-icon-btn.cat-delete:hover {
+  color: var(--accent-tertiary);
+  border-color: var(--accent-tertiary);
+  background: var(--surface1);
+}
+
+/* Add-row at the bottom of the editor. Same one-line shape as a regular
+   row: name input · type dropdown · Add button. Sits above a top divider
+   so it reads as a separate "create new" zone. */
+.cat-add {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px 6px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+
+.cat-add-name { flex: 1; }
+
+.cat-add-btn {
+  font-family: var(--font-menu);
+  font-size: var(--size-micro);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--track-widest);
+  text-transform: uppercase;
+  padding: 9px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: var(--accent-primary);
+  border: 1px solid var(--accent-primary);
+  color: var(--text-primary);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.cat-add-btn:hover {
+  background: var(--accent400);
+  border-color: var(--accent400);
+}
+
+.cat-error {
+  color: var(--accent-tertiary);
+  font-family: var(--font-h3);
+  font-size: var(--size-small);
+  padding: 6px 2px;
+}
+
+/* ─── Settings modal ────────────────────────────────────────────────────
+   Title-bar Settings button (Electron only) opens this modal. Frame / header /
+   title / close button + the scrollable-body scrollbar are shared via
+   style.css §8; only the deltas below are settings-specific. */
+.settings-modal-overlay {
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 1300;
+}
+
+.settings-modal-overlay[hidden] { display: none; }
+
+.settings-modal { width: 560px; }
+
+.settings-modal-body {
+    padding: 22px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}

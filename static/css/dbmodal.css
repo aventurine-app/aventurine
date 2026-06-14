@@ -1,0 +1,202 @@
+/* ─── New / Open / Unlock Database modal (navbar.html + dbactions.js) ────
+   Loaded unconditionally by head.html so the modal works on EVERY page in
+   both browser and Electron. The frame / header / title / close button are
+   shared with the other modals via style.css §8 (Shared modal primitives);
+   only the DB-modal-specific deltas (overlay scrim + the body and its fields)
+   live here. */
+
+.db-modal-overlay {
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 1300;
+}
+
+.db-modal-overlay[hidden] { display: none; }
+
+/* dbactions.js shows/hides rows via the hidden attribute; the display:flex
+   on .db-field/.db-check would otherwise override the UA's [hidden] rule. */
+.db-modal-overlay [hidden] { display: none; }
+
+.db-modal { width: 520px; }
+
+.db-modal-body {
+    padding: 22px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.db-modal-hint {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: var(--size-small);
+    line-height: 1.45;
+    overflow-wrap: anywhere;   /* long file paths */
+}
+
+.db-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.db-field > span:first-child {
+    color: var(--label-muted);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: var(--track-widest);
+}
+
+.db-path-inputs {
+    display: flex;
+    gap: 8px;
+}
+
+.db-field input[type="text"],
+.db-field input[type="password"] {
+    flex: 1;
+    min-width: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: var(--text-primary);
+    font-size: var(--size-small);
+}
+
+.db-field input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+/* In-modal filesystem browser (non-Electron Browse…) */
+.db-browser {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface1);
+    overflow: hidden;
+}
+
+.db-browser-path {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-tertiary);
+    font-size: var(--size-micro);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+.db-browser-list {
+    margin: 0;
+    padding: 4px 0;
+    list-style: none;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.db-browser-list li {
+    padding: 6px 10px 6px 30px;
+    position: relative;
+    color: var(--text-secondary);
+    font-size: var(--size-small);
+    cursor: pointer;
+    user-select: none;
+    overflow-wrap: anywhere;
+}
+
+.db-browser-list li:hover {
+    background: var(--surface3);
+    color: var(--text-primary);
+}
+
+.db-browser-list li::before {
+    position: absolute;
+    left: 10px;
+    color: var(--text-tertiary);
+}
+
+.db-browser-up::before   { content: '↩'; }
+.db-browser-dir::before  { content: '▸'; }
+.db-browser-file::before { content: '≡'; }
+
+.db-browser-list .db-browser-file { color: var(--text-primary); }
+
+.db-browser-list .db-browser-empty {
+    cursor: default;
+    color: var(--text-tertiary);
+    font-style: italic;
+}
+
+.db-browser-list li.db-browser-empty:hover {
+    background: transparent;
+    color: var(--text-tertiary);
+}
+
+.db-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: var(--size-small);
+    cursor: pointer;
+    user-select: none;
+}
+
+.db-check input[type="checkbox"] {
+    accent-color: var(--accent-primary);
+}
+
+.db-modal-error {
+    margin: 0;
+    color: var(--accent-tertiary, #e5484d);
+    font-size: var(--size-small);
+}
+
+.db-modal-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 22px;
+    border-top: 1px solid var(--border);
+}
+
+.db-modal-actions-spacer { flex: 1; }
+
+.db-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 14px;
+    color: var(--text-primary);
+    font-size: var(--size-small);
+    cursor: pointer;
+    transition: background-color 120ms ease, border-color 120ms ease;
+    white-space: nowrap;
+}
+
+.db-btn:hover { background: var(--surface3); }
+
+.db-btn-primary {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--accent-contrast, #fff);
+}
+
+.db-btn-primary:hover { filter: brightness(1.1); background: var(--accent-primary); }
+.db-btn-primary:disabled { opacity: 0.6; cursor: default; }
+
+.db-btn-link {
+    background: transparent;
+    border-color: transparent;
+    color: var(--text-tertiary);
+    padding-left: 0;
+}
+
+.db-btn-link:hover {
+    background: transparent;
+    color: var(--text-primary);
+    text-decoration: underline;
+}

@@ -1,0 +1,584 @@
+/* ============================================================================
+   forecast.css — Cash Flow Forecast (Reports) page.
+
+   Page-scoped: the shared chart-frame + range-selector chrome lives in home.css
+   (loaded only on Home), so the slices this page needs are re-stated here under
+   the .forecast-chart namespace. Everything draws from the theme variables so
+   it retones with the palette / light theme like the rest of the app.
+   ============================================================================ */
+
+/* The base .page rule (style.css) centers its child on the cross axis
+   (align-items: center → vertical centering). Once the cards push the page past
+   one viewport — easy when zoomed in — the overflow spills above the centered
+   origin and can't be scrolled up to. Anchor to flex-start so the page always
+   starts from the top. Same pattern as Home and Settings. */
+.page:has(.forecast-page) {
+    align-items: flex-start;
+}
+
+.forecast-page {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 28px 32px;
+    max-width: 1100px;
+}
+
+/* ─── Card (mirrors .home-card) ──────────────────────────────────────────── */
+.forecast-card {
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface1);
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+}
+
+.home-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    min-height: 22px;
+    gap: 16px;
+}
+
+.home-card-title {
+    color: var(--text-primary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+    line-height: var(--lh-tight);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+}
+
+.chart-area {
+    width: 100%;
+    overflow: hidden;
+}
+
+#forecast-chart { width: 100%; }
+
+.forecast-empty {
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    text-align: center;
+    margin: 0;
+    padding: 60px 0;
+}
+
+/* ─── Header controls: start balance + horizon picker ────────────────────── */
+.forecast-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.forecast-start {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.forecast-start-label {
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+}
+
+.forecast-account-select {
+    max-width: 240px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-variant-numeric: tabular-nums;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+.forecast-account-select:focus {
+    outline: none;
+    border-color: var(--accent-secondary);
+}
+
+.forecast-account-select:disabled {
+    color: var(--text-tertiary);
+    cursor: default;
+}
+
+/* Savings/investing toggle — same chip styling as the range button. */
+.forecast-savings {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.forecast-toggle {
+    display: inline-flex;
+    align-items: center;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.forecast-toggle:hover {
+    background: var(--surface3);
+    color: var(--text-primary);
+    border-color: var(--text-tertiary);
+}
+
+.forecast-toggle.active {
+    background: color-mix(in srgb, var(--accent-secondary) 22%, var(--surface2));
+    border-color: var(--accent-secondary);
+    color: var(--text-primary);
+}
+
+/* Range selector — copied from home.css §8 (that file isn't loaded here). */
+.range-selector { position: relative; }
+
+.range-selector-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+    padding: 6px 26px 6px 12px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                      linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 14px) 50%, calc(100% - 10px) 50%;
+    background-size: 4px 4px;
+    background-repeat: no-repeat;
+}
+
+.range-selector-btn:hover {
+    background-color: var(--surface3);
+    color: var(--text-primary);
+    border-color: var(--text-tertiary);
+}
+
+.range-selector-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 140px;
+    z-index: 20;
+    padding: 4px 0;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+}
+
+.range-selector-menu[hidden] { display: none; }
+
+.range-selector-menu button {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-regular);
+    text-align: left;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+}
+
+.range-selector-menu button:hover {
+    background: var(--surface3);
+    color: var(--text-primary);
+}
+
+/* ─── Info tooltips ("i" badge + CSS hover/focus card) ───────────────────── */
+.fc-info {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    margin-left: 6px;
+    border-radius: 50%;
+    border: 1px solid var(--text-tertiary);
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: 9px;
+    font-weight: var(--weight-semibold);
+    font-style: normal;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: 0;
+    cursor: help;
+    position: relative;
+    vertical-align: middle;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.fc-info:hover,
+.fc-info:focus-visible {
+    color: var(--text-primary);
+    border-color: var(--text-primary);
+    outline: none;
+}
+
+/* The card itself — appears below the badge on hover/focus. */
+.fc-info::after {
+    content: attr(data-tip);
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    z-index: 40;
+    width: max-content;
+    max-width: 280px;
+    padding: 10px 12px;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-regular);
+    line-height: 1.5;
+    letter-spacing: normal;
+    text-transform: none;
+    text-align: left;
+    white-space: normal;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-3px);
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+}
+
+/* Right-anchored variant for badges that sit near the right edge of a card. */
+.fc-info-right::after { left: auto; right: 0; }
+
+.fc-info:hover::after,
+.fc-info:focus-visible::after {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fc-info::after { transition: opacity 0.15s ease, visibility 0.15s; transform: none; }
+    .fc-info:hover::after,
+    .fc-info:focus-visible::after { transform: none; }
+}
+
+/* ─── Summary strip ──────────────────────────────────────────────────────── */
+.forecast-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.forecast-stats {
+    display: flex;
+    gap: 48px;
+    flex-wrap: wrap;
+}
+
+.forecast-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.forecast-stat-label {
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+}
+
+.forecast-stat-value {
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-h3);
+    font-weight: var(--weight-light);
+    letter-spacing: var(--track-tight);
+    font-variant-numeric: tabular-nums;
+}
+
+.forecast-stat-value.neg { color: var(--accent-tertiary); }
+
+.forecast-source {
+    color: var(--label-muted);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+}
+
+.forecast-warning {
+    color: var(--accent-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+}
+
+/* ─── Chart frame chrome (namespaced .forecast-chart) ────────────────────── */
+.forecast-chart .chart-grid {
+    stroke: var(--border);
+    stroke-width: 1;
+    stroke-dasharray: 3 5;
+}
+
+.forecast-chart .chart-zero {
+    stroke: var(--accent-tertiary);
+    stroke-width: 1;
+    stroke-dasharray: 5 4;
+    opacity: 0.65;
+}
+
+.forecast-chart .chart-label {
+    fill: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: 11px;
+    font-weight: var(--weight-semibold);
+    letter-spacing: 0.05em;
+}
+
+.forecast-chart .chart-line {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: fc-draw 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.forecast-chart .chart-area-fill {
+    opacity: 0;
+    animation: fc-fade 0.5s ease 0.4s forwards;
+}
+
+.forecast-chart .chart-dot {
+    opacity: 0;
+    animation: fc-fade 0.4s ease 0.5s forwards;
+    transition: r 0.15s ease;
+}
+
+.forecast-chart .chart-dot:hover { r: 6; }
+.forecast-chart .chart-dot-low { stroke: var(--text-primary); stroke-width: 1.5; }
+.forecast-chart .chart-dot-neg { fill: var(--accent-tertiary) !important; }
+
+@keyframes fc-draw { to { stroke-dashoffset: 0; } }
+@keyframes fc-fade { to { opacity: 1; } }
+
+.chart-no-anim .chart-line {
+    animation: none;
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+}
+.chart-no-anim .chart-area-fill,
+.chart-no-anim .chart-dot { animation: none; opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+    .forecast-chart .chart-line {
+        animation: none;
+        stroke-dasharray: none;
+        stroke-dashoffset: 0;
+    }
+    .forecast-chart .chart-area-fill,
+    .forecast-chart .chart-dot { animation: none; opacity: 1; }
+}
+
+/* ─── Planned items ──────────────────────────────────────────────────────── */
+.forecast-hint {
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    line-height: 1.5;
+    margin: 0 0 16px;
+}
+
+.forecast-add-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.forecast-add-btn:hover {
+    background: var(--surface3);
+    color: var(--text-primary);
+    border-color: var(--text-tertiary);
+}
+
+.planned-empty { padding: 28px 0; }
+
+.planned-rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.planned-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.planned-row:last-child { border-bottom: none; }
+
+.planned-flow {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+.planned-flow-income  { background: var(--accent-secondary); }
+.planned-flow-expense { background: var(--accent-tertiary); }
+
+.planned-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.planned-label {
+    color: var(--text-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.planned-date {
+    color: var(--label-muted);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+}
+
+.planned-amount {
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-weight: var(--weight-regular);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+.planned-amount-income  { color: var(--accent-secondary); }
+.planned-amount-expense { color: var(--text-primary); }
+
+.planned-actions {
+    flex-shrink: 0;
+    display: flex;
+    gap: 8px;
+}
+
+.planned-actions button {
+    background: transparent;
+    border: none;
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    letter-spacing: var(--track-wide);
+    text-transform: uppercase;
+    cursor: pointer;
+    padding: 2px 4px;
+}
+.planned-actions button:hover { color: var(--text-primary); }
+.planned-delete:hover { color: var(--accent-tertiary) !important; }
+
+/* Add/edit form — one responsive row of inputs above the list. */
+.planned-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 14px;
+    margin-bottom: 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.pf-input {
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    padding: 7px 10px;
+}
+.pf-input:focus { outline: none; border-color: var(--accent-secondary); }
+
+#pf-label  { flex: 1 1 200px; }
+#pf-flow   { flex: 0 0 110px; }
+#pf-amount { flex: 0 0 130px; font-family: var(--font-numeric); text-align: right; }
+#pf-date   { flex: 0 0 150px; }
+
+.pf-save {
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+    cursor: pointer;
+}
+
+.pf-cancel {
+    background: transparent;
+    border: none;
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    cursor: pointer;
+}
+.pf-cancel:hover { color: var(--text-primary); }
+
+.pf-error {
+    flex: 1 0 100%;
+    margin: 0;
+    color: var(--accent-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+}

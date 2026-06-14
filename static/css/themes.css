@@ -1,0 +1,55 @@
+/* ============================================================================
+   themes.css
+   ─ Color theme token overrides (Dark default lives in :root in style.css)
+
+   Each theme block overrides ONLY CSS custom property values — no component
+   selectors allowed here.  Because every component reads colours through
+   tokens, switching the token values is sufficient to repaint the whole UI.
+   ============================================================================ */
+
+
+/* ─── Light ──────────────────────────────────────────────────────────────────
+   Light surfaces, dark text, olive accent darkened for contrast on white. */
+html[data-theme="light"] {
+
+    /* Text */
+    --text-primary:     var(--color-color-900);
+    --text-secondary:   var(--color-color-600);
+    --text-tertiary:    var(--color-color-700);
+
+    /* Surfaces */
+    --background:       var(--color-color-100);
+    --surface1:         var(--color-color-050);
+    --surface2:         var(--color-color-200);
+    --surface3:         var(--color-color-300);
+    --surface4:         var(--color-color-400);
+
+    /* Border */
+    --border:           var(--color-color-300);
+
+    /* Accent — darkened for readable contrast on white */
+    --accent-primary:        var(--color-olive-500);
+    --accent400:        var(--color-olive-400);
+    --accent300:        var(--color-olive-300);
+
+    --accent-quatenary:       #2a6e6e;
+    --accent-quinary:     #5a2a6e;
+
+    --accent-secondary: #b8921e;
+
+    --warning:          #c97a14;
+    --accent-tertiary:           #c44448;
+
+    /* Frost layer — flip from white-tinted to black-tinted */
+    --frost-2:          rgba(0,0,0, 0.05);
+    --frost-3:          rgba(0,0,0, 0.07);
+    --frost-focus:      rgba(0,0,0, 0.30);
+    --frost-dim:        rgba(0,0,0, 0.28);
+    --frost-caret:      rgba(0,0,0, 0.50);
+    --frost-icon:       rgba(0,0,0, 0.30);
+    --frost-text:       rgba(0,0,0, 0.70);
+
+    /* Dialog chrome — opaque surface/border rather than translucent tints */
+    --dialog-surface:   var(--surface1);
+    --dialog-stroke:    var(--border);
+}

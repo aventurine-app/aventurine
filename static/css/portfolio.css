@@ -1,0 +1,201 @@
+/* ============================================================================
+   portfolio.css — Portfolio-only styles.
+   ============================================================================
+   tables.css owns everything that's shared with the year-table pages
+   (the .db-* base table classes, frosted-glass surface treatment, modal
+   shells, ⋮ menu, the .button-primary / .button-secondary button styles,
+   and the column-manager rules). This file holds only what's specific to
+   the Portfolio page's 7-column asset table.
+
+   Design tokens used (defined in style.css :root):
+     --col-first-pad / --cell-pad-y    — column + cell rhythm
+     --font-h2 / h3 / numeric          — role-specific font families
+     --size-body / small / micro       — body 15px · small 13px · micro 11px
+     --weight-medium / semibold        — font weights
+     --track-wide / wider              — letter-spacing tracking scale
+*/
+
+/* == Table sizing == */
+/* The 7-column asset table needs a wider minimum than the 12-month year
+   tables. Below 720px the page-level scroll kicks in (overflow-x on .page). */
+.portfolio-table {
+    min-width: 720px;
+}
+
+/* The ticker column reads left-to-right (e.g. "AAPL"). tables.css
+   right-aligns every non-first-child cell; this row of selectors restores
+   left alignment for the ticker column only. */
+.portfolio-table .db-header-row .col-ticker,
+.portfolio-table td.col-ticker {
+    text-align: left;
+}
+
+/* The portfolio's cells contain inputs that manage their own internal
+   padding (.p-input, .p-text-input, .p-ticker-input below), so we strip
+   the default --col-first-pad reset from tables.css to give the inputs
+   full control of their horizontal spacing. */
+.portfolio-table td {
+    padding: 0;
+}
+
+/* == Column widths == */
+/* Fixed widths keep all account tables visually aligned even when their
+   asset names vary in length. */
+.col-asset-name { width: 180px; min-width: 150px; }
+.col-ticker     { width: 80px;  min-width: 70px; max-width: 100px; }
+.col-number     { width: 130px; min-width: 110px; }
+.col-roi        { width: 90px;  min-width: 80px; }
+
+/* == Forehead height override ==
+   Portfolio foreheads are slightly more compact than year-table foreheads
+   because the asset-name title doesn't need as much breathing room above
+   the dense 7-column header. Left side still uses --col-first-pad to keep
+   the title vertically aligned with the column below. */
+.db-outer[data-account-id] .db-title-inner {
+    padding: 3px 12px 3px var(--col-first-pad);
+}
+
+/* == Rename-account dialog input ==
+   The textbox shown by renameAccountDialog() in portfolio.js. Wider and
+   chunkier than the .col-row-input used inside the column manager because
+   this is a primary dialog input, not an inline edit. */
+.p-rename-input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 5px;
+    outline: none;
+    color: var(--text-primary);
+    font-family: var(--font-h2);
+    font-size: var(--size-small);
+    padding: 8px 10px;
+    caret-color: rgba(255, 255, 255, 0.8);
+    box-sizing: border-box;
+    margin-bottom: 2px;
+}
+
+/* == Cell input overrides ==
+   The base .p-input rules (width / box-sizing / padding / focus highlight)
+   live in tables.css under the shared `.db-input, .p-input` selector group
+   so the two stay pixel-identical. Below are only the portfolio-specific
+   alignment overrides.
+
+   .p-text-input / .p-ticker-input  — left-aligned text cells (Asset Name,
+       Ticker). They keep the shared 16px padding-left (so the text starts
+       under the column header), but tighten padding-right to 8px so longer
+       names have more room before getting truncated.
+   .p-number-wrap .p-input          — right-aligned currency / count cells
+       (Amount, Avg Price, Mkt Price). Wrapper has no styles of its own —
+       it's a width container left over from the old separate-symbol span
+       layout.
+*/
+.p-text-input {
+    text-align: left;
+    padding-right: 8px;
+}
+
+.p-ticker-input {
+    text-align: left;
+    padding-right: 8px;
+    text-transform: uppercase;
+    letter-spacing: var(--track-wide);
+    font-weight: var(--weight-semibold);
+}
+
+.p-number-wrap {
+    width: 100%;
+}
+
+.p-number-wrap .p-input {
+    text-align: right;
+}
+
+/* == Computed read-only cells (Total, ROI) ==
+   These cells display values calculated from the editable cells in the
+   same row — they aren't <input>s, just <span>s. Padding mirrors the
+   shared cell-input rule so a computed value sits at exactly the same
+   horizontal offset as an input value above or below it. */
+.p-computed {
+    display: block;
+    box-sizing: border-box;
+    text-align: right;
+    font-family: var(--font-numeric);
+    font-size: var(--size-body);
+    color: var(--text-secondary);
+    padding: var(--cell-pad-y) var(--col-first-pad);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+/* .roi-positive / .roi-negative now live in style.css under "Shared
+   percentage / delta colors" — every ROI display retones with the rest
+   of the app when the theme palette changes. */
+
+/* == Footer (per-account totals) row ==
+   The portfolio tfoot mirrors a normal entry row's column structure but
+   with computed totals instead of editable inputs. */
+.portfolio-total-row {
+    border-top: 1px solid var(--border);
+    background-color: var(--frost-2);
+}
+
+/* Left padding uses --col-first-pad to align the "Total" label with asset
+   names above. Scoped inside .portfolio-table to outweigh the
+   `.portfolio-table td { padding: 0 }` reset above (which has the same
+   class-count specificity but with an extra element selector). */
+.portfolio-table .portfolio-footer-label {
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wide);
+    color: var(--text-primary);
+    padding: 10px 16px 10px var(--col-first-pad);
+    white-space: nowrap;
+}
+
+/* == Remove-asset modal entry list ==
+   Used by showRemoveEntryModal() in portfolio.js — a scrollable selectable
+   list of all assets in the account, paired with a Remove button that
+   stays disabled until a row is selected. */
+.remove-entry-list {
+    max-height: 240px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+
+.remove-entry-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 9px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s ease;
+}
+
+.remove-entry-item:last-child { border-bottom: none; }
+.remove-entry-item:hover      { background: rgba(255, 255, 255, 0.06); }
+.remove-entry-item.selected   { background: rgba(255, 255, 255, 0.1); }
+
+.remove-entry-name {
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    color: var(--text-primary);
+}
+
+.remove-entry-ticker {
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+}
+
+.remove-entry-empty {
+    padding: 12px 14px;
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+}

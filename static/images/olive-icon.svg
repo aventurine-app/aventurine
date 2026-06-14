@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none">
+  <!-- Stem arcing off the top of the fruit -->
+  <path d="M10.8 7.6c.9-2.1 2.8-3.6 5.2-4.1" stroke="#7c8f4a" stroke-width="1.4" stroke-linecap="round"/>
+  <!-- Leaf -->
+  <path d="M12.6 5.9c.5-1.9 2.2-3.2 4.9-3.4-.2 2.7-1.6 4.3-3.5 4.4-.8 0-1.2-.4-1.4-1z" fill="#93a85c"/>
+  <!-- Olive body -->
+  <ellipse cx="8.7" cy="12.7" rx="4.9" ry="5.8" fill="#7c8f4a"/>
+  <!-- Sheen highlight -->
+  <path d="M6.6 9.8c-.9.9-1.4 2.1-1.3 3.4" stroke="rgba(255,255,255,0.5)" stroke-width="1.3" stroke-linecap="round"/>
+</svg>

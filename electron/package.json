@@ -1,0 +1,20 @@
+{
+  "name": "finance-lab-desktop",
+  "version": "0.1.0",
+  "description": "Finance Lab desktop app — Electron shell + in-process Node backend (electron/backend/).",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test",
+    "smoke": "electron scripts/smoke.js",
+    "postinstall": "node scripts/setup-native-abis.js"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.4",
+    "electron": "^41.7.2"
+  },
+  "dependencies": {
+    "better-sqlite3-multiple-ciphers": "^12.10.0"
+  }
+}

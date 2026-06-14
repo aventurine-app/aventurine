@@ -1,0 +1,248 @@
+/* ============================================================================
+   credit_cards.css — Credit Cards planner page.
+   ============================================================================
+   Layout: a responsive grid of self-contained card containers. Each card has
+   three zones: header (editable name + remove ×), the four user-entered
+   fields, and the derived-stats block (utilization bar + money rows).
+
+   All colours flow through the tokens in style.css/themes.css. The page-
+   local tokens below cover the utilization colour scale — only the two
+   bands that don't already have a system token (green / orange) carry
+   hex values, defined once here so both themes read acceptably.
+
+   Section layout:
+     1. Page grid + empty state
+     2. Card shell + header
+     3. Input fields
+     4. Derived stats (utilization bar, money rows, hint)
+   ============================================================================ */
+
+
+/* ─── 1. Page grid ───────────────────────────────────────────────────────── */
+.cc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+    gap: 16px;
+    width: 100%;
+    /* Utilization colour scale. good/high have no system token; ok/bad
+       reuse the theme's warning/danger so they follow theme overrides. */
+    --cc-good:   #5fad7e;
+    --cc-ok:     var(--warning);
+    --cc-high:   #ef8354;
+    --cc-bad:    var(--accent-tertiary);
+}
+
+.cc-empty {
+    grid-column: 1 / -1;
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    text-align: center;
+    margin: 0;
+    padding: 80px 0;
+}
+
+
+/* ─── 2. Card shell + header ─────────────────────────────────────────────── */
+.cc-card {
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface1);
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    padding: 20px 24px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.cc-card-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* The card name doubles as its rename control: a borderless input styled
+   as a title that reveals an underline on hover/focus. */
+.cc-name-input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid transparent;
+    border-radius: 0;
+    padding: 2px 0 4px;
+    color: var(--text-primary);
+    font-family: var(--font-h2);
+    font-size: var(--size-h3);
+    font-weight: var(--weight-semibold);
+    line-height: var(--lh-tight);
+    caret-color: var(--frost-caret);
+}
+
+.cc-name-input:hover  { border-bottom-color: var(--frost-dim); }
+.cc-name-input:focus  { border-bottom-color: var(--frost-focus); outline: none; }
+
+.cc-remove-btn {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--frost-icon);
+    font-size: var(--size-h3);
+    line-height: 1;
+    cursor: pointer;
+}
+
+.cc-remove-btn:hover {
+    background: var(--frost-2);
+    color: var(--accent-tertiary);
+}
+
+
+/* ─── 3. Input fields ────────────────────────────────────────────────────── */
+.cc-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 14px;
+}
+
+.cc-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.cc-field-label {
+    color: var(--frost-text);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--track-wide);
+    text-transform: uppercase;
+}
+
+.cc-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--frost-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    caret-color: var(--frost-caret);
+}
+
+.cc-input:hover { background: var(--frost-3); }
+.cc-input:focus { border-color: var(--frost-focus); outline: none; }
+
+.cc-select { cursor: pointer; }
+
+/* Native dropdown list inherits the page background otherwise. */
+.cc-select option {
+    background: var(--surface1);
+    color: var(--text-primary);
+}
+
+/* Rewards % input with a fixed suffix inside the box. */
+.cc-pct-wrap {
+    position: relative;
+}
+
+.cc-pct-wrap .cc-input { padding-right: 26px; }
+
+.cc-pct-suffix {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--frost-dim);
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    pointer-events: none;
+}
+
+
+/* ─── 4. Derived stats ───────────────────────────────────────────────────── */
+.cc-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+    margin-top: auto;   /* pin to the bottom when grid rows stretch */
+}
+
+.cc-util-head,
+.cc-stat-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.cc-stat-label {
+    color: var(--frost-text);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--track-wide);
+    text-transform: uppercase;
+}
+
+.cc-stat-value,
+.cc-util-value {
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+    font-variant-numeric: tabular-nums;
+}
+
+.cc-util { margin-bottom: 3px; }
+
+.cc-util-bar {
+    margin-top: 7px;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--frost-2);
+    overflow: hidden;
+}
+
+.cc-util-fill {
+    height: 100%;
+    width: 0;
+    border-radius: 3px;
+    background: var(--frost-dim);
+    transition: width 0.25s ease, background-color 0.25s ease;
+}
+
+/* Utilization colour scale — applied to both the % label and the bar fill. */
+.cc-util-value.cc-util-good { color: var(--cc-good); }
+.cc-util-value.cc-util-ok   { color: var(--cc-ok); }
+.cc-util-value.cc-util-high { color: var(--cc-high); }
+.cc-util-value.cc-util-bad  { color: var(--cc-bad); }
+
+.cc-util-fill.cc-util-good  { background: var(--cc-good); }
+.cc-util-fill.cc-util-ok    { background: var(--cc-ok); }
+.cc-util-fill.cc-util-high  { background: var(--cc-high); }
+.cc-util-fill.cc-util-bad   { background: var(--cc-bad); }
+
+.cc-gain-positive { color: var(--cc-good); }
+.cc-gain-negative { color: var(--accent-tertiary); }
+
+.cc-stats-hint {
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    line-height: var(--lh-snug);
+    margin: 0;
+    min-height: 1px;
+}
+
+.cc-stats-hint:empty { display: none; }

@@ -1,0 +1,888 @@
+/* ============================================================================
+   transactions.css — Transactions page (independent ledger).
+   ============================================================================
+   Borrows the tables.css db-page-header treatment (header layout + action
+   buttons) but has its own table styling. Unlike the year-trackers, every
+   row here is a discrete record — there's no forehead/header-spanning
+   structure — so the table is a straight thead + tbody.
+
+   Layout of this file:
+     1. Table wrapper + base shell
+     2. Header row + column widths
+     3. Display-mode row (plain text cells)
+     4. Edit-mode + new-row (floating bordered inputs)
+     5. Action-button cell (pencil/check + trash/X)
+     6. Per-column input variants (date / select / amount sign)
+   ============================================================================ */
+
+
+/* ─── 1. Table wrapper + base shell ──────────────────────────────────────── */
+.tx-page {
+    width: 100%;
+}
+
+/* "Import" / "Export" buttons — the .button-secondary treatment (tables.css);
+   these hook classes only carry the leading icon sizing + JS click target. */
+.tx-import-btn svg,
+.tx-export-btn svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+/* Add button gets a leading "+" icon — the .button-primary class already
+   provides the accent fill and uppercase treatment. */
+.tx-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tx-add-btn svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+.tx-wrapper {
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--surface1);
+    overflow-x: auto;
+}
+
+
+/* ─── 1b. Transactions Search bar ────────────────────────────────────────────
+   Filter bar between the page header and the table — its own container on
+   the same surface treatment as .tx-wrapper. Labeled controls left-to-right,
+   Export + Clear all pinned to the far right; the bar wraps on narrow
+   windows. Inputs/selects reuse the .tx-input / .tx-select shells from
+   section 4, sized per control below. */
+.tx-search {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px 16px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--surface1);
+}
+
+.tx-search-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* Same eyebrow voice as the table headers, one size quieter. */
+.tx-search-label {
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+}
+
+/* Paired min/max inputs (dates, amounts) joined by an en-dash. */
+.tx-search-range {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tx-search-range-sep {
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+}
+
+.tx-search-date       { width: 120px; }
+.tx-search-amount     { max-width: 100px; }
+.tx-search-field-name { flex: 1 1 160px; width: 120px; }
+#tx-search-type       { width: 130px; }
+#tx-search-category   { width: 170px; }
+
+.tx-search-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+/* Clear all — same quiet secondary-button shape as Import/Export. */
+.tx-search-clear {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.tx-search-clear:hover {
+    background: var(--surface2);
+    color: var(--text-primary);
+    border-color: var(--text-tertiary);
+}
+
+.tx-table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 1100px;
+}
+
+/* Header row + body cells share the same column-divider treatment used by
+   the year-table .db-table in tables.css — 1px var(--border) on every
+   cell EXCEPT the first child of each row. Keeps the spreadsheet-like
+   visual rhythm consistent across the app. */
+.tx-table th,
+.tx-table td {
+    border-left: 1px solid var(--border);
+}
+
+.tx-table th:first-child,
+.tx-table td:first-child {
+    border-left: none;
+}
+
+
+/* ─── 2. Header row + column widths ──────────────────────────────────────── */
+/* The eyebrow treatment (colour, type, padding) is shared with .db-table th
+   in tables.css (grouped there); this header only adds left alignment and a
+   bottom-border divider on top of it. */
+.tx-header-row th {
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+/* Column widths — picked so a typical row reads cleanly without truncation.
+   The description and notes columns flex to take remaining space. */
+.tx-col-date        { width: 140px; }
+.tx-col-description { width: auto;  min-width: 200px; }
+.tx-col-type        { width: 110px; }
+.tx-col-category    { width: 180px; }
+.tx-col-amount      { width: 140px; text-align: right; }
+.tx-col-notes       { width: auto;  min-width: 180px; }
+/* Actions cell is center-aligned so the button group sits at the cell's
+   centerpoint, which is invariant across display ↔ edit mode (padding is
+   symmetric). Right-aligning would tie the buttons to the edit-mode
+   horizontal padding and shift them when toggling modes. */
+.tx-col-actions     { width: 110px; text-align: center; }
+
+
+/* ─── 3. Display-mode row ──────────────────────────────────────────────────
+   Every row — whether in display mode or edit mode — locks to the same
+   --tx-row-height. Without this, edit-mode rows (where the inputs are
+   taller than their plain-text counterparts) shift the table layout each
+   time the user opens or closes a row. height + vertical-align: middle
+   on the td gives both modes a consistent vertical rhythm; per-mode
+   horizontal padding is set below. */
+.tx-table { --tx-row-height: 52px; }
+
+.tx-row {
+    border-bottom: 1px solid var(--border);
+    transition: background-color 0.15s ease;
+}
+
+.tx-row:last-child { border-bottom: none; }
+.tx-row:hover      { background-color: var(--frost-2); }
+
+.tx-row td {
+    height: var(--tx-row-height);
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: 16px;
+    padding-right: 16px;
+    color: var(--text-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-body);
+    font-weight: var(--weight-regular);
+    vertical-align: middle;
+}
+
+.tx-row td.tx-col-amount {
+    font-family: var(--font-numeric);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.tx-row td.tx-col-notes,
+.tx-row td.tx-col-description {
+    color: var(--text-secondary);
+}
+
+/* Pill-style category badge inside the display-mode row. Neutral surface
+   so it reads as a tag without competing with the description. */
+.tx-category-pill {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 5px;
+    background: var(--surface2);
+    color: var(--text-primary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--track-normal);
+}
+
+/* Uncategorized stands out like a Type pill, on the secondary accent. */
+.tx-category-pill.tx-category-empty {
+    padding: 3px 9px;
+    font-weight: var(--weight-semibold);
+    background: color-mix(in srgb, var(--accent-secondary) 15%, transparent);
+    color: var(--accent-secondary);
+}
+
+/* Type pill — coloured income/expense badge in its own column. */
+.tx-type-pill {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 5px;
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-normal);
+}
+
+.tx-type-income  {
+    background: color-mix(in srgb, var(--accent-primary) 15%, transparent);
+    color: var(--accent-primary);
+}
+
+.tx-type-expense {
+    background: color-mix(in srgb, var(--accent-tertiary) 15%, transparent);
+    color: var(--accent-tertiary);
+}
+
+.tx-type-savings {
+    background: color-mix(in srgb, var(--accent-primary) 15%, transparent);
+    color: var(--accent-primary);
+}
+
+.tx-type-investing {
+    background: color-mix(in srgb, var(--accent-quatenary) 15%, transparent);
+    color: var(--accent-quatenary);
+}
+
+/* Amount colour follows tx_type. */
+.tx-row td.tx-amount-income    { color: var(--accent-primary); }
+.tx-row td.tx-amount-expense   { color: var(--accent-tertiary); }
+.tx-row td.tx-amount-savings   { color: var(--accent-primary); }
+.tx-row td.tx-amount-investing { color: var(--accent-quatenary); }
+
+
+/* ─── 4. Edit-mode + new-row (floating bordered inputs) ──────────────────── */
+/* A row in edit mode (or the just-added "new" row) replaces each text cell
+   with an <input> / <select>. The visual goal is that the input "floats" in
+   the middle of the cell — bordered, rounded, with margin around it. */
+
+/* Edit-mode rows keep the same height — only the horizontal padding shrinks
+   so the bordered inputs have a touch more room. */
+.tx-row.tx-editing td,
+.tx-row.tx-new td {
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.tx-input,
+.tx-select {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-body);
+    font-weight: var(--weight-regular);
+    padding: 8px 10px;
+    outline: none;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.tx-input:focus,
+.tx-select:focus {
+    border-color: var(--accent-primary);
+    background: var(--background);
+}
+
+.tx-input::placeholder {
+    color: var(--text-tertiary);
+}
+
+/* Number/date/amount inputs use the numeric family + tabular numerals. */
+.tx-input-date,
+.tx-input-amount {
+    font-family: var(--font-numeric);
+    font-variant-numeric: tabular-nums;
+}
+
+.tx-input-amount {
+    text-align: right;
+}
+
+/* Recolor the native date-picker icon to match the placeholder text token.
+   The native glyph can't be color-styled directly, so mask a calendar SVG
+   and fill it with --text-tertiary so it tracks the theme. */
+.tx-input-date::-webkit-calendar-picker-indicator {
+    -webkit-appearance: none;
+            appearance: none;
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    background-color: var(--text-tertiary);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E") center / contain no-repeat;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* Native <select> caret styling — drawn via background-image so the menu
+   text stays clean. Same approach as the home-page range selector. */
+.tx-select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 28px;
+    background-image: linear-gradient(45deg,  transparent 50%, currentColor 50%),
+                      linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 14px) 50%, calc(100% - 10px) 50%;
+    background-size: 4px 4px;
+    background-repeat: no-repeat;
+}
+
+
+/* ─── 5. Action-button cell ──────────────────────────────────────────────── */
+.tx-actions-cell {
+    text-align: center;
+    white-space: nowrap;
+}
+
+.tx-action-group {
+    display: inline-flex;
+    gap: 6px;
+    justify-content: center;
+}
+
+.tx-action-btn {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.tx-action-btn:hover {
+    background: var(--surface3);
+    color: var(--text-primary);
+    border-color: var(--text-tertiary);
+}
+
+.tx-action-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* The Save button becomes the primary accent when a row is being edited. */
+.tx-action-btn.tx-action-save {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--text-primary);
+}
+
+.tx-action-btn.tx-action-save:hover {
+    background: var(--accent400);
+    border-color: var(--accent400);
+}
+
+/* Cancel + Delete share the gray base treatment — visually neutral so they
+   don't compete with the primary save action next to them. */
+
+
+/* ─── 6. Empty-state ─────────────────────────────────────────────────────── */
+.tx-empty-row td {
+    text-align: center;
+    padding: 40px 16px;
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+}
+
+
+/* ─── 7. Import modals ───────────────────────────────────────────────────── */
+/* Two-step import flow: (a) column mapping, (b) row preview + commit.
+   Overlays/dialog shell mirrors the .confirm-overlay / .confirm-dialog
+   pattern from tables.css but wider to accommodate preview tables. */
+
+/* Positioning + centering come from the shared overlay rule in style.css §8;
+   only the scrim, stacking order and viewport padding are import-specific. */
+.tx-import-overlay {
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 1100;
+    padding: 24px;
+    box-sizing: border-box;
+}
+
+.tx-import-dialog {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 90vw;
+    max-width: 740px;
+    max-height: 88vh;
+    background: var(--dialog-surface);
+    border: 1px solid var(--dialog-stroke);
+    border-radius: 10px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+    overflow: hidden;
+}
+
+.tx-import-dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 22px 16px;
+    border-bottom: 1px solid var(--dialog-stroke);
+    flex-shrink: 0;
+}
+
+.tx-import-dialog-title {
+    color: var(--text-primary);
+    font-family: var(--font-h3);
+    font-size: var(--size-body);
+    font-weight: var(--weight-semibold);
+}
+
+.tx-import-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: var(--size-h2);
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+.tx-import-close:hover { color: var(--text-primary); background: var(--frost-3); }
+
+/* Scrollable content area */
+.tx-import-dialog-body {
+    padding: 20px 22px 6px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.tx-import-hint {
+    color: var(--text-secondary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    margin: 0 0 16px;
+    line-height: var(--lh-relaxed);
+}
+
+.tx-import-section-label {
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    margin-top: 18px;
+}
+.tx-import-section-label:first-child { margin-top: 0; }
+
+/* Horizontal scroll wrapper for preview / full-row tables */
+.tx-import-preview-wrap {
+    overflow-x: auto;
+    margin-bottom: 4px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+
+/* Preview tables — shared by the column-mapping preview (this section) and the
+   similar-categorize modal (.tx-similar-table, section 8). The base shell,
+   header cells and row dividers/hover are identical; only the th/td cell
+   padding differs, so that stays per-table. */
+.tx-import-preview-table,
+.tx-similar-table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+}
+
+.tx-import-preview-table { min-width: 360px; }
+
+.tx-import-preview-table th,
+.tx-import-preview-table td {
+    padding: 7px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    color: var(--text-primary);
+}
+
+.tx-import-preview-table thead th,
+.tx-similar-table thead th {
+    color: var(--text-tertiary);
+    font-weight: var(--weight-semibold);
+    font-size: var(--size-micro);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+    background: var(--frost-2);
+}
+
+.tx-import-preview-table tbody tr:last-child td,
+.tx-similar-table tbody tr:last-child td { border-bottom: none; }
+.tx-import-preview-table tbody tr:hover td,
+.tx-similar-table tbody tr:hover td { background: var(--frost-2); }
+
+/* Full preview table (step 2) — checkboxes + wider */
+.tx-import-preview-full { min-width: 520px; }
+.tx-import-preview-full td:first-child,
+.tx-import-preview-full th:first-child { width: 36px; text-align: center; padding: 7px 8px; }
+.tx-import-col-amount { text-align: right; font-family: var(--font-numeric); font-variant-numeric: tabular-nums; }
+
+/* Duplicate rows — dimmed + unchecked by default */
+.tx-import-row-dup td { color: var(--text-tertiary); }
+
+.tx-import-dup-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 20px;
+    background: rgba(255, 180, 0, 0.12);
+    color: rgba(255, 180, 0, 0.75);
+    font-size: 10px;
+    font-family: var(--font-menu);
+    font-weight: var(--weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    vertical-align: middle;
+}
+
+/* Column-mapping form: label → select on one line */
+.tx-import-map-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
+.tx-import-map-row  { display: flex; align-items: center; gap: 12px; }
+.tx-import-map-label {
+    flex: 0 0 120px;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+}
+.tx-import-map-select { flex: 1; }
+
+/* Parse-error banner (rows skipped during mapping) */
+.tx-import-errors-banner {
+    background: rgba(255, 140, 0, 0.08);
+    border: 1px solid rgba(255, 140, 0, 0.25);
+    border-radius: 6px;
+    color: var(--warning);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    line-height: var(--lh-relaxed);
+}
+
+/* Footer — count + primary action, pinned below the scrollable body */
+.tx-import-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 22px 18px;
+    border-top: 1px solid var(--dialog-stroke);
+    flex-shrink: 0;
+}
+
+/* The preview modal's footer is appended to the dialog, not the body */
+.tx-import-footer--preview {
+    margin-top: 0;
+}
+
+.tx-import-row-count {
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+}
+
+/* Disabled state for the Import button */
+.tx-import-footer .button-primary:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+
+/* ─── 8. Similar-categorize modal ───────────────────────────────────────── */
+/* Shown after saving a categorized transaction when uncategorized rows with
+   the same description exist. Shell mirrors the import modal (section 7). */
+
+/* Positioning + centering come from the shared overlay rule in style.css §8. */
+.tx-similar-overlay {
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 1100;
+    padding: 24px;
+    box-sizing: border-box;
+}
+
+.tx-similar-dialog {
+    display: flex;
+    flex-direction: column;
+    width: 90vw;
+    max-width: 600px;
+    max-height: 80vh;
+    background: var(--dialog-surface);
+    border: 1px solid var(--dialog-stroke);
+    border-radius: 10px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+    overflow: hidden;
+}
+
+.tx-similar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 22px 16px;
+    border-bottom: 1px solid var(--dialog-stroke);
+    flex-shrink: 0;
+}
+
+.tx-similar-title {
+    color: var(--text-primary);
+    font-family: var(--font-h3);
+    font-size: var(--size-body);
+    font-weight: var(--weight-semibold);
+}
+
+.tx-similar-hint {
+    padding: 14px 22px 6px;
+    color: var(--text-secondary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    line-height: var(--lh-relaxed);
+    flex-shrink: 0;
+}
+
+.tx-similar-hint strong,
+.tx-similar-hint em {
+    color: var(--text-primary);
+    font-style: normal;
+}
+
+.tx-similar-body {
+    padding: 10px 22px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.tx-similar-table-wrap {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+/* Base shell + header cells + row dividers come from the grouped preview-table
+   rules in section 7; this modal's cells use slightly roomier padding. */
+.tx-similar-table th,
+.tx-similar-table td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-primary);
+}
+
+.tx-similar-col-check  { width: 36px; text-align: center; padding-left: 8px; padding-right: 8px; }
+.tx-similar-col-date   { width: 120px; white-space: nowrap; }
+.tx-similar-col-amount {
+    text-align: right;
+    font-family: var(--font-numeric);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.tx-similar-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 22px 18px;
+    border-top: 1px solid var(--dialog-stroke);
+    flex-shrink: 0;
+}
+
+.tx-similar-skip {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-medium);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.tx-similar-skip:hover {
+    background: var(--surface2);
+    color: var(--text-primary);
+}
+
+.tx-similar-apply:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+
+/* ─── 9. Export modal ────────────────────────────────────────────────────── */
+/* Shares the import modal shell (section 7); below are only the pieces the
+   export flow adds — the format picker, the destination row, and the
+   progress bar. The search bar's Export button reuses the Import styling via
+   the shared selectors in section 1, and the Browse… button reuses .db-btn
+   from dbmodal.css (loaded on every page). */
+
+.tx-export-dialog {
+    max-width: 560px;
+}
+
+/* Format picker — 2×2 grid of radio cards. */
+.tx-export-formats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+
+.tx-export-format {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.tx-export-format:hover {
+    background: var(--frost-2);
+}
+
+.tx-export-format:has(input:checked) {
+    border-color: var(--accent-primary);
+    background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+}
+
+.tx-export-format input {
+    margin: 3px 0 0;
+    accent-color: var(--accent-primary);
+    flex-shrink: 0;
+}
+
+.tx-export-format-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.tx-export-format-name {
+    color: var(--text-primary);
+    font-family: var(--font-h3);
+    font-size: var(--size-body);
+    font-weight: var(--weight-semibold);
+}
+
+.tx-export-format-desc {
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    line-height: var(--lh-relaxed);
+}
+
+/* Destination row — path input + native Browse… */
+.tx-export-path-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.tx-export-path-row .tx-input {
+    flex: 1;
+}
+
+.tx-export-error {
+    color: var(--warning);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    margin: 10px 0 0;
+    line-height: var(--lh-relaxed);
+}
+
+/* Progress bar — fill width is driven from txexport.js as chunks land, so
+   it reflects rows actually written rather than an animation. */
+.tx-export-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 22px 2px 16px;
+}
+
+.tx-export-progress-label {
+    color: var(--text-primary);
+    font-family: var(--font-h3);
+    font-size: var(--size-body);
+    font-weight: var(--weight-semibold);
+}
+
+.tx-export-progress-track {
+    height: 8px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface2);
+    overflow: hidden;
+}
+
+.tx-export-progress-fill {
+    height: 100%;
+    width: 0;
+    border-radius: inherit;
+    background: var(--accent-primary);
+    transition: width 0.2s ease;
+}
+
+.tx-export-progress-count {
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    line-height: var(--lh-relaxed);
+}
+
+/* The destination path on the success screen — breaks anywhere rather than
+   overflowing the dialog. */
+.tx-export-progress-path {
+    display: block;
+    margin-top: 4px;
+    color: var(--text-secondary);
+    font-family: var(--font-numeric);
+    word-break: break-all;
+}
+
+/* Close is disabled mid-write (the chunk loop owns the .part file). */
+.tx-import-close:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}

@@ -1,0 +1,471 @@
+/* ============================================================================
+   style.css — App-wide design language.
+   ============================================================================
+   This file is the single source of truth for tokens (colours, type, spacing)
+   and a small set of semantic utility classes (text roles, status colours).
+   Per-page CSS files should *consume* these tokens, not redeclare them.
+
+   Layout of this file:
+     1. Theme — colour tokens
+     2. Typography — font families + size/weight/line-height/tracking scale
+     3. Component tokens — spacing & filter values used across the app
+     4. Legacy colour aliases — preserved for un-migrated rules
+     5. Page title / subtitle — the two shared page-header heading rules
+     6. Status colours — direction-of-change indicators
+     7. Base layout — body, page shell, scrollbars
+     8. Shared modal primitives — frame/header/close/title/body shared by the
+        DB, Preferences and column-manager modals
+   ============================================================================ */
+
+/* Self-hosted fonts. CSP is default-src 'self', so font files must live under
+   /static/ — no CDN. These are the variable-font .ttf files from the Google
+   Fonts download; the quoted url() is required because the filename contains
+   commas (the variation-axis tags). font-display: swap paints a fallback
+   immediately and swaps Fraunces in when it loads. */
+@font-face {
+    font-family: 'Fraunces';
+    src: url('/static/fonts/Fraunces/Fraunces-VariableFont_SOFT,WONK,opsz,wght.ttf') format('truetype');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'IBM Plex Mono';
+    src: url('/static/fonts/IBM_Plex_Mono/IBMPlexMono-Regular.ttf') format('truetype');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Manrope';
+    src: url('/static/fonts/Manrope/Manrope-VariableFont_wght.ttf') format('truetype');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+
+/* ─── 1. Theme — colour tokens ────────────────────────────────────────────────
+ * Every downstream rule reads colour through these. To retheme the app,
+ * change values here only. The accents are a placeholder olive palette;
+ * a real brand palette will replace them once approved. */
+:root {
+
+    --color-olive-050: #f2f4eb;
+    --color-olive-100: #e7ebdb;
+    --color-olive-200: #d2d9ba;
+    --color-olive-300: #bdc799;
+    --color-olive-400: #a7b578;
+    --color-olive-500: #91a159;
+    --color-olive-600: #768448;
+    --color-olive-700: #596336;
+    --color-olive-800: #3b4224;
+    --color-olive-900: #1e2112;
+    --color-olive-950: #0f1009;
+
+    --color-color-050: #f1eee6;
+    --color-color-100: #e7e2d4;
+    --color-color-200: #c9c3b3;
+    --color-color-300: #ada89a;
+    --color-color-400: #928e82;
+    --color-color-500: #7b776c;
+    --color-color-600: #615e56;
+    --color-color-700: #494740;
+    --color-color-800: #32302b;
+    --color-color-900: #1d1b18;
+    --color-color-950: #12110e;
+
+    /* Text — three lightnesses for hierarchy.
+       primary   → headings, hero values, anything that must read first.
+       secondary → body copy, supporting metadata.
+       tertiary  → captions, disabled states, the quietest tier. */
+    --text-primary:   var(--color-color-100);
+    --text-secondary: var(--color-color-300);
+    --text-tertiary:  var(--color-color-200);
+
+    /* Background + surfaces.
+       background  — the deepest layer (body / page bg).
+       surface1-4  — opaque layers stacked from subtle to prominent.
+                     1 is a card on bg; 4 is the highlight tier. */
+    --background: var(--color-color-950);
+    --surface1:   var(--color-color-900);
+    --surface2:   var(--color-color-800);
+    --surface3:   var(--color-color-800);
+    --surface4:   var(--color-color-950);
+
+    /* Borders / dividers — one neutral grey used across cards, inputs, menus. */
+    --border: var(--color-color-800);
+
+    /* Accents — primary brand colour in three lightnesses. */
+    --accent-primary: var(--color-olive-500);   /* base — primary actions, links, positive deltas */
+    --accent400: var(--color-olive-400);   /* hover / focus */
+    --accent300: var(--color-olive-300);   /* disabled / faint emphasis */
+
+    --accent-secondary: #c5ac63;
+    --accent-tertiary:  #e2585b;
+    --accent-quatenary: #4a8f8f;
+    --accent-quinary: #794a8f;
+    
+    /* Status colours — system meaning, not brand. */
+    --warning: #f5a524;
+
+    /* ── Frost layer tokens ──────────────────────────────────────────────
+     * Translucent overlays that tint surfaces in the current theme's
+     * direction.  Dark (default): white-tinted.  Light: black-tinted.
+     * Components reference these instead of hard-coding rgba values so
+     * switching theme only requires overriding these tokens, not touching
+     * any component file. */
+    --frost-2:        rgba(255,255,255, 0.05);   /* default tint */
+    --frost-3:        rgba(255,255,255, 0.07);   /* medium tint */
+    --frost-focus:    rgba(255,255,255, 0.40);   /* focused input bg */
+    --frost-dim:      rgba(255,255,255, 0.15);   /* dimmed text / icons */
+    --frost-caret:    rgba(255,255,255, 0.80);   /* input caret */
+    --frost-icon:     rgba(255,255,255, 0.30);   /* icon default */
+    --frost-text:     rgba(255,255,255, 0.65);   /* secondary text */
+
+    /* Dialog chrome — separate from frost because light theme sets these
+     * to opaque surface tokens rather than translucent rgba values. */
+    --dialog-surface: rgb(38, 38, 40);
+    --dialog-stroke:  rgba(255,255,255, 0.12);
+
+}
+
+
+/* ─── 2. Typography ─────────────────────────────────────────────────────────
+ * The type system is inspired by Linear / Vercel: a 1.25 modular scale anchored
+ * at 15px body, paired with a small set of weights and a deliberate tracking
+ * scale (tight on display sizes, wide on micro all-caps eyebrows).
+ *
+ * Tokens come in four groups (family, size, weight, line-height, tracking).
+ * Per-page component rules compose them directly. */
+:root {
+    /* ── Font families — one token per visual role ───────────────────────
+     * Usage map:
+     *   --font-menu     → sidebar nav, dropdowns, body UI text
+     *   --font-h1       → page titles
+     *   --font-h2       → card / section titles
+     *   --font-h3       → subsection titles, eyebrow labels
+     *   --font-numeric  → currencies, totals, percentages, anything tabular —
+     *                     pair with font-variant-numeric: tabular-nums */
+    --font-menu:    'Manrope', system-ui, sans-serif;
+    --font-h1:      'Fraunces', Georgia, serif;
+    --font-h2:      'Manrope', system-ui, sans-serif;
+    --font-h3:      'Manrope', system-ui, sans-serif;
+    --font-numeric: 'IBM Plex Mono', system-ui, sans-serif;
+
+    /* ── Size scale — 1.25 modular ratio anchored at 15px body ───────────
+     *   display → hero numerical values (Net Worth, Insights metrics)
+     *   h1      → page titles
+     *   h2      → card / section titles (bold treatment)
+     *   h3      → subsection titles
+     *   body    → default paragraph + UI text
+     *   small   → secondary text, captions, subtitles
+     *   micro   → all-caps eyebrow labels, dot-grid legends */
+    --size-display:  2.5rem;     /* 40px */
+    --size-h1:       1.5rem;     /* 24px */
+    --size-h2:       1.125rem;   /* 18px */
+    --size-h3:       1rem;       /* 16px */
+    --size-body:     0.9375rem;  /* 15px — root body size */
+    --size-small:    0.8125rem;  /* 13px */
+    --size-micro:    0.6875rem;  /* 11px */
+
+    /* ── Weight scale ─────────────────────────────────────────────────────
+     *   light    → big display values (paired with semibold labels for contrast)
+     *   regular  → body, default paragraph
+     *   medium   → emphasized body, button text, page-title (light h1)
+     *   semibold → card/section titles, eyebrow labels, button bold variants
+     *   bold     → reserved for strongest emphasis (rare) */
+    --weight-light:    300;
+    --weight-regular:  400;
+    --weight-medium:   500;
+    --weight-semibold: 600;
+    --weight-bold:     700;
+
+    /* ── Line-height ──────────────────────────────────────────────────────
+     *   tight   → display sizes, hero numbers
+     *   snug    → headings (h1–h3)
+     *   normal  → body
+     *   relaxed → long-form prose, multi-line captions */
+    --lh-tight:   1.15;
+    --lh-snug:    1.3;
+    --lh-normal:  1.5;
+    --lh-relaxed: 1.65;
+
+    /* ── Letter-spacing ───────────────────────────────────────────────────
+     *   tighter → display sizes (40px+)
+     *   tight   → page-title-size headings (24px)
+     *   normal  → body, mid-size headings
+     *   wide    → button text, page subtitles
+     *   wider   → small-caps subheads
+     *   widest  → micro all-caps eyebrow labels */
+    --track-tighter: -0.02em;
+    --track-tight:   -0.01em;
+    --track-normal:  0;
+    --track-wide:    0.04em;
+    --track-wider:   0.07em;
+    --track-widest:  0.1em;
+}
+
+
+/* ─── 3. Component tokens ──────────────────────────────────────────────────
+ * Sizing and effects shared across components. Lives outside the theme block
+ * because palette swaps don't change them. */
+:root {
+    /* First-column left padding — used on table foreheads, column headers,
+       body cells, and footer labels so every left edge lines up vertically.
+       Also doubles as the horizontal padding inside editable cell inputs. */
+    --col-first-pad: 16px;
+
+    /* Vertical padding inside every editable cell input — keeps row heights
+       consistent across the spreadsheet pages. */
+    --cell-pad-y: 12px;
+}
+
+
+/* ─── 4. Legacy colour aliases ─────────────────────────────────────────────
+ * Existing rules use the names below; defining them as aliases lets those
+ * rules flow through the theme without per-rule churn. New code should
+ * prefer the theme tokens directly. */
+:root {
+    --nav-text:       var(--text-secondary);  /* idle nav link, body UI text */
+    --nav-text-hover: var(--text-primary);    /* hover / active state */
+    --label-muted:    var(--text-tertiary);   /* subdued labels, section heads */
+}
+
+
+/* ─── 5. Page title / subtitle ─────────────────────────────────────────────
+ * The two heading rules wired into every page template's header. They bundle
+ * the typography tokens above directly. (An earlier set of .text-* utility
+ * classes lived here too but was removed once nothing consumed them.) */
+.page-title    { /* page-level title — h1 treatment */
+    color: var(--text-primary);
+    font-family: var(--font-h1);
+    font-size: var(--size-h1);
+    font-weight: var(--weight-medium);
+    line-height: var(--lh-tight);
+    letter-spacing: var(--track-tight);
+    margin: 0;
+}
+
+.page-subtitle { /* caption treatment with a 4px top margin */
+    color: var(--text-secondary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    font-weight: var(--weight-medium);
+    line-height: var(--lh-relaxed);
+    letter-spacing: var(--track-wide);
+    margin: 4px 0 0;
+}
+
+
+/* ─── 6. Status colours ────────────────────────────────────────────────────
+ * Direction-of-change colours used wherever a number signals "in your favor"
+ * vs. "against you" — home cards / net-worth deltas (.stat-change-*) and
+ * portfolio ROI (.roi-*). Both consumers share one palette so a theme swap
+ * retones every indicator at once.
+ *
+ * Class names are kept as-is (rather than renamed to one canonical pair)
+ * because they're already wired into multiple JS files; consolidating the
+ * CSS here gives us the theme link without forcing a JS refactor. */
+
+.stat-change-up,
+.roi-positive,
+.p-computed.roi-positive {
+    color: var(--accent400);
+}
+
+.stat-change-down,
+.roi-negative,
+.p-computed.roi-negative {
+    color: var(--accent-tertiary);
+}
+
+.stat-change-neutral {
+    color: var(--text-tertiary);
+}
+
+
+/* ─── 7. Base layout ───────────────────────────────────────────────────────
+ * App shell: body + body_container split, page scroll, custom scrollbar. */
+
+body {
+    background-color: var(--background);
+    margin: 0;
+    color: var(--text-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-body);
+    font-weight: var(--weight-regular);
+    line-height: var(--lh-normal);
+    /* Vertical flex column so an Electron title bar (when present) sits on
+       top and .body_container takes the remaining height. In a browser
+       without the title bar, body_container alone fills 100vh. */
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+div.body_container {
+    display: flex;
+    flex: 1;
+    /* min-height: 0 lets the .page flex child shrink correctly inside
+       overflow: hidden — without it, the child's intrinsic content can
+       prevent the parent from honouring the flex constraint. */
+    min-height: 0;
+    overflow: hidden;
+}
+
+div.page {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    overflow-y: auto;
+    /* Match the modal scrollbar (column manager in tables.css) so every
+       scrollable region in the app shares one thin frosted treatment. */
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) var(--surface1);
+}
+
+div.page::-webkit-scrollbar {
+    width: 10px;
+}
+
+div.page::-webkit-scrollbar-track {
+    background: var(--surface1);
+    border-radius: 5px;
+}
+
+div.page::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 5px;
+    /* Inset transparent border + background-clip creates a small visual gap
+       between thumb and track edges so the thumb looks like it floats. */
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+div.page::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+    background-clip: padding-box;
+}
+
+
+/* ─── 8. Shared modal primitives ───────────────────────────────────────────
+ * Dialog chrome shared by the app's modals: the DB modal (dbmodal.css), the
+ * Preferences / Categories modal (settings.css) and the column manager
+ * (tables.css). Each component file used to redeclare the full frame / header /
+ * close / title; the identical declarations live here once and each file keeps
+ * only its deltas (mostly just `width`). This lives in style.css because it's
+ * the one stylesheet loaded on every page, so a global modal (DB / Settings)
+ * and a per-page one (column manager) can both reach it. */
+
+/* Backdrop scrim + centering. Per-overlay deltas — scrim opacity, z-index,
+   blur, padding — stay in each component file. */
+.db-modal-overlay,
+.settings-modal-overlay,
+.confirm-overlay,
+.tx-import-overlay,
+.tx-similar-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Modal frame — only `width` differs between the three. */
+.db-modal,
+.settings-modal,
+.col-manager {
+    background: var(--surface1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    max-width: calc(100vw - 64px);
+    max-height: calc(100vh - 96px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Header row — title on the left, × on the right, divider beneath. */
+.db-modal-header,
+.settings-modal-header,
+.col-manager-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--border);
+}
+
+/* Title text. */
+.db-modal-title,
+.settings-modal-title,
+.col-manager-header > span {
+    color: var(--text-primary);
+    font-family: var(--font-h2);
+    font-size: var(--size-h2);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-tight);
+}
+
+/* × close button. */
+.db-modal-close,
+.settings-modal-close,
+.col-manager-close {
+    background: transparent;
+    border: none;
+    color: var(--text-tertiary);
+    font-size: var(--size-h2);
+    line-height: 1;
+    cursor: pointer;
+    width: 26px;
+    height: 26px;
+    border-radius: 4px;
+    transition: background-color 120ms ease, color 120ms ease;
+}
+
+.db-modal-close:hover,
+.settings-modal-close:hover,
+.col-manager-close:hover {
+    background: var(--surface3);
+    color: var(--text-primary);
+}
+
+/* Scrollable modal body — thin scrollbar, surface4 thumb on a surface1 track.
+   The two bodies that use this were byte-identical; each keeps only its own
+   padding / gap / layout in its component file. */
+.settings-modal-body,
+.col-manager-body {
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface4) var(--surface1);
+}
+
+.settings-modal-body::-webkit-scrollbar,
+.col-manager-body::-webkit-scrollbar {
+    width: 10px;
+}
+
+.settings-modal-body::-webkit-scrollbar-track,
+.col-manager-body::-webkit-scrollbar-track {
+    background: var(--surface1);
+    border-radius: 5px;
+}
+
+.settings-modal-body::-webkit-scrollbar-thumb,
+.col-manager-body::-webkit-scrollbar-thumb {
+    background: var(--surface4);
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+.settings-modal-body::-webkit-scrollbar-thumb:hover,
+.col-manager-body::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+    background-clip: padding-box;
+}

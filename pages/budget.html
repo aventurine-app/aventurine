@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Finance Tools | Budget</title>
+    <!-- @include head -->
+    <link rel="stylesheet" href="/static/css/budget.css">
+</head>
+<body>
+    <!-- @include chrome -->
+
+    <div class="body_container">
+        <!-- @include sidebar -->
+
+        <div class="page">
+
+<div class="budget-page">
+
+    <div class="budget-card">
+        <div class="home-card-header">
+            <div class="budget-monthnav">
+                <button type="button" class="budget-nav-btn" id="budget-prev" aria-label="Previous month">‹</button>
+                <span class="budget-month-label" id="budget-month-label">—</span>
+                <button type="button" class="budget-nav-btn" id="budget-next" aria-label="Next month">›</button>
+            </div>
+            <button type="button" class="budget-copy-btn" id="budget-copy">Copy last month</button>
+        </div>
+
+        <!-- Zero-based roll-up, rendered by budget.js -->
+        <div class="budget-summary" id="budget-summary"></div>
+    </div>
+
+    <div class="budget-card">
+        <div class="home-card-header">
+            <span class="home-card-title">Envelopes<span class="fc-info" tabindex="0" role="note"
+                aria-label="Set a monthly target for each spending and savings category. The bar fills as you spend that category this month, drawn from your transactions. Income categories aren't budgeted — your income drives 'left to budget' above."
+                data-tip="Set a monthly target for each spending and savings category. The bar fills as you spend that category this month, drawn from your transactions. Income categories aren't budgeted — your income drives 'left to budget' above.">i</span></span>
+        </div>
+        <!-- One row per budgetable category, rendered by budget.js -->
+        <div id="budget-list" class="budget-list"></div>
+    </div>
+
+</div>
+
+        </div>
+    </div>
+
+    <!-- @include scripts -->
+    <script src="/static/js/budget.js"></script>
+</body>
+</html>

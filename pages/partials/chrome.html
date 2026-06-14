@@ -1,0 +1,164 @@
+<!-- Shared window chrome: frameless-window title bar, File menu dropdown,
+     and the Settings modals. Spliced into pages/*.html by the app:// protocol
+     handler (electron/main.js). Edit here once - every page gets it. -->
+    <div class="titlebar">
+        <img class="titlebar-icon" src="/static/icons/logo/olive.svg" alt="">
+        <div class="titlebar-menu">
+            <button class="titlebar-menu-item" data-menu="file" tabindex="-1">File</button>
+            <button class="titlebar-menu-item" data-menu="settings" tabindex="-1">Settings</button>
+        </div>
+        <div class="titlebar-drag"></div>
+        <div class="titlebar-controls">
+            <button class="titlebar-btn" data-action="min" aria-label="Minimize" tabindex="-1">
+                <svg viewBox="0 0 12 12" fill="none"><path d="M2 6h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </button>
+            <button class="titlebar-btn" data-action="max" aria-label="Maximize" tabindex="-1">
+                <svg viewBox="0 0 12 12" fill="none"><rect x="2.5" y="2.5" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>
+            </button>
+            <button class="titlebar-btn titlebar-btn-close" data-action="close" aria-label="Close" tabindex="-1">
+                <svg viewBox="0 0 12 12" fill="none"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </button>
+        </div>
+    </div>
+
+    
+    <div class="titlebar-dropdown" data-menu-panel="file" hidden>
+        <button class="titlebar-dropdown-item" data-action="new-db">New Database</button>
+        <button class="titlebar-dropdown-item" data-action="open-db">Open Database</button>
+        <button class="titlebar-dropdown-item" data-action="save-db-as">Save Database As</button>
+    </div>
+
+    <div class="titlebar-dropdown" data-menu-panel="settings" hidden>
+        <button class="titlebar-dropdown-item" data-action="open-preferences">Preferences</button>
+        <button class="titlebar-dropdown-item" data-action="open-categories">Manage Categories</button>
+    </div>
+
+
+    <div class="settings-modal-overlay" data-modal="preferences" hidden>
+        <div class="settings-modal">
+            <div class="settings-modal-header">
+                <span class="settings-modal-title">Preferences</span>
+                <button class="settings-modal-close" aria-label="Close">×</button>
+            </div>
+            <div class="settings-modal-body">
+
+
+<div class="settings-section">
+    <div class="settings-section-header">Appearance</div>
+    <div class="settings-card">
+        <div class="settings-row">
+            <div class="settings-row-label">
+                <div class="settings-row-name">Color Theme</div>
+                <div class="settings-row-desc">Adjusts the color palette of surfaces, text, and accents across the app.</div>
+            </div>
+            <div class="settings-theme-options">
+                <button class="settings-theme-btn" data-theme="">
+                    <div class="settings-theme-swatch" style="--sw-bg:#111414;--sw-surface:#191A18;--sw-accent:#7c8f4a"></div>
+                    <span class="settings-theme-label">Dark</span>
+                </button>
+                <button class="settings-theme-btn" data-theme="light">
+                    <div class="settings-theme-swatch" style="--sw-bg:#ebebE7;--sw-surface:#ffffff;--sw-accent:#5c6e2f"></div>
+                    <span class="settings-theme-label">Light</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="settings-section">
+    <div class="settings-section-header">Transactions</div>
+    <div class="settings-card">
+        <div class="settings-row">
+            <div class="settings-row-label">
+                <div class="settings-row-name">Similar Transaction Matching</div>
+                <div class="settings-row-desc">
+                    Controls how "Categorize Similar" decides two descriptions are
+                    the same. <strong>100%</strong> matches only identical
+                    descriptions (case-insensitive); lower values match
+                    progressively fuzzier — catching typos, trailing spaces, and
+                    minor wording differences.
+                </div>
+            </div>
+            <div class="settings-threshold-control">
+                <input class="settings-threshold-slider" type="range"
+                       min="0.5" max="1" step="0.05" value="1"
+                       aria-label="Match strength">
+                <span class="settings-threshold-value">100%</span>
+            </div>
+        </div>
+        <div class="settings-row">
+            <div class="settings-row-label">
+                <div class="settings-row-name">Automatic Categorization</div>
+                <div class="settings-row-desc">
+                    Remembers the category you assign to a description and applies
+                    it automatically to matching transactions you add or import
+                    later. Only confident matches are categorized — anything
+                    uncertain is left alone for you to review. When matching above
+                    is set below <strong>100%</strong>, near-identical descriptions
+                    can also auto-match.
+                </div>
+            </div>
+            <div class="settings-match-toggle">
+                <label class="settings-match-option">
+                    <input class="settings-match-radio" type="radio" name="tx_auto_match" value="on">
+                    <span class="settings-match-label">On</span>
+                </label>
+                <label class="settings-match-option">
+                    <input class="settings-match-radio" type="radio" name="tx_auto_match" value="off">
+                    <span class="settings-match-label">Off</span>
+                </label>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="settings-section">
+    <div class="settings-section-header">Format</div>
+    <div class="settings-card">
+        <div class="settings-row">
+            <div class="settings-row-label">
+                <div class="settings-row-name">Currency Symbol</div>
+                <div class="settings-row-desc">Shown in front of currency values across all pages. Examples: $&nbsp;&nbsp;€&nbsp;&nbsp;£&nbsp;&nbsp;¥&nbsp;&nbsp;₹&nbsp;&nbsp;CHF&nbsp;&nbsp;kr</div>
+            </div>
+            <div class="settings-currency-row">
+                <input class="settings-currency-input" type="text" maxlength="3" autocomplete="off" spellcheck="false">
+                <span class="settings-currency-preview"></span>
+            </div>
+        </div>
+    </div>
+</div>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="settings-modal-overlay" data-modal="categories" hidden>
+        <div class="settings-modal">
+            <div class="settings-modal-header">
+                <span class="settings-modal-title">Manage Categories</span>
+                <button class="settings-modal-close" aria-label="Close">×</button>
+            </div>
+            <div class="settings-modal-body">
+
+<div class="settings-section">
+    <div class="settings-section-header">Categories</div>
+    <div class="settings-card">
+        <div class="settings-row settings-row-categories">
+            <div class="settings-row-label">
+                <div class="settings-row-name">Cash Flow Categories</div>
+                <div class="settings-row-desc">
+                    Define the Categories for your Cash Flow Statement. Turn <strong>Sync</strong> on for a category and its
+                    monthly value on the Cash Flow Statement is computed automatically from
+                    matching transactions; leave it off to keep the cell manually
+                    editable. Deletion is blocked when transactions or stored
+                    values still reference a category — reassign first.
+                </div>
+            </div>
+
+            <div class="settings-categories-editor" data-categories-editor></div>
+        </div>
+    </div>
+</div>
+            </div>
+        </div>
+    </div>

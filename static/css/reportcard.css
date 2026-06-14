@@ -1,0 +1,280 @@
+/* ============================================================================
+   reportcard.css — Yearly Report Card (Reports) page.
+
+   Page-scoped: restates the shared card chrome (home.css is only loaded on Home)
+   and the "i" info-badge tooltip (shared with the other Reports pages). One card
+   per year, laid out in a responsive grid; each card carries a grade-* class
+   that tones its grade letter and accent rule.
+   ============================================================================ */
+
+/* Anchor to the top so cards never scroll out of reach when zoomed in (same
+   pattern as the other report pages — see trends.css). */
+.page:has(.rc-page) {
+    align-items: flex-start;
+}
+
+.rc-page {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 28px 32px;
+    width: 1100px;
+    max-width: 100%;
+}
+
+/* ─── Intro ───────────────────────────────────────────────────────────────── */
+.rc-intro { display: flex; flex-direction: column; gap: 8px; }
+.rc-heading {
+    color: var(--text-primary);
+    font-family: var(--font-h2);
+    font-size: var(--size-h2);
+    font-weight: var(--weight-semibold);
+    margin: 0;
+}
+.rc-sub {
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    line-height: var(--lh-relaxed);
+    margin: 0;
+    max-width: 760px;
+}
+
+/* ─── Card grid ───────────────────────────────────────────────────────────── */
+.rc-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(460px, 1fr));
+    gap: 24px;
+}
+
+.rc-card {
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface1);
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+    /* The grade tints a left accent rule (set per grade-* class below). */
+    border-left: 3px solid var(--rc-accent, var(--border));
+}
+
+/* ─── Card header (year + grade) ──────────────────────────────────────────── */
+.rc-card-head { margin-bottom: 18px; }
+.rc-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-family: var(--font-h1);
+    font-size: var(--size-h1);
+    font-weight: var(--weight-bold);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: var(--track-tight);
+}
+/* Grade letter sits to the right of the year ("2026 - A"), toned by grade. */
+.rc-title-grade { color: var(--rc-accent, var(--text-primary)); }
+
+/* ─── Headline figures (line items) ───────────────────────────────────────── */
+.rc-figures {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+}
+.rc-figure {
+    display: grid;
+    grid-template-columns: 1fr auto minmax(96px, auto);
+    align-items: baseline;
+    gap: 16px;
+}
+.rc-figure-label {
+    min-width: 0;
+    color: var(--text-secondary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+}
+.rc-figure-value {
+    text-align: right;
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-h3);
+    font-weight: var(--weight-semibold);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.rc-change {
+    text-align: right;
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wide);
+}
+.rc-change-good { color: #5ba672; }
+.rc-change-bad  { color: var(--accent-tertiary); }
+.rc-change-flat { color: var(--text-tertiary); }
+.rc-change-up   { color: #5ba672; }
+.rc-change-none { color: var(--label-muted); font-style: italic; font-weight: var(--weight-regular); }
+
+/* ─── Metrics row ─────────────────────────────────────────────────────────── */
+.rc-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+}
+.rc-metric { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.rc-metric-label {
+    color: var(--label-muted);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wide);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+}
+.rc-metric-value {
+    color: var(--text-secondary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-body);
+    font-weight: var(--weight-semibold);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ─── Goals ───────────────────────────────────────────────────────────────── */
+.rc-goals-wrap { padding: 20px 0 4px; }
+.rc-goals-title {
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+}
+.rc-goals { list-style: none; margin: 0; padding: 0; }
+.rc-goal {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 7px 0;
+}
+.rc-goal-icon {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    line-height: 18px;
+    text-align: center;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: var(--weight-bold);
+    align-self: center;
+}
+.rc-goal-met .rc-goal-icon {
+    color: #5ba672;
+    background: color-mix(in srgb, #5ba672 18%, transparent);
+}
+.rc-goal-miss .rc-goal-icon {
+    color: var(--accent-tertiary);
+    background: color-mix(in srgb, var(--accent-tertiary) 18%, transparent);
+}
+.rc-goal-label {
+    flex: 1;
+    min-width: 0;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+}
+.rc-goal-miss .rc-goal-label { color: var(--text-tertiary); }
+.rc-goal-value {
+    flex-shrink: 0;
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-variant-numeric: tabular-nums;
+}
+.rc-empty-goals {
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    margin: 0;
+}
+
+/* Grade accent tones — drive the left rule + the grade letter in the title. */
+.grade-a  { --rc-accent: #5ba672; }
+.grade-b  { --rc-accent: #4f9bd0; }
+.grade-c  { --rc-accent: #d6a93c; }
+.grade-d  { --rc-accent: #d57f3c; }
+.grade-f  { --rc-accent: var(--accent-tertiary); }
+.grade-na { --rc-accent: var(--text-tertiary); }
+
+/* ─── Empty state ─────────────────────────────────────────────────────────── */
+.rc-empty {
+    grid-column: 1 / -1;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 60px 0;
+    text-align: center;
+}
+.rc-empty p { margin: 0; color: var(--text-secondary); font-family: var(--font-menu); font-size: var(--size-body); }
+.rc-empty-hint { margin-top: 8px !important; color: var(--text-tertiary) !important; font-size: var(--size-small) !important; }
+
+/* ─── Info tooltip ("i" badge) — shared with the other Reports pages ──────── */
+.fc-info {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    margin-left: 6px;
+    border-radius: 50%;
+    border: 1px solid var(--text-tertiary);
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: 9px;
+    font-weight: var(--weight-semibold);
+    font-style: normal;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: 0;
+    cursor: help;
+    position: relative;
+    vertical-align: middle;
+    transition: color 0.15s, border-color 0.15s;
+}
+.fc-info:hover, .fc-info:focus-visible { color: var(--text-primary); border-color: var(--text-primary); outline: none; }
+.fc-info::after {
+    content: attr(data-tip);
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    z-index: 40;
+    width: max-content;
+    max-width: 280px;
+    padding: 10px 12px;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-regular);
+    line-height: 1.5;
+    letter-spacing: normal;
+    text-transform: none;
+    text-align: left;
+    white-space: normal;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-3px);
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+}
+.fc-info:hover::after, .fc-info:focus-visible::after { opacity: 1; visibility: visible; transform: translateY(0); }
+
+@media (prefers-reduced-motion: reduce) {
+    .fc-info::after { transition: opacity 0.15s ease, visibility 0.15s; transform: none; }
+}

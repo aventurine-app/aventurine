@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Finance Tools | Home</title>
+    <!-- @include head -->
+    <link rel="stylesheet" href="/static/css/home.css">
+</head>
+<body>
+    <!-- @include chrome -->
+
+    <div class="body_container">
+        <!-- @include sidebar -->
+
+        <div class="page">
+             
+<div class="home-page">
+    <div class="home-grid">
+
+        <div class="home-col home-col-main">
+            <div class="home-card networth-card">
+                <div class="home-card-header">
+                    <span class="home-card-title">Net Worth</span>
+                    <div class="range-selector" id="networth-range">
+                        <button class="range-selector-btn" id="networth-range-btn" type="button">This Year</button>
+                        <div class="range-selector-menu" id="networth-range-menu" hidden>
+                            <button data-range="year"   type="button">This Year</button>
+                            <button data-range="12mo"   type="button">Last 12 Months</button>
+                            <button data-range="24mo"   type="button">Last 24 Months</button>
+                            <button data-range="5yr"    type="button">Last 5 Years</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="networth-summary">
+                    <div class="networth-value" id="networth-value">—</div>
+                    <div class="networth-change" id="networth-change">—</div>
+                </div>
+                <div class="chart-area networth-chart-area">
+                    <div id="networth-chart"></div>
+                </div>
+            </div>
+
+            <div class="home-card">
+                <div class="home-card-header">
+                    <span class="home-card-title">Income & Expenses</span>
+                    <div class="range-selector" id="ie-range">
+                        <button class="range-selector-btn" id="ie-range-btn" type="button">This Year</button>
+                        <div class="range-selector-menu" id="ie-range-menu" hidden>
+                            <button data-range="year"   type="button">This Year</button>
+                            <button data-range="12mo"   type="button">Last 12 Months</button>
+                            <button data-range="24mo"   type="button">Last 24 Months</button>
+                            <button data-range="5yr"    type="button">Last 5 Years</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="ie-selector" class="account-selector"></div>
+                <div class="chart-area">
+                    <div id="ie-chart"></div>
+                </div>
+            </div>
+
+            <div class="home-card">
+                <div class="home-card-header">
+                    <span class="home-card-title">Account Balances</span>
+                    <div class="range-selector" id="account-range">
+                        <button class="range-selector-btn" id="account-range-btn" type="button">This Year</button>
+                        <div class="range-selector-menu" id="account-range-menu" hidden>
+                            <button data-range="year"   type="button">This Year</button>
+                            <button data-range="12mo"   type="button">Last 12 Months</button>
+                            <button data-range="24mo"   type="button">Last 24 Months</button>
+                            <button data-range="5yr"    type="button">Last 5 Years</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="account-selector" class="account-selector"></div>
+                <div class="chart-area">
+                    <div id="account-chart"></div>      
+                </div>
+            </div>
+        </div>
+
+        <div class="home-col home-col-aside">
+            <div class="home-card accounts-card">
+                <div class="home-card-header">
+                    <span class="home-card-title">Capital Profile</span>
+                </div>
+                <div class="accounts-body">
+                    <div id="accounts-pie" class="accounts-pie"></div>
+                    <div id="accounts-legend" class="accounts-legend"></div>
+                </div>
+            </div>
+
+            <div class="home-card">
+                <div class="home-card-header">
+                    <span class="home-card-title">Upcoming Expenses</span>
+                </div>
+                <!-- Populated by renderUpcomingExpenses() in home.js from
+                     /api/predictions/upcoming (recurring-spend detection). -->
+                <div id="upcoming-list" class="upcoming-list"></div>
+            </div>
+        </div>
+
+    </div>
+</div>
+        </div>
+    </div>
+
+    <!-- @include scripts -->
+    <script src="/static/js/home.js"></script>
+</body>
+</html>

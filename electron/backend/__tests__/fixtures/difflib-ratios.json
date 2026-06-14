@@ -1,0 +1,282 @@
+[
+{
+"a": "",
+"b": "",
+"ratio": 1.0
+},
+{
+"a": "a",
+"b": "",
+"ratio": 0.0
+},
+{
+"a": "",
+"b": "b",
+"ratio": 0.0
+},
+{
+"a": "abc",
+"b": "abc",
+"ratio": 1.0
+},
+{
+"a": "NETFLIX #1234",
+"b": "NETFLIX #1235",
+"ratio": 0.9230769230769231
+},
+{
+"a": "AMAZON MKTPLACE",
+"b": "AMAZON MARKETPLACE",
+"ratio": 0.9090909090909091
+},
+{
+"a": "Spotify USA",
+"b": "spotify usa",
+"ratio": 0.6363636363636364
+},
+{
+"a": "UBER   EATS",
+"b": "uber eats",
+"ratio": 0.1
+},
+{
+"a": "WAL-MART #221 PURCHASE",
+"b": "WALMART 221",
+"ratio": 0.6666666666666666
+},
+{
+"a": "café münchen",
+"b": "cafe munchen",
+"ratio": 0.8333333333333334
+},
+{
+"a": "Comcast Xfinity Bill Pay 0001",
+"b": "Comcast Xfinity Bill Pay 0002",
+"ratio": 0.9655172413793104
+},
+{
+"a": "aaaaaaaa",
+"b": "aaaa",
+"ratio": 0.6666666666666666
+},
+{
+"a": "the quick brown fox",
+"b": "the quick brown dog",
+"ratio": 0.8947368421052632
+},
+{
+"a": "transaction descriptor alpha transaction descriptor alpha transaction descriptor alpha transaction descriptor alpha transaction descriptor alpha transaction descriptor alpha transaction descriptor alpha transaction descriptor alpha transact",
+"b": "transaction descriptor beta transaction descriptor beta transaction descriptor beta transaction descriptor beta transaction descriptor beta transaction descriptor beta transaction descriptor beta transaction descriptor beta transaction desc",
+"ratio": 0.09583333333333334
+},
+{
+"a": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"b": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"ratio": 1.0
+},
+{
+"a": "abababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab",
+"b": "babababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababa",
+"ratio": 0.0
+},
+{
+"a": "hbab31ja 0bb1fdaa1af jhjhcbc0b",
+"b": "2aih3db i3hbj bijae2ib e",
+"ratio": 0.2222222222222222
+},
+{
+"a": "fed 3dh3i aibaf",
+"b": "c0h gcabjhcbidca3f1bic ehag",
+"ratio": 0.19047619047619047
+},
+{
+"a": "1acece2c",
+"b": "12hajg1fhfj2hha13h22j",
+"ratio": 0.20689655172413793
+},
+{
+"a": "h01i2heeb1cgg1bib22hg22 e df",
+"b": "b001c",
+"ratio": 0.18181818181818182
+},
+{
+"a": "ec220f11h0bbgda3e1",
+"b": "adi2b130fehbje2b0gdbgd033hid2",
+"ratio": 0.3829787234042553
+},
+{
+"a": "32di30gcjdea2fich31ihfcca",
+"b": "jc3c2ib0fca",
+"ratio": 0.3888888888888889
+},
+{
+"a": "a b11c3dagg0fd2 g323e",
+"b": "i 3egf j2c2ib1eegg2je",
+"ratio": 0.3333333333333333
+},
+{
+"a": "0gede02jgaf32hd1",
+"b": "hcg",
+"ratio": 0.10526315789473684
+},
+{
+"a": "bhgeg2 2h",
+"b": "",
+"ratio": 0.0
+},
+{
+"a": " hcej",
+"b": "f jfdci3jh1 ",
+"ratio": 0.23529411764705882
+},
+{
+"a": "a110h 1baf1hb3c",
+"b": "333jff11ee  jfjejdi20",
+"ratio": 0.16666666666666666
+},
+{
+"a": "i0jdfif3",
+"b": "fh",
+"ratio": 0.2
+},
+{
+"a": "1ijjib2d",
+"b": "ef",
+"ratio": 0.0
+},
+{
+"a": "aga ",
+"b": "ad cfifg3i3b21ee0h3jdfib 31",
+"ratio": 0.1935483870967742
+},
+{
+"a": "",
+"b": "jf2jdchh  c3ijjbci2d0",
+"ratio": 0.0
+},
+{
+"a": "i1i01",
+"b": "g22fc0ijijj2hafb3f12 g3ajjbfd",
+"ratio": 0.11764705882352941
+},
+{
+"a": "dfi01gjhaah1b2eg3fc",
+"b": "h 1 d01a20fjfgcb ad1d2jji",
+"ratio": 0.22727272727272727
+},
+{
+"a": "ic 3e 0a3jhfj0fegg1fdea",
+"b": "3fje",
+"ratio": 0.2962962962962963
+},
+{
+"a": "ja2",
+"b": "dijjficfef23e00 c",
+"ratio": 0.2
+},
+{
+"a": "c3ai0gddhe220c",
+"b": "f0j22gih1jjh2hih0010fjb0 i2g2",
+"ratio": 0.18604651162790697
+},
+{
+"a": "b1hhbiic11ed0bfge0",
+"b": "ifgi",
+"ratio": 0.2727272727272727
+},
+{
+"a": "jh 3 3hfh3ibi1hbbdcj3fcge03",
+"b": "deac f",
+"ratio": 0.12121212121212122
+},
+{
+"a": "aa1 egffej3g0j3 cgg",
+"b": "aej",
+"ratio": 0.2727272727272727
+},
+{
+"a": "e320f32jdc232djhjhg",
+"b": "i2fie13gge jhfd2ecc3gcadji3f ",
+"ratio": 0.2916666666666667
+},
+{
+"a": "g3haig1b030bb2d2 ",
+"b": "g03hg1",
+"ratio": 0.43478260869565216
+},
+{
+"a": "d0e2if2iih1  be11a12icccg",
+"b": "gcic3ebhi1fjce231g20he2fcb1hdh",
+"ratio": 0.14545454545454545
+},
+{
+"a": "be2c2 2",
+"b": "iecgddiic3df0 jg aif3d d",
+"ratio": 0.1935483870967742
+},
+{
+"a": "aa3f2hd 1agghgf3 jid1j1j10",
+"b": "jhehjaae0jb3hj21d",
+"ratio": 0.23255813953488372
+},
+{
+"a": "daggbgc2cjb3",
+"b": "10f1c01d1biga",
+"ratio": 0.16
+},
+{
+"a": " iaf",
+"b": "ia1e0ia3",
+"ratio": 0.3333333333333333
+},
+{
+"a": "h",
+"b": "a01e3cd2jhja3",
+"ratio": 0.14285714285714285
+},
+{
+"a": "hhcecg 0e",
+"b": "i3a3e2 ",
+"ratio": 0.25
+},
+{
+"a": " jd3c0a e ",
+"b": "0jh3agcg fje2b3b2j0gj3fi0ja 1g",
+"ratio": 0.3
+},
+{
+"a": "icgbi3if jiid ibgbf0ic 2b  f02",
+"b": "jhe221bb3jh1j3",
+"ratio": 0.13636363636363635
+},
+{
+"a": "",
+"b": "ajjdb1 h0ic",
+"ratio": 0.0
+},
+{
+"a": "aei2 1j2gejja j f2if0dbi1d3b1",
+"b": "eabba2eijfj  2gj1a",
+"ratio": 0.3404255319148936
+},
+{
+"a": "bdbf ffgf0ba",
+"b": "cchf00cbaejcaj",
+"ratio": 0.3076923076923077
+},
+{
+"a": "jhjbi11g f",
+"b": "2ag3fdicj2jd0gc g",
+"ratio": 0.2962962962962963
+},
+{
+"a": " cgi h0jgejeecfc0 21ej",
+"b": "edeccj j0haegf2",
+"ratio": 0.2702702702702703
+},
+{
+"a": "f",
+"b": " 1101aiadjedh2 g 3  1ef3i3gge",
+"ratio": 0.06666666666666667
+}
+]

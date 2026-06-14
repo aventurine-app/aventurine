@@ -1,0 +1,973 @@
+/* == Spreadsheet page shared styles ==
+   Design tokens used throughout this file (all defined in style.css):
+     Typography:
+       --font-h2 / h3 / menu / numeric   — role-specific font families
+       --size-body / small / micro       — body 15px · small 13px · micro 11px
+       --weight-medium / semibold / bold — font weights
+       --track-wide / wider / widest     — letter-spacing for caps & buttons
+       --lh-relaxed                      — body line-height
+     Spacing + chrome:
+       --col-first-pad  — left edge of the first column (forehead, header,
+                          body cell, footer)
+       --cell-pad-y     — vertical padding inside editable cell inputs
+       --border         — divider color (use as `1px solid var(--border)`)
+*/
+
+/* == Database page layout ==
+   Applies to the .page wrapper on every Trackers page (Income & Expenses,
+   Savings & Investing, Portfolio, Balance Sheet). Originally scoped to
+   `.page:has(.db-wrapper)` so it only kicked in once a table existed —
+   but .db-wrapper is built by JS at render time, so when a page had no
+   tables yet the rule didn't apply and the page fell back to the base
+   `.page { align-items: center; ... }` rule. That centered the header
+   vertically and dropped its 40px horizontal padding, so the title
+   floated to the middle of the page and the action buttons jumped to
+   the viewport edges.
+
+   Scoping to `:has(.db-page)` instead anchors to the always-present
+   template element, so the layout is identical whether or not any tables
+   have been rendered yet. */
+.page:has(.db-page) {
+    align-items: flex-start;
+    padding: 40px 40px 60px;
+    box-sizing: border-box;
+    overflow-x: auto;
+}
+
+/* == Page layout == */
+.db-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+}
+
+.db-tables-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+}
+
+/* == Page header == */
+.db-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* == Primary / secondary action buttons (shared app-wide) ==
+   The two canonical button treatments. Every action button is one or the
+   other — only the fill differs, the geometry/typography is shared:
+     • .button-primary   — solid accent fill, dark text. The default call to
+                           action (Add Year, Add Account, Add, Export, Import…).
+     • .button-secondary — surface fill + outline, lower emphasis. The
+                           companion (Manage Columns, add/remove asset…).
+   Uses --accent-primary, --accent400, --surface1/2, --border. */
+.db-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.button-primary,
+.button-secondary {
+    background: var(--accent-primary);
+    border: 1px solid transparent;
+    border-radius: 5px;
+    color: var(--color-color-950);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.button-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface1);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+}
+
+.button-primary:hover {
+    background: var(--accent400);
+}
+
+.button-secondary:hover {
+    background: var(--surface2);
+    color: var(--text-primary);
+    border-color: var(--text-tertiary);
+}
+
+/* == Outer layout & side buttons == */
+.db-outer {
+    display: flex;
+    align-items: flex-start;
+    gap: 5px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+/* == Title "forehead" row — year / account name + options menu == */
+/* Left padding uses --col-first-pad so the title aligns with the first data column below */
+.db-title-row {
+    cursor: pointer;
+    user-select: none;
+}
+
+.db-title-row:hover th {
+    background-color: var(--frost-2);
+}
+
+.db-title-row th {
+    padding: 0;
+    border-left: none;
+    border-bottom: 1px solid var(--border);
+}
+
+.db-title-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    /* left uses --col-first-pad; right stays 12px to hug the ⋮ button */
+    padding: 8px 12px 8px var(--col-first-pad);
+}
+
+.db-title-label {
+    font-family: var(--font-h2);
+    font-size: var(--size-h3);
+    font-weight: var(--weight-bold);
+    color: var(--text-primary);
+    letter-spacing: var(--track-wide);
+}
+
+/* == Forehead button group (right-aligned action buttons inside the title row) ==
+   Used by every table forehead:
+     - Year tables (tables.js): wraps just the ⋮ menu button.
+     - Portfolio (portfolio.js): wraps [+ Add Asset] / [− Remove Asset] / [⋮].
+   position: sticky pins the group to the right edge of the visible scroll
+   viewport so the buttons stay accessible even when the table is wider than
+   its .db-wrapper and the user has scrolled horizontally. The right offset
+   (12px) matches the .db-title-inner right padding, so when there's no
+   scroll the buttons land at exactly their natural flex position — there's
+   no visible shift between the no-scroll and stuck states.
+   z-index: 1 keeps the buttons above column-cell content that would
+   otherwise paint over them during a scroll. Sticky also creates a
+   positioning context, which lets the .p-table-dropdown (position:absolute,
+   right:0, top:100%) anchor correctly to the visible button position when
+   the menu opens. */
+.p-forehead-btns {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    position: sticky;
+    right: 12px;
+    z-index: 1;
+}
+
+.db-table.collapsed tbody,
+.db-table.collapsed tfoot,
+.db-table.collapsed .db-header-row {
+    display: none;
+}
+
+.db-table.collapsed .db-title-row th {
+    border-bottom: none;
+}
+
+/* == Table wrapper == */
+/* Uses --surface1, --border */
+.db-wrapper {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background-color: var(--surface1);
+    box-shadow: 0px 5px 5px rgba(0, 0, 0, 0.2);
+    overflow-x: auto;
+}
+
+.db-wrapper::-webkit-scrollbar {
+    height: 10px;
+}
+
+.db-wrapper::-webkit-scrollbar-track {
+    background: var(--surface1);
+    border-radius: 5px;
+}
+
+.db-wrapper::-webkit-scrollbar-thumb {
+    background: var(--surface4);
+    /* Pill thumb floating inside the channel — see div.page in style.css
+       for the same treatment on the main page scrollbar. */
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+.db-wrapper::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+    background-clip: padding-box;
+}
+
+/* == Table structure == */
+.db-table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 680px;
+}
+
+.db-table thead tr {
+    border-bottom: 1px solid var(--border);
+}
+
+.db-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background-color 0.15s ease;
+}
+
+.db-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.db-table tbody tr:hover {
+    background-color: var(--frost-2);
+}
+
+/* == Cells — base padding reset == */
+/* padding-left: --col-first-pad is the default; specific rules below override
+   right-side cells (headers, inputs, month labels) with their own values. */
+.db-table th,
+.db-table td {
+    padding: 0;
+    padding-left: var(--col-first-pad);
+    text-align: right;
+    border-left: 1px solid var(--border);
+}
+
+.db-table th:first-child,
+.db-table td:first-child {
+    border-left: none;
+    text-align: left;
+}
+
+/* == Fixed data column width == */
+.db-table th:not(:first-child),
+.db-table .data-cell {
+    width: 150px;
+    min-width: 150px;
+}
+
+/* == Header labels == */
+/* Canonical "table header eyebrow" — shared by every spreadsheet page and the
+   Transactions table (.tx-header-row, transactions.css, which loads alongside
+   this file on that page). The Transactions header adds only text-align +
+   a bottom border on top of this. */
+.db-table th,
+.tx-header-row th {
+    color: var(--text-primary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+    padding: 9px 16px 9px var(--col-first-pad);
+    white-space: nowrap;
+}
+
+/* == Month/Year first-column header cell == */
+/* Left padding uses --col-first-pad to align with month labels in tbody */
+.col-month {
+    padding-left: var(--col-first-pad);
+    padding-right: 4px;
+    width: 110px;
+    min-width: 110px;
+    max-width: 110px;
+}
+
+/* == Month label (first body-column cell) == */
+/* Left padding uses --col-first-pad to align with the header above */
+.month-label {
+    color: var(--text-primary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wide);
+    padding: 0 16px 0 var(--col-first-pad);
+    white-space: nowrap;
+    width: 110px;
+    min-width: 110px;
+    max-width: 110px;
+}
+
+/* == Totals row == */
+.total-row {
+    border-top: 1px solid var(--border);
+    background-color: var(--frost-2);
+}
+
+/* The "Total" span in the tfoot. Block layout so the right-aligned padding
+   works correctly inside the parent td. Padding uses the same --cell-pad-y /
+   --col-first-pad tokens as the cell inputs above so the right edge of the
+   total value lines up pixel-exact under the right edge of every input
+   value in its column. */
+.total-value {
+    display: block;
+    box-sizing: border-box;
+    font-family: var(--font-numeric);
+    font-size: var(--size-body);
+    color: var(--text-primary);
+    text-align: right;
+    padding: var(--cell-pad-y) var(--col-first-pad);
+    font-variant-numeric: tabular-nums;
+}
+
+/* == Data cells (one editable input per body cell) ==
+   The currency symbol is no longer a separate span sibling next to the
+   input — it's part of the input's value (see currency.js / formatCurrency).
+   This removed the need for the .currency-wrap flex container that used to
+   sit inside every data-cell.
+
+   Scoped under .db-table so this rule's specificity (0,2,0) outranks the
+   base `.db-table td { padding-left: var(--col-first-pad) }` rule (0,1,1).
+   Without that scoping the td kept a 16px left pad, the input only filled
+   the remaining content area, and the focus highlight visibly started 16px
+   short of the cell's left border. */
+.db-table .data-cell {
+    padding: 0;
+}
+
+/* == Editable cell inputs ==
+   Single base rule shared by every cell input in the app:
+     .db-input — year-table cells (Income & Expenses, Balance Sheet, Savings)
+     .p-input  — portfolio cells (asset name, ticker, amount, prices)
+   Keeping them in one selector group guarantees the focus-highlight box, the
+   row padding, and the input's interior spacing are pixel-identical across
+   pages — without this, the Portfolio inputs (no box-sizing) used to overflow
+   their td by the padding amount and the highlight visibly extended past the
+   cell border.
+
+   box-sizing: border-box + width: 100% keeps the input's box exactly the same
+   size as its parent cell. Padding uses --col-first-pad (horizontal) and
+   --cell-pad-y (vertical), both defined in style.css, so any global tweak to
+   row height or cell rhythm flows through here.
+*/
+.db-input,
+.p-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-body);
+    padding: var(--cell-pad-y) var(--col-first-pad);
+    caret-color: var(--frost-caret);
+}
+
+.db-input::placeholder,
+.p-input::placeholder {
+    color: var(--frost-dim);
+}
+
+.db-input:focus,
+.p-input:focus {
+    background-color: var(--frost-2);
+}
+
+/* ── Synced cell ───────────────────────────────────────────────────────────
+   A (year, category) cell computed from transactions (set per table via
+   ⋮ → Sync Settings) renders as a read-only value with a translucent
+   --accent400 wash so synced cells read as a distinct, non-editable range.
+   Sync is per-table now, so headers carry no sync affordance. */
+.db-table td.db-col-synced {
+    background: color-mix(in srgb, var(--accent400) 5%, transparent);
+}
+
+.db-synced-value {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    text-align: right;
+    color: var(--text-secondary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-body);
+    font-style: italic;       /* "computed" affordance — sets it apart from input cells */
+    padding: var(--cell-pad-y) var(--col-first-pad);
+    cursor: not-allowed;
+    user-select: none;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Year-table inputs are always currency cells → always right-aligned. */
+.db-input {
+    text-align: right;
+}
+
+/* == ⋮ table options menu button (shared across all spreadsheet pages) ==
+   Skinned like the Transactions Import/Export buttons (transactions.css):
+   same surface, border, radius, colours and hover. Same height too — their
+   15px text line + 10px vertical padding + 1px borders render at 37px, so
+   the glyph's line box is pinned to 15px and min-width keeps the button at
+   least square (a lone ⋮ is far narrower than a text label). */
+.p-menu-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 37px;
+    padding: 10px 0;
+    border-radius: 5px;
+    background: var(--surface1);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-h3);
+    line-height: 15px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.p-menu-btn:hover {
+    background: var(--surface2);
+    color: var(--text-primary);
+    border-color: var(--text-tertiary);
+}
+
+/* == ⋮ dropdown == */
+.p-table-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    z-index: 500;
+    min-width: 160px;
+    overflow: hidden;
+    padding: 4px 0;
+}
+
+.p-dropdown-item {
+    display: block;
+    width: 100%;
+    background: none;
+    border: none;
+    text-align: left;
+    padding: 9px 16px;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-medium);
+    cursor: pointer;
+    transition: background 0.1s ease, color 0.1s ease;
+    white-space: nowrap;
+}
+
+.p-dropdown-item:hover {
+    background: var(--frost-2);
+    color: var(--text-primary);
+}
+
+.p-dropdown-item-danger { color: rgba(255, 90, 90, 0.8); }
+.p-dropdown-item-danger:hover { background: rgba(255, 60, 60, 0.1); color: rgba(255, 90, 90, 1); }
+
+/* == Confirmation dialog == */
+/* Positioning + centering come from the shared overlay rule in style.css §8;
+   only the scrim opacity and stacking order are confirm-specific. */
+.confirm-overlay {
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 1000;
+}
+
+.confirm-dialog {
+    position: relative;
+    background: var(--dialog-surface);
+    border: 1px solid var(--dialog-stroke);
+    border-radius: 8px;
+    padding: 24px 28px;
+    max-width: 340px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+.confirm-dialog p {
+    color: var(--text-secondary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    line-height: var(--lh-relaxed);
+    margin: 0 0 16px;
+}
+
+.confirm-dialog strong {
+    color: var(--text-primary);
+}
+
+/* == Dialog close button (×) ==
+   Icon glyph — sized to --size-h2 so it reads at a similar weight to the
+   modal title next to it. (The column manager's × lives with the column
+   manager styles below; it mirrors .db-modal-close.) */
+.dialog-close-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: var(--size-h2);
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 5px;
+    border-radius: 4px;
+    transition: color 0.15s ease, background 0.15s ease;
+    position: absolute;
+    top: 10px;
+    right: 12px;
+}
+
+.dialog-close-btn:hover {
+    color: var(--text-primary);
+    background: var(--frost-3);
+}
+
+/* == Year prompt input == */
+.year-prompt-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--frost-2);
+    border: 1px solid var(--frost-dim);
+    border-radius: 4px;
+    outline: none;
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-body);
+    padding: 8px 10px;
+    margin-bottom: 16px;
+    caret-color: var(--frost-caret);
+    transition: border-color 0.15s ease;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.year-prompt-input:focus {
+    border-color: var(--frost-focus);
+}
+
+.year-prompt-input.invalid {
+    border-color: rgba(200, 60, 60, 0.7);
+}
+
+.year-prompt-input::-webkit-outer-spin-button,
+.year-prompt-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* == Dialog action buttons == */
+.confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.confirm-cancel,
+.confirm-add,
+.confirm-delete {
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.confirm-cancel,
+.confirm-add {
+    background: var(--frost-2);
+    border: 1px solid var(--frost-dim);
+    color: var(--frost-text);
+}
+
+.confirm-cancel:hover,
+.confirm-add:hover {
+    background: var(--frost-dim);
+    color: var(--text-primary);
+}
+
+.confirm-delete {
+    background: rgba(180, 40, 40, 0.3);
+    border: 1px solid rgba(200, 60, 60, 0.45);
+    color: rgba(255, 140, 140, 1);
+}
+
+.confirm-delete:hover {
+    background: rgba(180, 40, 40, 0.55);
+    color: var(--text-primary);
+}
+
+/* == Column manager modal ==
+   Frame / header / title / close button + the scrollable-body scrollbar are
+   shared via style.css §8 (Shared modal primitives). The overlay reuses
+   .confirm-overlay (see tables.js) and only adds the backdrop blur; the rules
+   below are the remaining column-manager-specific deltas. */
+.col-manager-overlay {
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.col-manager { width: 420px; }
+
+/* Header + footer must not shrink when the body scrolls. */
+.col-manager-header { flex-shrink: 0; }
+
+.col-manager-body {
+    padding: 22px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.col-manager-footer {
+    padding: 16px 22px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.col-type-label {
+    color: var(--label-muted);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+.col-manager-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.col-empty {
+    color: var(--text-tertiary);
+    font-size: var(--size-small);
+    font-style: italic;
+    padding: 4px 0;
+}
+
+/* ── Sync Settings modal (Cash Flow ⋮ → Sync Settings) ──────────────────────
+   Reuses the column-manager frame (.col-manager) + overlay blur. Adds a
+   Sync-all / Unsync-all toolbar and a per-category row with an iOS-style
+   switch (ported from the old Settings category sync switch). */
+.sync-manager-toolbar {
+    display: flex;
+    gap: 8px;
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.sync-bulk-btn {
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.sync-bulk-btn:hover {
+    background: var(--surface3);
+    color: var(--text-primary);
+}
+
+.sync-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sync-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 6px;
+    border-radius: 6px;
+}
+
+.sync-row:hover { background: var(--surface2); }
+
+.sync-row-label {
+    color: var(--text-primary);
+    font-size: var(--size-body);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sync-switch {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.sync-switch input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.sync-switch-track {
+    position: relative;
+    display: inline-block;
+    width: 30px;
+    height: 16px;
+    border-radius: 9px;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.sync-switch-knob {
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--text-tertiary);
+    transition: left 0.15s ease, background 0.15s ease;
+}
+
+.sync-switch input:checked + .sync-switch-track {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+.sync-switch input:checked + .sync-switch-track .sync-switch-knob {
+    left: 16px;
+    background: var(--text-primary);
+}
+
+.col-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    transition: background-color 120ms ease;
+}
+
+.col-row:hover {
+    background: var(--surface3);
+}
+
+.col-row-label {
+    flex: 1;
+    color: var(--text-secondary);
+    font-size: var(--size-small);
+    cursor: text;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color 120ms ease;
+}
+
+.col-row-label:hover {
+    color: var(--text-primary);
+}
+
+.col-row-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    outline: none;
+    color: var(--text-primary);
+    font-size: var(--size-small);
+    padding: 3px 6px;
+    min-width: 0;
+}
+
+.col-row-input:focus {
+    border-color: var(--accent-primary);
+}
+
+.col-row-arrows {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex-shrink: 0;
+}
+
+.col-arrow-btn {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 120ms ease;
+}
+
+.col-arrow-btn:hover {
+    color: var(--text-primary);
+}
+
+.col-arrow-disabled {
+    color: var(--surface4) !important;
+    cursor: default;
+}
+
+.col-row-type {
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+    padding: 3px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+    white-space: nowrap;
+    transition: background-color 120ms ease, color 120ms ease;
+}
+
+.col-row-type:hover {
+    background: var(--surface3);
+    color: var(--text-primary);
+}
+
+.col-row-delete {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    font-size: var(--size-h3);
+    cursor: pointer;
+    padding: 2px 5px;
+    line-height: 1;
+    flex-shrink: 0;
+    border-radius: 4px;
+    transition: color 120ms ease, background-color 120ms ease;
+}
+
+.col-row-delete:hover {
+    color: rgba(255, 100, 100, 0.9);
+    background: var(--surface3);
+}
+
+.col-manager-add {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* The type-toggle row must not shrink when sharing a row with the name input
+   (I&E "inline-toggle" layout). Without flex-shrink: 0 the two toggle buttons
+   collapse under the input's text on narrow viewports. */
+.col-type-toggle {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+/* Stacked "Add column" layout — used by Balance Sheet, where four type-toggle
+   buttons can't fit inline beside the name input. The input + Add button
+   stack ABOVE the row of toggle buttons. */
+.col-manager-add-stacked {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.col-manager-add-stacked .type-toggle-btn {
+    flex: 1;
+}
+
+.type-toggle-btn {
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+    padding: 5px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-tertiary);
+    transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+    white-space: nowrap;
+}
+
+.type-toggle-btn.active {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--accent-contrast, #fff);
+}
+
+.type-toggle-btn:not(.active):hover {
+    background: var(--surface3);
+    color: var(--text-primary);
+}
+
+.col-name-input {
+    flex: 1;
+    min-width: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    outline: none;
+    color: var(--text-primary);
+    font-size: var(--size-small);
+    padding: 8px 10px;
+    transition: border-color 120ms ease;
+}
+
+.col-name-input:focus {
+    border-color: var(--accent-primary);
+}
+
+.col-name-input.invalid {
+    border-color: rgba(200, 60, 60, 0.7);
+}
+
+.col-add-btn {
+    background: var(--accent-primary);
+    border: 1px solid var(--accent-primary);
+    border-radius: 6px;
+    padding: 7px 14px;
+    color: var(--accent-contrast, #fff);
+    font-size: var(--size-small);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: filter 120ms ease;
+    white-space: nowrap;
+}
+
+.col-add-btn:hover {
+    filter: brightness(1.1);
+}

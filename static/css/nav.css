@@ -1,0 +1,77 @@
+/* == Menu Styles == */
+/* Uses --surface1, --border */
+div.menu {
+    background-color: var(--surface1);
+    box-shadow: 0 25px 25px rgba(0, 0, 0, 0.2);
+    border-right: 1px solid var(--border);
+    margin: 0px;
+    padding: 10px;                  /* The space between the left and right edges of the menu and the items */
+    padding-top: 20px;
+    left: 0px;
+    min-width: 240px;
+    max-width: 180px;
+    max-height: 100vh;
+}
+
+ul {
+    padding: 0px;
+    color: white;
+    list-style-type: none;
+}
+
+li {
+    margin-bottom: 10px;            /* Spacing between each menu item */
+}
+
+/* Section heading inside the sidebar ("Savings & Investing", "Account").
+   Uses --label-muted from style.css — shared with the home page stat labels
+   so all muted secondary headings across the app stay in lockstep. */
+.nav-section-title {
+    font-size: var(--size-small);
+    font-weight: var(--weight-bold);
+    font-family: var(--font-menu);
+    text-transform: uppercase;
+    letter-spacing: var(--track-widest);
+    color: var(--label-muted);
+    padding: 0 10px;
+    margin-top: 30px;
+    margin-bottom: 4px;
+}
+
+/* Color comes from --nav-text (style.css). Each SVG icon in navbar.html uses
+   currentColor for its stroke/fill, so it inherits this same color
+   automatically — one variable controls both the label and the icon. */
+.nav li a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: var(--size-body);
+    font-family: var(--font-menu);
+    font-weight: var(--weight-medium);
+    text-decoration: none;
+    color: var(--nav-text);
+    padding: 6px 10px;
+    border-radius: 7px;
+    transition: background 0.15s ease, color 0.15s ease;
+    width: 100%;
+    box-sizing: border-box;
+    cursor: pointer;
+}
+
+.nav li a svg {
+    width: 1em;
+    height: 1em;
+    flex-shrink: 0;
+}
+
+/* Hover + active states share --nav-text-hover so a hovered link visually
+   matches the currently-open page indicator. */
+.nav li a:hover {
+    background: var(--frost-3);
+    color: var(--nav-text-hover);
+}
+
+.nav li a.active {
+    background: var(--frost-3);
+    color: var(--accent-primary);
+}
