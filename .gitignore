@@ -17,7 +17,7 @@ CLAUDE.md
 
 # Environment
 .env
-MIGRATIONS.md
+MIGRATION.md
 
 # Editor / OS scratch
 .DS_Store
