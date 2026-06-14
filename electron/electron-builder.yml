@@ -50,6 +50,7 @@ buildDependenciesFromSource: false
 linux:
   target:
     - rpm
+    - deb
   icon: build/icon.png
   category: Office;Finance
   synopsis: Desktop personal-finance app

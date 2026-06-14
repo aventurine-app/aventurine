@@ -12,7 +12,7 @@
     "test": "node --test",
     "smoke": "electron scripts/smoke.js",
     "pack": "electron-builder --dir",
-    "dist:linux": "electron-builder --linux rpm",
+    "dist:linux": "electron-builder --linux",
     "dist:win": "node scripts/setup-win-abi.js && electron-builder --win nsis",
     "postinstall": "node scripts/setup-native-abis.js"
   },
