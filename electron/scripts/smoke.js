@@ -14,8 +14,8 @@ const path = require('path');
 app.whenReady().then(() => {
   let failed = false;
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fl-smoke-'));
-  process.env.FINANCE_LAB_DATA_DIR = tmp;
-  delete process.env.FINANCE_LAB_DB_PATH;
+  process.env.OLIV_DATA_DIR = tmp;
+  delete process.env.OLIV_DB_PATH;
 
   try {
     const { createConn } = require('../backend/conn');

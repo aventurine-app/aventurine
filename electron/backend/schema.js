@@ -1,6 +1,6 @@
 'use strict';
 
-// Authoritative baseline schema for a fresh Finance Lab database. This is the
+// Authoritative baseline schema for a fresh Oliv database. This is the
 // single source of truth for the shape a new DB is created with; future schema
 // changes add numbered migrations in migrate.js that climb from SCHEMA_VERSION.
 

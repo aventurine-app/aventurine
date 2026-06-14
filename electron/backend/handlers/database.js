@@ -121,7 +121,7 @@ function validateFinanceDb(openFn) {
   } catch {
     return 'Not a valid database file';
   }
-  if (!tables.has('active_years')) return 'Not a Finance Lab database (core tables missing)';
+  if (!tables.has('active_years')) return 'Not an Oliv database (core tables missing)';
   return null;
 }
 

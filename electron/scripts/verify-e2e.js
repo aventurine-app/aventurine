@@ -5,7 +5,7 @@
 // renderer that the page rendered, the preload bridge answers, and a write
 // round-trips through IPC to SQLite and back. Exits 0 on PASS.
 //
-//   FINANCE_LAB_E2E=1 electron . is NOT used — this drives main.js directly:
+//   OLIV_E2E=1 electron . is NOT used — this drives main.js directly:
 //   npm run verify  (alias: electron scripts/verify-e2e.js)
 
 const fs = require('fs');
@@ -42,8 +42,8 @@ app.whenReady().then(async () => {
     const win = await waitForWindow();
     const evalJs = (js) => win.webContents.executeJavaScript(js, true);
 
-    check('renderer URL is app origin', win.webContents.getURL() === 'app://finance-lab/');
-    check('page title', (await evalJs('document.title')).includes('Finance Tools'));
+    check('renderer URL is app origin', win.webContents.getURL() === 'app://oliv/');
+    check('page title', (await evalJs('document.title')).includes('Oliv'));
     check('navbar rendered', await evalJs('!!document.querySelector(".menu .nav a[href=\'/transactions\']")'));
     // The sidebar is a shared partial; nav.js derives .active from the URL.
     check('home link marked active', await evalJs('document.querySelector(".menu .nav a[href=\'/\']").classList.contains("active")'));
@@ -79,7 +79,7 @@ app.whenReady().then(async () => {
     ) {
       await new Promise((r) => setTimeout(r, 150));
     }
-    check('link click navigates', win.webContents.getURL() === 'app://finance-lab/transactions');
+    check('link click navigates', win.webContents.getURL() === 'app://oliv/transactions');
     check('transactions page loads', (await evalJs('document.title')).includes('Transactions'));
     check('active link follows navigation', await evalJs('document.querySelector(".menu .nav a[href=\'/transactions\']").classList.contains("active")'));
     check('tx table boots with data', await evalJs(
@@ -105,7 +105,7 @@ app.whenReady().then(async () => {
       // /settings has no sidebar link (Settings lives in the title bar), so
       // no nav entry is expected to light up there.
       const activeHref = route === '/settings' ? null : route;
-      await win.loadURL(`app://finance-lab${route}`);
+      await win.loadURL(`app://oliv${route}`);
       const ok = await evalJs(`document.title.includes(${JSON.stringify(name)})
         && !!document.querySelector(".titlebar")
         && !!document.querySelector(".menu .nav")
@@ -119,7 +119,7 @@ app.whenReady().then(async () => {
 
     // The title-bar File menu is now the only way to reach the DB modal —
     // prove the dropdown → window.dbActions → modal chain works.
-    await win.loadURL('app://finance-lab/');
+    await win.loadURL('app://oliv/');
     await evalJs('document.querySelector("[data-menu=\'file\']").click()');
     await evalJs('document.querySelector("[data-menu-panel=\'file\'] [data-action=\'new-db\']").click()');
     check('File menu opens New Database modal', await evalJs(

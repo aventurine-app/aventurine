@@ -1,4 +1,4 @@
-# Electron shell for finance-lab
+# Electron shell for oliv
 
 The desktop app. Electron with an **in-process Node backend** (`backend/`):
 the renderer talks to it over a single IPC channel — there is no HTTP server,
@@ -29,9 +29,9 @@ flatpak-spawn --host npx electron scripts/verify-e2e.js   # boots the app, asser
 
 What `npm start` does:
 
-1. Electron starts and `main.js` sets `FINANCE_LAB_DATA_DIR` to `<userData>/data`.
+1. Electron starts and `main.js` sets `OLIV_DATA_DIR` to `<userData>/data`.
 2. `backend/conn.js` `init()` opens/migrates/seeds the SQLite DB in-process.
-3. A window loads the `app://finance-lab` scheme; pages come from `pages/*.html`
+3. A window loads the `app://oliv` scheme; pages come from `pages/*.html`
    (partials spliced in at serve time), static assets from `static/`.
 4. The renderer calls `window.financeApi.request(...)` → `ipcMain.handle('api:request')`
    → `backend/router.js` `dispatch`.
@@ -47,12 +47,12 @@ OS-appropriate userData directory:
 
 | OS      | Path                                                  |
 | ------- | ----------------------------------------------------- |
-| Linux   | `~/.config/finance-lab-desktop/data/`                 |
-| macOS   | `~/Library/Application Support/finance-lab-desktop/data/` |
-| Windows | `%APPDATA%\finance-lab-desktop\data\`                 |
+| Linux   | `~/.config/oliv/data/`                 |
+| macOS   | `~/Library/Application Support/oliv/data/` |
+| Windows | `%APPDATA%\oliv\data\`                 |
 
 First launch creates this directory and seeds a fresh DB.
-`FINANCE_LAB_DB_PATH` overrides the DB path and suppresses pointer writes
+`OLIV_DB_PATH` overrides the DB path and suppresses pointer writes
 (the test suite uses it).
 
 ## What to validate

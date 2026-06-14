@@ -1,4 +1,4 @@
-// ─── Electron shell for finance-lab ─────────────────────────────────────────
+// ─── Electron shell for oliv ─────────────────────────────────────────
 //
 // The backend lives in THIS process (electron/backend/) and the renderer
 // reaches it over IPC ('api:request' → backend/routes.dispatch). There is no
@@ -8,7 +8,7 @@
 // reach a channel that only this renderer holds.
 //
 // Pages are pre-rendered static HTML in pages/ (see MIGRATION.md), served
-// from the custom app:// scheme. The fixed origin (app://finance-lab) keeps
+// from the custom app:// scheme. The fixed origin (app://oliv) keeps
 // localStorage (theme, currency symbol, zoom) stable across
 // launches — no more persisted-port dance.
 
@@ -17,7 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
 
-const APP_HOST = 'finance-lab';
+const APP_HOST = 'oliv';
 const APP_ORIGIN = `app://${APP_HOST}`;
 
 // Repo layout: electron/ sits next to pages/ and static/.
@@ -56,7 +56,7 @@ let conn = null;
 
 function startBackend() {
     // Same data-dir contract as the Flask era: <userData>/data.
-    process.env.FINANCE_LAB_DATA_DIR = path.join(app.getPath('userData'), 'data');
+    process.env.OLIV_DATA_DIR = path.join(app.getPath('userData'), 'data');
     const { createConn } = require('./backend/conn');
     const { dispatch } = require('./backend/routes');
     conn = createConn();
@@ -221,7 +221,7 @@ async function createWindow() {
     const win = new BrowserWindow({
         width:  1280,
         height: 800,
-        title:  'Finance Lab',
+        title:  'Oliv',
         // Frameless: the page draws its own title bar (base.html snapshot).
         frame:            false,
         backgroundColor:  '#212121',
@@ -280,7 +280,7 @@ app.whenReady().then(async () => {
         startBackend();
     } catch (err) {
         console.error('[electron] backend failed to start:', err);
-        dialog.showErrorBox('Finance Lab', `The database backend failed to start:\n${err.message}`);
+        dialog.showErrorBox('Oliv', `The database backend failed to start:\n${err.message}`);
         app.quit();
         return;
     }

@@ -98,7 +98,7 @@
             submitBtn.textContent = 'Open';
             setHint(opts.needPassword
                 ? 'This database is encrypted — enter its password.'
-                : 'Choose an existing Finance Lab database file.');
+                : 'Choose an existing Oliv database file.');
             if (opts.path) pathInput.value = opts.path;
         } else {
             titleEl.textContent  = 'Unlock Database';

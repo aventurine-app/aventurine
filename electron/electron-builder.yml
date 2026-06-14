@@ -1,0 +1,69 @@
+# electron-builder config — Linux/Fedora (RPM) packaging.
+#
+# Layout note (load-bearing): this app's package.json lives in electron/, but
+# main.js serves pages/ and static/ from the REPO ROOT (PROJECT_ROOT =
+# path.resolve(__dirname, '..')). In a packaged app __dirname is
+# .../resources/app.asar, so PROJECT_ROOT resolves to .../resources — which is
+# exactly where extraResources land. So we ship pages/ and static/ as
+# extraResources (to "pages"/"static") and the existing path logic in main.js
+# works unchanged, in dev and when packaged.
+#
+# Native module: better-sqlite3-multiple-ciphers ships its Electron-ABI prebuild
+# (parked by scripts/setup-native-abis.js). We do NOT rebuild from source
+# (no C toolchain on this machine) — npmRebuild is off — and we unpack the
+# package from the asar so the .node can be dlopen'd at runtime.
+
+appId: com.olivfinance.oliv
+productName: Oliv
+copyright: Copyright © 2026 Oliv Finance
+
+directories:
+  output: dist
+  buildResources: build
+
+# App-root files (electron/). Defaults already include these; listed
+# explicitly so an accidental addition under electron/ isn't shipped silently.
+files:
+  - main.js
+  - preload.js
+  - backend/**/*
+  - node_modules/**/*
+  - package.json
+
+# pages/ and static/ live one level up from the app root — ship them as
+# resources so PROJECT_ROOT/{pages,static} resolves in the packaged app.
+extraResources:
+  - from: ../pages
+    to: pages
+  - from: ../static
+    to: static
+
+asar: true
+asarUnpack:
+  - node_modules/better-sqlite3-multiple-ciphers/**/*
+
+# The prebuilt Electron-ABI binary is already in place; rebuilding would need a
+# C toolchain we don't have. Ship node_modules as-is.
+npmRebuild: false
+buildDependenciesFromSource: false
+
+linux:
+  target:
+    - rpm
+  icon: build/icon.png
+  category: Office;Finance
+  synopsis: Desktop personal-finance app
+  description: >
+    Oliv — a private, local-first desktop personal-finance app.
+    Cash flow, balance sheet, transactions, budgeting and forecasting,
+    backed by a single encryptable SQLite database you control.
+  desktop:
+    entry:
+      # Must equal Electron's runtime WM_CLASS (app.getName() → package.json
+      # "name") so the desktop environment links the running window to this
+      # launcher / taskbar icon.
+      StartupWMClass: oliv
+
+rpm:
+  # fpm/rpmbuild fills these out; depends are the shared libs Electron needs.
+  artifactName: ${name}-${version}.${arch}.${ext}

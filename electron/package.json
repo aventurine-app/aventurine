@@ -1,18 +1,24 @@
 {
-  "name": "finance-lab-desktop",
+  "name": "oliv",
   "version": "0.1.0",
-  "description": "Finance Lab desktop app — Electron shell + in-process Node backend (electron/backend/).",
+  "description": "Oliv desktop app — Electron shell + in-process Node backend (electron/backend/).",
   "main": "main.js",
   "private": true,
+  "author": "Oliv Finance <chatgpt.flattered848@passmail.net>",
+  "homepage": "https://olivfinance.com",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "scripts": {
     "start": "electron .",
     "test": "node --test",
     "smoke": "electron scripts/smoke.js",
+    "pack": "electron-builder --dir",
+    "dist:linux": "electron-builder --linux rpm",
     "postinstall": "node scripts/setup-native-abis.js"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.4",
-    "electron": "^41.7.2"
+    "electron": "^41.7.2",
+    "electron-builder": "^26.15.3"
   },
   "dependencies": {
     "better-sqlite3-multiple-ciphers": "^12.10.0"

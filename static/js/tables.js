@@ -1,7 +1,7 @@
 'use strict';
 
 // ============================================================================
-// tables.js — Shared table behavior for finance-lab spreadsheet pages.
+// tables.js — Shared table behavior for oliv spreadsheet pages.
 // ============================================================================
 //
 // Loaded BEFORE every spreadsheet page's own JS. Provides two layers:
