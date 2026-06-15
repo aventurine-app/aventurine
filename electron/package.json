@@ -1,6 +1,6 @@
 {
   "name": "oliv",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Oliv desktop app — Electron shell + in-process Node backend (electron/backend/).",
   "main": "main.js",
   "private": true,
@@ -11,9 +11,10 @@
     "start": "electron .",
     "test": "node --test",
     "smoke": "electron scripts/smoke.js",
-    "pack": "electron-builder --dir",
-    "dist:linux": "electron-builder --linux",
-    "dist:win": "node scripts/setup-win-abi.js && electron-builder --win nsis",
+    "check:package": "node scripts/check-package-files.js",
+    "pack": "node scripts/check-package-files.js && electron-builder --dir",
+    "dist:linux": "node scripts/check-package-files.js && electron-builder --linux",
+    "dist:win": "node scripts/check-package-files.js && node scripts/setup-win-abi.js && electron-builder --win nsis",
     "postinstall": "node scripts/setup-native-abis.js"
   },
   "devDependencies": {
@@ -22,6 +23,7 @@
     "electron-builder": "^26.15.3"
   },
   "dependencies": {
-    "better-sqlite3-multiple-ciphers": "^12.10.0"
+    "better-sqlite3-multiple-ciphers": "^12.10.0",
+    "electron-updater": "^6.8.9"
   }
 }

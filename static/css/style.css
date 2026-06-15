@@ -52,84 +52,72 @@
  * change values here only. The accents are a placeholder olive palette;
  * a real brand palette will replace them once approved. */
 :root {
+    /* Palette */
+  --base-050: #f3f2f2;
+  --base-100: #e6e6e5;
+  --base-200: #d0cfcd;
+  --base-300: #b7b6b3;
+  --base-400: #9e9d99;
+  --base-500: #878580;
+  --base-600: #6c6a66;
+  --base-700: #51504d;
+  --base-800: #373634;
+  --base-900: #1a1a19;
+  --base-950: #0d0d0c;
+}
 
-    --color-olive-050: #f2f4eb;
-    --color-olive-100: #e7ebdb;
-    --color-olive-200: #d2d9ba;
-    --color-olive-300: #bdc799;
-    --color-olive-400: #a7b578;
-    --color-olive-500: #91a159;
-    --color-olive-600: #768448;
-    --color-olive-700: #596336;
-    --color-olive-800: #3b4224;
-    --color-olive-900: #1e2112;
-    --color-olive-950: #0f1009;
+/* ── Semantic tokens — Dark is the default theme ──────────────────────────
+ * Light / Olive Light override these in themes.css.  The selector also names
+ * .settings-theme-swatch[data-theme="dark"] so the theme picker's Dark
+ * preview reads the exact same tokens as the live UI (the Light/Olive swatch
+ * contexts are wired the same way in themes.css). Update the palette above
+ * and every swatch follows automatically. */
+:root,
+.settings-theme-swatch[data-theme="light"] {
 
-    --color-color-050: #f1eee6;
-    --color-color-100: #e7e2d4;
-    --color-color-200: #c9c3b3;
-    --color-color-300: #ada89a;
-    --color-color-400: #928e82;
-    --color-color-500: #7b776c;
-    --color-color-600: #615e56;
-    --color-color-700: #494740;
-    --color-color-800: #32302b;
-    --color-color-900: #1d1b18;
-    --color-color-950: #12110e;
+    /* Match native controls (range tracks, etc.) to the active theme rather
+       than the OS appearance. */
+   color-scheme: light;
 
-    /* Text — three lightnesses for hierarchy.
-       primary   → headings, hero values, anything that must read first.
-       secondary → body copy, supporting metadata.
-       tertiary  → captions, disabled states, the quietest tier. */
-    --text-primary:   var(--color-color-100);
-    --text-secondary: var(--color-color-300);
-    --text-tertiary:  var(--color-color-200);
+    /* Text */
+   --text-primary:     var(--base-900);
+   --text-secondary:   var(--base-600);
+   --text-tertiary:    var(--base-700);
 
-    /* Background + surfaces.
-       background  — the deepest layer (body / page bg).
-       surface1-4  — opaque layers stacked from subtle to prominent.
-                     1 is a card on bg; 4 is the highlight tier. */
-    --background: var(--color-color-950);
-    --surface1:   var(--color-color-900);
-    --surface2:   var(--color-color-800);
-    --surface3:   var(--color-color-800);
-    --surface4:   var(--color-color-950);
+   /* Surfaces */
+   --background:       var(--base-100);
+   --surface1:         var(--base-050);
+   --surface2:         var(--base-050);
+   --surface3:         var(--base-200);
+   --surface4:         var(--base-100);
 
-    /* Borders / dividers — one neutral grey used across cards, inputs, menus. */
-    --border: var(--color-color-800);
+   /* Border */
+   --border:           var(--base-300);
 
-    /* Accents — primary brand colour in three lightnesses. */
-    --accent-primary: var(--color-olive-500);   /* base — primary actions, links, positive deltas */
-    --accent400: var(--color-olive-400);   /* hover / focus */
-    --accent300: var(--color-olive-300);   /* disabled / faint emphasis */
+   /* Accent */
+   --accent-primary:   #8b9751;
+   --accent400:        var(--color-400);
+   --accent300:        var(--color-300);
+   --accent-secondary: #b8921e;
+   --accent-quatenary: #2a6e6e;
+   --accent-quinary:   #5a2a6e;
+   --accent-tertiary:  #c44448;
+   --warning:          #c97a14;
+   
 
-    --accent-secondary: #c5ac63;
-    --accent-tertiary:  #e2585b;
-    --accent-quatenary: #4a8f8f;
-    --accent-quinary: #794a8f;
-    
-    /* Status colours — system meaning, not brand. */
-    --warning: #f5a524;
+   /* Frost layer — flip from white-tinted to black-tinted */
+   --frost-2:          rgba(0,0,0, 0.05);
+   --frost-3:          rgba(0,0,0, 0.07);
+   --frost-3:          rgba(0,0,0, 0.10);
+   --frost-focus:      rgba(0,0,0, 0.30);
+   --frost-dim:        rgba(0,0,0, 0.28);
+   --frost-caret:      rgba(0,0,0, 0.50);
+   --frost-icon:       rgba(0,0,0, 0.30);
+   --frost-text:       rgba(0,0,0, 0.70);
 
-    /* ── Frost layer tokens ──────────────────────────────────────────────
-     * Translucent overlays that tint surfaces in the current theme's
-     * direction.  Dark (default): white-tinted.  Light: black-tinted.
-     * Components reference these instead of hard-coding rgba values so
-     * switching theme only requires overriding these tokens, not touching
-     * any component file. */
-    --frost-2:        rgba(255,255,255, 0.05);   /* default tint */
-    --frost-3:        rgba(255,255,255, 0.07);   /* medium tint */
-    --frost-focus:    rgba(255,255,255, 0.40);   /* focused input bg */
-    --frost-dim:      rgba(255,255,255, 0.15);   /* dimmed text / icons */
-    --frost-caret:    rgba(255,255,255, 0.80);   /* input caret */
-    --frost-icon:     rgba(255,255,255, 0.30);   /* icon default */
-    --frost-text:     rgba(255,255,255, 0.65);   /* secondary text */
-
-    /* Dialog chrome — separate from frost because light theme sets these
-     * to opaque surface tokens rather than translucent rgba values. */
-    --dialog-surface: rgb(38, 38, 40);
-    --dialog-stroke:  rgba(255,255,255, 0.12);
-
+   /* Dialog chrome — opaque surface/border rather than translucent tints */
+   --dialog-surface:   var(--surface1);
+   --dialog-stroke:    var(--border);
 }
 
 

@@ -181,21 +181,31 @@
     margin-bottom: 18px;
 }
 .trends-chip {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: 7px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    color: var(--text-tertiary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    padding: 5px 12px;
+    padding: 5px 12px 5px 8px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
     cursor: pointer;
-    transition: background 0.12s, color 0.12s, border-color 0.12s;
+    transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    color: var(--text-secondary);
+    user-select: none;
 }
-.trends-chip:hover { background: var(--surface3); }
-.trends-chip.active { color: var(--text-primary); border-color: var(--text-tertiary); }
+.trends-chip.active {
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: var(--text-primary);
+}
+.trends-chip:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    color: var(--text-primary);
+}
 .trends-chip-dot {
     width: 9px;
     height: 9px;

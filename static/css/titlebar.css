@@ -15,7 +15,7 @@
     flex-shrink: 0;
     /* Slightly heavier than the standard glass treatment so the title bar
        reads as a distinct chrome layer above page content. */
-    background: rgba(0, 0, 0, 0.25);
+    background: var(--surface3);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border-bottom: 0px solid var(--border);

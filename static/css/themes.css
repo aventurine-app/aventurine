@@ -1,55 +1,68 @@
 /* ============================================================================
    themes.css
-   ─ Color theme token overrides (Dark default lives in :root in style.css)
-
-   Each theme block overrides ONLY CSS custom property values — no component
-   selectors allowed here.  Because every component reads colours through
-   tokens, switching the token values is sufficient to repaint the whole UI.
    ============================================================================ */
 
 
 /* ─── Light ──────────────────────────────────────────────────────────────────
    Light surfaces, dark text, olive accent darkened for contrast on white. */
-html[data-theme="light"] {
+html[data-theme="dark"],
+.settings-theme-swatch[data-theme="dark"] {
 
-    /* Text */
-    --text-primary:     var(--color-color-900);
-    --text-secondary:   var(--color-color-600);
-    --text-tertiary:    var(--color-color-700);
+    color-scheme: dark;
 
-    /* Surfaces */
-    --background:       var(--color-color-100);
-    --surface1:         var(--color-color-050);
-    --surface2:         var(--color-color-200);
-    --surface3:         var(--color-color-300);
-    --surface4:         var(--color-color-400);
+    /* Text — three lightnesses for hierarchy.
+       primary   → headings, hero values, anything that must read first.
+       secondary → body copy, supporting metadata.
+       tertiary  → captions, disabled states, the quietest tier. */
+    --text-primary:   var(--base-100);
+    --text-secondary: var(--base-300);
+    --text-tertiary:  var(--base-200);
 
-    /* Border */
-    --border:           var(--color-color-300);
+    /* Background + surfaces.
+       background  — the deepest layer (body / page bg).
+       surface1-4  — opaque layers stacked from subtle to prominent.
+                     1 is a card on bg; 4 is the highlight tier. */
+    --background: var(--base-950);
+    --surface1:   var(--base-900);
+    --surface2:   var(--base-800);
+    --surface3:   var(--base-800);
+    --surface4:   var(--base-950);
 
-    /* Accent — darkened for readable contrast on white */
-    --accent-primary:        var(--color-olive-500);
-    --accent400:        var(--color-olive-400);
-    --accent300:        var(--color-olive-300);
+    /* Borders / dividers — one neutral grey used across cards, inputs, menus. */
+    --border: var(--base-800);
 
-    --accent-quatenary:       #2a6e6e;
-    --accent-quinary:     #5a2a6e;
+    /* Accents — primary brand colour in three lightnesses. */
+    --accent-primary: #8b9751;   /* base — primary actions, links, positive deltas */
+    --accent400: var(--color-400);   /* hover / focus */
+    --accent300: var(--color-300);   /* disabled / faint emphasis */
 
-    --accent-secondary: #b8921e;
+    --accent-secondary: #c5ac63;
+    --accent-tertiary:  #e2585b;
+    --accent-quatenary: #4a8f8f;
+    --accent-quinary: #794a8f;
+    
+    /* Status colours — system meaning, not brand. */
+    --warning: #f5a524;
 
-    --warning:          #c97a14;
-    --accent-tertiary:           #c44448;
+    /* ── Frost layer tokens ──────────────────────────────────────────────
+     * Translucent overlays that tint surfaces in the current theme's
+     * direction.  Dark (default): white-tinted.  Light: black-tinted.
+     * Components reference these instead of hard-coding rgba values so
+     * switching theme only requires overriding these tokens, not touching
+     * any component file. */
+    --frost-2:        rgba(255,255,255, 0.05);   /* default tint */
+    --frost-3:        rgba(255,255,255, 0.07);   /* medium tint */
+    --frost-3:          rgba(255,255,255, 0.10);
+    --frost-focus:    rgba(255,255,255, 0.40);   /* focused input bg */
+    --frost-dim:      rgba(255,255,255, 0.15);   /* dimmed text / icons */
+    --frost-caret:    rgba(255,255,255, 0.80);   /* input caret */
+    --frost-icon:     rgba(255,255,255, 0.30);   /* icon default */
+    --frost-text:     rgba(255,255,255, 0.65);   /* secondary text */
 
-    /* Frost layer — flip from white-tinted to black-tinted */
-    --frost-2:          rgba(0,0,0, 0.05);
-    --frost-3:          rgba(0,0,0, 0.07);
-    --frost-focus:      rgba(0,0,0, 0.30);
-    --frost-dim:        rgba(0,0,0, 0.28);
-    --frost-caret:      rgba(0,0,0, 0.50);
-    --frost-icon:       rgba(0,0,0, 0.30);
-    --frost-text:       rgba(0,0,0, 0.70);
+    /* Dialog chrome — separate from frost because light theme sets these
+     * to opaque surface tokens rather than translucent rgba values. */
+    --dialog-surface: rgb(38, 38, 40);
+    --dialog-stroke:  rgba(255,255,255, 0.12);
 
-    /* Dialog chrome — opaque surface/border rather than translucent tints */
-    --dialog-surface:   var(--surface1);
-    --dialog-stroke:    var(--border);
 }
+

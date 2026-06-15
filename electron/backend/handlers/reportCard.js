@@ -4,7 +4,7 @@
 // Cash Flow (Income & Expenses) activity into income / expense / savings +
 // investing totals, plus the latest Balance-Sheet debt snapshot, then hands the
 // per-year totals to services/reportCard.js for the year-over-year changes,
-// ratios, and grade.
+// ratios, and goal outcomes.
 //
 // "Relevant years" are the years on the Cash Flow statement (the `active_years`
 // table) — so every year the user tracks gets a card, even one with no activity
@@ -56,7 +56,7 @@ function yearlyTotals(db) {
   };
 
   // Seed every year on the Cash Flow statement so years with no activity still
-  // get a (ungradeable, N/A) card.
+  // get a card (with no evaluable goals).
   for (const y of db.prepare('SELECT year FROM active_years').all()) ensure(y.year);
 
   const synced = syncedMap(db);

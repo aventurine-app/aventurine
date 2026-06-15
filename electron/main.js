@@ -16,6 +16,7 @@ const { app, BrowserWindow, Menu, ipcMain, dialog, protocol, net } = require('el
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const { initUpdater } = require('./updater');
 
 const APP_HOST = 'oliv';
 const APP_ORIGIN = `app://${APP_HOST}`;
@@ -31,7 +32,6 @@ const PAGE_ROUTES = {
     '/':                'home.html',
     '/income-expenses': 'income-expenses.html',
     '/balance-sheet':   'balance-sheet.html',
-    '/settings':        'settings.html',
     '/portfolio':       'portfolio.html',
     '/transactions':    'transactions.html',
     '/credit-cards':    'credit-cards.html',
@@ -53,6 +53,8 @@ Menu.setApplicationMenu(null);
 // ─── Backend (in-process) ───────────────────────────────────────────────────
 
 let conn = null;
+// The single app window. The updater broadcasts status to it (updater.js).
+let mainWindow = null;
 
 function startBackend() {
     // Same data-dir contract as the Flask era: <userData>/data.
@@ -268,6 +270,9 @@ async function createWindow() {
         win.webContents.reload();
     });
 
+    mainWindow = win;
+    win.on('closed', () => { if (mainWindow === win) mainWindow = null; });
+
     await win.loadURL(`${APP_ORIGIN}/`);
     return win;
 }
@@ -285,6 +290,9 @@ app.whenReady().then(async () => {
         return;
     }
     await createWindow();
+
+    // In-app updates (packaged Windows only; inert IPC handlers elsewhere).
+    initUpdater({ getWindow: () => mainWindow });
 
     // macOS: re-open the main window from the dock. No-op elsewhere.
     app.on('activate', async () => {

@@ -1,75 +1,51 @@
 'use strict';
 
 // Yearly Report Card (Reports). NEW behaviour (not a Python port) → no oracle
-// fixture: the grading/metrics service is pinned by the deterministic unit tests
+// fixture: the metrics/goals service is pinned by the deterministic unit tests
 // below, and the aggregation endpoint by API tests over a seeded DB.
 
 const test = require('node:test');
 const assert = require('node:assert');
 
-const { buildReportCards, gradeYear, letterFor } = require('../services/reportCard');
+const { buildReportCards, evaluateGoals } = require('../services/reportCard');
 const { makeClient } = require('./helpers');
 
-// ── service: letter bands ─────────────────────────────────────────────────────
+// ── service: a single year's goals (no prior year → 3 ratio goals) ────────────
 
-test('letterFor: GPA cutoffs map score → letter', () => {
-  assert.equal(letterFor(1.0), 'A');
-  assert.equal(letterFor(0.93), 'A');
-  assert.equal(letterFor(0.905), 'A-');
-  assert.equal(letterFor(0.85), 'B');
-  assert.equal(letterFor(0.71), 'C-');
-  assert.equal(letterFor(0.61), 'D-');
-  assert.equal(letterFor(0.59), 'F');
-  assert.equal(letterFor(0), 'F');
+test('evaluateGoals: a frugal year meets every applicable goal', () => {
+  // 50% expense ratio, 20% savings rate, 10% DTI → all three ratio goals met.
+  const goals = evaluateGoals({ income: 100000, expenses: 50000, savings: 20000, debt: 10000, prev: null });
+  assert.equal(goals.length, 3);
+  assert.ok(goals.every((x) => x.met));
 });
 
-// ── service: a single year's grade (no prior year → 3 ratio goals) ────────────
-
-test('gradeYear: a frugal year hits every applicable goal → A', () => {
-  // 50% expense ratio, 20% savings rate, 10% DTI → all three ratio goals score 1.
-  const g = gradeYear({ income: 100000, expenses: 50000, savings: 20000, debt: 10000, prev: null });
-  assert.equal(g.goals.length, 3);
-  assert.ok(g.goals.every((x) => x.met));
-  assert.equal(g.score, 1);
-  assert.equal(g.letter, 'A');
+test('evaluateGoals: missing debt drops the debt-to-income goal', () => {
+  const goals = evaluateGoals({ income: 100000, expenses: 50000, savings: 20000, debt: null, prev: null });
+  assert.deepEqual(goals.map((x) => x.key), ['expense_ratio', 'savings_rate']);
 });
 
-test('gradeYear: missing debt drops the debt-to-income goal', () => {
-  const g = gradeYear({ income: 100000, expenses: 50000, savings: 20000, debt: null, prev: null });
-  assert.deepEqual(g.goals.map((x) => x.key), ['expense_ratio', 'savings_rate']);
-});
-
-test('gradeYear: overspending + no saving tanks the grade', () => {
+test('evaluateGoals: overspending + no saving misses both ratio goals', () => {
   // Spent everything, saved nothing, no debt data, no prior year.
-  const g = gradeYear({ income: 100000, expenses: 100000, savings: 0, debt: null, prev: null });
-  assert.equal(g.goals.find((x) => x.key === 'expense_ratio').score, 0);
-  assert.equal(g.goals.find((x) => x.key === 'savings_rate').score, 0);
-  assert.equal(g.letter, 'F');
-});
-
-test('gradeYear: partial credit scales linearly between the goal and the floor', () => {
-  // 85% expense ratio is halfway between the 70% goal and the 100% floor → 0.5.
-  const g = gradeYear({ income: 100000, expenses: 85000, savings: 0, debt: null, prev: null });
-  assert.equal(g.goals.find((x) => x.key === 'expense_ratio').score, 0.5);
+  const goals = evaluateGoals({ income: 100000, expenses: 100000, savings: 0, debt: null, prev: null });
+  assert.equal(goals.find((x) => x.key === 'expense_ratio').met, false);
+  assert.equal(goals.find((x) => x.key === 'savings_rate').met, false);
 });
 
 // ── service: year-over-year goals only appear with a prior year ───────────────
 
-test('gradeYear: spending/income trend goals reward the right direction', () => {
+test('evaluateGoals: spending/income trend goals reward the right direction', () => {
   const prev = { income: 100000, expenses: 60000, savings: 0 };
-  // Income up 5%, spending down 5% → both YoY goals score a full 1.0.
-  const g = gradeYear({ income: 105000, expenses: 57000, savings: 0, debt: null, prev });
-  const spend = g.goals.find((x) => x.key === 'spending_trend');
-  const inc = g.goals.find((x) => x.key === 'income_trend');
-  assert.ok(spend.met && spend.score === 1);
-  assert.ok(inc.met && inc.score === 1);
+  // Income up, spending down → both YoY goals met.
+  const goals = evaluateGoals({ income: 105000, expenses: 57000, savings: 0, debt: null, prev });
+  assert.equal(goals.find((x) => x.key === 'spending_trend').met, true);
+  assert.equal(goals.find((x) => x.key === 'income_trend').met, true);
 });
 
-test('gradeYear: a flat year scores 0.5 on each YoY goal', () => {
+test('evaluateGoals: a flat year still meets the trend goals (no increase)', () => {
   const prev = { income: 100000, expenses: 60000, savings: 0 };
-  const g = gradeYear({ income: 100000, expenses: 60000, savings: 0, debt: null, prev });
-  assert.equal(g.goals.find((x) => x.key === 'spending_trend').score, 0.5);
-  assert.equal(g.goals.find((x) => x.key === 'income_trend').score, 0.5);
+  const goals = evaluateGoals({ income: 100000, expenses: 60000, savings: 0, debt: null, prev });
+  assert.equal(goals.find((x) => x.key === 'spending_trend').met, true);
+  assert.equal(goals.find((x) => x.key === 'income_trend').met, true);
 });
 
 // ── service: buildReportCards (changes, metrics, prev linkage) ────────────────
@@ -83,7 +59,7 @@ test('buildReportCards: ascending order, YoY changes vs the immediately prior ye
 
   const y2024 = cards[0];
   assert.equal(y2024.changes.income, null); // no 2023 to compare to
-  assert.equal(y2024.grade.goals.every((g) => g.key.startsWith('expense') || g.key.startsWith('savings')), true);
+  assert.equal(y2024.goals.every((g) => g.key.startsWith('expense') || g.key.startsWith('savings')), true);
 
   const y2025 = cards[1];
   assert.deepEqual(y2025.changes.income, { abs: 20000, pct: 0.25 });
@@ -116,8 +92,7 @@ test('buildReportCards: zero income → undefined ratios are null, not NaN/Infin
   assert.equal(card.metrics.expenseToIncome, null);
   assert.equal(card.metrics.debtToIncome, null);
   assert.equal(card.metrics.cashFlowMargin, null);
-  assert.equal(card.grade.letter, null); // nothing gradeable
-  assert.deepEqual(card.grade.goals, []);
+  assert.deepEqual(card.goals, []); // nothing evaluable
 });
 
 // ── API ───────────────────────────────────────────────────────────────────────
@@ -133,7 +108,7 @@ const CURRENT_YEAR = new Date().getFullYear();
 // hand-entered cells + synced sums), NOT from raw transactions — so every year
 // the user tracks gets a card, even an empty one.
 
-test('report-card API: a fresh DB shows only the seeded current year, ungradeable', (t) => {
+test('report-card API: a fresh DB shows only the seeded current year, no evaluable goals', (t) => {
   const c = makeClient(t);
   const r = c.get('/api/report-card');
   assert.equal(r.status, 200, JSON.stringify(r.body));
@@ -143,7 +118,7 @@ test('report-card API: a fresh DB shows only the seeded current year, ungradeabl
   assert.equal(y.income, 0);
   assert.equal(y.expenses, 0);
   assert.equal(y.savings, 0);
-  assert.equal(y.grade.letter, null); // no income → nothing to grade
+  assert.equal(y.goals.length, 0); // no income → nothing to evaluate
 });
 
 test('report-card API: aggregates a Cash Flow year by category cat_type', (t) => {
@@ -166,16 +141,18 @@ test('report-card API: aggregates a Cash Flow year by category cat_type', (t) =>
   assert.equal(y.debt, null);
   assert.equal(y.metrics.expenseToIncome, 0.5);
   assert.equal(y.metrics.cashFlowMargin, 0.3);
-  assert.equal(y.grade.letter, 'A');
+  // 50% expenses, 20% saving → both ratio goals met (no prior year → no trends).
+  assert.deepEqual(y.goals.map((g) => g.key), ['expense_ratio', 'savings_rate']);
+  assert.ok(y.goals.every((g) => g.met));
 });
 
-test('report-card API: a tracked year with no activity still gets an (N/A) card', (t) => {
+test('report-card API: a tracked year with no activity still gets a (goal-less) card', (t) => {
   const c = makeClient(t);
   c.post('/api/year', { year: 2020 });
   const y = c.get('/api/report-card').body.years.find((yr) => yr.year === 2020);
   assert.ok(y, 'expected a 2020 card even with no activity');
   assert.equal(y.income, 0);
-  assert.equal(y.grade.letter, null);
+  assert.equal(y.goals.length, 0);
 });
 
 test('report-card API: transactions alone do not feed an unsynced year', (t) => {
@@ -187,7 +164,7 @@ test('report-card API: transactions alone do not feed an unsynced year', (t) => 
 
   const y = c.get('/api/report-card').body.years.find((yr) => yr.year === 2025);
   assert.equal(y.income, 0);
-  assert.equal(y.grade.letter, null);
+  assert.equal(y.goals.length, 0);
 });
 
 test('report-card API: synced cells pull figures from transactions', (t) => {

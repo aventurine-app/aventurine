@@ -98,8 +98,14 @@
 .settings-theme-btn:hover  { border-color: var(--text-tertiary); }
 .settings-theme-btn.active { border-color: var(--accent-primary); }
 
-/* Three-band preview: top strip = background, middle = surface, bottom = accent */
+/* Three-band preview: top strip = background, middle = surface, bottom = accent.
+   The colours derive from the live theme tokens; each swatch's own data-theme
+   puts it in that theme's context (themes.css / style.css), so the picker
+   tracks the palette automatically — no hard-coded hex per swatch. */
 .settings-theme-swatch {
+    --sw-bg:      var(--background);
+    --sw-surface: var(--surface1);
+    --sw-accent:  var(--accent-primary);
     width: 76px;
     height: 46px;
     flex-shrink: 0;
@@ -223,10 +229,57 @@
   flex-shrink: 0;
 }
 
+/* Fully custom-drawn so the track follows theme tokens. The native track
+   ignored color-scheme under Electron/Chromium and stayed dark in light mode,
+   so we draw track + thumb ourselves instead of relying on accent-color. */
 .settings-threshold-slider {
   width: 160px;
-  accent-color: var(--accent-primary);
   cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+.settings-threshold-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.settings-threshold-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+}
+
+.settings-threshold-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.settings-threshold-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent-primary);
+}
+
+.settings-threshold-slider:focus-visible {
+  outline: none;
+}
+
+.settings-threshold-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px var(--frost-dim);
+}
+
+.settings-threshold-slider:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 3px var(--frost-dim);
 }
 
 .settings-threshold-value {
@@ -441,4 +494,37 @@
     display: flex;
     flex-direction: column;
     gap: 24px;
+}
+
+/* ── About & Updates modal ─────────────────────────────────────────────── */
+
+.about-version {
+    color: var(--text-secondary);
+    font-size: var(--size-small);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.about-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+}
+
+.about-progress {
+    margin-top: 10px;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--surface2);
+    overflow: hidden;
+}
+
+.about-progress[hidden] { display: none; }
+
+.about-progress-bar {
+    height: 100%;
+    width: 0;
+    background: var(--accent-primary);
+    transition: width 150ms ease;
 }

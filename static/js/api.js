@@ -196,29 +196,23 @@
             savings:  { abs: 3000,  pct: 0.3333 },
           },
           metrics: { expenseToIncome: 0.625, debtToIncome: 0.125, cashFlowMargin: 0.2083 },
-          grade: {
-            letter: 'A', score: 0.94,
-            goals: [
-              { key: 'expense_ratio',   label: 'Expenses under 70% of income',          value: 0.625,   met: true,  score: 1 },
-              { key: 'savings_rate',    label: 'Saving & investing over 15% of income', value: 0.1667,  met: true,  score: 1 },
-              { key: 'debt_to_income',  label: 'Total debt under 25% of income',        value: 0.125,   met: true,  score: 1 },
-              { key: 'spending_trend',  label: 'Spending down from last year',          value: -0.0217, met: true,  score: 0.72 },
-              { key: 'income_trend',    label: 'Income up from last year',              value: 0.0909,  met: true,  score: 1 },
-            ],
-          },
+          goals: [
+            { key: 'expense_ratio',   label: 'Expenses under 70% of income',          value: 0.625,   met: true },
+            { key: 'savings_rate',    label: 'Saving & investing over 15% of income', value: 0.1667,  met: true },
+            { key: 'debt_to_income',  label: 'Total debt under 25% of income',        value: 0.125,   met: true },
+            { key: 'spending_trend',  label: 'Spending down from last year',          value: -0.0217, met: true },
+            { key: 'income_trend',    label: 'Income up from last year',              value: 0.0909,  met: true },
+          ],
         },
         {
           year: year - 1, income: 66000, expenses: 46000, savings: 9000, debt: 12000,
           changes: { income: null, expenses: null, savings: null },
           metrics: { expenseToIncome: 0.697, debtToIncome: 0.1818, cashFlowMargin: 0.1667 },
-          grade: {
-            letter: 'A', score: 0.97,
-            goals: [
-              { key: 'expense_ratio',  label: 'Expenses under 70% of income',          value: 0.697,  met: true,  score: 1 },
-              { key: 'savings_rate',   label: 'Saving & investing over 15% of income', value: 0.1364, met: false, score: 0.91 },
-              { key: 'debt_to_income', label: 'Total debt under 25% of income',        value: 0.1818, met: true,  score: 1 },
-            ],
-          },
+          goals: [
+            { key: 'expense_ratio',  label: 'Expenses under 70% of income',          value: 0.697,  met: true },
+            { key: 'savings_rate',   label: 'Saving & investing over 15% of income', value: 0.1364, met: false },
+            { key: 'debt_to_income', label: 'Total debt under 25% of income',        value: 0.1818, met: true },
+          ],
         },
       ],
     },

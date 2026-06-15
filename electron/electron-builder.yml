@@ -26,6 +26,7 @@ directories:
 files:
   - main.js
   - preload.js
+  - updater.js
   - backend/**/*
   - node_modules/**/*
   - package.json
@@ -46,6 +47,19 @@ asarUnpack:
 # C toolchain we don't have. Ship node_modules as-is.
 npmRebuild: false
 buildDependenciesFromSource: false
+
+# Auto-update feed. electron-updater (electron/updater.js) reads the release
+# metadata electron-builder publishes here to detect and fetch new versions.
+# The repo is PUBLIC, so release assets download with no token — the shipped
+# app needs no credentials. Cutting a release (CI: build with `--publish always`
+# and GH_TOKEN set) uploads each installer, its .blockmap (differential
+# downloads) and latest.yml. Auto-update is wired for Windows only for now;
+# Linux rpm/deb are owned by the system package manager, which electron-updater
+# cannot drive.
+publish:
+  provider: github
+  owner: oliv-official
+  repo: oliv-app
 
 linux:
   target:

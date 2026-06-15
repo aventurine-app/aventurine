@@ -3,8 +3,7 @@
 
    Page-scoped: restates the shared card chrome (home.css is only loaded on Home)
    and the "i" info-badge tooltip (shared with the other Reports pages). One card
-   per year, laid out in a responsive grid; each card carries a grade-* class
-   that tones its grade letter and accent rule.
+   per year, laid out in a responsive grid.
    ============================================================================ */
 
 /* Anchor to the top so cards never scroll out of reach when zoomed in (same
@@ -56,11 +55,9 @@
     padding: 24px 28px;
     display: flex;
     flex-direction: column;
-    /* The grade tints a left accent rule (set per grade-* class below). */
-    border-left: 3px solid var(--rc-accent, var(--border));
 }
 
-/* ─── Card header (year + grade) ──────────────────────────────────────────── */
+/* ─── Card header (year) ──────────────────────────────────────────────────── */
 .rc-card-head { margin-bottom: 18px; }
 .rc-title {
     margin: 0;
@@ -71,8 +68,6 @@
     font-variant-numeric: tabular-nums;
     letter-spacing: var(--track-tight);
 }
-/* Grade letter sits to the right of the year ("2026 - A"), toned by grade. */
-.rc-title-grade { color: var(--rc-accent, var(--text-primary)); }
 
 /* ─── Headline figures (line items) ───────────────────────────────────────── */
 .rc-figures {
@@ -202,14 +197,6 @@
     font-size: var(--size-small);
     margin: 0;
 }
-
-/* Grade accent tones — drive the left rule + the grade letter in the title. */
-.grade-a  { --rc-accent: #5ba672; }
-.grade-b  { --rc-accent: #4f9bd0; }
-.grade-c  { --rc-accent: #d6a93c; }
-.grade-d  { --rc-accent: #d57f3c; }
-.grade-f  { --rc-accent: var(--accent-tertiary); }
-.grade-na { --rc-accent: var(--text-tertiary); }
 
 /* ─── Empty state ─────────────────────────────────────────────────────────── */
 .rc-empty {

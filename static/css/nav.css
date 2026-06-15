@@ -73,5 +73,5 @@ li {
 
 .nav li a.active {
     background: var(--frost-3);
-    color: var(--accent-primary);
+    color: var(--text-primary);
 }

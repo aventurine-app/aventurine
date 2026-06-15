@@ -273,9 +273,8 @@
     }
 
     // ── Bootstrap ───────────────────────────────────────────────────────────
-    // Wire every editor root on the page — there can be multiple (the
-    // /settings page and the title-bar Settings modal both include
-    // _settings_body.html). One refresh per root.
+    // Wire every editor root on the page (the title-bar Manage Categories
+    // modal from pages/partials/chrome.html). One refresh per root.
 
     function init() {
         document.querySelectorAll('[data-categories-editor]').forEach(root => {

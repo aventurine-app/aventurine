@@ -3,8 +3,7 @@
 // ─── Yearly Report Card (Reports) ─────────────────────────────────────────────
 // One card per year of activity (newest first). Each card shows the year's
 // income / expenses / saving & investing with year-over-year change pills, three
-// derived ratios, the five goal outcomes, and a large letter grade summarising
-// how close the year came to those goals.
+// derived ratios, and the five goal outcomes (met or missed).
 //
 // All computation is server-side (GET /api/report-card); this page only formats
 // and lays out the response.
@@ -88,21 +87,14 @@ function goalRow(g) {
   </li>`;
 }
 
-function gradeClass(letter) {
-  if (!letter) return 'grade-na';
-  return `grade-${letter[0].toLowerCase()}`;
-}
-
 function card(y) {
-  const goals = y.grade.goals.length
-    ? `<ul class="rc-goals">${y.grade.goals.map(goalRow).join('')}</ul>`
-    : '<p class="rc-empty-goals">Not enough data to grade this year.</p>';
+  const goals = y.goals.length
+    ? `<ul class="rc-goals">${y.goals.map(goalRow).join('')}</ul>`
+    : '<p class="rc-empty-goals">Not enough data to evaluate goals this year.</p>';
 
-  const letter = y.grade.letter || '—';
-
-  return `<section class="rc-card ${gradeClass(y.grade.letter)}">
+  return `<section class="rc-card">
     <header class="rc-card-head">
-      <h2 class="rc-title">${escapeHtml(String(y.year))} - <span class="rc-title-grade">${escapeHtml(letter)}</span></h2>
+      <h2 class="rc-title">${escapeHtml(String(y.year))}</h2>
     </header>
 
     <div class="rc-figures">
@@ -137,7 +129,7 @@ function render() {
   const years = lastData.years || [];
   if (!years.length) {
     host.innerHTML = `<div class="rc-empty">
-      <p>No graded years yet.</p>
+      <p>No years yet.</p>
       <p class="rc-empty-hint">Add some transactions and your report cards will appear here, one per year.</p>
     </div>`;
     return;

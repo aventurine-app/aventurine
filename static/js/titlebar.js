@@ -97,6 +97,8 @@
             openModal('preferences');
         } else if (item.dataset.action === 'open-categories') {
             openModal('categories');
+        } else if (item.dataset.action === 'open-about') {
+            openModal('about');
         }
     });
 

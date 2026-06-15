@@ -137,7 +137,7 @@
     color: var(--text-primary);
     font-family: var(--font-h1);
     font-size: var(--size-h1);
-    font-weight: var(--weight-light);
+    font-weight: var(--weight-regular);
     line-height: var(--lh-tight);
     letter-spacing: var(--track-wide);
     font-variant-numeric: tabular-nums;

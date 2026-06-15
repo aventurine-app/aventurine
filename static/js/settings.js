@@ -1,10 +1,9 @@
 'use strict';
 
 // ─── Settings widget wiring ─────────────────────────────────────────────────
-// Loaded globally by base.html, so this script may run on a page that
-// includes _settings_body.html once (the /settings page) or twice (when
-// the title-bar Settings modal is also present). We wire every instance
-// independently — selectors use classes, not IDs, for that reason.
+// The settings widgets live in the title-bar Preferences modal (spliced in
+// from pages/partials/chrome.html on every page). We wire every instance on
+// the page independently — selectors use classes, not IDs, for that reason.
 
 (function () {
     // ── Currency symbol ───────────────────────────────────────────────────────
@@ -26,8 +25,7 @@
         input.addEventListener('input', () => {
             setCurrencySymbol(input.value);
             renderPreview();
-            // Keep any other live instance of this input (e.g. the modal
-            // and the page coexisting) in sync.
+            // Keep any other live instance of this input in sync.
             document.querySelectorAll('.settings-currency-input').forEach(other => {
                 if (other !== input) other.value = input.value;
                 const otherPreview = other.closest('.settings-currency-row')
@@ -53,8 +51,7 @@
             delete document.documentElement.dataset.theme;
         }
         localStorage.setItem('color-theme', theme);
-        // Sync active state on every instance of the theme buttons
-        // (the page has one copy; Electron modal has a second).
+        // Sync active state on every instance of the theme buttons.
         document.querySelectorAll('.settings-theme-btn').forEach(btn => {
             btn.classList.toggle('active', (btn.dataset.theme ?? '') === (theme ?? ''));
         });

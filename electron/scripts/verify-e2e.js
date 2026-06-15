@@ -93,7 +93,6 @@ app.whenReady().then(async () => {
       '/transactions':    'Transactions',
       '/income-expenses': 'Cash Flow',
       '/balance-sheet':   'Balance Sheet',
-      '/settings':        'Settings',
       '/portfolio':       'Portfolio',
       '/credit-cards':    'Credit Cards',
       '/budget':          'Budget',
@@ -102,9 +101,7 @@ app.whenReady().then(async () => {
       '/report-card':     'Report Card',
     };
     for (const [route, name] of Object.entries(routes)) {
-      // /settings has no sidebar link (Settings lives in the title bar), so
-      // no nav entry is expected to light up there.
-      const activeHref = route === '/settings' ? null : route;
+      const activeHref = route;
       await win.loadURL(`app://oliv${route}`);
       const ok = await evalJs(`document.title.includes(${JSON.stringify(name)})
         && !!document.querySelector(".titlebar")
