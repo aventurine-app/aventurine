@@ -7,6 +7,14 @@ control over their finances without spreadsheet-level busywork. Track your accou
 forecast your cash flow, manage your portfolio, and grow your net worth — all on your
 own machine, with no cloud account, no subscription, and no one watching.
 
+I built Oliv out of a personal need. I had been using a very large spreadsheet
+to manage all of my finanaces, accounts, and investing goals for over 7 years. It got 
+so big that it became incredibly slow and unwieldable. I wanted something more powerful,
+but as someone who treats privacy and security seriously, there were not any tools that 
+I felt I could trust. And the spreadsheet I had was making it not only difficult to 
+manage my own finances, but impossible to share with anyone else who wanted to use 
+my method of money management to improve their financial situation. 
+
 🌐 [olivfinance.com](https://olivfinance.com)
 
 ---
