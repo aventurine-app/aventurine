@@ -412,6 +412,37 @@
     font-variant-numeric: tabular-nums;
 }
 
+/* ── Multi-cell selection (cellselect.js) ──────────────────────────────────
+   Spreadsheet-style range selection. Selected cells get a clearly visible
+   accent fill; the active/anchor cell is brighter still so the "current cell"
+   reads at a glance. The bold accent outline around the whole rectangle is
+   drawn by cellselect.js as a per-cell inset box-shadow on the perimeter sides
+   (so it can't fight these background rules). The cell inputs are transparent,
+   so the td background shows through. --cell-select-border is the outline
+   colour consumed by that inline box-shadow. */
+:root {
+    --cell-select-border: var(--accent-primary);
+}
+
+.db-table td.cell-selected {
+    background: color-mix(in srgb, var(--accent-primary) 24%, transparent);
+}
+
+/* The active cell only takes a fill when it sits inside a multi-cell range; a
+   lone active cell (single click) shows just the accent outline (drawn by
+   cellselect.js) with no fill, so it reads as "current cell", not a selection. */
+.db-table td.cell-selected.cell-active {
+    background: color-mix(in srgb, var(--accent-primary) 40%, transparent);
+}
+
+/* While a range is selected the active cell still holds an editable input;
+   hide its blinking caret so a multi-cell selection reads as a selection, not
+   a text-entry point. Editing (double-click / typing) restores it. */
+.db-table td.cell-selected .db-input,
+.db-table td.cell-selected .p-input {
+    caret-color: transparent;
+}
+
 /* Year-table inputs are always currency cells → always right-aligned. */
 .db-input {
     text-align: right;

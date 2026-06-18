@@ -605,8 +605,11 @@ window.addEventListener('pagehide', () => {
  * handlers:
  *   - input:    live comma formatting + debounced save + (if includeTotals) totals refresh
  *   - keydown:  spreadsheet-style arrow-key navigation (Enter == ArrowDown)
- *   - paste:    Excel/Sheets-style multi-cell paste (tabs = cols, newlines = rows)
  *   - title click: toggle collapsed state
+ *
+ * Multi-cell selection (drag / Shift+arrow → copy / paste / delete) is layered
+ * on by cellselect.js once the table is built — see the enableCellSelection
+ * call below.
  *   - ⋮ click:  open the per-table options dropdown (Duplicate / Delete)
  *
  * Saves are debounced so we don't fire one API call per keystroke. Deletes
@@ -710,53 +713,17 @@ function initYearTable(outerEl, yearEntries, ctx) {
             next.focus();
             next.select();
         });
-
-        // ── Excel/Sheets-style multi-cell paste ────────────────────────────
-        // Tab characters separate columns, newlines separate rows. The
-        // starting cell is whichever input was focused when the paste fires;
-        // the paste extends down-and-right from there, stopping at table
-        // edges (no wrap, no overflow). Currency symbols and commas in the
-        // pasted values are stripped before parseFloat.
-        input.addEventListener('paste', e => {
-            e.preventDefault();
-            const text = (e.clipboardData || window.clipboardData).getData('text/plain');
-            const rows = text.split(/\r?\n/).filter(r => r.length > 0);
-            if (rows.length === 0) return;
-
-            const startMonthIdx = MONTHS.indexOf(month);
-            const startColIdx   = ctx.columns.findIndex(c => c.key === col);
-            if (startColIdx === -1) return;
-
-            const saves = [];
-            rows.forEach((row, rowOffset) => {
-                const targetMonthIdx = startMonthIdx + rowOffset;
-                if (targetMonthIdx >= MONTHS.length) return;
-                const targetMonth = MONTHS[targetMonthIdx];
-                row.split('\t').forEach((cell, colOffset) => {
-                    const targetColIdx = startColIdx + colOffset;
-                    if (targetColIdx >= ctx.columns.length) return;
-                    const targetCol = ctx.columns[targetColIdx].key;
-                    // Strip any currency symbol the user pasted in along
-                    // with the number (could be the configured one or a
-                    // foreign one from another spreadsheet) — pulled out
-                    // via stripCurrencyValue plus a generous fallback that
-                    // discards any remaining non-numeric character.
-                    const clean = stripCurrencyValue(cell).replace(/[^0-9.\-]/g, '');
-                    if (clean === '') return;
-                    const val = parseFloat(clean);
-                    if (isNaN(val)) return;
-                    const targetInput = outerEl.querySelector(`input[data-month="${targetMonth}"][data-col="${targetCol}"]`);
-                    if (!targetInput) return;
-                    targetInput.value = formatCurrency(val);
-                    saves.push(ctx.api.upsertEntry(currentYear, targetMonth, targetCol, val));
-                });
-            });
-            if (ctx.includeTotals) updateYearTotals(outerEl, ctx);
-            // Fire all saves in parallel; we don't await because we already
-            // updated the UI optimistically and don't surface load state.
-            Promise.all(saves);
-        });
     });
+
+    // ── Spreadsheet-style multi-cell selection (drag / Shift+arrow → copy,
+    //    paste, delete). Owned by cellselect.js, which writes cells by
+    //    dispatching synthetic `input` events that re-run the per-input save
+    //    handlers wired just above — so paste/delete persist through the same
+    //    path as typing. Guarded so Credit Cards (loads tables.js but never
+    //    builds a year table, and doesn't ship cellselect.js) is unaffected.
+    if (window.enableCellSelection) {
+        enableCellSelection(table, { cellSelector: 'td.data-cell' });
+    }
 
     if (ctx.includeTotals) updateYearTotals(outerEl, ctx);
 

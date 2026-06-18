@@ -67,7 +67,7 @@
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--surface1);
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 5px 5px rgba(0, 0, 0, 0.1);
     padding: 24px 28px;
     display: flex;
     flex-direction: column;
@@ -139,7 +139,7 @@
     font-size: var(--size-h1);
     font-weight: var(--weight-regular);
     line-height: var(--lh-tight);
-    letter-spacing: var(--track-wide);
+    letter-spacing: var(--track-normal);
     font-variant-numeric: tabular-nums;
 }
 

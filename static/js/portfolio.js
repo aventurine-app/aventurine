@@ -179,6 +179,17 @@ function buildTable(account) {
     // ── tfoot: per-account totals (amount, market value, portfolio ROI) ────
     table.appendChild(buildTfootEl(account.entries));
 
+    // Spreadsheet-style multi-cell selection (drag / Shift+arrow → copy,
+    // paste, delete), layered on by cellselect.js. All seven columns are
+    // selectable/copyable; the two computed cells (Total, ROI) have no input
+    // so they're skipped on paste/delete. Writes go through synthetic `input`
+    // events that re-run each field's save + computed-field refresh, so the
+    // existing per-row persistence path is reused unchanged. Only tbody rows
+    // are scanned, so the totals tfoot is never part of a selection.
+    if (window.enableCellSelection) {
+        enableCellSelection(table, { cellSelector: 'td' });
+    }
+
     return outer;
 }
 
