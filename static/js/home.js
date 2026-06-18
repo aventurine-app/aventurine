@@ -114,11 +114,18 @@ function renderAccountsPie(data) {
     const recent  = findMostRecentPoint(entries);
 
     if (!recent) {
+        pieEl.style.display = 'none';
         pieEl.innerHTML = '';
-        legendEl.innerHTML = '<p class="chart-empty" style="margin:0">No balance data yet.</p>';
+        legendEl.innerHTML = UI.emptyState({
+            icon: 'donut', compact: true,
+            title: 'No capital to show yet',
+            desc: 'Add your account balances and Oliv will chart how your assets and debts split.',
+            action: { label: 'Add balances', href: '/balance-sheet', icon: 'plus', primary: true },
+        });
         return;
     }
 
+    pieEl.style.display = '';
     const curr = latestValueByColumn(entries);
     const sumType = (type) => columns
         .filter(c => c.type === type)
@@ -140,8 +147,13 @@ function renderAccountsPie(data) {
 
     const total = slices.reduce((s, x) => s + x.value, 0);
     if (total === 0) {
+        pieEl.style.display = 'none';
         pieEl.innerHTML = '';
-        legendEl.innerHTML = '<p class="chart-empty" style="margin:0">All balances are zero.</p>';
+        legendEl.innerHTML = UI.emptyState({
+            icon: 'donut', compact: true,
+            title: 'All balances are zero',
+            desc: 'Enter some non-zero account balances to see your capital profile.',
+        });
         return;
     }
 
@@ -510,8 +522,9 @@ function observeChart(containerId, renderFn) {
     // the chart div itself can't shrink below the SVG it already contains.
     const target = el.parentElement || el;
 
-    let animate = true;
-    let lastW   = 0;
+    let animate     = true;   // flips off after the first successful paint
+    let lastW       = 0;
+    let sawInitial  = false;  // has the observer delivered its first callback?
     const render = (w) => {
         w = Math.round(w);
         if (w > 0 && w !== lastW) {
@@ -521,9 +534,26 @@ function observeChart(containerId, renderFn) {
         }
     };
 
-    const obs = new ResizeObserver(entries => render(entries[0].contentRect.width));
+    const obs = new ResizeObserver(entries => {
+        const w = Math.round(entries[0].contentRect.width);
+        // A ResizeObserver always fires once immediately after observe().
+        // If the synchronous paint below already ran (animate is now false),
+        // that first callback is synthetic, not a real resize — adopt its
+        // content-box width as the baseline and return WITHOUT repainting,
+        // so the entrance animation isn't cancelled a frame in. We can't tell
+        // this apart by width alone: the sync paint uses clientWidth, this
+        // reports contentRect.width, and a layout shift in between (e.g. the
+        // page scrollbar appearing as other cards populate) makes them differ.
+        if (!sawInitial) {
+            sawInitial = true;
+            if (!animate) { lastW = w; return; }
+        }
+        render(w);
+    });
     obs.observe(target);
     chartObservers.set(containerId, obs);
+    // Immediate first paint (animated). If layout isn't ready yet (width 0),
+    // the observer's first callback above performs the animated paint instead.
     render(target.clientWidth);
 }
 
@@ -633,7 +663,18 @@ function renderNetworthSection(balanceData) {
     if (!container) return;
 
     if (filtered.length === 0) {
-        container.innerHTML = '<p class="chart-empty">No balance data in this range.</p>';
+        container.innerHTML = all.points.length === 0
+            ? UI.emptyState({
+                icon: 'chart',
+                title: 'No net worth to chart yet',
+                desc: 'Track your account balances and Oliv will plot your net worth over time.',
+                action: { label: 'Add balances', href: '/balance-sheet', icon: 'plus', primary: true },
+            })
+            : UI.emptyState({
+                icon: 'search', compact: true,
+                title: 'Nothing in this range',
+                desc: 'There’s no balance data for the selected period — try a longer range.',
+            });
         return;
     }
 
@@ -774,7 +815,12 @@ function renderIEChart(data) {
     const hasAnyData = series.some(s => s.points.length > 0);
 
     if (!hasAnyData) {
-        container.innerHTML = '<p class="chart-empty">No data yet. Add entries on Income & Expenses.</p>';
+        container.innerHTML = UI.emptyState({
+            icon: 'wallet',
+            title: 'No income or expenses yet',
+            desc: 'Add your monthly income and expense figures to chart your cash flow.',
+            action: { label: 'Open Cash Flow', href: '/income-expenses', icon: 'plus', primary: true },
+        });
         const selEl = document.getElementById('ie-selector');
         if (selEl) selEl.innerHTML = '';
         chartObservers.get('ie-chart')?.disconnect();
@@ -791,12 +837,20 @@ function renderIEChart(data) {
         .map(s => ({ ...s, points: filterPointsToSlots(s.points, slots) }));
 
     if (visible.length === 0) {
-        container.innerHTML = '<p class="chart-empty">Select Income or Expenses above to plot them.</p>';
+        container.innerHTML = UI.emptyState({
+            icon: 'chart', compact: true,
+            title: 'Nothing selected',
+            desc: 'Pick Income or Expenses above to plot it.',
+        });
         chartObservers.get('ie-chart')?.disconnect();
         return;
     }
     if (!visible.some(s => s.points.length > 0)) {
-        container.innerHTML = '<p class="chart-empty">No data in this range.</p>';
+        container.innerHTML = UI.emptyState({
+            icon: 'search', compact: true,
+            title: 'Nothing in this range',
+            desc: 'Try a longer range to see your cash flow.',
+        });
         chartObservers.get('ie-chart')?.disconnect();
         return;
     }
@@ -821,7 +875,11 @@ function renderAccountChart() {
 
     const keys = [...selectedAccounts];
     if (keys.length === 0) {
-        container.innerHTML = '<p class="chart-empty">Select accounts above to compare them.</p>';
+        container.innerHTML = UI.emptyState({
+            icon: 'chart', compact: true,
+            title: 'Nothing selected',
+            desc: 'Pick an account above to compare balances over time.',
+        });
         chartObservers.get('account-chart')?.disconnect();
         return;
     }
@@ -852,7 +910,11 @@ function renderAccountChart() {
 
     const hasAnyData = series.some(s => s.points.length > 0);
     if (!hasAnyData) {
-        container.innerHTML = '<p class="chart-empty">No data for selected accounts in this range.</p>';
+        container.innerHTML = UI.emptyState({
+            icon: 'search', compact: true,
+            title: 'Nothing in this range',
+            desc: 'These accounts have no balances in the selected period.',
+        });
         chartObservers.get('account-chart')?.disconnect();
         return;
     }
@@ -938,6 +1000,7 @@ function fmtDueLabel(item) {
 async function renderUpcomingExpenses() {
     const el = document.getElementById('upcoming-list');
     if (!el) return;
+    const cancelSkeleton = UI.skeletonGuard(() => { el.innerHTML = UI.skRows(3); });
 
     let items = [];
     try {
@@ -946,9 +1009,15 @@ async function renderUpcomingExpenses() {
     } catch (e) {
         // Network hiccup — fall through to the empty state.
     }
+    cancelSkeleton();
 
     if (items.length === 0) {
-        el.innerHTML = '<p class="chart-empty" style="margin:24px 0">No recurring expenses detected yet.</p>';
+        el.innerHTML = UI.emptyState({
+            icon: 'calendar', compact: true,
+            title: 'No upcoming expenses yet',
+            desc: 'Oliv flags recurring charges automatically once it sees a few months of transactions.',
+            action: { label: 'Add transactions', href: '/transactions', icon: 'plus' },
+        });
         return;
     }
 
@@ -969,11 +1038,25 @@ async function renderUpcomingExpenses() {
 
 // ─── Bootstrap ───────────────────────────────────────────────────────────────
 
+/** Inject loading skeletons into the dashboard's chart and list slots. Shown
+ *  only when the data fetch outlasts the skeletonGuard delay (cold loads);
+ *  warm cached loads render straight to content with no flash (see store.js). */
+function showHomeSkeletons() {
+    const fill = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+    fill('networth-chart',  UI.skChart(220));
+    fill('ie-chart',        UI.skChart(220));
+    fill('account-chart',   UI.skChart(220));
+    fill('accounts-pie',    '<div class="skeleton skeleton-circle" style="width:200px;height:200px"></div>');
+    fill('accounts-legend', UI.skRows(3));
+}
+
 /** Fetch both datasets in parallel and render all dashboard sections. */
 async function init() {
     // Independent fetch — kick it off first so it loads alongside the charts.
     renderUpcomingExpenses();
+    const cancelSkeletons = UI.skeletonGuard(showHomeSkeletons);
     const [balanceData, ieDataFetched] = await Promise.all([fetchBalanceData(), fetchIEData()]);
+    cancelSkeletons();
     appData = balanceData;
     ieData  = ieDataFetched;
     renderNetworthSection(appData);

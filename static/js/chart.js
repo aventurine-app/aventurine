@@ -180,8 +180,9 @@
     if (!series.length || !slots.length) { el.innerHTML = ''; return; }
 
     const target = el.parentElement || el;
-    let animate = true;
+    let animate = true;       // flips off after the first successful paint
     let lastW = 0;
+    let sawInitial = false;   // has the observer delivered its first callback?
     const draw = (w) => {
       w = Math.round(w);
       if (w > 0 && w !== lastW) {
@@ -190,7 +191,20 @@
         animate = false;
       }
     };
-    const obs = new ResizeObserver((entries) => draw(entries[0].contentRect.width));
+    const obs = new ResizeObserver((entries) => {
+      const w = Math.round(entries[0].contentRect.width);
+      // The observer always fires once right after observe(). If the sync
+      // paint below already ran (animate now false), that first callback is
+      // synthetic, not a real resize — adopt its width as the baseline and
+      // skip the repaint so the entrance animation isn't cancelled a frame in.
+      // (clientWidth from the sync paint can differ from contentRect.width if
+      // layout shifts in between, so a width compare alone won't catch this.)
+      if (!sawInitial) {
+        sawInitial = true;
+        if (!animate) { lastW = w; return; }
+      }
+      draw(w);
+    });
     obs.observe(target);
     observers.set(containerId, obs);
     draw(target.clientWidth);

@@ -2,12 +2,11 @@
 
 // ─── Spending Trends (Reports) ────────────────────────────────────────────────
 // Plots each expense category's monthly spending over a trailing window, with
-// per-category toggles (like the Home charts), an optional inflation adjustment
-// (constant "today's dollars"), and a biggest-movers panel comparing the recent
-// half of the window to the earlier half.
+// per-category toggles (like the Home charts) and a biggest-movers panel
+// comparing the recent half of the window to the earlier half.
 //
 // Data comes from GET /api/trends (monthly per-category expense sums). The chart
-// is the shared FinanceChart (chart.js). Inflation + movers are computed here.
+// is the shared FinanceChart (chart.js). Movers are computed here.
 //
 // Globals: apiFetch (api.js), escapeHtml (escape.js), formatCurrency (currency.js),
 // FinanceChart (chart.js).
@@ -19,8 +18,6 @@ const EPS = 0.005; // ignore sub-cent "movement" (float noise)
 
 const state = {
   window: 12,
-  inflation: false,
-  rate: 3,         // % per year
   data: null,      // { window, months, categories:[{key,name,monthly}] }
   enabled: null,   // Set<categoryKey> currently plotted
   colors: null,    // Map<key, color>
@@ -33,16 +30,6 @@ function fmtMoney(n) {
 }
 function fmtSigned(n) {
   return (n < 0 ? '-' : '+') + fmtMoney(Math.abs(n));
-}
-
-// ─── Inflation adjustment (constant latest-month dollars) ────────────────────
-// value at month i (0-based, oldest→newest) scaled up to the latest month's
-// dollars: nominal × (1+r)^((last - i)/12).
-function adjusted(value, i, lastIndex) {
-  if (!state.inflation) return value;
-  const r = Number(state.rate) / 100;
-  if (!Number.isFinite(r) || r <= 0) return value;
-  return value * Math.pow(1 + r, (lastIndex - i) / 12);
 }
 
 const ymToSlot = (ym) => {
@@ -87,7 +74,7 @@ function renderSelector() {
   if (!el || !state.data) return;
   const cats = state.data.categories;
   if (!cats.length) {
-    el.innerHTML = '<p class="trends-hint">No categorized spending in this window yet.</p>';
+    el.innerHTML = '';   // the chart area below shows the full empty state
     return;
   }
 
@@ -118,7 +105,6 @@ function renderChart() {
   const container = document.getElementById('trends-chart');
   if (!container || !state.data) return;
   const { months, categories } = state.data;
-  const lastIndex = months.length - 1;
   const slots = months.map(ymToSlot);
 
   const series = categories
@@ -128,13 +114,24 @@ function renderChart() {
       color: state.colors.get(c.key),
       points: months.map((ym, i) => {
         const slot = slots[i];
-        return { year: slot.year, monthIdx: slot.monthIdx, value: adjusted(c.monthly[ym] || 0, i, lastIndex) };
+        return { year: slot.year, monthIdx: slot.monthIdx, value: c.monthly[ym] || 0 };
       }),
     }));
 
   if (!series.length) {
     FinanceChart.render('trends-chart', { series: [], slots: [] }); // disconnect observer + clear
-    container.innerHTML = '<p class="chart-empty">Select categories above to plot them.</p>';
+    container.innerHTML = categories.length === 0
+      ? UI.emptyState({
+          icon: 'chart',
+          title: 'No spending to chart yet',
+          desc: 'Categorize some transactions and Oliv will chart how your spending shifts over time.',
+          action: { label: 'Add transactions', href: '/transactions', icon: 'plus', primary: true },
+        })
+      : UI.emptyState({
+          icon: 'chart', compact: true,
+          title: 'Nothing selected',
+          desc: 'Pick a category above to plot it.',
+        });
     return;
   }
   FinanceChart.render('trends-chart', { series, slots });
@@ -147,10 +144,9 @@ function computeMovers() {
   const n = months.length;
   const half = Math.floor(n / 2);
   if (half < 1) return [];
-  const lastIndex = n - 1;
 
   return categories.map((c) => {
-    const val = (i) => adjusted(c.monthly[months[i]] || 0, i, lastIndex);
+    const val = (i) => c.monthly[months[i]] || 0;
     let first = 0;
     let second = 0;
     for (let i = 0; i < half; i++) first += val(i);
@@ -185,7 +181,7 @@ function renderMovers() {
   const down = movers.filter((m) => m.change < -EPS).sort((a, b) => a.change - b.change).slice(0, MOVERS_PER_SIDE);
 
   if (note) {
-    note.textContent = `recent half vs earlier half · ${WINDOW_LABELS[state.window]}${state.inflation ? ' · real' : ''}`;
+    note.textContent = `recent half vs earlier half · ${WINDOW_LABELS[state.window]}`;
   }
 
   const col = (title, items, dir) => `<div class="trends-mover-col">
@@ -215,32 +211,8 @@ function wireRangePicker() {
     }));
 }
 
-function wireInflation() {
-  const toggle = document.getElementById('infl-toggle');
-  const rateWrap = document.getElementById('infl-rate-wrap');
-  const rateInput = document.getElementById('infl-rate');
-
-  toggle.addEventListener('click', () => {
-    state.inflation = !state.inflation;
-    toggle.setAttribute('aria-pressed', String(state.inflation));
-    toggle.classList.toggle('active', state.inflation);
-    rateWrap.hidden = !state.inflation;
-    renderChart();
-    renderMovers();
-  });
-
-  rateInput.addEventListener('input', () => {
-    // Keep digits and a single dot.
-    rateInput.value = rateInput.value.replace(/[^0-9.]/g, '');
-    const v = Number(rateInput.value);
-    if (Number.isFinite(v)) state.rate = v;
-    if (state.inflation) { renderChart(); renderMovers(); }
-  });
-}
-
 document.addEventListener('DOMContentLoaded', () => {
   wireRangePicker();
-  wireInflation();
   window.addEventListener('currencychange', render);
   load();
 });

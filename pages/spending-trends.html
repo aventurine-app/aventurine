@@ -19,17 +19,9 @@
     <div class="trends-card">
         <div class="home-card-header">
             <span class="home-card-title">Spending Trends<span class="fc-info" tabindex="0" role="note"
-                aria-label="Each line is one expense category's spending per month over the selected window (the current, incomplete month is excluded). Toggle categories below to focus the view. 'Adjust for inflation' restates every month in the latest month's dollars using the rate you enter, so spending that only kept pace with inflation shows up as flat."
-                data-tip="Each line is one expense category's spending per month over the selected window (the current, incomplete month is excluded). Toggle categories below to focus the view. 'Adjust for inflation' restates every month in the latest month's dollars using the rate you enter, so spending that only kept pace with inflation shows up as flat.">i</span></span>
+                aria-label="Each line is one expense category's spending per month over the selected window (the current, incomplete month is excluded). Toggle categories below to focus the view."
+                data-tip="Each line is one expense category's spending per month over the selected window (the current, incomplete month is excluded). Toggle categories below to focus the view.">i</span></span>
             <div class="trends-controls">
-                <div class="trends-inflation">
-                    <button type="button" class="trends-toggle" id="infl-toggle" aria-pressed="false">Adjust for inflation</button>
-                    <span class="trends-infl-rate" id="infl-rate-wrap" hidden>
-                        <input type="text" id="infl-rate" class="trends-infl-input" inputmode="decimal"
-                               spellcheck="false" autocomplete="off" value="3">
-                        <span class="trends-infl-pct">% / yr</span>
-                    </span>
-                </div>
                 <div class="range-selector" id="trends-range">
                     <button class="range-selector-btn" id="trends-range-btn" type="button">12 Months</button>
                     <div class="range-selector-menu" id="trends-range-menu" hidden>
@@ -51,8 +43,8 @@
     <div class="trends-card">
         <div class="home-card-header">
             <span class="home-card-title">Biggest Movers<span class="fc-info" tabindex="0" role="note"
-                aria-label="How each category's average monthly spend in the recent half of the window compares to the earlier half. Up means you're spending more lately; down means less. Reflects the inflation adjustment when it's on."
-                data-tip="How each category's average monthly spend in the recent half of the window compares to the earlier half. Up means you're spending more lately; down means less. Reflects the inflation adjustment when it's on.">i</span></span>
+                aria-label="How each category's average monthly spend in the recent half of the window compares to the earlier half. Up means you're spending more lately; down means less."
+                data-tip="How each category's average monthly spend in the recent half of the window compares to the earlier half. Up means you're spending more lately; down means less.">i</span></span>
             <span class="trends-movers-note" id="trends-movers-note"></span>
         </div>
         <div id="trends-movers" class="trends-movers"></div>

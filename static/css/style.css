@@ -79,10 +79,21 @@
        than the OS appearance. */
    color-scheme: light;
 
-    /* Text */
+    /* Native <input type=date> picker glyph, replaced with our own SVG so it
+       matches --text-primary in either theme. We swap the glyph via
+       background-image (appearance:none) — the native colour isn't reliable
+       across themes here, and masking the indicator renders invisibly in this
+       Electron build. The SVG is a same-origin file (NOT a data: URI): the
+       page CSP is img-src 'self' with no data:, so inline data URIs are
+       blocked. Strokes are baked to base-900 (light) / base-100 (dark). */
+   --calendar-icon: url('/static/icons/calendar-light-theme.svg');
+
+    /* Text — primary loudest, tertiary quietest. base-600 is near the AA floor
+       on the light background, so secondary takes base-700 and tertiary base-600
+       (the quieter of the two that still clears 4.5:1). */
    --text-primary:     var(--base-900);
-   --text-secondary:   var(--base-600);
-   --text-tertiary:    var(--base-700);
+   --text-secondary:   var(--base-700);
+   --text-tertiary:    var(--base-600);
 
    /* Surfaces */
    --background:       var(--base-100);
@@ -107,13 +118,19 @@
 
    /* Frost layer — flip from white-tinted to black-tinted */
    --frost-2:          rgba(0,0,0, 0.05);
-   --frost-3:          rgba(0,0,0, 0.07);
    --frost-3:          rgba(0,0,0, 0.10);
    --frost-focus:      rgba(0,0,0, 0.30);
    --frost-dim:        rgba(0,0,0, 0.28);
    --frost-caret:      rgba(0,0,0, 0.50);
    --frost-icon:       rgba(0,0,0, 0.30);
    --frost-text:       rgba(0,0,0, 0.70);
+
+   /* Hairline strokes — black-tinted for the light theme, tuned a touch heavier
+      than a straight inversion so they read at the same weight on light surfaces. */
+   --stroke-divider:   rgba(0,0,0, 0.08);
+   --stroke-soft:      rgba(0,0,0, 0.12);
+   --stroke-medium:    rgba(0,0,0, 0.16);
+   --stroke-strong:    rgba(0,0,0, 0.22);
 
    /* Dialog chrome — opaque surface/border rather than translucent tints */
    --dialog-surface:   var(--surface1);
@@ -138,7 +155,7 @@
      *   --font-numeric  → currencies, totals, percentages, anything tabular —
      *                     pair with font-variant-numeric: tabular-nums */
     --font-menu:    'Manrope', system-ui, sans-serif;
-    --font-h1:      'Fraunces', Georgia, serif;
+    --font-h1:      'Manrope', Georgia, serif;
     --font-h2:      'Manrope', system-ui, sans-serif;
     --font-h3:      'Manrope', system-ui, sans-serif;
     --font-numeric: 'IBM Plex Mono', system-ui, sans-serif;
@@ -201,14 +218,34 @@
  * Sizing and effects shared across components. Lives outside the theme block
  * because palette swaps don't change them. */
 :root {
+    /* ── Spacing scale — 4px base grid ───────────────────────────────────
+     * The single ramp every padding / margin / gap should draw from. All
+     * multiples of 4 (8px steps past 16) so spacing reads as deliberate
+     * rather than hand-tuned. Names encode the pixel value for grep-ability.
+     * Component rules should prefer these over raw px. */
+    --space-4:   4px;
+    --space-8:   8px;
+    --space-12: 12px;
+    --space-16: 16px;
+    --space-20: 20px;
+    --space-24: 24px;
+    --space-32: 32px;
+    --space-48: 48px;
+    --space-64: 64px;
+
+    /* Empty space framing every main page's content inside the .page scroll
+       area. One token so every page (table pages, home, and the report-style
+       pages) shares the same outer padding. */
+    --page-pad: var(--space-20);
+
     /* First-column left padding — used on table foreheads, column headers,
        body cells, and footer labels so every left edge lines up vertically.
        Also doubles as the horizontal padding inside editable cell inputs. */
-    --col-first-pad: 16px;
+    --col-first-pad: var(--space-16);
 
     /* Vertical padding inside every editable cell input — keeps row heights
        consistent across the spreadsheet pages. */
-    --cell-pad-y: 12px;
+    --cell-pad-y: var(--space-12);
 }
 
 
@@ -386,7 +423,7 @@ div.page::-webkit-scrollbar-thumb:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 22px;
+    padding: var(--space-16) var(--space-24);
     border-bottom: 1px solid var(--border);
 }
 

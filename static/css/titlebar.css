@@ -34,13 +34,15 @@
 
 /* ── App icon (far left) ─────────────────────────────────────────────── */
 .titlebar-icon {
-    width: 20px;
-    height: 20px;
+    height: 25px;
+    width: auto;
     object-fit: contain;
     align-self: center;
-    /* A touch more padding on the outside edge than against the menu so the
-       icon sits comfortably in the corner without crowding File. */
-    margin: 0 8px 0 12px;
+    /* width:auto means the rendered box is tight to the logo, so as a flex
+       item the menu automatically begins wherever the logo ends — whatever
+       its width. The right margin is the gap between the two; the larger
+       left margin sits the logo comfortably in the corner. */
+    margin: 0 var(--space-8) 0 var(--space-12);
     /* Part of the chrome, not a control — let drags pass through it. */
     -webkit-app-region: drag;
     pointer-events: none;
@@ -57,7 +59,7 @@
 .titlebar-menu-item {
     background: transparent;
     border: none;
-    padding: 3px 8px;
+    padding: var(--space-4) var(--space-8);
     border-radius: 5px;
     color: var(--label-muted);
     font-family: var(--font-menu);
@@ -75,7 +77,7 @@
 
 .titlebar-menu-item:focus { outline: none; }
 .titlebar-menu-item:focus-visible {
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+    box-shadow: inset 0 0 0 1px var(--stroke-medium);
     border-radius: 2px;
 }
 
@@ -102,7 +104,7 @@
 .titlebar-dropdown-item {
     background: transparent;
     border: none;
-    padding: 8px 14px;
+    padding: var(--space-8) var(--space-16);
     color: var(--nav-text);
     font-family: var(--font-menu);
     font-size: var(--size-small);
@@ -171,5 +173,5 @@
 }
 
 .titlebar-btn:focus-visible {
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
+    box-shadow: 0 0 0 1px var(--stroke-strong);
 }

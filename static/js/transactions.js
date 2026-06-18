@@ -223,10 +223,30 @@ function txRenderEditRow(t, { isNew }) {
 }
 
 function txEmptyRow(filtered) {
-    const msg = filtered
-        ? 'No transactions match your search — adjust or clear the filters above.'
-        : 'No transactions yet — click "Add Transaction" to log your first.';
-    return `<tr class="tx-empty-row"><td colspan="7">${msg}</td></tr>`;
+    const inner = filtered
+        ? UI.emptyState({
+            icon: 'search', compact: true,
+            title: 'No matching transactions',
+            desc: 'Nothing matches your current filters — adjust or clear them to see more.',
+            action: { label: 'Clear filters', name: 'tx-clear-filters' },
+        })
+        : UI.emptyState({
+            icon: 'receipt',
+            title: 'No transactions yet',
+            desc: 'Add a transaction by hand, or import a statement from your bank to get started.',
+            action: { label: 'Add transaction', name: 'tx-add', icon: 'plus', primary: true },
+        });
+    return `<tr class="tx-empty-row"><td colspan="7">${inner}</td></tr>`;
+}
+
+// Skeleton placeholder rows shown while the ledger loads (cold fetch only).
+// Reuses .tx-row so each placeholder is exactly one real row tall.
+function txSkeletonRows(n) {
+    const cell = (w) => `<td><div class="skeleton skeleton-line sk-w-${w}"></div></td>`;
+    const row = '<tr class="tx-row tx-skeleton-row">'
+        + cell('75') + cell('90') + cell('50') + cell('60') + cell('50') + cell('40') + cell('40')
+        + '</tr>';
+    return row.repeat(n);
 }
 
 // ─── Transactions Search ─────────────────────────────────────────────────────
@@ -306,6 +326,17 @@ function txSearchPopulateCategories() {
     }
 }
 
+// Reset every search field and re-render. Shared by the search bar's Clear
+// button and the "Clear filters" action in the filtered-empty state.
+function txClearFilters() {
+    for (const [key, id] of Object.entries(TX_SEARCH_FIELDS)) {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+        txState.filters[key] = '';
+    }
+    txRender();
+}
+
 function txSearchInit() {
     for (const [key, id] of Object.entries(TX_SEARCH_FIELDS)) {
         const el = document.getElementById(id);
@@ -321,14 +352,7 @@ function txSearchInit() {
             txRender();
         });
     }
-    document.getElementById('tx-search-clear')?.addEventListener('click', () => {
-        for (const [key, id] of Object.entries(TX_SEARCH_FIELDS)) {
-            const el = document.getElementById(id);
-            if (el) el.value = '';
-            txState.filters[key] = '';
-        }
-        txRender();
-    });
+    document.getElementById('tx-search-clear')?.addEventListener('click', txClearFilters);
 }
 
 // ─── Render orchestration ────────────────────────────────────────────────────
@@ -494,6 +518,13 @@ function txSortRows() {
 // ─── Event wiring ────────────────────────────────────────────────────────────
 
 function txOnTableClick(e) {
+    // CTAs rendered inside the empty state (Add transaction / Clear filters).
+    const emptyBtn = e.target.closest('button[data-empty-action]');
+    if (emptyBtn) {
+        if (emptyBtn.dataset.emptyAction === 'tx-add')               txOnAddClick();
+        else if (emptyBtn.dataset.emptyAction === 'tx-clear-filters') txClearFilters();
+        return;
+    }
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
     const action = btn.dataset.action;
@@ -518,6 +549,10 @@ function txOnAddClick() {
 // ─── Bootstrap ───────────────────────────────────────────────────────────────
 
 async function txInit() {
+    const tbodyEl = document.getElementById('tx-tbody');
+    const cancelSkeleton = UI.skeletonGuard(() => {
+        if (tbodyEl) tbodyEl.innerHTML = txSkeletonRows(8);
+    });
     try {
         const data = await txApiList();
         txState.rows       = data.transactions || [];
@@ -526,6 +561,7 @@ async function txInit() {
     } catch (err) {
         console.error(err);
     }
+    cancelSkeleton();
     txSearchPopulateCategories();
     txRender();
 

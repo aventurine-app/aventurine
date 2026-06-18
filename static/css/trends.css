@@ -19,7 +19,7 @@
     display: flex;
     flex-direction: column;
     gap: 24px;
-    padding: 28px 32px;
+    padding: var(--page-pad);
     /* Fixed width so the cards don't reflow as figures change length. */
     width: 1060px;
     max-width: 100%;
@@ -75,53 +75,8 @@
     padding: 8px 0;
 }
 
-/* ─── Header controls: inflation toggle + window picker ───────────────────── */
+/* ─── Header controls: window picker ──────────────────────────────────────── */
 .trends-controls { display: flex; align-items: center; gap: 16px; }
-.trends-inflation { display: flex; align-items: center; gap: 8px; }
-
-.trends-toggle {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wider);
-    text-transform: uppercase;
-    padding: 6px 12px;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-.trends-toggle:hover { background: var(--surface3); color: var(--text-primary); border-color: var(--text-tertiary); }
-.trends-toggle.active {
-    background: color-mix(in srgb, var(--accent-secondary) 22%, var(--surface2));
-    border-color: var(--accent-secondary);
-    color: var(--text-primary);
-}
-
-.trends-infl-rate { display: inline-flex; align-items: center; gap: 4px; }
-.trends-infl-input {
-    width: 48px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text-primary);
-    font-family: var(--font-numeric);
-    font-size: var(--size-small);
-    font-variant-numeric: tabular-nums;
-    padding: 5px 7px;
-    text-align: right;
-}
-.trends-infl-input:focus { outline: none; border-color: var(--accent-secondary); }
-.trends-infl-pct {
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wide);
-    text-transform: uppercase;
-}
 
 /* Range selector (restated from home.css §8). */
 .range-selector { position: relative; }
@@ -186,8 +141,8 @@
     gap: 7px;
     padding: 5px 12px 5px 8px;
     border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--stroke-soft);
+    background: var(--frost-2);
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s, opacity 0.15s;
     font-family: var(--font-menu);
@@ -198,12 +153,12 @@
     user-select: none;
 }
 .trends-chip.active {
-    background: rgba(255, 255, 255, 0.09);
-    border-color: rgba(255, 255, 255, 0.25);
+    background: var(--frost-3);
+    border-color: var(--stroke-strong);
     color: var(--text-primary);
 }
 .trends-chip:hover {
-    border-color: rgba(255, 255, 255, 0.2);
+    border-color: var(--stroke-medium);
     color: var(--text-primary);
 }
 .trends-chip-dot {
@@ -241,7 +196,7 @@
     justify-content: space-between;
     gap: 12px;
     padding: 9px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid var(--stroke-divider);
 }
 .trends-mover:last-child { border-bottom: none; }
 .trends-mover-name {

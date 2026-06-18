@@ -33,6 +33,7 @@ const PAGE_ROUTES = {
     '/income-expenses': 'income-expenses.html',
     '/balance-sheet':   'balance-sheet.html',
     '/portfolio':       'portfolio.html',
+    '/categories':      'categories.html',
     '/transactions':    'transactions.html',
     '/credit-cards':    'credit-cards.html',
     '/budget':          'budget.html',
@@ -49,6 +50,19 @@ protocol.registerSchemesAsPrivileged([
 
 // Kill the default File/Edit/View menu — base.html owns the title bar.
 Menu.setApplicationMenu(null);
+
+// Dev (npm start) gets its own profile so it never shares state with an
+// installed /opt/Oliv build. Both default to the 'oliv' userData dir, so
+// running dev while the packaged app is open makes the second instance fight
+// the first for the Chromium DOM-Storage LevelDB lock: the renderer's first
+// localStorage access then stalls ~4s (twice — localStorage + sessionStorage)
+// before falling back to in-memory, which is the "blank for seconds on launch"
+// symptom. A distinct dev userData dir (its own Local Storage AND its own
+// data/finance.db) sidesteps the collision entirely. Must run before
+// whenReady → startBackend, which derives OLIV_DATA_DIR from userData.
+if (!app.isPackaged) {
+    app.setPath('userData', path.join(app.getPath('appData'), 'oliv-dev'));
+}
 
 // ─── Backend (in-process) ───────────────────────────────────────────────────
 

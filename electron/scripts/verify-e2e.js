@@ -90,6 +90,7 @@ app.whenReady().then(async () => {
     // routes and prove the shared chrome landed on each one.
     const routes = {
       '/':                'Home',
+      '/categories':      'Categories',
       '/transactions':    'Transactions',
       '/income-expenses': 'Cash Flow',
       '/balance-sheet':   'Balance Sheet',
@@ -108,7 +109,6 @@ app.whenReady().then(async () => {
         && !!document.querySelector(".menu .nav")
         && !!document.querySelector("#db-modal")
         && !!document.querySelector("[data-modal='preferences']")
-        && !!document.querySelector("[data-modal='categories']")
         && (document.querySelector(".menu .nav a.active")?.getAttribute("href") ?? null) === ${JSON.stringify(activeHref)}
         && document.querySelectorAll(".menu .nav a.active").length === ${activeHref ? 1 : 0}`);
       check(`page ${route} assembles with chrome`, ok);
@@ -123,17 +123,22 @@ app.whenReady().then(async () => {
       '!document.getElementById("db-modal").hidden && document.getElementById("db-modal-title").textContent === "New Database"'
     ));
 
-    // The Settings menu is a dropdown → Preferences / Manage Categories.
+    // The Settings menu is a dropdown → Preferences / About.
     await evalJs('document.querySelector("[data-menu=\'settings\']").click()');
     await evalJs('document.querySelector("[data-menu-panel=\'settings\'] [data-action=\'open-preferences\']").click()');
     check('Settings menu opens Preferences modal', await evalJs(
       '!document.querySelector("[data-modal=\'preferences\']").hidden'
     ));
-    await evalJs('document.querySelector("[data-menu=\'settings\']").click()');
-    await evalJs('document.querySelector("[data-menu-panel=\'settings\'] [data-action=\'open-categories\']").click()');
-    check('Settings menu opens Manage Categories modal', await evalJs(
-      '!document.querySelector("[data-modal=\'categories\']").hidden'
-        + ' && !!document.querySelector("[data-modal=\'categories\'] [data-categories-editor]")'
+
+    // Category management now lives on its own page — prove the editor renders
+    // its rows there (the add row pinned to the top + seeded categories). The
+    // editor fills asynchronously after load, so poll briefly like the tx table.
+    await win.loadURL('app://oliv/categories');
+    check('Categories page renders the editor', await evalJs(
+      'new Promise(res => setTimeout(() => res('
+        + '!!document.querySelector("[data-categories-editor][data-add-top] .cat-add")'
+        + ' && document.querySelectorAll("[data-categories-editor] .cat-row").length > 0'
+        + '), 800))'
     ));
   } catch (e) {
     console.error('FAIL  exception:', e.message);

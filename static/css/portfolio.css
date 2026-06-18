@@ -61,15 +61,15 @@
    this is a primary dialog input, not an inline edit. */
 .p-rename-input {
     width: 100%;
-    background: rgba(255, 255, 255, 0.07);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: var(--frost-2);
+    border: 1px solid var(--stroke-medium);
     border-radius: 5px;
     outline: none;
     color: var(--text-primary);
     font-family: var(--font-h2);
     font-size: var(--size-small);
     padding: 8px 10px;
-    caret-color: rgba(255, 255, 255, 0.8);
+    caret-color: var(--frost-caret);
     box-sizing: border-box;
     margin-bottom: 2px;
 }
@@ -175,8 +175,8 @@
 }
 
 .remove-entry-item:last-child { border-bottom: none; }
-.remove-entry-item:hover      { background: rgba(255, 255, 255, 0.06); }
-.remove-entry-item.selected   { background: rgba(255, 255, 255, 0.1); }
+.remove-entry-item:hover      { background: var(--frost-2); }
+.remove-entry-item.selected   { background: var(--frost-3); }
 
 .remove-entry-name {
     font-family: var(--font-h3);

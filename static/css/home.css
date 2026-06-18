@@ -23,7 +23,7 @@
 /* ─── 1. Page layout ─────────────────────────────────────────────────────── */
 .page:has(.home-page) {
     align-items: flex-start;
-    padding: 40px 40px 60px;
+    padding: var(--page-pad);
     box-sizing: border-box;
 }
 
@@ -213,7 +213,7 @@
     align-items: center;
     gap: 14px;
     padding-bottom: 14px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid var(--stroke-divider);
 }
 
 .accounts-legend-item:last-child {
@@ -290,8 +290,8 @@
     gap: 7px;
     padding: 5px 12px 5px 8px;
     border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--stroke-soft);
+    background: var(--frost-2);
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s, opacity 0.15s;
     font-family: var(--font-menu);
@@ -303,13 +303,13 @@
 }
 
 .account-toggle.active {
-    background: rgba(255, 255, 255, 0.09);
-    border-color: rgba(255, 255, 255, 0.25);
+    background: var(--frost-3);
+    border-color: var(--stroke-strong);
     color: var(--text-primary);
 }
 
 .account-toggle:hover {
-    border-color: rgba(255, 255, 255, 0.2);
+    border-color: var(--stroke-medium);
     color: var(--text-primary);
 }
 
@@ -405,7 +405,7 @@
     justify-content: space-between;
     gap: 14px;
     padding: 12px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid var(--stroke-divider);
 }
 
 .upcoming-item:first-child { padding-top: 0; }

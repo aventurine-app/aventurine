@@ -128,10 +128,12 @@ function render() {
   if (!host || !lastData) return;
   const years = lastData.years || [];
   if (!years.length) {
-    host.innerHTML = `<div class="rc-empty">
-      <p>No years yet.</p>
-      <p class="rc-empty-hint">Add some transactions and your report cards will appear here, one per year.</p>
-    </div>`;
+    host.innerHTML = UI.emptyState({
+      icon: 'target',
+      title: 'No report cards yet',
+      desc: 'Add transactions across a year and Oliv grades it against five money goals — one card per year.',
+      action: { label: 'Add transactions', href: '/transactions', icon: 'plus', primary: true },
+    });
     return;
   }
   host.innerHTML = years.map(card).join('');

@@ -113,7 +113,12 @@ function renderSummary() {
   if (!el || !state.data) return;
   const { summary, series, accounts, start_account, include_savings } = state.data;
   if (!series.length) {
-    el.innerHTML = '<p class="forecast-empty">No forecast yet — add some transactions or a planned item.</p>';
+    el.innerHTML = UI.emptyState({
+      icon: 'forecast',
+      title: 'No forecast yet',
+      desc: 'Add a few transactions or a planned item and Oliv will project your balance forward.',
+      action: { label: 'Add transactions', href: '/transactions', icon: 'plus', primary: true },
+    });
     return;
   }
 
@@ -309,7 +314,11 @@ function renderPlanned() {
 
   let html = '';
   if (!items.length) {
-    html += '<p class="forecast-empty planned-empty">No planned items yet.</p>';
+    html += UI.emptyState({
+      icon: 'calendar', compact: true,
+      title: 'No planned items',
+      desc: 'Add one-off income or expenses you already know about to refine the projection.',
+    });
   } else {
     html += '<ul class="planned-rows">';
     for (const it of items) {

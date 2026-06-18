@@ -82,7 +82,7 @@
         }
     });
 
-    // ── Settings modals (Preferences / Manage Categories) ─────────────
+    // ── Settings modals (Preferences / About) ─────────────────────────
     function openModal(name) {
         const modal = document.querySelector(`[data-modal="${name}"]`);
         if (modal) modal.hidden = false;
@@ -95,8 +95,6 @@
         closeMenus();
         if (item.dataset.action === 'open-preferences') {
             openModal('preferences');
-        } else if (item.dataset.action === 'open-categories') {
-            openModal('categories');
         } else if (item.dataset.action === 'open-about') {
             openModal('about');
         }

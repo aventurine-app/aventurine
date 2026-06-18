@@ -3,8 +3,10 @@
    ============================================================================ */
 
 
-/* ─── Light ──────────────────────────────────────────────────────────────────
-   Light surfaces, dark text, olive accent darkened for contrast on white. */
+/* ─── Dark (default) ─────────────────────────────────────────────────────────
+   Deep surfaces, light text, olive accent lightened for contrast on black.
+   (The light theme is the :root baseline in style.css; this block overrides it
+   when data-theme="dark" is set on <html>.) */
 html[data-theme="dark"],
 .settings-theme-swatch[data-theme="dark"] {
 
@@ -16,7 +18,11 @@ html[data-theme="dark"],
        tertiary  → captions, disabled states, the quietest tier. */
     --text-primary:   var(--base-100);
     --text-secondary: var(--base-300);
-    --text-tertiary:  var(--base-200);
+    --text-tertiary:  var(--base-400);   /* one step quieter than secondary (was base-200, which read louder) */
+
+    /* Date-picker glyph with a base-100 stroke so it reads on dark. Same-origin
+       SVG file, not a data: URI (blocked by the img-src 'self' CSP). */
+    --calendar-icon: url('/static/icons/calendar-dark-theme.svg');
 
     /* Background + surfaces.
        background  — the deepest layer (body / page bg).
@@ -51,13 +57,21 @@ html[data-theme="dark"],
      * switching theme only requires overriding these tokens, not touching
      * any component file. */
     --frost-2:        rgba(255,255,255, 0.05);   /* default tint */
-    --frost-3:        rgba(255,255,255, 0.07);   /* medium tint */
-    --frost-3:          rgba(255,255,255, 0.10);
+    --frost-3:        rgba(255,255,255, 0.10);   /* medium tint — hover bg */
     --frost-focus:    rgba(255,255,255, 0.40);   /* focused input bg */
     --frost-dim:      rgba(255,255,255, 0.15);   /* dimmed text / icons */
     --frost-caret:    rgba(255,255,255, 0.80);   /* input caret */
     --frost-icon:     rgba(255,255,255, 0.30);   /* icon default */
     --frost-text:     rgba(255,255,255, 0.65);   /* secondary text */
+
+    /* Hairline strokes — the border-side companion to the frost tints above,
+       for dividers and the borders of frosted controls (toggle chips, etc.).
+       Components used to hard-code these as rgba(255,255,255,…), which made
+       them invisible in the light theme; routing through tokens flips them. */
+    --stroke-divider: rgba(255,255,255, 0.06);   /* faint list / legend divider */
+    --stroke-soft:    rgba(255,255,255, 0.12);   /* idle control border */
+    --stroke-medium:  rgba(255,255,255, 0.20);   /* hover control border / focus ring */
+    --stroke-strong:  rgba(255,255,255, 0.25);   /* active / selected border */
 
     /* Dialog chrome — separate from frost because light theme sets these
      * to opaque surface tokens rather than translucent rgba values. */

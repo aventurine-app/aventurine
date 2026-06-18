@@ -2,7 +2,7 @@
      and the Settings modals. Spliced into pages/*.html by the app:// protocol
      handler (electron/main.js). Edit here once - every page gets it. -->
     <div class="titlebar">
-        <img class="titlebar-icon" src="/static/icons/logo/olive.svg" alt="">
+        <img class="titlebar-icon" src="/static/icons/logo/olive.png" alt="">
         <div class="titlebar-menu">
             <button class="titlebar-menu-item" data-menu="file" tabindex="-1">File</button>
             <button class="titlebar-menu-item" data-menu="settings" tabindex="-1">Settings</button>
@@ -30,7 +30,6 @@
 
     <div class="titlebar-dropdown" data-menu-panel="settings" hidden>
         <button class="titlebar-dropdown-item" data-action="open-preferences">Preferences</button>
-        <button class="titlebar-dropdown-item" data-action="open-categories">Manage Categories</button>
         <button class="titlebar-dropdown-item" data-action="open-about">About &amp; Updates</button>
     </div>
 
@@ -125,38 +124,6 @@
                 <input class="settings-currency-input" type="text" maxlength="3" autocomplete="off" spellcheck="false">
                 <span class="settings-currency-preview"></span>
             </div>
-        </div>
-    </div>
-</div>
-            </div>
-        </div>
-    </div>
-
-
-    <div class="settings-modal-overlay" data-modal="categories" hidden>
-        <div class="settings-modal">
-            <div class="settings-modal-header">
-                <span class="settings-modal-title">Manage Categories</span>
-                <button class="settings-modal-close" aria-label="Close">×</button>
-            </div>
-            <div class="settings-modal-body">
-
-<div class="settings-section">
-    <div class="settings-section-header">Categories</div>
-    <div class="settings-card">
-        <div class="settings-row settings-row-categories">
-            <div class="settings-row-label">
-                <div class="settings-row-name">Cash Flow Categories</div>
-                <div class="settings-row-desc">
-                    Define the Categories for your Cash Flow Statement. Turn <strong>Sync</strong> on for a category and its
-                    monthly value on the Cash Flow Statement is computed automatically from
-                    matching transactions; leave it off to keep the cell manually
-                    editable. Deletion is blocked when transactions or stored
-                    values still reference a category — reassign first.
-                </div>
-            </div>
-
-            <div class="settings-categories-editor" data-categories-editor></div>
         </div>
     </div>
 </div>

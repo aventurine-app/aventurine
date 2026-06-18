@@ -329,18 +329,16 @@
     text-align: right;
 }
 
-/* Recolor the native date-picker icon to match the placeholder text token.
-   The native glyph can't be color-styled directly, so mask a calendar SVG
-   and fill it with --text-tertiary so it tracks the theme. */
-.tx-input-date::-webkit-calendar-picker-indicator {
+/* Replace the native date-picker glyph with our themed --calendar-icon SVG
+   (see style.css) so it tracks --text-primary. Targets .tx-input so both the
+   row date cells and the search-range dates are covered. */
+.tx-input::-webkit-calendar-picker-indicator {
     -webkit-appearance: none;
             appearance: none;
     width: 14px;
     height: 14px;
     cursor: pointer;
-    background-color: var(--text-tertiary);
-    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E") center / contain no-repeat;
-            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E") center / contain no-repeat;
+    background: var(--calendar-icon) center / contain no-repeat;
 }
 
 /* Native <select> caret styling — drawn via background-image so the menu
@@ -412,12 +410,11 @@
 
 
 /* ─── 6. Empty-state ─────────────────────────────────────────────────────── */
+/* Holds a centered .empty-state (built by UI.emptyState) — the block owns its
+   own padding, so the cell just clears the default row padding. */
 .tx-empty-row td {
     text-align: center;
-    padding: 40px 16px;
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: var(--size-small);
+    padding: 0;
 }
 
 

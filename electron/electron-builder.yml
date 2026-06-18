@@ -56,6 +56,11 @@ buildDependenciesFromSource: false
 # downloads) and latest.yml. Auto-update is wired for Windows only for now;
 # Linux rpm/deb are owned by the system package manager, which electron-updater
 # cannot drive.
+#
+# NOTE: Windows installers are not Authenticode-signed yet — update integrity
+# currently rests on the SHA512 in latest.yml fetched over GitHub HTTPS. See the
+# SECURITY block on the `win:` target below for the full trust model and how to
+# close the gap.
 publish:
   provider: github
   owner: oliv-official
@@ -87,6 +92,24 @@ rpm:
 # outside this file: (1) the win32-x64 native binary must be parked first —
 # `npm run dist:win` runs scripts/setup-win-abi.js to do that; (2) electron's
 # .exe icon/version stamping (rcedit) needs Wine installed on the host.
+#
+# ── SECURITY: Windows installers are NOT Authenticode-signed yet ──────────────
+# Deliberate, recorded gap (revisit before wider Windows distribution / GA).
+# No signing block here means:
+#   • Auto-update (electron-updater, win32 only — see ../updater.js) has no
+#     publisher signature to verify, so verifyUpdateCodeSignature is a no-op.
+#   • Users see a SmartScreen "unknown publisher" warning on first install.
+# What still protects update integrity in the meantime: electron-builder
+# publishes a SHA512 for each artifact in latest.yml, and the updater fetches
+# that manifest + the installer over GitHub HTTPS (TLS + GitHub account
+# integrity), with download opt-in (autoDownload=false). That is the current
+# trust floor — transport- and host-based, not code-signature-based.
+# To close this, add code signing (for new — 2023+ — certs the key must live on
+# hardware or a cloud service; file-based .pfx OV certs are no longer issued):
+#   • Azure Trusted Signing  -> win.azureSignOptions (signs from CI/Linux)
+#   • Cloud CSP / hardware    -> win.certificateSubjectName / provider tooling
+# Then ensure the signing identity's publisherName matches what the updater
+# expects so verifyUpdateCodeSignature passes on the next release.
 win:
   target:
     - nsis

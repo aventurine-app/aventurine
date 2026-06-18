@@ -25,9 +25,11 @@ const DEFAULT_CATEGORIES = [
 
 // (key, label, col_type, position)
 const DEFAULT_BALANCE_COLUMNS = [
-  ['cash',       'Cash',               'cash',       0],
-  ['bank_acct',  'Bank Account',       'investment', 1],
-  ['retirement', 'Retirement Account', 'retirement', 2],
+  ['checking',    'Checking',    'cash',       0],
+  ['savings',     'Savings',     'cash',       1],
+  ['investments', 'Investments', 'investment', 2],
+  ['retirement',  'Retirement',  'retirement', 3],
+  ['debt',        'Debt',        'debt',       4],
 ];
 
 const DEFAULT_APP_SETTINGS = { tx_fuzzy_threshold: '1' };

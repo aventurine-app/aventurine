@@ -2,8 +2,8 @@
 
 // Spending Trends (Reports) blueprint. Read-only: returns monthly spending per
 // EXPENSE category over a trailing window of complete months, for the chart +
-// "biggest movers" panel. Inflation normalization and the movers math are
-// client-side (services/trends has no state); this handler only aggregates.
+// "biggest movers" panel. The movers math is client-side (services/trends has
+// no state); this handler only aggregates.
 
 const { addMonthKey } = require('../services/forecast');
 

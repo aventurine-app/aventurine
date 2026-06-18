@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Oliv | Categories</title>
+    <!-- @include head -->
+    <link rel="stylesheet" href="/static/css/categories.css">
+</head>
+<body>
+    <!-- @include chrome -->
+
+    <div class="body_container">
+        <!-- @include sidebar -->
+
+        <div class="page">
+
+<div class="cat-page">
+    <div class="cat-page-header">
+        <div>
+            <h1 class="page-title">Categories</h1>
+            <p class="page-subtitle">
+                Define the categories for your Cash Flow statement and transactions.
+                Deletion is blocked when transactions or stored values still
+                reference a category — reassign first. (Sync is set per table on
+                the Cash Flow page.)
+            </p>
+        </div>
+    </div>
+
+    <!-- The editor (add row + grouped list) is rendered by
+         static/js/settingsCategories.js into [data-categories-editor].
+         data-add-top pins the "add new category" row to the top, above the
+         list, instead of the bottom-of-modal placement it had in Settings. -->
+    <div class="cat-card">
+        <div class="settings-categories-editor cat-page-editor"
+             data-categories-editor data-add-top></div>
+    </div>
+</div>
+        </div>
+    </div>
+
+    <!-- @include scripts -->
+</body>
+</html>

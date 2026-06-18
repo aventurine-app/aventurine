@@ -1,0 +1,54 @@
+/* ─── Categories page ──────────────────────────────────────────────────────
+   Standalone home for the category editor that used to live in the Settings →
+   Manage Categories modal. The editor itself (.settings-categories-editor and
+   the .cat-* rows) is still styled by settings.css; this file only handles the
+   full-width page layout and the add-row-at-top placement, which is what makes
+   this page differ from the modal.
+
+   Layout mirrors the Trackers pages (.db-page in tables.css): anchor content to
+   the top-left of the scroll area with the shared page padding, full width. */
+.page:has(.cat-page) {
+  align-items: flex-start;
+  padding: var(--page-pad);
+  box-sizing: border-box;
+}
+
+.cat-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.cat-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* The editor card spans the full page width — that's the "use all available
+   space" difference from the constrained two-column Settings row. Matches the
+   surface/border/radius treatment of .settings-card. */
+.cat-card {
+  width: 100%;
+  background: var(--surface1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  backdrop-filter: blur(5px) saturate(100%);
+  padding: 16px 20px;
+  box-sizing: border-box;
+}
+
+.cat-page-editor {
+  width: 100%;
+}
+
+/* In the modal the add-row sat at the bottom with a divider above it. Here it
+   leads the page (data-add-top), so flip the divider to its lower edge: it now
+   reads as a "create new" zone sitting above the grouped list. */
+.cat-page-editor[data-add-top] .cat-add {
+  border-top: none;
+  border-bottom: 1px solid var(--border);
+  margin-top: 0;
+  padding: 0 8px 14px;
+}

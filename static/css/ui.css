@@ -1,0 +1,173 @@
+/* ============================================================================
+   ui.css — Shared UI primitives: rich empty states + loading skeletons.
+   ============================================================================
+   Loaded globally (pages/partials/head.html) so every page can compose these
+   without redeclaring them. Build the markup with the UI.* helpers in ui.js.
+
+   Everything here reads the design tokens from style.css / themes.css
+   (spacing scale, frost/stroke tints, type ramp) so it retones with the theme.
+   ============================================================================ */
+
+
+/* ─── Empty states ─────────────────────────────────────────────────────────
+ * A centered icon tile + title + optional description + optional call-to-action.
+ * Replaces the old text-only `.chart-empty` / `.*-empty` paragraphs. The host
+ * container centers it; the block caps its own width so long copy wraps to a
+ * comfortable measure rather than the full card. */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: var(--space-12);
+    max-width: 320px;
+    margin: 0 auto;
+    padding: var(--space-48) var(--space-24);
+}
+
+/* Compact variant for short cards (aside widgets, table cells) — less vertical
+   air so the block doesn't blow the card out of its row. */
+.empty-state-compact { padding: var(--space-24) var(--space-16); gap: var(--space-8); }
+
+/* Icon sits in a soft frosted tile so it reads as an illustration, not a glyph
+   dropped on the surface. Stroke icons inherit the muted text colour. */
+.empty-state-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: var(--frost-2);
+    color: var(--text-tertiary);
+}
+.empty-state-compact .empty-state-icon { width: 40px; height: 40px; border-radius: 10px; }
+.empty-state-icon svg { width: 24px; height: 24px; }
+.empty-state-compact .empty-state-icon svg { width: 20px; height: 20px; }
+
+.empty-state-text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.empty-state-title {
+    color: var(--text-secondary);
+    font-family: var(--font-h3);
+    font-size: var(--size-body);
+    font-weight: var(--weight-semibold);
+    line-height: var(--lh-snug);
+}
+
+.empty-state-desc {
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-regular);
+    line-height: var(--lh-normal);
+}
+
+/* Call-to-action — defaults to the app's neutral (secondary) button shape.
+   Renders as <a> for in-app navigation or <button> for an on-page action. */
+.empty-state-action {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-8);
+    margin-top: var(--space-4);
+    padding: var(--space-8) var(--space-16);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wide);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.empty-state-action svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+.empty-state-action:hover {
+    background: var(--surface3);
+    color: var(--text-primary);
+    border-color: var(--text-tertiary);
+}
+.empty-state-action:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--accent-primary);
+}
+
+/* Primary-accent variant — for the single most useful action in an empty card.
+   Matches .db-btn-primary so the accent treatment stays consistent app-wide. */
+.empty-state-action-primary {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--accent-contrast, #fff);
+}
+.empty-state-action-primary:hover {
+    filter: brightness(1.08);
+    background: var(--accent-primary);
+    color: var(--accent-contrast, #fff);
+    border-color: var(--accent-primary);
+}
+
+
+/* ─── Loading skeletons ────────────────────────────────────────────────────
+ * Shimmering placeholders shown while a cold fetch is in flight (warm,
+ * cached loads render instantly and skip these — see store.js). The shimmer
+ * sweeps a frost gradient across a frost base via background-position only:
+ * no layout, no opacity thrash. Falls back to a flat tint when the user
+ * prefers reduced motion. */
+.skeleton {
+    background-color: var(--frost-2);
+    background-image: linear-gradient(
+        90deg, transparent 0%, var(--frost-3) 50%, transparent 100%);
+    background-size: 220% 100%;
+    background-repeat: no-repeat;
+    background-position: -110% 0;
+    border-radius: 6px;
+    animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+    to { background-position: 110% 0; }
+}
+
+/* Text-line skeletons — height tracks the body type so a placeholder occupies
+   the same vertical space the real line will. Width modifiers vary the run so
+   stacked lines look like prose, not a barcode. */
+.skeleton-line   { height: 12px; }
+.skeleton-line.sk-sm { height: 10px; }
+.skeleton-line.sk-lg { height: 16px; }
+.sk-w-25  { width: 25%; }
+.sk-w-40  { width: 40%; }
+.sk-w-50  { width: 50%; }
+.sk-w-60  { width: 60%; }
+.sk-w-75  { width: 75%; }
+.sk-w-90  { width: 90%; }
+.sk-w-100 { width: 100%; }
+
+.skeleton-circle { border-radius: 50%; }
+.skeleton-block  { width: 100%; border-radius: 8px; }
+
+/* A row of skeleton lines with the same column layout as a list item: a stack
+   of label/value lines on the left, a value on the right. */
+.sk-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-16);
+    padding: var(--space-12) 0;
+}
+.sk-row-text { flex: 1; display: flex; flex-direction: column; gap: var(--space-8); min-width: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+    .skeleton {
+        animation: none;
+        background-image: none;
+        background-color: var(--frost-3);
+    }
+}

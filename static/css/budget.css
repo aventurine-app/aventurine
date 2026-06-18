@@ -20,7 +20,7 @@
     display: flex;
     flex-direction: column;
     gap: 24px;
-    padding: 28px 32px;
+    padding: var(--page-pad);
     /* Fixed width (~15% wider than the old 920px cap) so the card no longer
        reflows as the calculated numbers change length; max-width keeps it from
        overflowing a narrow window. */

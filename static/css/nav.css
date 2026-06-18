@@ -5,8 +5,8 @@ div.menu {
     box-shadow: 0 25px 25px rgba(0, 0, 0, 0.2);
     border-right: 1px solid var(--border);
     margin: 0px;
-    padding: 10px;                  /* The space between the left and right edges of the menu and the items */
-    padding-top: 20px;
+    padding: var(--space-12);       /* The space between the left and right edges of the menu and the items */
+    padding-top: var(--space-20);
     left: 0px;
     min-width: 240px;
     max-width: 180px;
@@ -20,7 +20,7 @@ ul {
 }
 
 li {
-    margin-bottom: 10px;            /* Spacing between each menu item */
+    margin-bottom: var(--space-8);  /* Spacing between each menu item */
 }
 
 /* Section heading inside the sidebar ("Savings & Investing", "Account").
@@ -33,9 +33,9 @@ li {
     text-transform: uppercase;
     letter-spacing: var(--track-widest);
     color: var(--label-muted);
-    padding: 0 10px;
-    margin-top: 30px;
-    margin-bottom: 4px;
+    padding: 0 var(--space-12);
+    margin-top: var(--space-32);
+    margin-bottom: var(--space-4);
 }
 
 /* Color comes from --nav-text (style.css). Each SVG icon in navbar.html uses
@@ -44,14 +44,14 @@ li {
 .nav li a {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-8);
     font-size: var(--size-body);
     font-family: var(--font-menu);
     font-weight: var(--weight-medium);
     text-decoration: none;
     color: var(--nav-text);
-    padding: 6px 10px;
-    border-radius: 7px;
+    padding: var(--space-8) var(--space-12);
+    border-radius: 8px;
     transition: background 0.15s ease, color 0.15s ease;
     width: 100%;
     box-sizing: border-box;

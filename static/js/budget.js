@@ -123,7 +123,12 @@ function renderList() {
   const cats = state.data.categories;
 
   if (!cats.length) {
-    el.innerHTML = '<p class="budget-empty">No budgetable categories yet. Add expense, savings, or investing categories in Settings.</p>';
+    el.innerHTML = UI.emptyState({
+      icon: 'target',
+      title: 'No budget categories yet',
+      desc: 'Add expense, savings, or investing categories and they’ll appear here as budget envelopes.',
+      action: { label: 'Manage categories', href: '/categories', icon: 'plus', primary: true },
+    });
     return;
   }
 

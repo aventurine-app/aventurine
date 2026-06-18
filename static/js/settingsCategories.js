@@ -1,7 +1,7 @@
 'use strict';
 
 // ─── settingsCategories.js ──────────────────────────────────────────────────
-// Categories editor for the Settings page (and the title-bar Settings modal).
+// Categories editor for the Categories page (pages/categories.html).
 //
 // Renders the per-user category list with inline rename, reorder arrows, a
 // type pill (Income ↔ Expense), and a delete button. An "add category" row at
@@ -159,12 +159,17 @@
 
     function render(rootEl, rows) {
         const groups = groupByType(rows);
-        rootEl.innerHTML =
+        const sections =
             sectionHtml('income',    groups.income)    +
             sectionHtml('expense',   groups.expense)   +
             sectionHtml('savings',   groups.savings)   +
-            sectionHtml('investing', groups.investing) +
-            addRowHtml();
+            sectionHtml('investing', groups.investing);
+        // The Categories page (data-add-top) leads with the add row, above the
+        // grouped list; the Settings modal kept it at the bottom. CSS flips the
+        // divider side to match (see categories.css).
+        rootEl.innerHTML = rootEl.hasAttribute('data-add-top')
+            ? addRowHtml() + sections
+            : sections + addRowHtml();
     }
 
     // ── Event wiring ────────────────────────────────────────────────────────
@@ -273,8 +278,8 @@
     }
 
     // ── Bootstrap ───────────────────────────────────────────────────────────
-    // Wire every editor root on the page (the title-bar Manage Categories
-    // modal from pages/partials/chrome.html). One refresh per root.
+    // Wire every editor root on the page (the Categories page,
+    // pages/categories.html). One refresh per root.
 
     function init() {
         document.querySelectorAll('[data-categories-editor]').forEach(root => {
