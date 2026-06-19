@@ -21,8 +21,10 @@
 //       Use for known small updates where mirroring the change in JS is
 //       cheaper than refetching.
 //
-//   Store.invalidate(name)    → Promise<data>
-//       Drop the cached dataset and refetch. Use after multi-row changes
+//   Store.invalidate(name)    → Promise<void>
+//       Drop the cached dataset (memory + sessionStorage). The refetch is
+//       deferred to the next ensure(), so the caller isn't blocked on a
+//       network round-trip it doesn't need. Use after multi-row changes
 //       (column add, year duplicate) where mirroring in JS would be fragile.
 //       Tracker pages (tables.js makeYearTableApi) call this after every
 //       write so aggregator pages always pull fresh data on their next read.

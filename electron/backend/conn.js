@@ -173,9 +173,15 @@ function createConn() {
       // Roll back: restore the pre-rekey bytes and reopen under the OLD state.
       try { if (handle) handle.close(); } catch { /* already closed */ }
       handle = null;
-      try { fs.copyFileSync(backup, target); } catch { /* leave backup for recovery */ }
+      let restored = false;
+      try { fs.copyFileSync(backup, target); restored = true; } catch { /* see below */ }
       try { handle = connect(target, state.encrypted ? state.key : null); } catch { /* surfaced as 423 next call */ }
-      try { fs.unlinkSync(backup); } catch { /* keep for manual recovery */ }
+      // Only discard the backup once the original bytes are safely back in
+      // place. If the restore copy failed, the backup is the sole surviving
+      // good copy — keep it for manual recovery rather than deleting it.
+      if (restored) {
+        try { fs.unlinkSync(backup); } catch { /* best-effort cleanup */ }
+      }
       throw new ApiError('Could not change encryption — the database was left unchanged', 500);
     }
 

@@ -27,6 +27,14 @@
 
     let armed = false;   // true only while an encrypted+unlocked DB is active
     let timer = null;
+    let lastArm = 0;     // timestamp of the most recent re-arm (for coalescing)
+
+    // mousemove/scroll/wheel can fire hundreds of times per second; re-arming
+    // the timer (which also reads localStorage twice) on every one of them is
+    // needless churn. So an activity burst re-arms at most once per window.
+    // The cost is that the lock may fire up to this much early after the user
+    // goes idle — negligible against a timeout measured in minutes.
+    const ACTIVITY_COALESCE_MS = 1000;
 
     function clear() {
         if (timer) { clearTimeout(timer); timer = null; }
@@ -34,8 +42,15 @@
 
     function schedule() {
         clear();
+        lastArm = Date.now();
         if (!armed || !enabled()) return;
         timer = setTimeout(lockNow, minutes() * 60 * 1000);
+    }
+
+    // Throttled re-arm for the high-frequency activity listeners (see above).
+    function onActivity() {
+        if (Date.now() - lastArm < ACTIVITY_COALESCE_MS) return;
+        schedule();
     }
 
     async function lockNow() {
@@ -64,9 +79,10 @@
         .catch(() => { /* status unavailable — stay disarmed */ });
 
     // Any sign of activity resets the countdown. Passive listeners keep this
-    // off the scrolling/typing hot path.
+    // off the scrolling/typing hot path; onActivity coalesces bursts so we
+    // don't thrash the timer (and localStorage) on every mousemove.
     ['mousemove', 'mousedown', 'keydown', 'wheel', 'touchstart', 'scroll']
-        .forEach(ev => window.addEventListener(ev, schedule, { passive: true }));
+        .forEach(ev => window.addEventListener(ev, onActivity, { passive: true }));
 
     // Settings toggled the option or timer — re-arm with the new values.
     window.addEventListener('autolockchange', schedule);

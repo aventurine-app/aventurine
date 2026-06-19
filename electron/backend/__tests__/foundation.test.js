@@ -35,7 +35,7 @@ test('fresh DB: baseline schema + seed', () => {
   const yr = new Date().getFullYear();
   assert.ok(db.prepare('SELECT 1 FROM active_years WHERE year=?').get(yr));
   assert.ok(db.prepare('SELECT 1 FROM balance_active_years WHERE year=?').get(yr));
-  assert.equal(db.prepare('SELECT COUNT(*) c FROM balance_columns').get().c, 3);
+  assert.equal(db.prepare('SELECT COUNT(*) c FROM balance_columns').get().c, 5);
   assert.equal(db.prepare('SELECT COUNT(*) c FROM portfolio_accounts').get().c, 1);
   assert.equal(
     db.prepare('SELECT value FROM app_settings WHERE "key"=?').get('tx_fuzzy_threshold').value,

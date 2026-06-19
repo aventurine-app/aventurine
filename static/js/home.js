@@ -265,7 +265,7 @@ function computeNetWorth(data) {
 }
 
 /**
- * Pick 3-5 "nice" tick values that cover [min, max] using only 1, 2, or 5
+ * Pick 3-5 "nice" tick values that cover [min, max] using only 2, 5, or 10
  * times a power of ten as the step. Used for Y-axis labels so a chart of
  * $73K-$128K labels at $80K, $100K, $120K instead of $73,456 and $128,902.
  *

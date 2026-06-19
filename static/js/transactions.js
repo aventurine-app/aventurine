@@ -542,11 +542,10 @@ function txOnAddClick() {
 
 // ─── Bootstrap ───────────────────────────────────────────────────────────────
 
-async function txInit() {
-    const tbodyEl = document.getElementById('tx-tbody');
-    const cancelSkeleton = UI.skeletonGuard(() => {
-        if (tbodyEl) tbodyEl.innerHTML = txSkeletonRows(8);
-    });
+// Fetch the ledger + category vocabulary into txState and sort. A failure
+// leaves the previous state intact (and logs) rather than blanking the table.
+// Shared by the initial load and the post-import reload.
+async function txLoad() {
     try {
         const data = await txApiList();
         txState.rows       = data.transactions || [];
@@ -555,6 +554,14 @@ async function txInit() {
     } catch (err) {
         console.error(err);
     }
+}
+
+async function txInit() {
+    const tbodyEl = document.getElementById('tx-tbody');
+    const cancelSkeleton = UI.skeletonGuard(() => {
+        if (tbodyEl) tbodyEl.innerHTML = txSkeletonRows(8);
+    });
+    await txLoad();
     cancelSkeleton();
     txSearchPopulateCategories();
     txRender();
@@ -578,14 +585,7 @@ document.addEventListener('DOMContentLoaded', txInit);
 // Re-fetch and re-render after a successful file import.
 window.addEventListener('transactions:reload', async () => {
     txState.editingId = null;
-    try {
-        const data = await txApiList();
-        txState.rows       = data.transactions || [];
-        txState.categories = data.categories   || [];
-        txSortRows();
-    } catch (err) {
-        console.error(err);
-    }
+    await txLoad();
     txSearchPopulateCategories();
     txRender();
 });

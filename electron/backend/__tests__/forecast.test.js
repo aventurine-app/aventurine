@@ -160,13 +160,13 @@ test('forecast API: default shape, fresh DB', (t) => {
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.equal(r.body.months, 3);
   assert.equal(r.body.series.length, weekCount(today, horizonEnd(today, 3)));
-  // Default account is the seeded 'cash' column (first cash-type), with no
-  // entries yet → starts from 0.
-  assert.equal(r.body.start_account, 'cash');
+  // Default account is the seeded 'checking' column (first cash-type by
+  // position), with no entries yet → starts from 0.
+  assert.equal(r.body.start_account, 'checking');
   assert.equal(r.body.start_balance, 0);
-  // The picker is fed the cash-type Balance-Sheet accounts only (seed ships one),
-  // each with its latest balance (null until any entry exists).
-  assert.deepStrictEqual(r.body.accounts.map((a) => a.key), ['cash']);
+  // The picker is fed the cash-type Balance-Sheet accounts only (seed ships two,
+  // ordered by position), each with its latest balance (null until any entry exists).
+  assert.deepStrictEqual(r.body.accounts.map((a) => a.key), ['checking', 'savings']);
   assert.ok(r.body.accounts.every((a) => a.type === 'cash' && a.balance === null));
   assert.equal(r.body.include_savings, true); // savings/investing counted by default
   assert.deepStrictEqual(r.body.planned, []);
@@ -210,37 +210,36 @@ test('forecast API: months is clamped to {1,3,6}', (t) => {
 test('forecast API: only cash accounts are offered, and selectable', (t) => {
   const c = makeClient(t);
   const year = c.get('/api/balance/data').body.years[0];
-  // Seed ships one cash column ('cash'); add a second cash account + give both data.
-  const checking = c.post('/api/balance/columns', { label: 'Checking', type: 'cash' }).body.column.key;
-  c.post('/api/balance/entry', { year, month: 'January', category: 'cash', value: 1000 });
-  c.post('/api/balance/entry', { year, month: 'January', category: checking, value: 7500 });
+  // Seed ships two cash columns ('checking', 'savings'); give both data.
+  c.post('/api/balance/entry', { year, month: 'January', category: 'checking', value: 1000 });
+  c.post('/api/balance/entry', { year, month: 'January', category: 'savings', value: 7500 });
 
-  // Both cash accounts show up; the seeded investment/retirement columns do not.
+  // Both cash accounts show up; the seeded investment/retirement/debt columns do not.
   const accounts = c.get('/api/forecast').body.accounts;
-  assert.deepStrictEqual(accounts.map((a) => a.key).sort(), ['cash', checking].sort());
+  assert.deepStrictEqual(accounts.map((a) => a.key).sort(), ['checking', 'savings']);
 
   // Selecting the other cash account starts the forecast from its latest balance.
-  const ok = c.get(`/api/forecast?account=${checking}`);
-  assert.equal(ok.body.start_account, checking);
+  const ok = c.get('/api/forecast?account=savings');
+  assert.equal(ok.body.start_account, 'savings');
   assert.equal(ok.body.start_balance, 7500);
   assert.equal(ok.body.series[0].balance, 7500); // no flows → unchanged in week 0
 
-  // A non-cash column (seeded 'bank_acct' is col_type=investment) is not selectable.
-  assert.equal(c.get('/api/forecast?account=bank_acct').status, 400);
+  // A non-cash column (seeded 'investments' is col_type=investment) is not selectable.
+  assert.equal(c.get('/api/forecast?account=investments').status, 400);
   assert.equal(c.get('/api/forecast?account=does_not_exist').status, 400);
 });
 
 test('forecast API: default account uses the latest balance of the first cash account', (t) => {
   const c = makeClient(t);
-  // Seed ships a 'cash' (col_type=cash) column; give it two months of data.
+  // Seed ships a 'checking' (col_type=cash, position 0) column; give it two months of data.
   const year = c.get('/api/balance/data').body.years[0];
-  c.post('/api/balance/entry', { year, month: 'January', category: 'cash', value: 1000 });
-  c.post('/api/balance/entry', { year, month: 'February', category: 'cash', value: 1500.5 });
+  c.post('/api/balance/entry', { year, month: 'January', category: 'checking', value: 1000 });
+  c.post('/api/balance/entry', { year, month: 'February', category: 'checking', value: 1500.5 });
   const r = c.get('/api/forecast');
-  assert.equal(r.body.start_account, 'cash');
+  assert.equal(r.body.start_account, 'checking');
   assert.equal(r.body.start_balance, 1500.5); // latest month wins
   // The picker reports each account's latest balance.
-  assert.equal(r.body.accounts.find((a) => a.key === 'cash').balance, 1500.5);
+  assert.equal(r.body.accounts.find((a) => a.key === 'checking').balance, 1500.5);
 });
 
 test('forecast API: planned-items CRUD', (t) => {
@@ -281,7 +280,7 @@ test('forecast API: planned-items validation + 404', (t) => {
 test('forecast API: a planned item dated today bends week 0', (t) => {
   const c = makeClient(t);
   const year = c.get('/api/balance/data').body.years[0];
-  c.post('/api/balance/entry', { year, month: 'January', category: 'cash', value: 1000 });
+  c.post('/api/balance/entry', { year, month: 'January', category: 'checking', value: 1000 });
   const today = localTodayIso();
   c.post('/api/forecast/planned', { label: 'Big bill', amount: 250, flow: 'expense', date: today });
   const r = c.get('/api/forecast?months=3');
