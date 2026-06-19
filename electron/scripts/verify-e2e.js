@@ -97,7 +97,7 @@ app.whenReady().then(async () => {
       '/portfolio':       'Portfolio',
       '/credit-cards':    'Credit Cards',
       '/budget':          'Budget',
-      '/cash-flow-forecast': 'Cash Flow Forecast',
+      '/cash-flow':       'Cash Flow Reports',
       '/spending-trends': 'Spending Trends',
       '/report-card':     'Report Card',
     };

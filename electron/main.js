@@ -37,7 +37,7 @@ const PAGE_ROUTES = {
     '/transactions':    'transactions.html',
     '/credit-cards':    'credit-cards.html',
     '/budget':          'budget.html',
-    '/cash-flow-forecast': 'cash-flow-forecast.html',
+    '/cash-flow':       'cash-flow.html',
     '/spending-trends': 'spending-trends.html',
     '/report-card':     'report-card.html',
 };

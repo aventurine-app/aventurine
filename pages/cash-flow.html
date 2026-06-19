@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Oliv | Cash Flow Forecast</title>
+    <title>Oliv | Cash Flow Reports</title>
     <!-- @include head -->
     <link rel="stylesheet" href="/static/css/forecast.css">
 </head>
@@ -13,6 +13,20 @@
         <!-- @include sidebar -->
 
         <div class="page">
+
+<div class="cf-reports">
+
+    <!-- Report tabs. Adding another report = a .cf-tab button here + a matching
+         .cf-panel below. Controller: cashflow.js (data-driven, no JS change). -->
+    <div class="cf-tabs" role="tablist" aria-label="Cash Flow reports">
+        <button type="button" class="cf-tab active" id="cf-tab-forecast" role="tab"
+            data-tab="forecast" aria-controls="cf-panel-forecast" aria-selected="true">Forecast</button>
+        <button type="button" class="cf-tab" id="cf-tab-cashflow" role="tab"
+            data-tab="cashflow" aria-controls="cf-panel-cashflow" aria-selected="false" tabindex="-1">Cash Flow</button>
+    </div>
+
+    <div class="cf-panel" id="cf-panel-forecast" role="tabpanel"
+        data-panel="forecast" aria-labelledby="cf-tab-forecast" tabindex="0">
 
 <div class="forecast-page">
 
@@ -71,10 +85,46 @@
 
 </div>
 
+    </div><!-- /.cf-panel -->
+
+    <div class="cf-panel" id="cf-panel-cashflow" role="tabpanel"
+        data-panel="cashflow" aria-labelledby="cf-tab-cashflow" tabindex="0" hidden>
+
+<div class="forecast-page">
+
+    <div class="forecast-card forecast-card-main">
+        <div class="home-card-header">
+            <span class="home-card-title">Cash Flow<span class="fc-info" tabindex="0" role="note"
+                aria-label="Where your money flowed for the selected year. Income categories on the left feed a central Net Inflow, which fans out to your expense categories on the right; each band is sized by the total for that category. Hover any node or flow for its amount. Everything is computed on your device — nothing leaves it."
+                data-tip="Where your money flowed for the selected year. Income categories on the left feed a central Net Inflow, which fans out to your expense categories on the right; each band is sized by the total for that category. Hover any node or flow for its amount. Everything is computed on your device — nothing leaves it.">i</span></span>
+            <div class="forecast-controls">
+                <div class="range-selector" id="cashflow-year">
+                    <button class="range-selector-btn" id="cashflow-year-btn" type="button">Year</button>
+                    <div class="range-selector-menu" id="cashflow-year-menu" hidden></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty state lands here when the selected year has no data. -->
+        <div id="cashflow-empty"></div>
+
+        <div class="chart-area">
+            <div id="cashflow-chart"></div>
+        </div>
+    </div>
+
+</div>
+
+    </div><!-- /.cf-panel -->
+
+</div><!-- /.cf-reports -->
+
         </div>
     </div>
 
     <!-- @include scripts -->
+    <script src="/static/js/cashflow.js"></script>
     <script src="/static/js/forecast.js"></script>
+    <script src="/static/js/cashflow-sankey.js"></script>
 </body>
 </html>

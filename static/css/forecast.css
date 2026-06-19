@@ -1,5 +1,5 @@
 /* ============================================================================
-   forecast.css — Cash Flow Forecast (Reports) page.
+   forecast.css — Cash Flow Reports page (tab landing) + the Forecast report.
 
    Page-scoped: the shared chart-frame + range-selector chrome lives in home.css
    (loaded only on Home), so the slices this page needs are re-stated here under
@@ -12,16 +12,78 @@
    one viewport — easy when zoomed in — the overflow spills above the centered
    origin and can't be scrolled up to. Anchor to flex-start so the page always
    starts from the top. Same pattern as Home and Settings. */
-.page:has(.forecast-page) {
+.page:has(.cf-reports) {
     align-items: flex-start;
+}
+
+/* ─── Reports landing: tab bar + panel wrapper ──────────────────────────────
+   The wrapper owns the page padding / max width; the report inside it (the
+   .forecast-page column) then just stacks its cards. */
+.cf-reports {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: var(--page-pad);
+    /* Fill the page so the reports use the full available width — the charts
+       scale responsively to their container, making legends easier to read. */
+    width: 100%;
+}
+
+/* Page-level report tabs — underline style, deliberately distinct from the
+   pill-shaped in-card controls (range selector, toggles) below them. */
+.cf-tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+}
+
+.cf-tab {
+    appearance: none;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;            /* sit the underline on the bar's border */
+    border-radius: 6px 6px 0 0;
+    color: var(--text-secondary);
+    font-family: var(--font-h3);
+    font-size: var(--size-h3);
+    font-weight: var(--weight-medium);
+    line-height: var(--lh-tight);
+    letter-spacing: var(--track-tight);
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.cf-tab:hover {
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+}
+
+.cf-tab.active,
+.cf-tab[aria-selected="true"] {
+    color: var(--text-primary);
+    font-weight: var(--weight-semibold);
+    border-bottom-color: var(--accent-primary);
+}
+
+.cf-tab:focus-visible {
+    outline: 2px solid var(--accent400);
+    outline-offset: -2px;
+}
+
+.cf-panel[hidden] { display: none; }
+.cf-panel:focus { outline: none; }
+
+@media (prefers-reduced-motion: reduce) {
+    .cf-tab { transition: none; }
 }
 
 .forecast-page {
     display: flex;
     flex-direction: column;
     gap: 24px;
-    padding: var(--page-pad);
-    max-width: 1100px;
 }
 
 /* ─── Card (mirrors .home-card) ──────────────────────────────────────────── */
@@ -410,6 +472,61 @@
     }
     .forecast-chart .chart-area-fill,
     .forecast-chart .chart-dot { animation: none; opacity: 1; }
+}
+
+/* ─── Cash Flow Sankey (namespaced .cashflow-sankey) ─────────────────────────
+   Income categories → central Net Inflow → expense categories. All colours come
+   from the chart palette baked into the SVG (per-node) + theme tokens for the
+   chrome, so it retones with palette / light mode like the other charts. */
+#cashflow-chart { width: 100%; }
+
+.cashflow-sankey .sankey-node {
+    stroke: var(--background);
+    stroke-width: 1;
+}
+
+.cashflow-sankey .sankey-link {
+    opacity: 0.42;
+    transition: opacity 0.15s ease;
+}
+
+.cashflow-sankey .sankey-link:hover { opacity: 0.72; }
+
+/* Thin connector from a node to its label when the label was nudged to avoid
+   overlapping a neighbour. */
+.cashflow-sankey .sankey-leader {
+    stroke: var(--text-tertiary);
+    stroke-width: 1;
+    opacity: 0.45;
+}
+
+.cashflow-sankey .sankey-label {
+    fill: var(--text-secondary);
+    font-family: var(--font-h3);
+    font-size: 11px;
+    font-weight: var(--weight-semibold);
+    letter-spacing: 0.03em;
+}
+
+.cashflow-sankey .sankey-amount {
+    fill: var(--text-tertiary);
+    font-family: var(--font-numeric);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+}
+
+.cashflow-sankey .sankey-label-center { fill: var(--text-primary); }
+
+/* Entrance: fade the whole diagram in on first paint only (.sankey-enter is
+   added by cashflow-sankey.js for the first render, dropped on redraws). Fading
+   the SVG as a whole keeps each element's own opacity (e.g. the 0.42 links). */
+.cashflow-sankey.sankey-enter {
+    opacity: 0;
+    animation: fc-fade 0.5s ease forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cashflow-sankey.sankey-enter { animation: none; opacity: 1; }
 }
 
 /* ─── Planned items ──────────────────────────────────────────────────────── */
