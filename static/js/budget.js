@@ -35,9 +35,10 @@ function fmtMoney(n) {
   return formatCurrency(n, true);
 }
 
-function infoIcon(tip) {
+function infoIcon(tip, align) {
   const t = escapeHtml(tip);
-  return `<span class="fc-info" tabindex="0" role="note" aria-label="${t}" data-tip="${t}">i</span>`;
+  const cls = align === 'right' ? 'fc-info fc-info-right' : 'fc-info';
+  return `<span class="${cls}" tabindex="0" role="note" aria-label="${t}" data-tip="${t}">i</span>`;
 }
 
 // ─── Data ────────────────────────────────────────────────────────────────────
@@ -99,7 +100,7 @@ function renderSummary() {
       </div>
 
       <div class="budget-stat budget-stat-hero">
-        <span class="budget-stat-label">Left to budget${infoIcon('Expected income minus everything you have budgeted. Zero means every dollar has a job; negative means you have budgeted more than you expect to bring in.')}</span>
+        <span class="budget-stat-label">Left to budget${infoIcon('Expected income minus everything you have budgeted. Zero means every dollar has a job; negative means you have budgeted more than you expect to bring in.', 'right')}</span>
         <span class="budget-stat-value ${leftCls}">${fmtMoney(s.leftToBudget)}</span>
         <span class="budget-stat-sub ${leftCls}">${leftHint}</span>
       </div>

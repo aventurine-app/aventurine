@@ -160,6 +160,11 @@
   transform: translateY(-3px);
   transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
 }
+/* Right-edge variant — anchors the card to the icon's right so a tooltip near
+   the viewport edge (e.g. the right-aligned "Left to budget" hero) opens
+   leftward instead of pushing past the edge and creating a horizontal scroll. */
+.fc-info-right::after { left: auto; right: 0; }
+
 .fc-info:hover::after,
 .fc-info:focus-visible::after {
   opacity: 1;
