@@ -11,7 +11,7 @@
 
 const fs = require('fs');
 
-const { connect } = require('./db');
+const { connect, sqlQuote } = require('./db');
 const { createDbState } = require('./dbstate');
 const { bootstrapSchema } = require('./migrate');
 const { seedDefaults } = require('./seed');
@@ -97,6 +97,98 @@ function createConn() {
     return statusPayload();
   }
 
+  /**
+   * Re-protect an encrypted database: drop the in-memory key and close the
+   * handle, so the DB is locked (the next /api/* answers 423 and the renderer
+   * shows the unlock prompt). Only meaningful for an encrypted DB — an
+   * unencrypted file has no passphrase to re-enter, so there's nothing to
+   * protect. Idempotent: locking an already-locked DB just reports status.
+   */
+  function lock() {
+    if (!state.encrypted) throw new ApiError('database is not encrypted', 400);
+    state.key = null; // state.locked is now true (encrypted && key == null)
+    if (handle) {
+      try { handle.close(); } catch { /* already closed */ }
+      handle = null;
+    }
+    return statusPayload();
+  }
+
+  /**
+   * Change the on-disk encryption of the ACTIVE database in place via
+   * `PRAGMA rekey`, preserving the cipher recipe (sqlcipher / legacy=4) so the
+   * result reopens with connect(). Three actions:
+   *   'encrypt' — plaintext DB -> encrypted with `newPassword`.
+   *   'change'  — encrypted DB -> re-encrypted with `newPassword` (verifies
+   *               `currentPassword` against the in-memory key first).
+   *   'decrypt' — encrypted DB -> plaintext (verifies `currentPassword`).
+   *
+   * Data-integrity guard: the file is copied to a sidecar backup before the
+   * rekey; on any failure the backup is restored and the original key/handle
+   * reopened, so a botched rekey can never leave a corrupt or half-keyed DB.
+   */
+  function rekey({ action, currentPassword, newPassword }) {
+    if (state.locked || !handle) throw new ApiError('db_locked', 423);
+
+    const needsCurrent = action === 'change' || action === 'decrypt';
+    if (needsCurrent) {
+      if (!state.encrypted) throw new ApiError('database is not encrypted', 400);
+      if (currentPassword !== state.key) throw new ApiError('invalid_password', 401);
+    }
+    if (action === 'encrypt' && state.encrypted) {
+      throw new ApiError('database is already encrypted', 400);
+    }
+    if (action === 'encrypt' || action === 'change') {
+      if (typeof newPassword !== 'string' || !newPassword) {
+        throw new ApiError('A password is required', 400);
+      }
+      if (/\x00/.test(newPassword)) {
+        throw new ApiError('invalid database passphrase', 400);
+      }
+    }
+
+    const target = state.path;
+    const backup = target + '.rekey-bak';
+    try { fs.unlinkSync(backup); } catch { /* no stale backup */ }
+    // Flush to the main file (no-op outside WAL) so the byte-copy is current.
+    try { handle.pragma('wal_checkpoint(TRUNCATE)'); } catch { /* not WAL */ }
+    fs.copyFileSync(target, backup);
+
+    try {
+      if (action === 'encrypt') {
+        // Configure the cipher on this (plaintext) connection, then rekey to
+        // encrypt with the very recipe connect() will later open it under.
+        handle.pragma('cipher=sqlcipher');
+        handle.pragma('legacy=4');
+        handle.pragma(`rekey = ${sqlQuote(newPassword)}`);
+      } else if (action === 'change') {
+        handle.pragma(`rekey = ${sqlQuote(newPassword)}`);
+      } else { // decrypt
+        handle.pragma("rekey = ''");
+      }
+      const row = handle.prepare('PRAGMA quick_check').get();
+      const verdict = row ? Object.values(row)[0] : null;
+      if (verdict !== 'ok') throw new Error('integrity check failed after rekey');
+    } catch (e) {
+      // Roll back: restore the pre-rekey bytes and reopen under the OLD state.
+      try { if (handle) handle.close(); } catch { /* already closed */ }
+      handle = null;
+      try { fs.copyFileSync(backup, target); } catch { /* leave backup for recovery */ }
+      try { handle = connect(target, state.encrypted ? state.key : null); } catch { /* surfaced as 423 next call */ }
+      try { fs.unlinkSync(backup); } catch { /* keep for manual recovery */ }
+      throw new ApiError('Could not change encryption — the database was left unchanged', 500);
+    }
+
+    if (action === 'encrypt') { state.encrypted = true; state.key = newPassword; }
+    else if (action === 'change') { state.key = newPassword; }
+    else { state.encrypted = false; state.key = null; }
+
+    secureChmod(target);
+    dbstate.savePointer();
+    try { fs.unlinkSync(backup); } catch { /* best-effort cleanup */ }
+    return statusPayload();
+  }
+
   function closeAll() {
     if (handle) {
       try { handle.close(); } catch { /* already closed */ }
@@ -104,7 +196,7 @@ function createConn() {
     }
   }
 
-  return { state, init, db, statusPayload, switchTo, closeAll };
+  return { state, init, db, statusPayload, switchTo, lock, rekey, closeAll };
 }
 
 module.exports = { createConn };

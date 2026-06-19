@@ -27,6 +27,29 @@
     const apply = () => {
         localStorage.setItem(KEY, String(level));
         window.electronWindow.setZoom(level);
+        // Let the Settings UI (and any other listener) reflect the new level —
+        // keyboard shortcuts and the modal control share one source of truth.
+        window.dispatchEvent(new CustomEvent('zoomchange', { detail: { level, percent: toPercent(level) } }));
+    };
+
+    // Chromium's zoom factor is 1.2^level; round to a tidy percentage.
+    const toPercent = (l) => Math.round(Math.pow(1.2, l) * 100);
+
+    const setLevel = (l) => {
+        level = Math.max(MIN, Math.min(MAX, l));
+        apply();
+    };
+
+    // Public API for the Settings modal stepper. Mirrors the keyboard shortcuts.
+    window.olivZoom = {
+        STEP, MIN, MAX,
+        get:     () => level,
+        percent: () => toPercent(level),
+        toPercent,
+        zoomIn:  () => setLevel(level + STEP),
+        zoomOut: () => setLevel(level - STEP),
+        reset:   () => setLevel(0),
+        set:     setLevel,
     };
 
     // Restore the saved level on every page load. New BrowserWindows /
@@ -39,16 +62,13 @@
         // numpad's dedicated +/- keys which also produce these `.key` values.
         if (e.key === '+' || e.key === '=') {
             e.preventDefault();
-            level = Math.min(MAX, level + STEP);
-            apply();
+            setLevel(level + STEP);
         } else if (e.key === '-') {
             e.preventDefault();
-            level = Math.max(MIN, level - STEP);
-            apply();
+            setLevel(level - STEP);
         } else if (e.key === '0') {
             e.preventDefault();
-            level = 0;
-            apply();
+            setLevel(0);
         }
     });
 }());

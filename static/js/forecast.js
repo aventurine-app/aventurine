@@ -28,14 +28,8 @@ const state = {
 };
 
 // ─── Currency formatting (mirrors home.js's compact axis/tooltip helpers) ────
-
-const _RE_THOUSANDS = /\B(?=(\d{3})+(?!\d))/g;
-
 function fmtMoney(n) {
-  const abs = Math.abs(n);
-  const sign = n < 0 ? '-' : '';
-  const [intPart, decPart] = abs.toFixed(2).split('.');
-  return sign + CURRENCY_SYMBOL + intPart.replace(_RE_THOUSANDS, ',') + (decPart === '00' ? '' : '.' + decPart);
+  return formatCurrency(n, true);
 }
 
 function fmtAxis(n) {
@@ -368,7 +362,7 @@ function openForm(id) {
       <option value="income"${item && item.flow === 'income' ? ' selected' : ''}>Income</option>
     </select>
     <input type="text" id="pf-amount" class="pf-input" inputmode="decimal" placeholder="Amount"
-           value="${item ? formatCurrency(item.amount, true) : ''}">
+           value="${item ? formatCurrency(item.amount, true, { editable: true }) : ''}">
     <input type="date" id="pf-date" class="pf-input" value="${item ? escapeHtml(item.date) : ''}">
     <button type="submit" class="pf-save db-btn-primary">${item ? 'Save' : 'Add'}</button>
     <button type="button" class="pf-cancel" id="pf-cancel">Cancel</button>

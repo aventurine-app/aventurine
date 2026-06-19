@@ -10,9 +10,6 @@
 //
 // Globals (loaded before this script): apiFetch (api.js), escapeHtml
 // (escape.js), CURRENCY_SYMBOL (currency.js).
-
-const _RE_THOUSANDS = /\B(?=(\d{3})+(?!\d))/g;
-
 // Goals whose `value` is an absolute ratio (rendered as a plain percent) vs.
 // goals whose `value` is a year-over-year fractional change (signed percent).
 const TREND_GOALS = new Set(['spending_trend', 'income_trend']);
@@ -20,10 +17,7 @@ const TREND_GOALS = new Set(['spending_trend', 'income_trend']);
 // ─── Formatting ────────────────────────────────────────────────────────────────
 
 function fmtMoney(n) {
-  const abs = Math.abs(n);
-  const sign = n < 0 ? '-' : '';
-  const [intPart, decPart] = abs.toFixed(2).split('.');
-  return sign + CURRENCY_SYMBOL + intPart.replace(_RE_THOUSANDS, ',') + (decPart === '00' ? '' : '.' + decPart);
+  return formatCurrency(n, true);
 }
 
 /** A 0..1 ratio as a whole-ish percent ("62%"); null → "N/A". */
@@ -77,10 +71,15 @@ function metric(label, ratio, tip) {
   </div>`;
 }
 
+// status → icon glyph. 'na' (goal invalid or no year-over-year change) is a
+// neutral gray dash; 'met' a check, 'miss' a cross.
+const GOAL_ICON = { met: '✓', miss: '✕', na: '–' };
+
 function goalRow(g) {
   const val = TREND_GOALS.has(g.key) ? fmtSignedPct(g.value) : fmtPct(g.value);
-  const icon = g.met ? '✓' : '✕';
-  return `<li class="rc-goal rc-goal-${g.met ? 'met' : 'miss'}">
+  const status = g.status || (g.met ? 'met' : 'miss');
+  const icon = GOAL_ICON[status] || GOAL_ICON.na;
+  return `<li class="rc-goal rc-goal-${status}">
     <span class="rc-goal-icon" aria-hidden="true">${icon}</span>
     <span class="rc-goal-label">${escapeHtml(g.label)}</span>
     <span class="rc-goal-value">${escapeHtml(val)}</span>

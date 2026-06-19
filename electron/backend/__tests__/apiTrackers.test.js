@@ -152,6 +152,51 @@ test('balance: column type change relocates, keys stay unique', (t) => {
   assert.equal(keys.length, new Set(keys).size, 'no duplicate column keys after type change');
 });
 
+test('balance: reorder rewrites order and retypes columns in one call', (t) => {
+  const c = makeClient(t);
+  const a = addColumn(c, 'A', 'cash');
+  const b = addColumn(c, 'B', 'cash');
+  const before = getData(c).columns;
+  // Send the full ordering with b ahead of a, and move a into investment.
+  const order = before.map((col) =>
+    col.key === a.key ? { key: a.key, type: 'investment' } : { key: col.key, type: col.type }
+  );
+  // Put b before a in the submitted order.
+  const aPos = order.findIndex((o) => o.key === a.key);
+  const bPos = order.findIndex((o) => o.key === b.key);
+  order.splice(aPos, 1);
+  order.splice(bPos, 0, { key: a.key, type: 'investment' });
+
+  const r = c.post(`${PREFIX}/columns/reorder`, { order });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+
+  const after = getData(c).columns;
+  assert.deepEqual(
+    after.map((x) => x.key),
+    order.map((o) => o.key),
+    'columns come back in the submitted order'
+  );
+  assert.equal(after.find((x) => x.key === a.key).type, 'investment', 'a retyped to investment');
+});
+
+test('balance: reorder rejects an incomplete or unknown ordering', (t) => {
+  const c = makeClient(t);
+  const a = addColumn(c, 'A');
+  const all = getData(c).columns.map((x) => ({ key: x.key, type: x.type }));
+
+  // Dropping a column from the order is rejected (must list every column).
+  const short = all.filter((o) => o.key !== a.key);
+  assert.equal(c.post(`${PREFIX}/columns/reorder`, { order: short }).status, 400);
+
+  // An unknown key is rejected.
+  const bogus = all.map((o, i) => (i === 0 ? { key: 'bcol_999999', type: o.type } : o));
+  assert.equal(c.post(`${PREFIX}/columns/reorder`, { order: bogus }).status, 404);
+
+  // An invalid type is rejected.
+  const badType = all.map((o, i) => (i === 0 ? { key: o.key, type: 'nope' } : o));
+  assert.equal(c.post(`${PREFIX}/columns/reorder`, { order: badType }).status, 400);
+});
+
 // ─── Non-finite / non-numeric value rejection (from test_security.py) ─────────
 // In the IPC world these arrive as real JS values (no JSON parsing layer), but
 // one stored NaN would still corrupt every reader — the validators must hold.

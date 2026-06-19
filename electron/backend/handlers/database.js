@@ -225,6 +225,27 @@ function unlock(ctx, { body }) {
   return activateExisting(ctx, ctx.state.path, true, data.password);
 }
 
+/** Re-protect the active (encrypted) DB — drops the key, flips to locked. */
+function lock(ctx) {
+  return ctx.lock();
+}
+
+/** Change the active DB's encryption in place: encrypt / change / decrypt.
+ *  Validation + the file-backup rollback live in conn.rekey(); this just maps
+ *  the request shape onto it. */
+function encryption(ctx, { body }) {
+  const data = body || {};
+  const action = data.action;
+  if (action !== 'encrypt' && action !== 'change' && action !== 'decrypt') {
+    bad('unknown encryption action');
+  }
+  return ctx.rekey({
+    action,
+    currentPassword: data.currentPassword,
+    newPassword: data.newPassword,
+  });
+}
+
 function activateExisting(ctx, p, encrypted, password) {
   let err;
   let key;
@@ -248,6 +269,8 @@ const routes = [
   ['POST', '/api/db/save-as', saveAs],
   ['POST', '/api/db/open', open],
   ['POST', '/api/db/unlock', unlock],
+  ['POST', '/api/db/lock', lock],
+  ['POST', '/api/db/encryption', encryption],
 ];
 
 // normalisePath is shared with the transactions-export route, which accepts

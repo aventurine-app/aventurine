@@ -691,6 +691,25 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
+    /* Keep an empty type section a drop target even with no rows in it. */
+    min-height: 30px;
+}
+
+/* Accent line marking exactly where the dragged column will land. Lives
+   between rows (or in an empty section) and follows the cursor during the
+   drag. pointer-events:none so it never intercepts the list's dragover. */
+.col-drop-indicator {
+    height: 2px;
+    margin: 1px 4px;
+    border-radius: 1px;
+    background: var(--accent-primary);
+    pointer-events: none;
+}
+
+/* While a drag is in progress the empty-section "None" hints are noise — the
+   accent line is the only placement cue the user needs. */
+.col-manager.dragging .col-empty {
+    display: none;
 }
 
 .col-empty {
@@ -811,9 +830,10 @@
     transition: background-color 120ms ease;
 }
 
-.col-row:hover {
-    background: var(--surface3);
-}
+/* No row hover fill: the native drag image is a snapshot of the row, and a
+   filled-but-rounded box renders dark square corners on the drag layer (the
+   area outside the radius). With no fill the drag image is just the row's
+   content. The grip lightening on hover (below) is the affordance instead. */
 
 .col-row-label {
     flex: 1;
@@ -847,55 +867,31 @@
     border-color: var(--accent-primary);
 }
 
-.col-row-arrows {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
+/* Drag handle — the only draggable part of a row, so rename/delete keep their
+   pointer events. grab/grabbing cursors signal the affordance. */
+.col-row-grip {
     flex-shrink: 0;
-}
-
-.col-arrow-btn {
-    background: none;
-    border: none;
-    color: var(--text-tertiary);
-    cursor: pointer;
-    padding: 0;
-    line-height: 1;
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 0 2px;
+    color: var(--text-tertiary);
+    cursor: grab;
     transition: color 120ms ease;
 }
 
-.col-arrow-btn:hover {
-    color: var(--text-primary);
+.col-row-grip:active {
+    cursor: grabbing;
 }
 
-.col-arrow-disabled {
-    color: var(--surface4) !important;
-    cursor: default;
+.col-row:hover .col-row-grip {
+    color: var(--text-secondary);
 }
 
-.col-row-type {
-    font-family: var(--font-menu);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wider);
-    text-transform: uppercase;
-    padding: 3px 6px;
-    border-radius: 4px;
-    cursor: pointer;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--text-tertiary);
-    flex-shrink: 0;
-    white-space: nowrap;
-    transition: background-color 120ms ease, color 120ms ease;
-}
-
-.col-row-type:hover {
-    background: var(--surface3);
-    color: var(--text-primary);
+/* The row being dragged is dimmed in place while its live preview follows the
+   cursor across sections. */
+.col-row-dragging {
+    opacity: 0.4;
 }
 
 .col-row-delete {

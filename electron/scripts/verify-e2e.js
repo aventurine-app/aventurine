@@ -131,12 +131,14 @@ app.whenReady().then(async () => {
     ));
 
     // Category management now lives on its own page — prove the editor renders
-    // its rows there (the add row pinned to the top + seeded categories). The
-    // editor fills asynchronously after load, so poll briefly like the tx table.
+    // the create card at the top, the 2×2 type grid (one quadrant per type),
+    // and the seeded category rows. The editor fills asynchronously after load,
+    // so poll briefly like the tx table.
     await win.loadURL('app://oliv/categories');
     check('Categories page renders the editor', await evalJs(
       'new Promise(res => setTimeout(() => res('
-        + '!!document.querySelector("[data-categories-editor][data-add-top] .cat-add")'
+        + '!!document.querySelector("[data-categories-editor] .cat-create-card .cat-add")'
+        + ' && document.querySelectorAll("[data-categories-editor] .cat-quadrant").length === 4'
         + ' && document.querySelectorAll("[data-categories-editor] .cat-row").length > 0'
         + '), 800))'
     ));

@@ -141,8 +141,14 @@
     },
     '/api/categories': {
       categories: [
-        { id: 1, key: 'income', name: 'Primary Income', cat_type: 'income', position: 0 },
-        { id: 4, key: 'food',   name: 'Food',   cat_type: 'expense', position: 5 },
+        { id: 1, key: 'income',     name: 'Primary Income',    cat_type: 'income',    position: 0 },
+        { id: 2, key: 'side',       name: 'Side Income',       cat_type: 'income',    position: 1 },
+        { id: 4, key: 'rent',       name: 'Rent / Mortgage',   cat_type: 'expense',   position: 0 },
+        { id: 5, key: 'food',       name: 'Food',              cat_type: 'expense',   position: 1 },
+        { id: 6, key: 'utilities',  name: 'Utilities',         cat_type: 'expense',   position: 2 },
+        { id: 7, key: 'savings',    name: 'Emergency Fund',    cat_type: 'savings',   position: 0 },
+        { id: 8, key: 'investing',  name: 'Brokerage',         cat_type: 'investing', position: 0 },
+        { id: 9, key: 'retirement', name: 'Retirement',        cat_type: 'investing', position: 1 },
       ],
     },
     '/api/portfolio/data': {
@@ -197,11 +203,11 @@
           },
           metrics: { expenseToIncome: 0.625, debtToIncome: 0.125, cashFlowMargin: 0.2083 },
           goals: [
-            { key: 'expense_ratio',   label: 'Expenses under 70% of income',          value: 0.625,   met: true },
-            { key: 'savings_rate',    label: 'Saving & investing over 15% of income', value: 0.1667,  met: true },
-            { key: 'debt_to_income',  label: 'Total debt under 25% of income',        value: 0.125,   met: true },
-            { key: 'spending_trend',  label: 'Spending down from last year',          value: -0.0217, met: true },
-            { key: 'income_trend',    label: 'Income up from last year',              value: 0.0909,  met: true },
+            { key: 'expense_ratio',   label: 'Expenses under 70% of income',          value: 0.625,   status: 'met' },
+            { key: 'savings_rate',    label: 'Saving & investing over 15% of income', value: 0.1667,  status: 'met' },
+            { key: 'debt_to_income',  label: 'Total debt under 25% of income',        value: 0.125,   status: 'met' },
+            { key: 'spending_trend',  label: 'Spending down from last year',          value: -0.0217, status: 'met' },
+            { key: 'income_trend',    label: 'Income up from last year',              value: 0.0909,  status: 'met' },
           ],
         },
         {
@@ -209,9 +215,11 @@
           changes: { income: null, expenses: null, savings: null },
           metrics: { expenseToIncome: 0.697, debtToIncome: 0.1818, cashFlowMargin: 0.1667 },
           goals: [
-            { key: 'expense_ratio',  label: 'Expenses under 70% of income',          value: 0.697,  met: true },
-            { key: 'savings_rate',   label: 'Saving & investing over 15% of income', value: 0.1364, met: false },
-            { key: 'debt_to_income', label: 'Total debt under 25% of income',        value: 0.1818, met: true },
+            { key: 'expense_ratio',  label: 'Expenses under 70% of income',          value: 0.697,  status: 'met' },
+            { key: 'savings_rate',   label: 'Saving & investing over 15% of income', value: 0.1364, status: 'miss' },
+            { key: 'debt_to_income', label: 'Total debt under 25% of income',        value: 0.1818, status: 'met' },
+            { key: 'spending_trend', label: 'Spending down from last year',          value: null,   status: 'na' },
+            { key: 'income_trend',   label: 'Income up from last year',              value: null,   status: 'na' },
           ],
         },
       ],

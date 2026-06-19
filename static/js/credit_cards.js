@@ -229,8 +229,8 @@ function buildMoneyField(card, field, labelText, refresh) {
     input.type        = 'text';
     input.inputMode   = 'decimal';
     input.className   = 'cc-input';
-    input.placeholder = formatCurrency(0, true);
-    if (card[field]) input.value = formatCurrency(card[field], true);
+    input.placeholder = formatCurrency(0, true, { editable: true });
+    if (card[field]) input.value = formatCurrency(card[field], true, { editable: true });
     const save = debounce(() => ccApi.updateCard(card.id, { [field]: card[field] }), 600);
     input.addEventListener('input', () => {
         applyCurrencyFormat(input);

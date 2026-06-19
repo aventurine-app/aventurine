@@ -31,63 +31,60 @@ function change(curr, prev) {
 
 /**
  * Evaluate the five money goals for one year. `prev` is the previous year's
- * normalized row (or null for the earliest year). Each goal yields
- * { key, label, value, met }; goals that can't be evaluated (undefined ratio, or
- * no prior year) are omitted — so a first year isn't shown trend goals it has no
- * history to compare against.
+ * normalized row (or null for the earliest year). Every card shows all five
+ * goals at all times; each yields { key, label, value, status } where status is
+ * 'met' (✓), 'miss' (✕), or 'na' (—) — a goal is 'na' when it can't be judged
+ * (undefined ratio, no prior year to compare against) or when a trend goal saw
+ * no year-over-year change. `value` is null only when there's nothing to show.
  */
 function evaluateGoals({ income, expenses, savings, debt, prev }) {
-  const goals = [];
+  // status for a goal whose `value` is undefined (null) → 'na'; otherwise the
+  // result of the threshold test passed in.
+  const judge = (value, met) => (value == null ? 'na' : met ? 'met' : 'miss');
 
   const er = ratio(expenses, income);
-  if (er != null) {
-    goals.push({
+  const sr = ratio(savings, income);
+  const dti = debt == null ? null : ratio(debt, income);
+
+  // Trend goals: 'na' with no prior year (value null) or when the figure was
+  // unchanged year-over-year (value 0, no movement to reward or penalise).
+  const spendingValue = prev && prev.expenses > 0 ? (expenses - prev.expenses) / prev.expenses : null;
+  const incomeValue = prev && prev.income > 0 ? (income - prev.income) / prev.income : null;
+  const trendStatus = (value, improved) =>
+    value == null ? 'na' : value === 0 ? 'na' : improved ? 'met' : 'miss';
+
+  return [
+    {
       key: 'expense_ratio',
       label: 'Expenses under 70% of income',
       value: er,
-      met: er <= EXPENSE_RATIO_GOAL,
-    });
-  }
-
-  const sr = ratio(savings, income);
-  if (sr != null) {
-    goals.push({
+      status: judge(er, er <= EXPENSE_RATIO_GOAL),
+    },
+    {
       key: 'savings_rate',
       label: 'Saving & investing over 15% of income',
       value: sr,
-      met: sr >= SAVINGS_RATE_GOAL,
-    });
-  }
-
-  const dti = debt == null ? null : ratio(debt, income);
-  if (dti != null) {
-    goals.push({
+      status: judge(sr, sr >= SAVINGS_RATE_GOAL),
+    },
+    {
       key: 'debt_to_income',
       label: 'Total debt under 25% of income',
       value: dti,
-      met: dti <= DTI_GOAL,
-    });
-  }
-
-  if (prev && prev.expenses > 0) {
-    goals.push({
+      status: judge(dti, dti <= DTI_GOAL),
+    },
+    {
       key: 'spending_trend',
       label: 'Spending down from last year',
-      value: (expenses - prev.expenses) / prev.expenses,
-      met: expenses <= prev.expenses,
-    });
-  }
-
-  if (prev && prev.income > 0) {
-    goals.push({
+      value: spendingValue,
+      status: trendStatus(spendingValue, spendingValue < 0),
+    },
+    {
       key: 'income_trend',
       label: 'Income up from last year',
-      value: (income - prev.income) / prev.income,
-      met: income >= prev.income,
-    });
-  }
-
-  return goals;
+      value: incomeValue,
+      status: trendStatus(incomeValue, incomeValue > 0),
+    },
+  ];
 }
 
 /**

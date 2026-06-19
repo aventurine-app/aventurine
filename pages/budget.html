@@ -16,8 +16,15 @@
 
 <div class="budget-page">
 
-    <div class="budget-card">
-        <div class="home-card-header">
+    <header class="budget-header">
+        <div class="budget-header-text">
+            <h1 class="page-title">Budget</h1>
+            <p class="page-subtitle">
+                Give every dollar a job. Set a monthly target per category and
+                watch each envelope fill from your actual spending.
+            </p>
+        </div>
+        <div class="budget-toolbar">
             <div class="budget-monthnav">
                 <button type="button" class="budget-nav-btn" id="budget-prev" aria-label="Previous month">‹</button>
                 <span class="budget-month-label" id="budget-month-label">—</span>
@@ -25,20 +32,13 @@
             </div>
             <button type="button" class="budget-copy-btn" id="budget-copy">Copy last month</button>
         </div>
+    </header>
 
-        <!-- Zero-based roll-up, rendered by budget.js -->
-        <div class="budget-summary" id="budget-summary"></div>
-    </div>
+    <!-- Zero-based roll-up + allocation meter, rendered by budget.js -->
+    <section class="budget-summary-card" id="budget-summary" aria-label="Monthly budget summary"></section>
 
-    <div class="budget-card">
-        <div class="home-card-header">
-            <span class="home-card-title">Envelopes<span class="fc-info" tabindex="0" role="note"
-                aria-label="Set a monthly target for each spending and savings category. The bar fills as you spend that category this month, drawn from your transactions. Income categories aren't budgeted — your income drives 'left to budget' above."
-                data-tip="Set a monthly target for each spending and savings category. The bar fills as you spend that category this month, drawn from your transactions. Income categories aren't budgeted — your income drives 'left to budget' above.">i</span></span>
-        </div>
-        <!-- One row per budgetable category, rendered by budget.js -->
-        <div id="budget-list" class="budget-list"></div>
-    </div>
+    <!-- Envelope grids grouped by category type, rendered by budget.js -->
+    <div class="budget-groups" id="budget-groups"></div>
 
 </div>
 

@@ -1,12 +1,17 @@
 /* ─── Categories page ──────────────────────────────────────────────────────
-   Standalone home for the category editor that used to live in the Settings →
-   Manage Categories modal. The editor itself (.settings-categories-editor and
-   the .cat-* rows) is still styled by settings.css; this file only handles the
-   full-width page layout and the add-row-at-top placement, which is what makes
-   this page differ from the modal.
+   Standalone home for the category editor. This file owns the whole editor now
+   (the styles used to be split with the Settings → Manage Categories modal in
+   settings.css; that block was retired when the editor moved here).
 
-   Layout mirrors the Trackers pages (.db-page in tables.css): anchor content to
-   the top-left of the scroll area with the shared page padding, full width. */
+   Layout:
+     • a "create" card pinned at the top — the page's single primary action;
+     • a 2×2 grid of type quadrants (Income · Expense · Savings · Investing).
+   Categories render as clean, container-less lines inside each quadrant.
+   Reordering and recategorizing are drag-and-drop (grip handle, same as the
+   Cash Flow column manager); the only other per-row control — a delete × —
+   fades in on hover so a full screen of categories stays calm. Mirrors the
+   Trackers pages: top-left anchored, shared page padding, full width.
+   ───────────────────────────────────────────────────────────────────────── */
 .page:has(.cat-page) {
   align-items: flex-start;
   padding: var(--page-pad);
@@ -26,11 +31,16 @@
   justify-content: space-between;
 }
 
-/* The editor card spans the full page width — that's the "use all available
-   space" difference from the constrained two-column Settings row. Matches the
-   surface/border/radius treatment of .settings-card. */
-.cat-card {
+/* The editor root stacks the create card and the quadrant grid. */
+.cat-page-editor {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ─── Create card (top) ──────────────────────────────────────────────────── */
+.cat-create-card {
   background: var(--surface1);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -39,16 +49,316 @@
   box-sizing: border-box;
 }
 
-.cat-page-editor {
-  width: 100%;
+.cat-create-title {
+  color: var(--label-muted);
+  font-family: var(--font-h3);
+  font-size: var(--size-micro);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--track-widest);
+  text-transform: uppercase;
+  margin-bottom: 12px;
 }
 
-/* In the modal the add-row sat at the bottom with a divider above it. Here it
-   leads the page (data-add-top), so flip the divider to its lower edge: it now
-   reads as a "create new" zone sitting above the grouped list. */
-.cat-page-editor[data-add-top] .cat-add {
-  border-top: none;
+.cat-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The create input is the one always-visible field — give it a real box
+   (the in-list rename inputs stay borderless until interacted with). */
+.cat-add-name {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-menu);
+  font-size: var(--size-body);
+  padding: 8px 10px;
+  caret-color: var(--frost-caret);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.cat-add-name:hover { border-color: var(--text-tertiary); }
+.cat-add-name:focus { border-color: var(--accent-primary); }
+.cat-add-name::placeholder { color: var(--text-tertiary); }
+
+/* The primary action — the only filled accent button on the page. */
+.cat-add-btn {
+  flex: none;
+  font-family: var(--font-menu);
+  font-size: var(--size-micro);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--track-widest);
+  text-transform: uppercase;
+  padding: 9px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: var(--accent-primary);
+  border: 1px solid var(--accent-primary);
+  color: var(--text-primary);
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.cat-add-btn:hover {
+  background: var(--accent400);
+  border-color: var(--accent400);
+}
+
+.cat-add-btn:active { transform: translateY(1px); }
+
+.cat-add-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* ─── Quadrant grid ──────────────────────────────────────────────────────── */
+.cat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+/* Collapse to a single column when the two-up layout would get cramped. */
+@media (max-width: 720px) {
+  .cat-grid { grid-template-columns: 1fr; }
+}
+
+.cat-quadrant {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--surface1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  backdrop-filter: blur(5px) saturate(100%);
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+/* Per-type accent — same palette as the Transactions ledger amounts so a
+   category's colour means the same thing everywhere in the app. */
+.cat-quadrant[data-type="income"]    { --cat-accent: var(--accent-primary); }
+.cat-quadrant[data-type="expense"]   { --cat-accent: var(--accent-tertiary); }
+.cat-quadrant[data-type="savings"]   { --cat-accent: var(--accent-secondary); }
+.cat-quadrant[data-type="investing"] { --cat-accent: var(--accent-quatenary); }
+
+.cat-quadrant-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
   border-bottom: 1px solid var(--border);
-  margin-top: 0;
-  padding: 0 8px 14px;
+}
+
+/* Title renders as a coloured pill — colour-on-tinted-box, reusing the
+   Transactions ledger type-pill look (.tx-type-*). The per-type colour comes
+   from --cat-accent so a category type means the same thing everywhere. */
+.cat-quadrant-title {
+  margin: 0;
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--cat-accent) 15%, transparent);
+  color: var(--cat-accent);
+  font-family: var(--font-h3);
+  font-size: var(--size-small);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--track-normal);
+}
+
+/* Count badge — fixed height keeps it on the spacing scale without a tall pill. */
+.cat-quadrant-count {
+  margin-left: auto;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--frost-2);
+  color: var(--text-tertiary);
+  font-family: var(--font-numeric);
+  font-size: var(--size-micro);
+}
+
+.cat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* Keep an empty box a drop target even with no rows in it. */
+  min-height: 36px;
+}
+
+.cat-empty {
+  color: var(--text-tertiary);
+  font-family: var(--font-h3);
+  font-size: var(--size-small);
+  padding: 6px 8px;
+}
+
+/* While a drag is in progress the empty-box hints are noise — the accent line
+   is the only placement cue the user needs. */
+.cat-page-editor.dragging .cat-empty { display: none; }
+
+/* ─── Category row (container-less) ──────────────────────────────────────────
+   No background or border per row — just a line. A faint hover wash, the grip
+   handle, and the revealed delete × are the only chrome. */
+.cat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+}
+
+.cat-row:hover { background: var(--frost-2); }
+
+/* The row being dragged is dimmed in place while its preview follows the
+   cursor across boxes (mirrors .col-row-dragging in tables.css). */
+.cat-row.cat-dragging { opacity: 0.4; }
+
+/* Drag handle — the only draggable part of a row, so the rename input and
+   delete × keep their pointer events. Faintly visible at rest to advertise the
+   drag; brightens on row hover. grab/grabbing cursors signal the affordance. */
+.cat-grip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 32px;
+  padding: 0 2px;
+  color: var(--text-tertiary);
+  cursor: grab;
+  transition: color 0.15s ease;
+}
+
+.cat-grip:active { cursor: grabbing; }
+.cat-row:hover .cat-grip { color: var(--text-secondary); }
+.cat-grip svg { width: 9px; height: 14px; }
+
+/* Rename input reads as plain text at rest; it grows a box only on hover/focus
+   so editing is still obviously available. */
+.cat-name {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-menu);
+  font-size: var(--size-body);
+  padding: 8px 10px;
+  caret-color: var(--frost-caret);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.cat-row:hover .cat-name { border-color: var(--border); background: var(--surface1); }
+.cat-name:focus { border-color: var(--accent-primary); background: var(--surface1); }
+
+/* Action cluster — hidden at rest, revealed on hover or keyboard focus.
+   pointer-events gate prevents click-through onto invisible controls. */
+.cat-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.cat-row:hover .cat-row-actions,
+.cat-row:focus-within .cat-row-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* The recategorize dropdown. Native <select> with a CSS-drawn caret (same
+   technique as .tx-select) so the menu text stays clean. */
+.cat-type-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--surface1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  outline: none;
+  color: var(--text-secondary);
+  font-family: var(--font-menu);
+  font-size: var(--size-small);
+  padding: 6px 26px 6px 10px;
+  cursor: pointer;
+  background-image: linear-gradient(45deg,  transparent 50%, currentColor 50%),
+                    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 13px) 50%, calc(100% - 9px) 50%;
+  background-size: 4px 4px;
+  background-repeat: no-repeat;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.cat-type-select:hover { color: var(--text-primary); border-color: var(--text-tertiary); }
+.cat-type-select:focus { border-color: var(--accent-primary); color: var(--text-primary); }
+
+/* The create card's dropdown is always visible, so give it the full body size
+   to sit level with the input beside it. */
+.cat-add .cat-type-select { font-size: var(--size-body); padding: 8px 28px 8px 10px; }
+
+/* Borderless icon button — the delete ×. Subtle until hovered. */
+.cat-icon-btn {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.cat-icon-btn:hover { background: var(--surface2); color: var(--text-primary); }
+
+.cat-icon-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -1px;
+}
+
+.cat-icon-btn svg { width: 12px; height: 12px; }
+
+/* Delete X turns red on hover so the destructive action announces itself. */
+.cat-icon-btn.cat-delete:hover {
+  color: var(--accent-tertiary);
+  background: var(--frost-2);
+}
+
+/* Accent line marking exactly where the dragged category will land — between
+   rows or in an empty box. pointer-events:none so it never intercepts the
+   list's dragover (mirrors .col-drop-indicator in tables.css). */
+.cat-drop-indicator {
+  height: 2px;
+  margin: 1px 4px;
+  border-radius: 1px;
+  background: var(--accent-primary);
+  pointer-events: none;
+}
+
+.cat-error {
+  color: var(--accent-tertiary);
+  font-family: var(--font-h3);
+  font-size: var(--size-small);
+  padding: 6px 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cat-row, .cat-name, .cat-row-actions, .cat-icon-btn, .cat-grip,
+  .cat-type-select, .cat-add-btn, .cat-add-name {
+    transition: none;
+  }
 }

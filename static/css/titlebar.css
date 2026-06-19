@@ -50,6 +50,7 @@
 
 /* ── Menu items (File / Settings) ─────────────────────────────────────── */
 .titlebar-menu {
+    margin-left: var(--space-16);
     display: flex;
     align-items: center;
     gap: 2px;
@@ -61,7 +62,7 @@
     border: none;
     padding: var(--space-4) var(--space-8);
     border-radius: 5px;
-    color: var(--label-muted);
+    color: var(--text-secondary);
     font-family: var(--font-menu);
     font-size: var(--size-body);
     letter-spacing: var(--track-wide);

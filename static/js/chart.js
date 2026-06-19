@@ -19,8 +19,6 @@
     'July', 'August', 'September', 'October', 'November', 'December'];
   const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const _RE_THOUSANDS = /\B(?=(\d{3})+(?!\d))/g;
-
   // Default palette (matches home.js ACCOUNT_COLORS) — cycled per series.
   const PALETTE = [
     'rgba(120,185,255,0.9)',
@@ -62,10 +60,7 @@
   }
 
   function fmtTooltip(n) {
-    const abs = Math.abs(n);
-    const sign = n < 0 ? '-' : '';
-    const [intPart, decPart] = abs.toFixed(2).split('.');
-    return sign + CURRENCY_SYMBOL + intPart.replace(_RE_THOUSANDS, ',') + (decPart === '00' ? '' : '.' + decPart);
+    return formatCurrency(n, true);
   }
 
   function smoothPath(pts) {

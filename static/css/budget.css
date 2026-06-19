@@ -1,322 +1,409 @@
 /* ============================================================================
-   budget.css — Budget Buckets (Account Tracking) page.
+   budget.css — Budget (envelope target-vs-actual) page.
 
-   Page-scoped: the shared card + tooltip chrome lives elsewhere (home.css /
-   forecast.css, loaded only on their pages), so the slices this page needs are
-   restated here. Everything draws from theme variables so it retones with the
-   palette / light theme.
+   Full-bleed layout that fills the viewport like Categories / Settings: the
+   page is top-anchored and full width, the zero-based summary is a single
+   horizontal band, and the envelopes flow into a responsive auto-fill grid
+   grouped by category type — so wide screens use horizontal space instead of
+   forcing a long vertical scroll.
+
+   Page-scoped: the shared card + tooltip chrome lives in pages that load it
+   (home.css / forecast.css), so the slices this page needs are restated here.
+   Everything draws from theme variables so it retones with palette / light mode.
    ============================================================================ */
 
-/* The base .page rule (style.css) centers its child on the cross axis
-   (align-items: center → vertical centering). Once the envelopes push the page
-   past one viewport — easy when zoomed in — the overflow spills above the
-   centered origin and can't be scrolled up to. Anchor to flex-start so the page
-   always starts from the top. Same pattern as Home and Settings. */
+/* The base .page rule (style.css) centers its child both axes. Anchor to the
+   top-left and let the content fill the width, same as Categories / Settings. */
 .page:has(.budget-page) {
-    align-items: flex-start;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: var(--page-pad);
+  box-sizing: border-box;
 }
 
 .budget-page {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-    padding: var(--page-pad);
-    /* Fixed width (~15% wider than the old 920px cap) so the card no longer
-       reflows as the calculated numbers change length; max-width keeps it from
-       overflowing a narrow window. */
-    width: 1060px;
-    max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+  width: 100%;
 }
 
-/* ─── Card (mirrors .home-card) ──────────────────────────────────────────── */
-.budget-card {
-    min-width: 0;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--surface1);
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
-    padding: 24px 28px;
-    display: flex;
-    flex-direction: column;
+/* ─── Header (title + month toolbar) ──────────────────────────────────────── */
+.budget-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-24);
+  flex-wrap: wrap;
 }
 
-.home-card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-    min-height: 22px;
-    gap: 16px;
+.budget-header-text { max-width: 64ch; }
+
+.budget-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  flex: none;
 }
 
-.home-card-title {
-    color: var(--text-primary);
-    font-family: var(--font-h3);
-    font-size: var(--size-small);
-    font-weight: var(--weight-semibold);
-    line-height: var(--lh-tight);
-    letter-spacing: var(--track-widest);
-    text-transform: uppercase;
-}
-
-/* ─── Month navigator + copy ─────────────────────────────────────────────── */
 .budget-monthnav {
-    display: flex;
-    align-items: center;
-    gap: 14px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
 }
 
 .budget-nav-btn {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text-secondary);
-    font-size: 16px;
-    line-height: 1;
-    width: 28px;
-    height: 28px;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 16px;
+  line-height: 1;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
 }
 .budget-nav-btn:hover {
-    background: var(--surface3);
-    color: var(--text-primary);
-    border-color: var(--text-tertiary);
+  background: var(--surface3);
+  color: var(--text-primary);
+  border-color: var(--text-tertiary);
 }
+.budget-nav-btn:active { transform: translateY(1px); }
+.budget-nav-btn:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
 
 .budget-month-label {
-    color: var(--text-primary);
-    font-family: var(--font-numeric);
-    font-size: var(--size-h3);
-    font-weight: var(--weight-light);
-    letter-spacing: var(--track-tight);
-    min-width: 150px;
-    text-align: center;
+  color: var(--text-primary);
+  font-family: var(--font-numeric);
+  font-size: var(--size-h3);
+  font-weight: var(--weight-light);
+  letter-spacing: var(--track-tight);
+  min-width: 150px;
+  text-align: center;
 }
 
 .budget-copy-btn {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wider);
-    text-transform: uppercase;
-    padding: 6px 14px;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-family: var(--font-menu);
+  font-size: var(--size-micro);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--track-wider);
+  text-transform: uppercase;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
 }
 .budget-copy-btn:hover {
-    background: var(--surface3);
-    color: var(--text-primary);
-    border-color: var(--text-tertiary);
+  background: var(--surface3);
+  color: var(--text-primary);
+  border-color: var(--text-tertiary);
 }
+.budget-copy-btn:active { transform: translateY(1px); }
+.budget-copy-btn:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
 
-/* ─── Info tooltip ("i" badge + CSS hover/focus card) ────────────────────── */
+/* ─── Info tooltip ("i" badge + CSS hover/focus card) ─────────────────────── */
 .fc-info {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 14px;
-    height: 14px;
-    margin-left: 6px;
-    border-radius: 50%;
-    border: 1px solid var(--text-tertiary);
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: 9px;
-    font-weight: var(--weight-semibold);
-    font-style: normal;
-    line-height: 1;
-    text-transform: none;
-    letter-spacing: 0;
-    cursor: help;
-    position: relative;
-    vertical-align: middle;
-    transition: color 0.15s, border-color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 6px;
+  border-radius: 50%;
+  border: 1px solid var(--text-tertiary);
+  color: var(--text-tertiary);
+  font-family: var(--font-h3);
+  font-size: 9px;
+  font-weight: var(--weight-semibold);
+  font-style: normal;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: help;
+  position: relative;
+  vertical-align: middle;
+  transition: color 0.15s, border-color 0.15s;
 }
 .fc-info:hover,
 .fc-info:focus-visible {
-    color: var(--text-primary);
-    border-color: var(--text-primary);
-    outline: none;
+  color: var(--text-primary);
+  border-color: var(--text-primary);
+  outline: none;
 }
 .fc-info::after {
-    content: attr(data-tip);
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
-    z-index: 40;
-    width: max-content;
-    max-width: 280px;
-    padding: 10px 12px;
-    background: var(--background);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-    color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    font-weight: var(--weight-regular);
-    line-height: 1.5;
-    letter-spacing: normal;
-    text-transform: none;
-    text-align: left;
-    white-space: normal;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(-3px);
-    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 40;
+  width: max-content;
+  max-width: 280px;
+  padding: 10px 12px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  color: var(--text-secondary);
+  font-family: var(--font-menu);
+  font-size: var(--size-small);
+  font-weight: var(--weight-regular);
+  line-height: 1.5;
+  letter-spacing: normal;
+  text-transform: none;
+  text-align: left;
+  white-space: normal;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-3px);
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
 }
 .fc-info:hover::after,
 .fc-info:focus-visible::after {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
-}
-@media (prefers-reduced-motion: reduce) {
-    .fc-info::after { transition: opacity 0.15s ease, visibility 0.15s; transform: none; }
-    .fc-info:hover::after,
-    .fc-info:focus-visible::after { transform: none; }
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
 }
 
-/* ─── Zero-based summary ─────────────────────────────────────────────────── */
-.budget-summary { margin-top: 4px; }
+/* ─── Zero-based summary band ─────────────────────────────────────────────── */
+.budget-summary-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface1);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+  padding: var(--space-24);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-20);
+}
 
 .budget-stats {
-    display: flex;
-    gap: 44px;
-    flex-wrap: wrap;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-16) var(--space-48);
 }
 
 .budget-stat {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
 }
 
+/* "Left to budget" is the hero — push it to the right edge of the band and
+   let it carry the largest, accent-weighted number. */
+.budget-stat-hero { margin-left: auto; text-align: right; align-items: flex-end; }
+
 .budget-stat-label {
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wider);
-    text-transform: uppercase;
+  color: var(--text-tertiary);
+  font-family: var(--font-h3);
+  font-size: var(--size-micro);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--track-wider);
+  text-transform: uppercase;
 }
 
 .budget-stat-value {
-    color: var(--text-primary);
-    font-family: var(--font-numeric);
-    font-size: var(--size-h3);
-    font-weight: var(--weight-light);
-    letter-spacing: var(--track-tight);
-    font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  font-family: var(--font-numeric);
+  font-size: var(--size-h3);
+  font-weight: var(--weight-light);
+  letter-spacing: var(--track-tight);
+  font-variant-numeric: tabular-nums;
 }
-.budget-stat-value.pos { color: var(--accent-secondary); }
-.budget-stat-value.neg { color: var(--accent-tertiary); }
+.budget-stat-hero .budget-stat-value { font-size: var(--size-display); line-height: var(--lh-tight); }
+
+.budget-stat-value.pos      { color: var(--text-primary); }
+.budget-stat-value.balanced { color: var(--accent-secondary); }
+.budget-stat-value.neg      { color: var(--accent-tertiary); }
+
+.budget-stat-sub {
+  color: var(--label-muted);
+  font-family: var(--font-h3);
+  font-size: var(--size-micro);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+}
+.budget-stat-sub.balanced { color: var(--accent-secondary); }
+.budget-stat-sub.neg      { color: var(--accent-tertiary); }
 
 /* Expected income is editable — styled to read like a stat value but typeable. */
 .budget-income-input {
-    width: 130px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text-primary);
-    font-family: var(--font-numeric);
-    font-size: var(--size-h3);
-    font-weight: var(--weight-light);
-    letter-spacing: var(--track-tight);
-    font-variant-numeric: tabular-nums;
-    padding: 2px 8px;
+  width: 140px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: var(--font-numeric);
+  font-size: var(--size-h3);
+  font-weight: var(--weight-light);
+  letter-spacing: var(--track-tight);
+  font-variant-numeric: tabular-nums;
+  padding: 4px 8px;
+  transition: border-color 0.15s ease;
 }
+.budget-income-input:hover { border-color: var(--text-tertiary); }
 .budget-income-input:focus { outline: none; border-color: var(--accent-secondary); }
+.budget-income-input::placeholder { color: var(--text-tertiary); }
 
-.budget-stat-sub {
-    color: var(--label-muted);
-    font-family: var(--font-h3);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wide);
-    text-transform: uppercase;
+/* Allocation meter — how much of expected income is already budgeted. */
+.budget-alloc { display: flex; flex-direction: column; gap: var(--space-8); }
+
+.budget-alloc-bar {
+  width: 100%;
+  height: 10px;
+  border-radius: 6px;
+  background: var(--surface3);
+  overflow: hidden;
 }
 
-/* ─── Envelope rows ──────────────────────────────────────────────────────── */
-.budget-empty {
-    color: var(--text-tertiary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    text-align: center;
-    padding: 40px 0;
-    margin: 0;
+.budget-alloc-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+.budget-alloc-fill.alloc-pos      { background: var(--accent-primary); }
+.budget-alloc-fill.alloc-balanced { background: var(--accent-secondary); }
+.budget-alloc-fill.alloc-neg      { background: var(--accent-tertiary); }
+
+.budget-alloc-legend {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-tertiary);
+  font-family: var(--font-numeric);
+  font-size: var(--size-micro);
+  font-variant-numeric: tabular-nums;
 }
 
-.budget-rows {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
+/* ─── Envelope groups ─────────────────────────────────────────────────────── */
+.budget-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
 }
 
-.budget-row { display: flex; flex-direction: column; gap: 7px; }
+.budget-group { display: flex; flex-direction: column; gap: var(--space-12); }
 
-.budget-row-top {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 14px;
+/* Per-type accent — same palette as the Categories page / Transactions ledger
+   so a category type means the same colour everywhere in the app. */
+.budget-group[data-type="expense"]   { --grp-accent: var(--accent-tertiary); }
+.budget-group[data-type="savings"]   { --grp-accent: var(--accent-secondary); }
+.budget-group[data-type="investing"] { --grp-accent: var(--accent-quatenary); }
+
+.budget-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding-bottom: var(--space-8);
+  border-bottom: 1px solid var(--border);
 }
 
-.budget-cat-name {
-    color: var(--text-primary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+/* Title renders as a coloured pill — colour-on-tinted-box, matching the
+   Categories quadrant headers. */
+.budget-group-title {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--grp-accent) 15%, transparent);
+  color: var(--grp-accent);
+  font-family: var(--font-h3);
+  font-size: var(--size-small);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--track-normal);
 }
 
-.budget-cat-spend {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: baseline;
-    color: var(--text-primary);
-    font-family: var(--font-numeric);
-    font-size: var(--size-small);
-    font-variant-numeric: tabular-nums;
+.budget-group-count {
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--frost-2);
+  color: var(--text-tertiary);
+  font-family: var(--font-numeric);
+  font-size: var(--size-micro);
 }
-.budget-of { color: var(--text-tertiary); padding: 0 2px; }
 
-.budget-target-input {
-    width: 92px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text-primary);
-    font-family: var(--font-numeric);
-    font-size: var(--size-small);
-    font-variant-numeric: tabular-nums;
-    padding: 4px 8px;
-    text-align: right;
+.budget-group-totals {
+  margin-left: auto;
+  color: var(--text-secondary);
+  font-family: var(--font-numeric);
+  font-size: var(--size-small);
+  font-variant-numeric: tabular-nums;
 }
-.budget-target-input:focus { outline: none; border-color: var(--accent-secondary); }
-.budget-target-input::placeholder { color: var(--text-tertiary); }
+.budget-group-of { color: var(--text-tertiary); }
+
+/* Responsive auto-fill grid — fills the viewport width, reflows to fewer
+   columns as the window narrows, and never drops below one column. */
+.budget-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-12);
+}
+
+/* ─── Envelope card ───────────────────────────────────────────────────────── */
+.budget-env {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  background: var(--surface1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: var(--space-16);
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.budget-env:hover { border-color: var(--text-tertiary); }
+.budget-env:focus-within { border-color: var(--accent-secondary); }
+.budget-env.is-untracked { opacity: 0.62; }
+.budget-env.is-untracked:hover,
+.budget-env.is-untracked:focus-within { opacity: 1; }
+
+.budget-env-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.budget-env-name {
+  color: var(--text-primary);
+  font-family: var(--font-menu);
+  font-size: var(--size-body);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.budget-env-status {
+  flex: none;
+  font-family: var(--font-h3);
+  font-size: var(--size-micro);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+}
+.budget-env-status.pos   { color: var(--accent-secondary); }
+.budget-env-status.neg   { color: var(--accent-tertiary); }
+.budget-env-status.muted { color: var(--label-muted); }
 
 .budget-bar {
-    width: 100%;
-    height: 8px;
-    border-radius: 6px;
-    background: var(--surface3);
-    overflow: hidden;
+  width: 100%;
+  height: 8px;
+  border-radius: 6px;
+  background: var(--surface3);
+  overflow: hidden;
 }
 
 .budget-bar-fill {
-    height: 100%;
-    border-radius: 6px;
-    transition: width 0.3s ease, background-color 0.3s ease;
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.3s ease, background-color 0.3s ease;
 }
 
 /* Spend-against-target bands: comfortable (green) until 75%, warning (amber)
@@ -325,20 +412,43 @@
 .budget-bar-fill.bar-yellow { background: #d9a441; }
 .budget-bar-fill.bar-red    { background: var(--accent-tertiary); }
 
-.budget-bar-untracked { opacity: 0.5; }
-
-.budget-row-status {
-    align-self: flex-end;
-    font-family: var(--font-h3);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wide);
-    text-transform: uppercase;
+.budget-env-foot {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
 }
-.budget-row-status.pos   { color: var(--text-tertiary); }
-.budget-row-status.neg   { color: var(--accent-tertiary); }
-.budget-row-status.muted { color: var(--label-muted); }
+
+.budget-env-spent {
+  color: var(--text-primary);
+  font-family: var(--font-numeric);
+  font-size: var(--size-small);
+  font-variant-numeric: tabular-nums;
+}
+.budget-env-of { color: var(--text-tertiary); font-size: var(--size-small); }
+
+.budget-target-input {
+  margin-left: auto;
+  width: 96px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: var(--font-numeric);
+  font-size: var(--size-small);
+  font-variant-numeric: tabular-nums;
+  padding: 4px 8px;
+  text-align: right;
+  transition: border-color 0.15s ease;
+}
+.budget-target-input:hover { border-color: var(--text-tertiary); }
+.budget-target-input:focus { outline: none; border-color: var(--accent-secondary); }
+.budget-target-input::placeholder { color: var(--text-tertiary); }
 
 @media (prefers-reduced-motion: reduce) {
-    .budget-bar-fill { transition: none; }
+  .budget-bar-fill,
+  .budget-alloc-fill,
+  .budget-nav-btn,
+  .budget-copy-btn,
+  .budget-env,
+  .fc-info::after { transition: none; }
 }

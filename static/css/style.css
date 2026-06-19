@@ -248,6 +248,14 @@
     --cell-pad-y: var(--space-12);
 }
 
+/* Compact display density (Settings → Appearance). Tightens the spreadsheet
+   row height by retuning the two spacing tokens every table cell derives from,
+   so more rows fit on screen. Applied to <html> pre-paint by theme-init.js. */
+:root[data-density="compact"] {
+    --cell-pad-y: var(--space-8);
+    --col-first-pad: var(--space-12);
+}
+
 
 /* ─── 4. Legacy colour aliases ─────────────────────────────────────────────
  * Existing rules use the names below; defining them as aliases lets those

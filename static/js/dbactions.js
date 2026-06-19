@@ -314,11 +314,13 @@
 
     let _encryptionAvailable = true;
 
-    // Public entry points (title-bar File menu in titlebar.js).
+    // Public entry points (title-bar File menu in titlebar.js; auto-lock uses
+    // showUnlock to surface the prompt after an idle lock).
     window.dbActions = {
         showNew:    () => showModal('new', { encryptionUnavailable: !_encryptionAvailable }),
         showSaveAs: () => showModal('saveas', {}),
         showOpen:   () => showModal('open', {}),
+        showUnlock: (path) => showModal('unlock', { path }),
     };
 
     // On every page load, ask the server whether the active DB is locked

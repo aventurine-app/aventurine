@@ -176,6 +176,10 @@
     color: var(--accent-tertiary);
     background: color-mix(in srgb, var(--accent-tertiary) 18%, transparent);
 }
+.rc-goal-na .rc-goal-icon {
+    color: var(--text-tertiary);
+    background: color-mix(in srgb, var(--text-tertiary) 15%, transparent);
+}
 .rc-goal-label {
     flex: 1;
     min-width: 0;
@@ -183,7 +187,8 @@
     font-family: var(--font-menu);
     font-size: var(--size-small);
 }
-.rc-goal-miss .rc-goal-label { color: var(--text-tertiary); }
+.rc-goal-miss .rc-goal-label,
+.rc-goal-na .rc-goal-label { color: var(--text-tertiary); }
 .rc-goal-value {
     flex-shrink: 0;
     color: var(--text-primary);

@@ -2,7 +2,6 @@
      and the Settings modals. Spliced into pages/*.html by the app:// protocol
      handler (electron/main.js). Edit here once - every page gets it. -->
     <div class="titlebar">
-        <img class="titlebar-icon" src="/static/icons/logo/olive.png" alt="">
         <div class="titlebar-menu">
             <button class="titlebar-menu-item" data-menu="file" tabindex="-1">File</button>
             <button class="titlebar-menu-item" data-menu="settings" tabindex="-1">Settings</button>
@@ -60,6 +59,38 @@
                     <div class="settings-theme-swatch" data-theme="dark"></div>
                     <span class="settings-theme-label">Dark</span>
                 </button>
+                <button class="settings-theme-btn" data-theme="system">
+                    <div class="settings-theme-swatch settings-theme-swatch-system"></div>
+                    <span class="settings-theme-label">System</span>
+                </button>
+            </div>
+        </div>
+        <div class="settings-row">
+            <div class="settings-row-label">
+                <div class="settings-row-name">Display Density</div>
+                <div class="settings-row-desc">Tightens row heights in the spreadsheet tables so more data fits on screen at once.</div>
+            </div>
+            <div class="settings-match-toggle">
+                <label class="settings-match-option">
+                    <input class="settings-pref-radio" type="radio" name="ui-density" value="">
+                    <span class="settings-match-label">Comfortable</span>
+                </label>
+                <label class="settings-match-option">
+                    <input class="settings-pref-radio" type="radio" name="ui-density" value="compact">
+                    <span class="settings-match-label">Compact</span>
+                </label>
+            </div>
+        </div>
+        <div class="settings-row settings-zoom-row" hidden>
+            <div class="settings-row-label">
+                <div class="settings-row-name">Zoom</div>
+                <div class="settings-row-desc">Scales the entire interface. Also adjustable with Ctrl/Cmd&nbsp;+&nbsp;Plus, Minus, and 0.</div>
+            </div>
+            <div class="settings-zoom-control">
+                <button class="settings-zoom-btn" data-zoom-action="out" aria-label="Zoom out" type="button">−</button>
+                <span class="settings-zoom-value" data-zoom-value>100%</span>
+                <button class="settings-zoom-btn" data-zoom-action="in" aria-label="Zoom in" type="button">+</button>
+                <button class="settings-zoom-reset" data-zoom-action="reset" type="button">Reset</button>
             </div>
         </div>
     </div>
@@ -125,8 +156,122 @@
                 <span class="settings-currency-preview"></span>
             </div>
         </div>
+        <div class="settings-row">
+            <div class="settings-row-label">
+                <div class="settings-row-name">Number Format</div>
+                <div class="settings-row-desc">How thousands and decimals are separated in every amount across the app.</div>
+            </div>
+            <select class="settings-select settings-number-format" aria-label="Number format">
+                <option value="us">1,234.56</option>
+                <option value="eu">1.234,56</option>
+                <option value="space">1&nbsp;234,56</option>
+            </select>
+        </div>
+        <div class="settings-row">
+            <div class="settings-row-label">
+                <div class="settings-row-name">Symbol Position</div>
+                <div class="settings-row-desc">Whether the currency symbol sits before the number (<strong>$1,234</strong>) or after it (<strong>1.234&nbsp;€</strong>).</div>
+            </div>
+            <div class="settings-match-toggle">
+                <label class="settings-match-option">
+                    <input class="settings-pref-radio" type="radio" name="symbol_position" value="prefix">
+                    <span class="settings-match-label">Before</span>
+                </label>
+                <label class="settings-match-option">
+                    <input class="settings-pref-radio" type="radio" name="symbol_position" value="suffix">
+                    <span class="settings-match-label">After</span>
+                </label>
+            </div>
+        </div>
+        <div class="settings-row">
+            <div class="settings-row-label">
+                <div class="settings-row-name">Hide Cents</div>
+                <div class="settings-row-desc">Rounds displayed amounts to whole units for a cleaner view. Your stored values keep their cents — editing a cell still shows them.</div>
+            </div>
+            <div class="settings-match-toggle">
+                <label class="settings-match-option">
+                    <input class="settings-pref-radio" type="radio" name="hide_cents" value="">
+                    <span class="settings-match-label">Off</span>
+                </label>
+                <label class="settings-match-option">
+                    <input class="settings-pref-radio" type="radio" name="hide_cents" value="1">
+                    <span class="settings-match-label">On</span>
+                </label>
+            </div>
+        </div>
+        <div class="settings-row">
+            <div class="settings-row-label">
+                <div class="settings-row-name">Negative Numbers</div>
+                <div class="settings-row-desc">How negative amounts are shown: a minus sign (<strong>-$1,234</strong>) or accounting parentheses (<strong>($1,234)</strong>).</div>
+            </div>
+            <div class="settings-match-toggle">
+                <label class="settings-match-option">
+                    <input class="settings-pref-radio" type="radio" name="negative_style" value="minus">
+                    <span class="settings-match-label">Minus</span>
+                </label>
+                <label class="settings-match-option">
+                    <input class="settings-pref-radio" type="radio" name="negative_style" value="paren">
+                    <span class="settings-match-label">Parentheses</span>
+                </label>
+            </div>
+        </div>
+        <div class="settings-row">
+            <div class="settings-row-label">
+                <div class="settings-row-name">Date Format</div>
+                <div class="settings-row-desc">How dates are written across the app (e.g. in the transactions list).</div>
+            </div>
+            <select class="settings-select settings-date-format" aria-label="Date format">
+                <option value="long">Jun 18, 2026</option>
+                <option value="iso">2026-06-18</option>
+                <option value="us">06/18/2026</option>
+                <option value="eu">18/06/2026</option>
+            </select>
+        </div>
     </div>
 </div>
+
+<div class="settings-section">
+    <div class="settings-section-header">Security</div>
+    <div class="settings-card">
+        <div class="settings-row">
+            <div class="settings-row-label">
+                <div class="settings-row-name">Auto-Lock</div>
+                <div class="settings-row-desc">Locks the database after a period of inactivity and asks for the password again. Applies only when the database is encrypted.</div>
+            </div>
+            <div class="settings-match-toggle">
+                <label class="settings-match-option">
+                    <input class="settings-pref-radio" type="radio" name="auto_lock" value="1">
+                    <span class="settings-match-label">On</span>
+                </label>
+                <label class="settings-match-option">
+                    <input class="settings-pref-radio" type="radio" name="auto_lock" value="0">
+                    <span class="settings-match-label">Off</span>
+                </label>
+            </div>
+        </div>
+        <div class="settings-row settings-autolock-timer-row">
+            <div class="settings-row-label">
+                <div class="settings-row-name">Lock After</div>
+                <div class="settings-row-desc">Minutes of inactivity before the database locks.</div>
+            </div>
+            <div class="settings-threshold-control">
+                <input class="settings-threshold-slider settings-autolock-slider" type="range"
+                       min="1" max="30" step="1" value="5" aria-label="Minutes before auto-lock">
+                <span class="settings-threshold-value settings-autolock-value">5 min</span>
+            </div>
+        </div>
+        <div class="settings-row">
+            <div class="settings-row-label">
+                <div class="settings-row-name">Database Encryption</div>
+                <div class="settings-row-desc">Add a password to an unencrypted database, change the password, or remove encryption. <span class="settings-enc-status" data-enc-settings-status></span></div>
+            </div>
+            <button class="db-btn settings-manage-encryption" type="button">Manage…</button>
+        </div>
+    </div>
+</div>
+            </div>
+            <div class="settings-modal-footer">
+                <button class="db-btn settings-restore-defaults" type="button">Restore Defaults</button>
             </div>
         </div>
     </div>
@@ -178,6 +323,53 @@
         </div>
     </div>
 </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Database Encryption modal (opened from Settings → Security → Manage…).
+         State-driven by static/js/encryption.js against POST /api/db/encryption:
+         encrypt a plaintext DB, change the password, or remove encryption. -->
+    <div class="settings-modal-overlay enc-modal-overlay" data-modal="encryption" hidden>
+        <div class="settings-modal enc-modal">
+            <div class="settings-modal-header">
+                <span class="settings-modal-title">Database Encryption</span>
+                <button class="settings-modal-close" data-enc-close aria-label="Close">×</button>
+            </div>
+            <div class="settings-modal-body">
+                <div class="enc-status" data-enc-status>—</div>
+
+                <div class="settings-match-toggle enc-actions" data-enc-actions hidden>
+                    <label class="settings-match-option">
+                        <input class="enc-action-radio" type="radio" name="enc_action" value="change" checked>
+                        <span class="settings-match-label">Change Password</span>
+                    </label>
+                    <label class="settings-match-option">
+                        <input class="enc-action-radio" type="radio" name="enc_action" value="decrypt">
+                        <span class="settings-match-label">Remove Encryption</span>
+                    </label>
+                </div>
+
+                <div class="enc-field" data-enc-current hidden>
+                    <label class="enc-label">Current password</label>
+                    <input class="enc-input" type="password" data-enc-current-input autocomplete="off" spellcheck="false">
+                </div>
+                <div class="enc-field" data-enc-new hidden>
+                    <label class="enc-label">New password</label>
+                    <input class="enc-input" type="password" data-enc-new-input autocomplete="off" spellcheck="false">
+                </div>
+                <div class="enc-field" data-enc-confirm hidden>
+                    <label class="enc-label">Confirm new password</label>
+                    <input class="enc-input" type="password" data-enc-confirm-input autocomplete="off" spellcheck="false">
+                </div>
+
+                <div class="enc-warning" data-enc-warning hidden>Removing encryption stores your financial data unprotected on disk.</div>
+                <div class="enc-error" data-enc-error hidden></div>
+            </div>
+            <div class="settings-modal-footer enc-footer">
+                <button class="db-btn" data-enc-cancel type="button">Cancel</button>
+                <button class="db-btn db-btn-primary" data-enc-submit type="button">Apply</button>
             </div>
         </div>
     </div>

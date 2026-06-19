@@ -1,17 +1,26 @@
 'use strict';
 
-// ─── Budget Buckets (Account Tracking) ───────────────────────────────────────
-// Per-month envelope budgeting: set a target per spending/savings category and
-// watch a progress bar fill from your actual transactions, with a zero-based
-// "left to budget" roll-up. All data is server-side (GET /api/budget); targets
-// are written through POST/DELETE /api/budget/target.
+// ─── Budget (Envelope target-vs-actual) ──────────────────────────────────────
+// Per-month zero-based budgeting: set a target per spending/savings/investing
+// category and watch a progress bar fill from your actual transactions, with a
+// "left to budget" roll-up and an allocation meter (budgeted vs expected income).
+// All data is server-side (GET /api/budget); targets are written through
+// POST/DELETE /api/budget/target, the income override through /api/budget/income.
 //
 // Globals in play (loaded before this script): apiFetch (api.js), escapeHtml
 // (escape.js), CURRENCY_SYMBOL / formatCurrency / stripCurrencyValue /
-// applyCurrencyFormat (currency.js).
+// applyCurrencyFormat (currency.js), UI (ui.js).
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
+
+// Budgetable category types, in the order their sections stack down the page.
+// Income isn't budgeted — it's the inflow that drives "left to budget".
+const GROUPS = [
+  ['expense', 'Expense'],
+  ['savings', 'Savings'],
+  ['investing', 'Investing'],
+];
 
 const state = {
   year: new Date().getFullYear(),
@@ -22,14 +31,8 @@ const state = {
 const monthName = () => MONTHS[state.monthIndex];
 
 // ─── Currency formatting (compact, currency-symbol aware) ────────────────────
-
-const _RE_THOUSANDS = /\B(?=(\d{3})+(?!\d))/g;
-
 function fmtMoney(n) {
-  const abs = Math.abs(n);
-  const sign = n < 0 ? '-' : '';
-  const [intPart, decPart] = abs.toFixed(2).split('.');
-  return sign + CURRENCY_SYMBOL + intPart.replace(_RE_THOUSANDS, ',') + (decPart === '00' ? '' : '.' + decPart);
+  return formatCurrency(n, true);
 }
 
 function infoIcon(tip) {
@@ -40,6 +43,7 @@ function infoIcon(tip) {
 // ─── Data ────────────────────────────────────────────────────────────────────
 
 async function load() {
+  document.getElementById('budget-month-label').textContent = `${monthName()} ${state.year}`;
   const res = await apiFetch(`/api/budget?year=${state.year}&month=${monthName()}`);
   if (!res.ok) return;
   state.data = await res.json();
@@ -49,50 +53,67 @@ async function load() {
 function render() {
   document.getElementById('budget-month-label').textContent = `${monthName()} ${state.year}`;
   renderSummary();
-  renderList();
+  renderGroups();
 }
 
-// ─── Zero-based summary ──────────────────────────────────────────────────────
+// ─── Zero-based summary + allocation meter ───────────────────────────────────
 
 function renderSummary() {
   const el = document.getElementById('budget-summary');
   if (!el || !state.data) return;
   const s = state.data.summary;
 
-  // Expected income is editable; the rest are read-outs.
   const expectedTip = 'What you expect to take in this month — the figure "left to budget" '
     + 'is measured against, so it\'s meaningful from day 1. It defaults to your average '
     + 'monthly income from recent months; type a number to set your own, or clear it to go '
     + 'back to the average.';
-  const sourceNote = s.incomeSource === 'override'
-    ? 'custom'
-    : 'auto · avg of recent months';
-  const incomeStat = `<div class="budget-stat">
-      <span class="budget-stat-label">Expected income${infoIcon(expectedTip)}</span>
-      <input type="text" id="budget-income-input" class="budget-income-input" inputmode="decimal"
-             spellcheck="false" autocomplete="off" placeholder="—" value="${formatCurrency(s.expectedIncome, true)}">
-      <span class="budget-stat-sub">${fmtMoney(s.received)} received · ${escapeHtml(sourceNote)}</span>
-    </div>`;
+  const sourceNote = s.incomeSource === 'override' ? 'custom' : 'auto · avg of recent months';
 
-  const stats = [
-    ['Budgeted', fmtMoney(s.budgeted), '',
-      'The sum of every envelope target you have set for this month.'],
-    ['Left to budget', fmtMoney(s.leftToBudget), s.leftToBudget < 0 ? 'neg' : 'pos',
-      "Expected income minus everything you've budgeted. Zero means every dollar has a job; "
-      + 'negative means you have budgeted more than you expect to bring in.'],
-    ['Spent', `${fmtMoney(s.spent)} of ${fmtMoney(s.budgeted)}`, s.spent > s.budgeted ? 'neg' : '',
-      'Total actual spending across all budgeted categories this month, against the total you budgeted.'],
-  ];
+  // "Left to budget" is the hero of zero-based budgeting: zero means every
+  // dollar has a job, negative means you've over-committed.
+  let leftCls = 'pos';
+  let leftHint = 'still to assign';
+  if (s.leftToBudget < 0) { leftCls = 'neg'; leftHint = 'over-committed'; }
+  else if (s.leftToBudget === 0) { leftCls = 'balanced'; leftHint = 'every dollar assigned'; }
 
-  let html = `<div class="budget-stats">${incomeStat}`;
-  for (const [label, value, cls, tip] of stats) {
-    html += `<div class="budget-stat">
-      <span class="budget-stat-label">${label}${infoIcon(tip)}</span>
-      <span class="budget-stat-value ${cls}">${value}</span>
+  // Allocation meter — how much of expected income is already budgeted.
+  const allocPct = s.expectedIncome > 0
+    ? Math.min(s.budgeted / s.expectedIncome, 1) * 100
+    : (s.budgeted > 0 ? 100 : 0);
+  const allocBand = s.leftToBudget < 0 ? 'neg' : (s.leftToBudget === 0 ? 'balanced' : 'pos');
+
+  el.innerHTML = `
+    <div class="budget-stats">
+      <div class="budget-stat budget-stat-income">
+        <span class="budget-stat-label">Expected income${infoIcon(expectedTip)}</span>
+        <input type="text" id="budget-income-input" class="budget-income-input" inputmode="decimal"
+               spellcheck="false" autocomplete="off" placeholder="—" aria-label="Expected income"
+               value="${formatCurrency(s.expectedIncome, true, { editable: true })}">
+        <span class="budget-stat-sub">${fmtMoney(s.received)} received · ${escapeHtml(sourceNote)}</span>
+      </div>
+
+      <div class="budget-stat">
+        <span class="budget-stat-label">Budgeted${infoIcon('The sum of every envelope target you have set for this month.')}</span>
+        <span class="budget-stat-value">${fmtMoney(s.budgeted)}</span>
+        <span class="budget-stat-sub">${fmtMoney(s.spent)} spent so far</span>
+      </div>
+
+      <div class="budget-stat budget-stat-hero">
+        <span class="budget-stat-label">Left to budget${infoIcon('Expected income minus everything you have budgeted. Zero means every dollar has a job; negative means you have budgeted more than you expect to bring in.')}</span>
+        <span class="budget-stat-value ${leftCls}">${fmtMoney(s.leftToBudget)}</span>
+        <span class="budget-stat-sub ${leftCls}">${leftHint}</span>
+      </div>
+    </div>
+
+    <div class="budget-alloc">
+      <div class="budget-alloc-bar">
+        <div class="budget-alloc-fill alloc-${allocBand}" style="width:${allocPct}%"></div>
+      </div>
+      <div class="budget-alloc-legend">
+        <span>${fmtMoney(s.budgeted)} budgeted</span>
+        <span>of ${fmtMoney(s.expectedIncome)} expected</span>
+      </div>
     </div>`;
-  }
-  html += '</div>';
-  el.innerHTML = html;
 
   const incomeInput = document.getElementById('budget-income-input');
   incomeInput.addEventListener('input', () => applyCurrencyFormat(incomeInput));
@@ -115,10 +136,10 @@ async function commitIncome(input) {
   load();
 }
 
-// ─── Envelope rows ───────────────────────────────────────────────────────────
+// ─── Envelope groups ─────────────────────────────────────────────────────────
 
-function renderList() {
-  const el = document.getElementById('budget-list');
+function renderGroups() {
+  const el = document.getElementById('budget-groups');
   if (!el || !state.data) return;
   const cats = state.data.categories;
 
@@ -132,45 +153,23 @@ function renderList() {
     return;
   }
 
-  let html = '<ul class="budget-rows">';
-  for (const c of cats) {
-    const hasTarget = c.target > 0;
-    const ratio = hasTarget ? c.spent / c.target : 0;
-    const widthPct = Math.min(ratio, 1) * 100;
-    const over = hasTarget && c.spent > c.target;
-    // Bar colour bands: green ≤75%, yellow ≤90%, red past 90% (incl. over budget).
-    let band = 'green';
-    if (ratio > 0.90) band = 'red';
-    else if (ratio > 0.75) band = 'yellow';
+  let html = '';
+  for (const [type, label] of GROUPS) {
+    const group = cats.filter((c) => c.cat_type === type);
+    if (!group.length) continue;
 
-    let statusText;
-    let statusCls;
-    if (!hasTarget) {
-      statusText = c.spent > 0 ? `${fmtMoney(c.spent)} spent` : 'No target';
-      statusCls = 'muted';
-    } else if (over) {
-      statusText = `${fmtMoney(c.spent - c.target)} over`;
-      statusCls = 'neg';
-    } else {
-      statusText = `${fmtMoney(c.remaining)} left`;
-      statusCls = 'pos';
-    }
+    const budgeted = group.reduce((a, c) => a + c.target, 0);
+    const spent = group.reduce((a, c) => a + c.spent, 0);
 
-    html += `<li class="budget-row" data-key="${escapeHtml(c.key)}">
-      <div class="budget-row-top">
-        <span class="budget-cat-name">${escapeHtml(c.name)}</span>
-        <span class="budget-cat-spend">${fmtMoney(c.spent)}<span class="budget-of"> / </span><input
-            type="text" class="budget-target-input" inputmode="decimal" spellcheck="false"
-            autocomplete="off" placeholder="No target"
-            data-key="${escapeHtml(c.key)}" value="${hasTarget ? formatCurrency(c.target, true) : ''}"></span>
+    html += `<section class="budget-group" data-type="${type}">
+      <div class="budget-group-head">
+        <span class="budget-group-title">${label}</span>
+        <span class="budget-group-count">${group.length}</span>
+        <span class="budget-group-totals">${fmtMoney(spent)} <span class="budget-group-of">of</span> ${fmtMoney(budgeted)}</span>
       </div>
-      <div class="budget-bar${hasTarget ? '' : ' budget-bar-untracked'}">
-        <div class="budget-bar-fill bar-${band}" style="width:${widthPct}%"></div>
-      </div>
-      <div class="budget-row-status ${statusCls}">${statusText}</div>
-    </li>`;
+      <div class="budget-grid">${group.map(envelopeCard).join('')}</div>
+    </section>`;
   }
-  html += '</ul>';
   el.innerHTML = html;
 
   el.querySelectorAll('.budget-target-input').forEach((input) => {
@@ -178,6 +177,48 @@ function renderList() {
     input.addEventListener('change', () => commitTarget(input));
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
   });
+}
+
+function envelopeCard(c) {
+  const hasTarget = c.target > 0;
+  const ratio = hasTarget ? c.spent / c.target : 0;
+  const widthPct = Math.min(ratio, 1) * 100;
+  const over = hasTarget && c.spent > c.target;
+
+  // Bar colour bands: green ≤75%, amber ≤90%, red past 90% (incl. over budget).
+  let band = 'green';
+  if (ratio > 0.90) band = 'red';
+  else if (ratio > 0.75) band = 'yellow';
+
+  let statusText;
+  let statusCls;
+  if (!hasTarget) {
+    statusText = c.spent > 0 ? 'Untracked' : 'No target';
+    statusCls = 'muted';
+  } else if (over) {
+    statusText = `${fmtMoney(c.spent - c.target)} over`;
+    statusCls = 'neg';
+  } else {
+    statusText = `${fmtMoney(c.remaining)} left`;
+    statusCls = 'pos';
+  }
+
+  return `<article class="budget-env${hasTarget ? '' : ' is-untracked'}" data-key="${escapeHtml(c.key)}">
+    <div class="budget-env-head">
+      <span class="budget-env-name" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
+      <span class="budget-env-status ${statusCls}">${statusText}</span>
+    </div>
+    <div class="budget-bar">
+      <div class="budget-bar-fill bar-${band}" style="width:${widthPct}%"></div>
+    </div>
+    <div class="budget-env-foot">
+      <span class="budget-env-spent">${fmtMoney(c.spent)}</span>
+      <span class="budget-env-of">of</span>
+      <input type="text" class="budget-target-input" inputmode="decimal" spellcheck="false"
+             autocomplete="off" placeholder="—" aria-label="Target for ${escapeHtml(c.name)}"
+             data-key="${escapeHtml(c.key)}" value="${hasTarget ? formatCurrency(c.target, true, { editable: true }) : ''}">
+    </div>
+  </article>`;
 }
 
 async function commitTarget(input) {

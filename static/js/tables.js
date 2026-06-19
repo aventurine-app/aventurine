@@ -37,11 +37,28 @@ const _RE_NON_DIGIT    = /[^0-9]/g;
 const _RE_THOUSANDS    = /\B(?=(\d{3})+(?!\d))/g;
 const _RE_SINGLE_DIGIT = /[0-9]/;
 
-// Chevron icons used by the column manager's reorder arrows. Defined here so
-// both the year-table column manager and any future column-manager-like UI
-// can reuse the same glyphs.
-const _CHEVRON_UP   = `<svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M4 10l4-4 4 4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-const _CHEVRON_DOWN = `<svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+// Six-dot "grip" glyph shown as the drag handle on each column-manager row.
+// The handle (not the whole row) is the draggable element, so click-to-rename
+// and the × delete button keep working without the drag interaction stealing
+// their pointer events.
+const _GRIP = `<svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor" aria-hidden="true"><circle cx="2.5" cy="3" r="1.4"/><circle cx="7.5" cy="3" r="1.4"/><circle cx="2.5" cy="8" r="1.4"/><circle cx="7.5" cy="8" r="1.4"/><circle cx="2.5" cy="13" r="1.4"/><circle cx="7.5" cy="13" r="1.4"/></svg>`;
+
+/**
+ * Given a drop-target list and the pointer's Y, return the row the dragged
+ * element should be inserted BEFORE (or null to append at the end). Standard
+ * native-DnD pattern: pick the not-being-dragged row whose vertical midpoint is
+ * just below the cursor. Used to live-reorder the DOM during dragover.
+ */
+function _dragAfterRow(listEl, y) {
+    const rows = [...listEl.querySelectorAll('.col-row:not(.col-row-dragging)')];
+    let closest = { offset: -Infinity, el: null };
+    for (const row of rows) {
+        const box = row.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) closest = { offset, el: row };
+    }
+    return closest.el;
+}
 
 // escapeHtml is a global from escape.js (loaded by base.html before this
 // file). ALL column labels, year strings, account names, and other user-
@@ -347,6 +364,7 @@ function makeYearTableApi(prefix) {
         addColumn:     (body)                    => wrapWrite(sendJson(`${prefix}/columns`, 'POST', body).then(r => r.json())),
         updateColumn:  (key, updates)            => wrapWrite(sendJson(`${prefix}/columns/${key}`, 'PUT', updates).then(r => r.json())),
         moveColumn:    (key, direction)          => wrapWrite(sendJson(`${prefix}/columns/${key}/move`, 'POST', { direction }).then(r => r.json())),
+        reorderColumns:(order)                    => wrapWrite(sendJson(`${prefix}/columns/reorder`, 'POST', { order }).then(r => r.json())),
         deleteColumn:  (key, force = false) => {
             const url = force ? `${prefix}/columns/${key}?force=true` : `${prefix}/columns/${key}`;
             return wrapWrite(apiFetch(url, { method: 'DELETE' }).then(r => r.json()));
@@ -669,8 +687,10 @@ function initYearTable(outerEl, yearEntries, ctx) {
         const col   = input.dataset.col;
         const saved = yearEntries?.[month]?.[col];
         // Pre-fill with the symbol-prefixed display value so the cell
-        // matches what the user would see after typing.
-        if (saved !== undefined) input.value = formatCurrency(saved);
+        // matches what the user would see after typing. {editable} keeps the
+        // cents even when "hide cents" is on — they'd otherwise be truncated
+        // on the next save.
+        if (saved !== undefined) input.value = formatCurrency(saved, false, { editable: true });
 
         input.addEventListener('input', () => {
             applyCurrencyFormat(input);
@@ -840,26 +860,22 @@ function showColumnManager(ctx) {
     let addType = ctx.defaultAddType;
 
     const buildManager = () => {
-        // ── Render one column row (rename input + arrows + type chip + ×) ──
-        const renderRow = (col, idx, listLen) => {
-            const typeChipHtml = ctx.types
-                ? `<button class="col-row-type" data-key="${escapeHtml(col.key)}">${escapeHtml(ctx.types.find(t => t.key === col.type)?.label ?? col.type)}</button>`
-                : '';
-            return `
+        // ── Render one column row (grip handle + rename input + ×) ─────────
+        // Only the grip is draggable; the row itself stays a normal flow
+        // element so the rename input and × button keep their pointer events.
+        const renderRow = (col) => `
                 <div class="col-row" data-key="${escapeHtml(col.key)}">
-                    <div class="col-row-arrows">
-                        <button class="col-arrow-btn ${idx === 0          ? 'col-arrow-disabled' : ''}" data-dir="up">${_CHEVRON_UP}</button>
-                        <button class="col-arrow-btn ${idx === listLen-1  ? 'col-arrow-disabled' : ''}" data-dir="down">${_CHEVRON_DOWN}</button>
-                    </div>
+                    <span class="col-row-grip" draggable="true" aria-label="Drag ${escapeHtml(col.label)} to reorder">${_GRIP}</span>
                     <span class="col-row-label">${escapeHtml(col.label)}</span>
                     <input class="col-row-input" value="${escapeHtml(col.label)}" style="display:none" aria-label="Rename ${escapeHtml(col.label)}">
-                    ${typeChipHtml}
                     <button class="col-row-delete" aria-label="Delete ${escapeHtml(col.label)}">×</button>
                 </div>`;
-        };
-        const renderRows = (items) => items.map((c, i) => renderRow(c, i, items.length)).join('');
+        const renderRows = (items) => items.map(renderRow).join('');
 
         // ── Render the list section(s): per-type when typed, flat when not ─
+        // Each list carries data-type so a drop into it can reassign the
+        // dragged column's type; the empty placeholder is data-placeholder so
+        // the dragover handler can yank it out before inserting a row.
         let sectionsHtml;
         if (ctx.types) {
             sectionsHtml = ctx.types.map(t => {
@@ -868,8 +884,8 @@ function showColumnManager(ctx) {
                 return `
                     <div class="col-manager-section">
                         <div class="col-type-label">${escapeHtml(heading)}</div>
-                        <div class="col-manager-list">
-                            ${cols.length ? renderRows(cols) : '<div class="col-empty">None</div>'}
+                        <div class="col-manager-list" data-type="${escapeHtml(t.key)}">
+                            ${cols.length ? renderRows(cols) : '<div class="col-empty" data-placeholder>None</div>'}
                         </div>
                     </div>`;
             }).join('');
@@ -877,7 +893,7 @@ function showColumnManager(ctx) {
             sectionsHtml = `
                 <div class="col-manager-section">
                     <div class="col-manager-list">
-                        ${ctx.columns.length ? renderRows(ctx.columns) : '<div class="col-empty">No columns yet</div>'}
+                        ${ctx.columns.length ? renderRows(ctx.columns) : '<div class="col-empty" data-placeholder>No columns yet</div>'}
                     </div>
                 </div>`;
         }
@@ -977,35 +993,86 @@ function showColumnManager(ctx) {
             });
         });
 
-        // ── Reorder (↑ / ↓ arrows). Backend handles type-locking. ──────────
-        overlay.querySelectorAll('.col-arrow-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                if (btn.classList.contains('col-arrow-disabled')) return;
-                const key = btn.closest('.col-row').dataset.key;
-                await ctx.api.moveColumn(key, btn.dataset.dir);
-                await reloadYearTables(ctx);
-                buildManager();
+        // ── Drag-and-drop reorder + retype ─────────────────────────────────
+        // The grip handle is the draggable element. The source row stays put
+        // (dimmed) during the drag; an accent drop-indicator line shows where
+        // the column will land instead of live-shuffling the rows. On dragend
+        // we move the row to the indicator's slot, then read the final DOM
+        // order across every section — for typed pages a row's section dictates
+        // its new type — and push the whole ordering to the backend in one call.
+        const manager   = overlay.querySelector('.col-manager');
+        let draggingRow = null;
+        let indicator   = null;   // the accent line element, reparented as it moves
+
+        const placeIndicator = (list, before) => {
+            if (!indicator) {
+                indicator = document.createElement('div');
+                indicator.className = 'col-drop-indicator';
+            }
+            if (before) list.insertBefore(indicator, before);
+            else list.appendChild(indicator);
+        };
+
+        const commitOrder = async () => {
+            const order = [];
+            overlay.querySelectorAll('.col-manager-list').forEach(list => {
+                const type = list.dataset.type;   // undefined on type-less pages
+                list.querySelectorAll('.col-row').forEach(row => {
+                    order.push(ctx.types ? { key: row.dataset.key, type } : { key: row.dataset.key });
+                });
+            });
+            // No-op if the order + type assignment is unchanged from ctx.columns,
+            // so an accidental click-drag that lands back home costs no round-trip.
+            const same = order.length === ctx.columns.length && order.every((o, i) =>
+                o.key === ctx.columns[i].key && (!ctx.types || o.type === ctx.columns[i].type));
+            if (same) return;
+            await ctx.api.reorderColumns(order);
+            await reloadYearTables(ctx);
+            buildManager();
+        };
+
+        overlay.querySelectorAll('.col-row-grip').forEach(grip => {
+            const row = grip.closest('.col-row');
+            grip.addEventListener('dragstart', e => {
+                draggingRow = row;
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', row.dataset.key); // Firefox needs payload
+                e.dataTransfer.setDragImage(row, 12, 12);
+                // Defer the dimming + drag mode so the drag image isn't the
+                // faded row. `dragging` on the manager hides the empty-section
+                // placeholders (CSS) so the accent line is the only cue.
+                requestAnimationFrame(() => {
+                    row.classList.add('col-row-dragging');
+                    manager.classList.add('dragging');
+                });
+            });
+            grip.addEventListener('dragend', () => {
+                // Land the row where the indicator was sitting, then clean up.
+                if (indicator?.parentElement) {
+                    indicator.parentElement.insertBefore(draggingRow, indicator);
+                }
+                indicator?.remove();
+                indicator = null;
+                row.classList.remove('col-row-dragging');
+                manager.classList.remove('dragging');
+                draggingRow = null;
+                commitOrder();
             });
         });
 
-        // ── Type chip click → cycle to next type in ctx.types ──────────────
-        // For 2-type pages (I&E) this is a simple toggle; for 4-type pages
-        // (Balance Sheet) it walks through cash → investment → retirement →
-        // debt → cash. Skipped entirely when ctx.types is null (Savings).
-        if (ctx.types) {
-            overlay.querySelectorAll('.col-row-type').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const key = btn.dataset.key;
-                    const col = ctx.columns.find(c => c.key === key);
-                    if (!col) return;
-                    const idx     = ctx.types.findIndex(t => t.key === col.type);
-                    const newType = ctx.types[(idx + 1) % ctx.types.length].key;
-                    await ctx.api.updateColumn(key, { type: newType });
-                    await reloadYearTables(ctx);
-                    buildManager();
-                });
+        overlay.querySelectorAll('.col-manager-list').forEach(list => {
+            list.addEventListener('dragover', e => {
+                if (!draggingRow) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                // Show the accent line at the insertion point. _dragAfterRow
+                // ignores the dimmed source row, so hovering near it resolves
+                // cleanly. The indicator has pointer-events:none so it never
+                // steals this dragover from the list.
+                placeIndicator(list, _dragAfterRow(list, e.clientY));
             });
-        }
+            list.addEventListener('drop', e => e.preventDefault());
+        });
 
         // ── Delete column. If the column has saved data the backend refuses
         // and we re-confirm with confirmColumnDelete before forcing. ───────

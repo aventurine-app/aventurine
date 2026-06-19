@@ -20,21 +20,18 @@
             <h1 class="page-title">Categories</h1>
             <p class="page-subtitle">
                 Define the categories for your Cash Flow statement and transactions.
-                Deletion is blocked when transactions or stored values still
-                reference a category — reassign first. (Sync is set per table on
-                the Cash Flow page.)
+                Drag a category by its handle to reorder it, or into another box
+                to change its type. Deletion is blocked when transactions or
+                stored values still reference a category — reassign first. (Sync
+                is set per table on the Cash Flow page.)
             </p>
         </div>
     </div>
 
-    <!-- The editor (add row + grouped list) is rendered by
-         static/js/settingsCategories.js into [data-categories-editor].
-         data-add-top pins the "add new category" row to the top, above the
-         list, instead of the bottom-of-modal placement it had in Settings. -->
-    <div class="cat-card">
-        <div class="settings-categories-editor cat-page-editor"
-             data-categories-editor data-add-top></div>
-    </div>
+    <!-- The whole editor — the "create" card at the top plus the 2×2 grid of
+         type quadrants (Income · Expense · Savings · Investing) — is rendered by
+         static/js/settingsCategories.js into [data-categories-editor]. -->
+    <div class="cat-page-editor" data-categories-editor></div>
 </div>
         </div>
     </div>

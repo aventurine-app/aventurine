@@ -40,22 +40,16 @@ const txState = {
 const txEsc = escapeHtml;
 
 // ─── Formatters ──────────────────────────────────────────────────────────────
-// CURRENCY_SYMBOL is from currency.js, loaded globally in base.html.
-const TX_THOUSANDS = /\B(?=(\d{3})+(?!\d))/g;
-
+// formatCurrency / formatDate are from currency.js, loaded globally. Amounts
+// are shown as a magnitude (the row's income/expense colour carries direction),
+// so we pass the absolute value — no negative styling here.
 function txFmtAmount(n) {
     if (n === null || n === undefined || Number.isNaN(n)) return '—';
-    const [intPart, decPart] = Math.abs(n).toFixed(2).split('.');
-    return CURRENCY_SYMBOL + intPart.replace(TX_THOUSANDS, ',') + '.' + decPart;
+    return formatCurrency(Math.abs(n));
 }
 
-// Display the date as "Mon DD, YYYY" — friendlier than ISO for the row.
-const TX_MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function txFmtDate(iso) {
-    if (!iso) return '';
-    const [y, m, d] = iso.split('-').map(Number);
-    if (!y || !m || !d) return iso;
-    return `${TX_MONTHS_SHORT[m - 1]} ${d}, ${y}`;
+    return formatDate(iso);
 }
 
 function txTodayIso() {

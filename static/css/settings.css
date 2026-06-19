@@ -140,6 +140,16 @@
     padding: 5px 0 6px;
 }
 
+/* System swatch: a split light/dark face standing in for "follow the OS". The
+   light half uses fixed neutrals (it can't borrow the live theme tokens like
+   the other swatches, since it must show both palettes at once). */
+.settings-theme-swatch-system {
+    width: 76px;
+    height: 46px;
+    flex-shrink: 0;
+    background: linear-gradient(105deg, #f4f1ea 0 50%, #23241f 50% 100%);
+}
+
 /* ── Currency symbol row ────────────────────────────────────────────────
    Compact text input + live preview chip. The input is intentionally narrow
    (single short symbol like "$", "€", "CHF") and the preview shows what the
@@ -174,6 +184,83 @@
   font-size: var(--size-body);
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
+}
+
+/* ── Select control (Number Format) ─────────────────────────────────────
+   Themed dropdown matching the currency input's frosted treatment. */
+.settings-select {
+  flex-shrink: 0;
+  background: var(--frost-3);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-numeric);
+  font-size: var(--size-body);
+  font-variant-numeric: tabular-nums;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.settings-select:hover { border-color: var(--text-tertiary); }
+.settings-select:focus { border-color: var(--accent-primary); }
+
+/* ── Zoom stepper ───────────────────────────────────────────────────────
+   −/+ round buttons flanking the live percentage, plus a Reset pill. */
+.settings-zoom-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.settings-zoom-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface2);
+  color: var(--text-secondary);
+  font-size: var(--size-body);
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.settings-zoom-btn:hover {
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+}
+
+.settings-zoom-value {
+  min-width: 48px;
+  text-align: center;
+  font-family: var(--font-numeric);
+  font-size: var(--size-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.settings-zoom-reset {
+  margin-left: 4px;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--size-small);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.settings-zoom-reset:hover {
+  border-color: var(--text-tertiary);
+  color: var(--text-primary);
 }
 
 /* ── Transaction match mode toggle ─────────────────────────────────────
@@ -291,188 +378,6 @@
   color: var(--text-secondary);
 }
 
-/* ── Categories editor ──────────────────────────────────────────────────
-   Lists every Category row with reorder arrows, inline rename, a type
-   pill (Income/Expense), and a delete X. Rendered into the
-   .settings-row-categories cell by settingsCategories.js. (Sync is set per
-   table on the Cash Flow page, not here.) */
-.settings-row-categories {
-  align-items: stretch;
-}
-
-.settings-categories-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.cat-section { display: flex; flex-direction: column; gap: 6px; }
-
-.cat-section-title {
-  color: var(--label-muted);
-  font-family: var(--font-h3);
-  font-size: var(--size-micro);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--track-widest);
-  text-transform: uppercase;
-  padding-left: 2px;
-}
-
-.cat-list { display: flex; flex-direction: column; gap: 4px; }
-
-.cat-empty {
-  color: var(--text-tertiary);
-  font-family: var(--font-h3);
-  font-size: var(--size-small);
-  padding: 6px 2px;
-}
-
-/* One category row, ONE line: name input · type dropdown · up · down · delete.
-   The name input flex-grows; everything else holds its intrinsic width so the
-   row reads cleanly even on narrow viewports. */
-.cat-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  background: var(--frost-2);
-  border: 1px solid var(--border);
-}
-
-/* Rename input — same chrome as the Transactions edit-mode .tx-input so
-   the two editors feel like one design system. Rounded box, gray border
-   that turns accent-green on focus. */
-.cat-name {
-  flex: 1;
-  min-width: 0;
-  background: var(--surface1);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  outline: none;
-  color: var(--text-primary);
-  font-family: var(--font-menu);
-  font-size: var(--size-body);
-  padding: 8px 10px;
-  caret-color: var(--frost-caret);
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
-
-.cat-name:focus {
-  border-color: var(--accent-primary);
-}
-
-.cat-name::placeholder {
-  color: var(--text-tertiary);
-}
-
-/* Native <select> styled like .tx-select — same caret, same border, same
-   focus state. Width auto so it sizes to its longest option label. */
-.cat-type-select {
-  appearance: none;
-  -webkit-appearance: none;
-  background: var(--surface1);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  outline: none;
-  color: var(--text-primary);
-  font-family: var(--font-menu);
-  font-size: var(--size-body);
-  padding: 8px 28px 8px 10px;
-  cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
-
-.cat-type-select:focus {
-  border-color: var(--accent-primary);
-}
-
-/* Shared icon-button shell for the reorder chevrons + delete X. All three
-   live on the same line as the row's controls, same size, same border
-   treatment — they read as one cluster of trailing actions. */
-.cat-icon-btn {
-  width: 34px;
-  height: 34px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface1);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.cat-icon-btn:hover {
-  background: var(--surface2);
-  color: var(--text-primary);
-  border-color: var(--text-tertiary);
-}
-
-.cat-icon-btn svg {
-  width: 12px;
-  height: 12px;
-}
-
-.cat-icon-btn.cat-disabled,
-.cat-icon-btn.cat-disabled:hover {
-  color: var(--text-tertiary);
-  background: var(--surface1);
-  border-color: var(--border);
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-/* Delete X gets a red hover tint so the destructive action is obvious. */
-.cat-icon-btn.cat-delete:hover {
-  color: var(--accent-tertiary);
-  border-color: var(--accent-tertiary);
-  background: var(--surface1);
-}
-
-/* Add-row at the bottom of the editor. Same one-line shape as a regular
-   row: name input · type dropdown · Add button. Sits above a top divider
-   so it reads as a separate "create new" zone. */
-.cat-add {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 8px 6px;
-  border-top: 1px solid var(--border);
-  margin-top: 4px;
-}
-
-.cat-add-name { flex: 1; }
-
-.cat-add-btn {
-  font-family: var(--font-menu);
-  font-size: var(--size-micro);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--track-widest);
-  text-transform: uppercase;
-  padding: 9px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  background: var(--accent-primary);
-  border: 1px solid var(--accent-primary);
-  color: var(--text-primary);
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.cat-add-btn:hover {
-  background: var(--accent400);
-  border-color: var(--accent400);
-}
-
-.cat-error {
-  color: var(--accent-tertiary);
-  font-family: var(--font-h3);
-  font-size: var(--size-small);
-  padding: 6px 2px;
-}
-
 /* ─── Settings modal ────────────────────────────────────────────────────
    Title-bar Settings button (Electron only) opens this modal. Frame / header /
    title / close button + the scrollable-body scrollbar are shared via
@@ -494,6 +399,83 @@
     display: flex;
     flex-direction: column;
     gap: 24px;
+}
+
+/* Footer pinned below the scrollable body; holds the Restore Defaults action. */
+.settings-modal-footer {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 14px 22px;
+    border-top: 1px solid var(--border);
+}
+
+/* ── Security section ────────────────────────────────────────────────────
+   Disabled timer row (auto-lock off) dims and blocks interaction. */
+.settings-row-disabled {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
+.settings-enc-status {
+    color: var(--text-secondary);
+}
+
+/* ── Database Encryption modal ──────────────────────────────────────────
+   Stacks above the Preferences modal; reuses the shared settings-modal frame. */
+.enc-modal-overlay { z-index: 1400; }
+.enc-modal { width: 460px; }
+
+.enc-status {
+    color: var(--text-secondary);
+    font-size: var(--size-small);
+}
+
+.enc-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* The flex display rules above (and .settings-match-toggle on .enc-actions)
+   outrank the UA [hidden] = display:none, so restore it explicitly — these
+   rows are shown/hidden per action by encryption.js. */
+.enc-actions[hidden],
+.enc-field[hidden] { display: none; }
+
+.enc-label {
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    color: var(--label-muted);
+}
+
+.enc-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--frost-3);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    outline: none;
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-body);
+    padding: 9px 12px;
+    caret-color: var(--frost-caret);
+    transition: border-color 0.15s ease;
+}
+
+.enc-input:focus { border-color: var(--accent-primary); }
+
+.enc-warning {
+    font-size: var(--size-small);
+    line-height: var(--lh-relaxed);
+    color: var(--accent-tertiary);
+}
+
+.enc-error {
+    font-size: var(--size-small);
+    color: var(--accent-tertiary);
 }
 
 /* ── About & Updates modal ─────────────────────────────────────────────── */

@@ -217,6 +217,46 @@ function yearTableRoutes({
     return { ok: true };
   }
 
+  /** Apply an explicit full ordering (and, for typed features, per-column type
+   *  assignment) in a single pass — the arbitrary repositioning that drag-and-
+   *  drop produces, which the one-step `move` endpoint can't express.
+   *
+   *  body.order is [{ key, type? }, …] listing EVERY column exactly once in the
+   *  desired order. We rewrite position 0..N-1 in that order and (for typed
+   *  features) set col_type from each item, so a column can change both its slot
+   *  and its type group in one drop. `position` carries no UNIQUE constraint, so
+   *  sequential reassignment inside the transaction needs no parking dance. */
+  function apiReorderColumns(ctx, { body }) {
+    const db = ctx.db();
+    if (!body || !Array.isArray(body.order)) bad('invalid request');
+    const all = db.prepare(`SELECT * FROM ${colTable}`).all();
+    if (body.order.length !== all.length) bad('order must list every column');
+
+    const known = new Set(all.map((c) => c.key));
+    const seen = new Set();
+    for (const item of body.order) {
+      if (!item || !known.has(item.key)) bad('unknown column', 404);
+      if (seen.has(item.key)) bad('duplicate column');
+      seen.add(item.key);
+      if (hasTypes && !validTypes.has(item.type)) bad('invalid type');
+    }
+
+    db.transaction(() => {
+      body.order.forEach((item, i) => {
+        if (hasTypes) {
+          db.prepare(`UPDATE ${colTable} SET position = ?, col_type = ? WHERE "key" = ?`).run(
+            i,
+            item.type,
+            item.key
+          );
+        } else {
+          db.prepare(`UPDATE ${colTable} SET position = ? WHERE "key" = ?`).run(i, item.key);
+        }
+      });
+    })();
+    return { ok: true };
+  }
+
   function apiDeleteColumn(ctx, { params, query }) {
     const db = ctx.db();
     const col = db.prepare(`SELECT * FROM ${colTable} WHERE "key" = ?`).get(params.key);
@@ -247,6 +287,7 @@ function yearTableRoutes({
     ['POST', `${prefix}/columns`, apiAddColumn],
     ['PUT', `${prefix}/columns/<key>`, apiUpdateColumn],
     ['POST', `${prefix}/columns/<key>/move`, apiMoveColumn],
+    ['POST', `${prefix}/columns/reorder`, apiReorderColumns],
     ['DELETE', `${prefix}/columns/<key>`, apiDeleteColumn],
   ];
 }

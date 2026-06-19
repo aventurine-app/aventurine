@@ -14,9 +14,6 @@ const MONTH_INDEX = new Map(MONTHS.map((m, i) => [m, i]));
 // escapeHtml is a global from escape.js (loaded by base.html). All
 // user-controlled label values go through it before innerHTML interpolation.
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-const _RE_THOUSANDS = /\B(?=(\d{3})+(?!\d))/g;
-
 const ACCOUNT_COLORS = [
     'rgba(120,185,255,0.9)',
     'rgba(100,210,140,0.9)',
@@ -77,9 +74,7 @@ function latestValueByColumn(entries) {
 // on the next render without a full reload of this script.
 function fmtValue(n) {
     if (n === null) return '—';
-    const [intPart, decPart] = Math.abs(n).toFixed(2).split('.');
-    const sign = n < 0 ? '-' : '';
-    return sign + CURRENCY_SYMBOL + intPart.replace(_RE_THOUSANDS, ',') + (decPart === '00' ? '' : '.' + decPart);
+    return formatCurrency(n, true);
 }
 
 // ─── Accounts pie ────────────────────────────────────────────────────────────
@@ -309,10 +304,7 @@ function fmtAxis(n) {
 }
 
 function fmtTooltip(n) {
-    const abs = Math.abs(n);
-    const sign = n < 0 ? '-' : '';
-    const [intPart, decPart] = abs.toFixed(2).split('.');
-    return sign + CURRENCY_SYMBOL + intPart.replace(_RE_THOUSANDS, ',') + (decPart === '00' ? '' : '.' + decPart);
+    return formatCurrency(n, true);
 }
 
 // ─── Hand-rolled SVG line chart ──────────────────────────────────────────────

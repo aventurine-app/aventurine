@@ -496,7 +496,7 @@ function makeNumberWrap(value, placeholder, isCurrency) {
     // as a plain comma-formatted number. formatDisplay strips trailing
     // ".00" for whole numbers in both cases.
     if (value) {
-        input.value = isCurrency ? formatCurrency(value, true) : formatDisplay(value);
+        input.value = isCurrency ? formatCurrency(value, true, { editable: true }) : formatDisplay(value);
     } else {
         input.value = '';
     }
