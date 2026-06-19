@@ -10,7 +10,34 @@ div.menu {
     left: 0px;
     min-width: 240px;
     max-width: 180px;
-    max-height: 100vh;
+    /* The sidebar stretches to the height of .body_container (which clips its
+       own overflow). When the user zooms in far enough that the nav items
+       exceed that height, scroll the sidebar itself rather than clipping the
+       lower links. Match the frosted thin scrollbar used by .page / modals. */
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) var(--surface1);
+}
+
+div.menu::-webkit-scrollbar {
+    width: 10px;
+}
+
+div.menu::-webkit-scrollbar-track {
+    background: var(--surface1);
+    border-radius: 5px;
+}
+
+div.menu::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+div.menu::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+    background-clip: padding-box;
 }
 
 ul {
