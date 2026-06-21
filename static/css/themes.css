@@ -54,7 +54,14 @@ html[data-theme="dark"],
     --accent-tertiary:  #e2585b;
     --accent-quatenary: #4a8f8f;
     --accent-quinary: #794a8f;
-    
+
+    /* Neutral charcoal for secondary buttons (see style.css). A dark charcoal
+       line would vanish on the dark background, so the idle line steps up to a
+       light grey; the hover fill is a true charcoal (base-700) carrying white
+       text, so it still reads as a charcoal button. */
+    --accent-neutral:      var(--base-300);   /* idle text + border */
+    --accent-neutral-fill: var(--base-700);   /* hover fill */
+
     /* Status colours — system meaning, not brand. */
     --warning: #f5a524;
     /* Vivid primary blue — attention/notification accent (Uncategorized pill,

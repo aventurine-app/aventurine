@@ -995,3 +995,74 @@
     border-top: 1px solid var(--dialog-stroke);
     flex-shrink: 0;
 }
+
+
+/* ─── 7. Pagination ──────────────────────────────────────────────────────────
+   Sits under the table: a "Showing X–Y of Z" caption on the left and the
+   prev / numbered / next controls on the right. Hidden (via the [hidden]
+   attribute, set in JS) whenever everything fits on one page. */
+.tx-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.tx-page-info {
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+}
+
+.tx-page-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.tx-page-btn,
+.tx-page-num {
+    min-width: 32px;
+    height: 32px;
+    padding: 0 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--surface1);
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.tx-page-btn:hover:not(:disabled),
+.tx-page-num:hover:not(.tx-page-current) {
+    background: var(--surface2);
+    color: var(--text-primary);
+}
+
+.tx-page-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.tx-page-current {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--background);
+    font-weight: var(--weight-semibold);
+    cursor: default;
+}
+
+.tx-page-gap {
+    min-width: 20px;
+    text-align: center;
+    color: var(--text-tertiary);
+    user-select: none;
+}

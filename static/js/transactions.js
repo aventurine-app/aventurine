@@ -21,11 +21,16 @@
 //   txState.filters      — Transactions Search controls, raw input values;
 //                          a blank value means that filter is off
 
+// Rows per page. The ledger is loaded and filtered entirely client-side, so
+// pagination just windows the filtered list — it never re-queries the backend.
+const TX_PAGE_SIZE = 100;
+
 const txState = {
     rows:        [],
     categories:  [],
     editingId:   null,
     selectedIds: new Set(),
+    page:        1,   // 1-based; clamped to the visible-row count on every render
     filters: {
         dateFrom:  '',
         dateTo:    '',
@@ -292,6 +297,86 @@ function txVisibleRows() {
     return txState.rows.filter(txRowMatchesFilters);
 }
 
+// ─── Pagination ──────────────────────────────────────────────────────────────
+// Windows the filtered rows into pages of TX_PAGE_SIZE. Selection and export
+// still operate on the full filtered set — only what the table draws is paged.
+
+function txPageCount(visibleCount) {
+    return Math.max(1, Math.ceil(visibleCount / TX_PAGE_SIZE));
+}
+
+// Keep txState.page within [1, pageCount] — bulk-deleting the tail of the list
+// or tightening a filter can otherwise leave us pointing past the last page.
+function txClampPage(visibleCount) {
+    txState.page = Math.min(Math.max(1, txState.page), txPageCount(visibleCount));
+}
+
+// The slice of `visible` belonging to the current page.
+function txPagedRows(visible) {
+    const start = (txState.page - 1) * TX_PAGE_SIZE;
+    return visible.slice(start, start + TX_PAGE_SIZE);
+}
+
+// Jump to a page and redraw, scrolling the table back into view so the user
+// isn't left staring at the old scroll position after the rows swap out.
+function txGoToPage(p) {
+    if (!Number.isFinite(p)) return;
+    txState.page = p;
+    txRender();
+    document.querySelector('.tx-wrapper')?.scrollIntoView({ block: 'nearest' });
+}
+
+// Page numbers to show: always first + last + a window around the current page,
+// with '…' gaps standing in for the runs we skip.
+function txPageNumbers(current, total) {
+    const out = [];
+    let last = 0;
+    for (let p = 1; p <= total; p++) {
+        if (p === 1 || p === total || (p >= current - 1 && p <= current + 1)) {
+            if (last && p - last > 1) out.push('…');
+            out.push(p);
+            last = p;
+        }
+    }
+    return out;
+}
+
+function txRenderPagination(totalVisible) {
+    const el = document.getElementById('tx-pagination');
+    if (!el) return;
+    const pages = txPageCount(totalVisible);
+    if (totalVisible === 0 || pages <= 1) {
+        el.hidden = true;
+        el.innerHTML = '';
+        return;
+    }
+    el.hidden = false;
+    const page  = txState.page;
+    const start = (page - 1) * TX_PAGE_SIZE + 1;
+    const end   = Math.min(page * TX_PAGE_SIZE, totalVisible);
+
+    const nums = txPageNumbers(page, pages).map(p =>
+        p === '…'
+            ? '<span class="tx-page-gap" aria-hidden="true">…</span>'
+            : `<button type="button" class="tx-page-num${p === page ? ' tx-page-current' : ''}" data-page="${p}"${p === page ? ' aria-current="page"' : ''}>${p}</button>`
+    ).join('');
+
+    el.innerHTML = `
+        <span class="tx-page-info">Showing ${start}–${end} of ${totalVisible}</span>
+        <div class="tx-page-controls">
+            <button type="button" class="tx-page-btn tx-page-prev" data-page="${page - 1}"${page <= 1 ? ' disabled' : ''} aria-label="Previous page">‹</button>
+            ${nums}
+            <button type="button" class="tx-page-btn tx-page-next" data-page="${page + 1}"${page >= pages ? ' disabled' : ''} aria-label="Next page">›</button>
+        </div>
+    `;
+}
+
+function txOnPaginationClick(e) {
+    const btn = e.target.closest('button[data-page]');
+    if (!btn || btn.disabled) return;
+    txGoToPage(parseInt(btn.dataset.page, 10));
+}
+
 // The active filters as the export endpoint's `filters` payload, or null
 // when none are on (= export the whole ledger).
 function txExportFilters() {
@@ -343,6 +428,7 @@ function txClearFilters() {
         if (el) el.value = '';
         txState.filters[key] = '';
     }
+    txState.page = 1;
     txRender();
 }
 
@@ -351,8 +437,10 @@ function txSearchInit() {
         const el = document.getElementById(id);
         el?.addEventListener('input', () => {
             txState.filters[key] = el.value;
-            // txRender() prunes the selection to the rows that remain visible,
-            // so a filter change never leaves an off-screen row selected.
+            // A filter change reshapes the list, so snap back to the first page.
+            // txRender() also prunes the selection to the rows that remain
+            // visible, so it never leaves an off-screen row selected.
+            txState.page = 1;
             txRender();
         });
     }
@@ -390,13 +478,18 @@ function txRender() {
         if (!visibleIds.has(id)) txState.selectedIds.delete(id);
     }
 
+    // Clamp first, then window: a filter change or bulk delete may have left
+    // txState.page pointing past the now-shorter list.
+    txClampPage(visible.length);
+
     if (visible.length === 0 && txState.editingId !== 'new') {
         out.push(txEmptyRow(txState.rows.length > 0));
     } else {
-        for (const t of visible) out.push(txRenderDisplayRow(t));
+        for (const t of txPagedRows(visible)) out.push(txRenderDisplayRow(t));
     }
 
     tbody.innerHTML = out.join('');
+    txRenderPagination(visible.length);
     const newRow = document.querySelector('tr.tx-new');
     if (newRow) txWireDirectionLock(newRow);
     txFocusFirstInput();
@@ -450,11 +543,14 @@ function txUpdateSelectionUI() {
     if (editBtn)   { editBtn.disabled   = n === 0; editBtn.querySelector('.tx-btn-label').textContent   = n ? `Edit (${n})` : 'Edit'; }
     if (deleteBtn) { deleteBtn.disabled = n === 0; deleteBtn.querySelector('.tx-btn-label').textContent = n ? `Delete (${n})` : 'Delete'; }
 
+    // The header checkbox reflects the current page only — selection can span
+    // pages, but "select all" the user sees acts on the rows in front of them.
     const all = document.getElementById('tx-select-all');
     if (all) {
-        const visible = txVisibleRows();
-        all.checked       = visible.length > 0 && n === visible.length;
-        all.indeterminate = n > 0 && n < visible.length;
+        const paged = txPagedRows(txVisibleRows());
+        const onPage = paged.filter(t => txState.selectedIds.has(t.id)).length;
+        all.checked       = paged.length > 0 && onPage === paged.length;
+        all.indeterminate = onPage > 0 && onPage < paged.length;
     }
 }
 
@@ -466,7 +562,12 @@ function txToggleSelect(id, on) {
 }
 
 function txToggleSelectAll(on) {
-    txState.selectedIds = on ? new Set(txVisibleRows().map(t => t.id)) : new Set();
+    // Acts on the current page only; selections on other pages are untouched.
+    const paged = txPagedRows(txVisibleRows());
+    for (const t of paged) {
+        if (on) txState.selectedIds.add(t.id);
+        else    txState.selectedIds.delete(t.id);
+    }
     txRender();
 }
 
@@ -705,6 +806,8 @@ function txOnTableKey(e) {
 
 function txOnAddClick() {
     if (txState.editingId !== null) return;   // finish current edit first
+    // The new row sorts to the top after saving, so edit it from page 1.
+    txState.page = 1;
     txEnterEdit('new');
 }
 
@@ -744,6 +847,7 @@ async function txInit() {
     document.querySelector('.tx-edit-btn')?.addEventListener('click', txOpenBulkEditModal);
     document.querySelector('.tx-delete-btn')?.addEventListener('click', txConfirmBulkDelete);
     document.getElementById('tx-select-all')?.addEventListener('change', (e) => txToggleSelectAll(e.target.checked));
+    document.getElementById('tx-pagination')?.addEventListener('click', txOnPaginationClick);
     txSearchInit();
     // Import/export handlers are owned by txfileimport.js / txexport.js so
     // this file doesn't have to know about file dialects, preview UIs, or
@@ -760,6 +864,7 @@ document.addEventListener('DOMContentLoaded', txInit);
 window.addEventListener('transactions:reload', async () => {
     txState.editingId = null;
     txState.selectedIds.clear();
+    txState.page = 1;
     await txLoad();
     txSearchPopulateCategories();
     txRender();

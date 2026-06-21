@@ -109,19 +109,19 @@
 .button-secondary,
 .forecast-add-btn, .budget-copy-btn, .sync-bulk-btn {
     background: none;
-    color: var(--accent-primary);
-    border-color: var(--accent-primary);
+    color: var(--accent-neutral);
+    border-color: var(--accent-neutral);
     font-weight: var(--weight-superbold);
 }
-/* On hover the outlined secondary fills in to match the primary's hover state
-   (accent400 fill + contrast text), so both shapes feel the same to interact with. */
+/* On hover the outlined secondary fills in with neutral charcoal + contrast
+   text, so it reads as a quiet neutral sibling of the accent-filled primary. */
 .button-secondary:not(:disabled):hover,
 .forecast-add-btn:not(:disabled):hover,
 .budget-copy-btn:not(:disabled):hover,
 .sync-bulk-btn:not(:disabled):hover {
-    background: var(--accent400);
+    background: var(--accent-neutral-fill);
     color: var(--accent-contrast, #fff);
-    border-color: var(--accent400);
+    border-color: var(--accent-neutral-fill);
 }
 /* Disabled outlined secondary — drop the accent so it reads inert: gray text
    and border instead of carrying the primary accent at reduced opacity. */

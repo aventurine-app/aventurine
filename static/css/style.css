@@ -123,7 +123,16 @@
       (mirrors the --accent-secondary light-theme adjustment). See themes.css. */
    --accent-info:      #1d4ed8;
    --accent-info-light: #2b60eb;
-   
+
+   /* Neutral charcoal — secondary (outlined) buttons read as a quiet neutral
+      sibling of the accent-filled primary instead of carrying the olive accent.
+      base-800 is dark enough to read as the line + hover fill on light surfaces;
+      the dark theme lifts these to palette stops that clear the dark background
+      (see themes.css). The hover fill takes the same white --accent-contrast as
+      the primary. */
+   --accent-neutral:      var(--base-800);   /* idle text + border */
+   --accent-neutral-fill: var(--base-800);   /* hover fill */
+
 
    /* Frost layer — flip from white-tinted to black-tinted */
    --frost-2:          rgba(0,0,0, 0.05);
