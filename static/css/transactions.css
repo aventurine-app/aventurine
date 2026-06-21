@@ -21,28 +21,8 @@
     width: 100%;
 }
 
-/* "Import" / "Export" buttons — the .button-secondary treatment (tables.css);
-   these hook classes only carry the leading icon sizing + JS click target. */
-.tx-import-btn svg,
-.tx-export-btn svg {
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
-}
-
-/* Add button gets a leading "+" icon — the .button-primary class already
-   provides the accent fill and uppercase treatment. */
-.tx-add-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.tx-add-btn svg {
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
-}
+/* Import / Export / Edit / Delete / Add are now action chips in the chip row
+   (section 1b) — shape, icon sizing and the primary fill live with .tx-chip. */
 
 .tx-wrapper {
     border: 1px solid var(--border);
@@ -52,23 +32,131 @@
 }
 
 
-/* ─── 1b. Transactions Search bar ────────────────────────────────────────────
-   Filter bar between the page header and the table — its own container on
-   the same surface treatment as .tx-wrapper. Labeled controls left-to-right,
-   Export + Clear all pinned to the far right; the bar wraps on narrow
-   windows. Inputs/selects reuse the .tx-input / .tx-select shells from
-   section 4, sized per control below. */
-.tx-search {
+/* ─── 1b. Chip row + search popover ──────────────────────────────────────────
+   The row between the page header and the table. It has NO container
+   background — chips sit directly on the page. The left group is reserved for
+   quick-sort pills; the right group holds filter/sort chips (currently just
+   the search trigger). The search filters themselves live in a popover that
+   drops down from the magnifying-glass chip. */
+.tx-chips {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 24px 0 8px;
+    min-height: 32px;
+}
+
+.tx-chips-group {
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 12px 16px;
-    padding: 14px 16px;
-    margin-bottom: 16px;
-    border: 1px solid var(--border);
-    border-radius: 5px;
-    background: var(--surface1);
+    align-items: center;
+    gap: 8px;
 }
+
+/* Generic chip shell. Left-group quick-filter pills stay fully rounded; the
+   right group (action chips + search trigger) is squared off below. */
+.tx-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface1);
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+/* Quick pills wear their hover look while active, so a selected filter reads
+   the same as a hovered one. */
+.tx-chip:not(:disabled):hover,
+.tx-quick.is-active {
+    color: var(--text-primary);
+    border-color: var(--border-strong, var(--border));
+    background: var(--frost-3);
+}
+
+/* Right group = rounded squares (action chips + the search trigger). */
+.tx-chips-right .tx-chip {
+    border-radius: 8px;
+}
+
+.tx-chip svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+/* Disabled action chips (Edit/Delete with no selection) read inert. */
+.tx-chip:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+    color: var(--text-tertiary);
+}
+
+/* The Uncategorized pill carries the info-blue identity of the Uncategorized
+   tag + nav badge, instead of the neutral/olive of the other quick pills. Like
+   the rest, its active look matches its hover look. */
+.tx-quick-uncat {
+    color: var(--accent-info);
+    border-color: color-mix(in srgb, var(--accent-info) 45%, var(--border));
+}
+
+.tx-quick-uncat:not(:disabled):hover,
+.tx-quick-uncat.is-active {
+    color: var(--accent-info);
+    border-color: var(--accent-info);
+    background: color-mix(in srgb, var(--accent-info) 12%, transparent);
+}
+
+/* Icon-only chip (the magnifying glass) — square footprint. */
+.tx-chip-icon {
+    width: 32px;
+    padding: 0;
+    justify-content: center;
+}
+
+.tx-chip-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Open / filters-active state for the search chip. */
+.tx-search-toggle.is-open,
+.tx-search-toggle.has-filters {
+    color: var(--accent, var(--text-primary));
+    border-color: var(--accent, var(--border-strong, var(--border)));
+}
+
+/* ── Search popover ──────────────────────────────────────────────────────── */
+/* Anchored under the search chip; the wrapper provides the positioning origin. */
+.tx-search-popover-wrap {
+    position: relative;
+}
+
+.tx-search-popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 280px;
+    padding: 16px;
+    background: var(--dialog-surface);
+    border: 1px solid var(--dialog-stroke);
+    border-radius: 10px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+}
+
+/* display:flex above otherwise beats the UA [hidden]{display:none} rule. */
+.tx-search-popover[hidden] { display: none; }
 
 .tx-search-field {
     display: flex;
@@ -98,17 +186,22 @@
     font-family: var(--font-menu);
 }
 
-.tx-search-date       { width: 120px; }
-.tx-search-amount     { max-width: 100px; }
-.tx-search-field-name { flex: 1 1 160px; width: 120px; }
-#tx-search-type       { width: 130px; }
-#tx-search-category   { width: 170px; }
+/* Inside the popover every control fills the column width. */
+.tx-search-popover .tx-input,
+.tx-search-popover .tx-select {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.tx-search-popover .tx-search-range .tx-input {
+    flex: 1 1 0;
+    min-width: 0;
+}
 
 .tx-search-actions {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-left: auto;
+    justify-content: flex-end;
+    margin-top: 2px;
 }
 
 .tx-table {
@@ -879,28 +972,9 @@
 }
 
 
-/* ─── 10. Selection-driven header actions ────────────────────────────────── */
-/* Edit + Delete sit in the page header (.db-actions) and stay disabled until a
-   row is selected; the disabled affordance (opacity + not-allowed) comes from
-   .button-secondary:disabled in buttons.css. A thin divider separates these
-   selection actions from the always-on Import / Add. */
-/* Constrain the leading icons to match Import/Add so the icon + label group
-   centers cleanly inside the button (the .button-secondary inline-flex already
-   centers the group). Without this the SVGs render at an uncontrolled size and
-   shove the label off-center, including while the button is disabled. */
-.tx-edit-btn svg,
-.tx-delete-btn svg {
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
-}
-
-.tx-actions-divider {
-    width: 1px;
-    align-self: stretch;
-    margin: 4px 2px;
-    background: var(--border);
-}
+/* ─── 10. Selection-driven action chips ──────────────────────────────────── */
+/* Edit + Delete are action chips in the chip row (section 1b) and stay disabled
+   until a row is selected; the disabled affordance comes from .tx-chip:disabled. */
 
 /* Delete is destructive — red outline that fills in on hover, the page-action
    counterpart to the red row-delete treatment used elsewhere. */

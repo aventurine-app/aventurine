@@ -420,7 +420,7 @@ function txSearchPopulateCategories() {
     }
 }
 
-// Reset every search field and re-render. Shared by the search bar's Clear
+// Reset every search field and re-render. Shared by the search popover's Clear
 // button and the "Clear filters" action in the filtered-empty state.
 function txClearFilters() {
     for (const [key, id] of Object.entries(TX_SEARCH_FIELDS)) {
@@ -429,7 +429,44 @@ function txClearFilters() {
         txState.filters[key] = '';
     }
     txState.page = 1;
+    txSyncFilterUI();
     txRender();
+}
+
+// Reflect the current filter state on the chrome that lives outside the
+// popover: the search chip's "filters active" flag and the quick-pill
+// highlights. Called after every filter change so pills, popover controls and
+// the chip stay in lockstep no matter which one the user drove.
+function txSyncFilterUI() {
+    const toggle = document.getElementById('tx-search-toggle');
+    if (toggle) {
+        const active = Object.values(txState.filters).some(v => v !== '' && v != null);
+        toggle.classList.toggle('has-filters', active);
+    }
+    document.querySelectorAll('.tx-quick').forEach(pill => {
+        const on = txState.filters[pill.dataset.quick] === pill.dataset.value;
+        pill.classList.toggle('is-active', on);
+        pill.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+}
+
+// Quick-pill click → toggle one filter. A pill maps to a popover control (Type
+// or Category), so we drive that control's value too and route through the same
+// filter state, keeping the pill and the popover perfectly in sync.
+function txQuickInit() {
+    document.querySelectorAll('.tx-quick').forEach(pill => {
+        pill.addEventListener('click', () => {
+            const key = pill.dataset.quick;             // 'type' | 'category'
+            const value = pill.dataset.value;
+            const next = txState.filters[key] === value ? '' : value;
+            txState.filters[key] = next;
+            const control = document.getElementById(TX_SEARCH_FIELDS[key]);
+            if (control) control.value = next;
+            txState.page = 1;
+            txSyncFilterUI();
+            txRender();
+        });
+    });
 }
 
 function txSearchInit() {
@@ -441,10 +478,49 @@ function txSearchInit() {
             // txRender() also prunes the selection to the rows that remain
             // visible, so it never leaves an off-screen row selected.
             txState.page = 1;
+            txSyncFilterUI();
             txRender();
         });
     }
     document.getElementById('tx-search-clear')?.addEventListener('click', txClearFilters);
+    txSearchPopoverInit();
+    txQuickInit();
+}
+
+// Open/close the search popover from the magnifying-glass chip. Closes on
+// outside click or Escape; the field IDs inside are untouched so txSearchInit's
+// per-field listeners keep filtering live as the user types.
+function txSearchPopoverInit() {
+    const toggle  = document.getElementById('tx-search-toggle');
+    const popover = document.getElementById('tx-search-popover');
+    if (!toggle || !popover) return;
+
+    const onOutside = (e) => {
+        if (!popover.contains(e.target) && !toggle.contains(e.target)) close();
+    };
+    const onKey = (e) => {
+        if (e.key === 'Escape') { close(); toggle.focus(); }
+    };
+    const open = () => {
+        popover.hidden = false;
+        toggle.classList.add('is-open');
+        toggle.setAttribute('aria-expanded', 'true');
+        document.addEventListener('click', onOutside, true);
+        document.addEventListener('keydown', onKey);
+        popover.querySelector('input, select')?.focus();
+    };
+    const close = () => {
+        popover.hidden = true;
+        toggle.classList.remove('is-open');
+        toggle.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('click', onOutside, true);
+        document.removeEventListener('keydown', onKey);
+    };
+
+    toggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        popover.hidden ? open() : close();
+    });
 }
 
 // ─── Render orchestration ────────────────────────────────────────────────────
@@ -540,8 +616,19 @@ function txUpdateSelectionUI() {
     const n = txState.selectedIds.size;
     const editBtn   = document.querySelector('.tx-edit-btn');
     const deleteBtn = document.querySelector('.tx-delete-btn');
-    if (editBtn)   { editBtn.disabled   = n === 0; editBtn.querySelector('.tx-btn-label').textContent   = n ? `Edit (${n})` : 'Edit'; }
-    if (deleteBtn) { deleteBtn.disabled = n === 0; deleteBtn.querySelector('.tx-btn-label').textContent = n ? `Delete (${n})` : 'Delete'; }
+    // Icon-only chips: the live count rides in the accessible name + tooltip.
+    if (editBtn) {
+        editBtn.disabled = n === 0;
+        const label = n ? `Edit (${n})` : 'Edit';
+        editBtn.setAttribute('aria-label', label);
+        editBtn.title = label;
+    }
+    if (deleteBtn) {
+        deleteBtn.disabled = n === 0;
+        const label = n ? `Delete (${n})` : 'Delete';
+        deleteBtn.setAttribute('aria-label', label);
+        deleteBtn.title = label;
+    }
 
     // The header checkbox reflects the current page only — selection can span
     // pages, but "select all" the user sees acts on the rows in front of them.
@@ -851,8 +938,8 @@ async function txInit() {
     txSearchInit();
     // Import/export handlers are owned by txfileimport.js / txexport.js so
     // this file doesn't have to know about file dialects, preview UIs, or
-    // rules engines. Export lives in the search bar and saves the rows the
-    // active filters leave visible.
+    // rules engines. Export sits beside Import in the page header and saves the
+    // rows the active filters leave visible.
     document.querySelector('.tx-import-btn')?.addEventListener('click', () => TxFileImport.run());
     document.querySelector('.tx-export-btn')?.addEventListener('click', () =>
         TxFileExport.run({ filters: txExportFilters(), count: txVisibleRows().length }));
