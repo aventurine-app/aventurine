@@ -227,6 +227,7 @@
     '/api/app-settings': { tx_auto_match: 'on', tx_fuzzy_threshold: '1' },
     '/api/transactions/hashes': { hashes: [] },
     '/api/transactions/similar': { transactions: [] },
+    '/api/transactions/uncategorized-count': { count: 1 },
   };
 
   function fixtureResponse(method, url) {

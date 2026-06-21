@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Oliv Design System</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #111110;
+            color: #e6e6e5;
+            font-family: system-ui, -apple-system, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            padding: 48px 32px 64px;
+        }
+        .head { max-width: 1100px; margin: 0 auto 36px; }
+        h1 { font-size: 28px; font-weight: 650; letter-spacing: -0.02em; margin: 0 0 8px; }
+        .sub { color: #9e9d99; font-size: 14px; line-height: 1.6; margin: 0; max-width: 70ch; }
+        .group { max-width: 1100px; margin: 0 auto 40px; }
+        .group-title {
+            font-size: 11px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.14em; color: #878580; margin: 0 0 14px;
+        }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+        a.tile {
+            display: block; text-decoration: none; color: inherit;
+            background: #1a1a19; border: 1px solid #373634; border-radius: 12px;
+            padding: 20px; transition: border-color .15s ease, transform .15s ease;
+        }
+        a.tile:hover { border-color: #8b9751; transform: translateY(-2px); }
+        .tile-name { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+        .tile-sub { font-size: 13px; color: #9e9d99; line-height: 1.5; }
+    </style>
+</head>
+<body>
+    <div class="head">
+        <h1>Oliv Design System</h1>
+        <p class="sub">Live preview cards for Oliv's shared UI. Each card links the app's real stylesheets, so it
+            mirrors the running app and renders both light and dark. See <code>README.md</code> for how it fits the
+            Claude Design workflow.</p>
+    </div>
+
+    <div class="group">
+        <p class="group-title">Foundations</p>
+        <div class="grid">
+            <a class="tile" href="components/foundations-color.html"><div class="tile-name">Color &amp; Theme</div><div class="tile-sub">Semantic tokens, light + dark</div></a>
+            <a class="tile" href="components/foundations-type.html"><div class="tile-name">Typography</div><div class="tile-sub">Type scale, families &amp; weights</div></a>
+        </div>
+    </div>
+
+    <div class="group">
+        <p class="group-title">Components</p>
+        <div class="grid">
+            <a class="tile" href="components/buttons.html"><div class="tile-name">Buttons</div><div class="tile-sub">Neutral, primary, link, disabled</div></a>
+            <a class="tile" href="components/form-controls.html"><div class="tile-name">Form Controls</div><div class="tile-sub">Text input, select, slider</div></a>
+            <a class="tile" href="components/segmented-toggle.html"><div class="tile-name">Segmented Toggle</div><div class="tile-sub">Radio-backed option group</div></a>
+            <a class="tile" href="components/feedback-states.html"><div class="tile-name">Empty &amp; Loading States</div><div class="tile-sub">Empty state + skeletons</div></a>
+        </div>
+    </div>
+
+    <div class="group">
+        <p class="group-title">Patterns</p>
+        <div class="grid">
+            <a class="tile" href="components/settings-card.html"><div class="tile-name">Settings Card</div><div class="tile-sub">Label + control rows</div></a>
+            <a class="tile" href="components/modal.html"><div class="tile-name">Modal Dialog</div><div class="tile-sub">Shared frame, header, footer</div></a>
+            <a class="tile" href="components/sidebar-nav.html"><div class="tile-name">Sidebar Navigation</div><div class="tile-sub">Sections, links, active state</div></a>
+        </div>
+    </div>
+</body>
+</html>

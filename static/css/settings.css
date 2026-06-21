@@ -162,6 +162,8 @@
 
 .settings-currency-input {
   width: 70px;
+  box-sizing: border-box;
+  height: var(--control-height);
   background: var(--frost-3);
   border: 1px solid var(--border);
   border-radius: 5px;
@@ -170,7 +172,7 @@
   font-family: var(--font-numeric);
   font-size: var(--size-body);
   text-align: center;
-  padding: 8px 10px;
+  padding: 4px 10px;
   caret-color: var(--frost-caret);
   transition: border-color 0.15s ease;
 }
@@ -190,6 +192,8 @@
    Themed dropdown matching the currency input's frosted treatment. */
 .settings-select {
   flex-shrink: 0;
+  box-sizing: border-box;
+  height: var(--control-height);
   background: var(--frost-3);
   border: 1px solid var(--border);
   border-radius: 5px;
@@ -198,7 +202,7 @@
   font-family: var(--font-numeric);
   font-size: var(--size-body);
   font-variant-numeric: tabular-nums;
-  padding: 8px 12px;
+  padding: 4px 12px;
   cursor: pointer;
   transition: border-color 0.15s ease;
 }
@@ -393,6 +397,16 @@
 
 .settings-modal { width: 560px; }
 
+/* Tabbed Preferences modal: wider than the plain settings frame so the four
+   horizontal section tabs sit comfortably across the top. Fixed height keeps
+   the frame from jumping as you switch between short and tall tabs — the body
+   scrolls within it. The shared max-height (style.css) still clamps it on
+   short viewports. */
+.settings-modal-tabbed {
+    width: 660px;
+    height: 580px;
+}
+
 .settings-modal-body {
     padding: 22px;
     overflow-y: auto;
@@ -400,6 +414,51 @@
     flex-direction: column;
     gap: 24px;
 }
+
+/* ── Section tabs ───────────────────────────────────────────────────────
+   Horizontal tab bar pinned between the header and the scrollable body. Each
+   tab reveals one section panel; the active tab carries an accent underline
+   that overlaps the bar's bottom divider. */
+.settings-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 0 22px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.settings-tab {
+    appearance: none;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;          /* overlap the bar's bottom divider */
+    padding: 12px 8px;
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-medium);
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.settings-tab:hover { color: var(--text-primary); }
+
+.settings-tab.active {
+    color: var(--accent400);
+    border-bottom-color: var(--accent-primary);
+}
+
+.settings-tab:focus-visible {
+    outline: none;
+    color: var(--text-primary);
+    box-shadow: inset 0 0 0 2px var(--frost-dim);
+    border-radius: 4px;
+}
+
+/* Panels: only the active one is shown (inactive carry the [hidden] attr,
+   toggled by settings.js). */
+.settings-tabpanel[hidden] { display: none; }
 
 /* Footer pinned below the scrollable body; holds the Restore Defaults action. */
 .settings-modal-footer {
@@ -453,6 +512,7 @@
 .enc-input {
     width: 100%;
     box-sizing: border-box;
+    height: var(--control-height);
     background: var(--frost-3);
     border: 1px solid var(--border);
     border-radius: 5px;
@@ -460,7 +520,7 @@
     color: var(--text-primary);
     font-family: var(--font-numeric);
     font-size: var(--size-body);
-    padding: 9px 12px;
+    padding: 4px 12px;
     caret-color: var(--frost-caret);
     transition: border-color 0.15s ease;
 }

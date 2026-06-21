@@ -1,0 +1,55 @@
+<!-- @dsCard group="Foundations" name="Typography" subtitle="Type scale, families & weights" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Typography — Oliv Design System</title>
+    <link rel="stylesheet" href="../../static/css/style.css">
+    <link rel="stylesheet" href="../../static/css/themes.css">
+    <link rel="stylesheet" href="../_canvas.css">
+</head>
+<body>
+    <div class="ds-card">
+        <div class="ds-card-head">
+            <h1 class="ds-card-title">Typography</h1>
+            <p class="ds-card-note">A 1.25 modular scale anchored at 15px body. Manrope for UI/headings,
+                IBM&nbsp;Plex&nbsp;Mono for numerics. (Fonts load from <code>/static/fonts</code> in the app; this
+                standalone preview falls back to system fonts but keeps the real size/weight/tracking tokens.)</p>
+        </div>
+        <div class="ds-panel" data-ds-theme="dark">
+            <div class="ds-panel-label">Size scale</div>
+            <div class="ds-col">
+                <div><span style="font-size:var(--size-display);font-weight:var(--weight-light);line-height:var(--lh-tight);letter-spacing:var(--track-tighter);font-family:var(--font-numeric)">$48,250.00</span>
+                    <div class="ds-caption">display · 40px · light · numeric</div></div>
+                <hr class="ds-hr">
+                <div><span class="page-title">Page title heading</span>
+                    <div class="ds-caption">h1 · 24px · medium</div></div>
+                <hr class="ds-hr">
+                <div><span style="font-size:var(--size-h2);font-weight:var(--weight-semibold);font-family:var(--font-h2);letter-spacing:var(--track-tight)">Card / section title</span>
+                    <div class="ds-caption">h2 · 18px · semibold</div></div>
+                <hr class="ds-hr">
+                <div><span style="font-size:var(--size-h3);font-weight:var(--weight-semibold);font-family:var(--font-h3)">Subsection title</span>
+                    <div class="ds-caption">h3 · 16px · semibold</div></div>
+                <hr class="ds-hr">
+                <div><span style="font-size:var(--size-body)">Body &amp; default UI text — the quick brown fox jumps over the lazy dog.</span>
+                    <div class="ds-caption">body · 15px · regular</div></div>
+                <hr class="ds-hr">
+                <div><span style="font-size:var(--size-small);color:var(--text-secondary)">Small — secondary text &amp; captions.</span>
+                    <div class="ds-caption">small · 13px</div></div>
+                <hr class="ds-hr">
+                <div><span style="font-size:var(--size-micro);font-weight:var(--weight-semibold);text-transform:uppercase;letter-spacing:var(--track-widest);color:var(--text-tertiary)">Micro eyebrow label</span>
+                    <div class="ds-caption">micro · 11px · widest tracking</div></div>
+            </div>
+
+            <div class="ds-panel-label" style="margin-top:28px;">Weights</div>
+            <div class="ds-row" style="font-size:var(--size-h3);gap:24px;">
+                <span style="font-weight:var(--weight-light)">Light 300</span>
+                <span style="font-weight:var(--weight-regular)">Regular 400</span>
+                <span style="font-weight:var(--weight-medium)">Medium 500</span>
+                <span style="font-weight:var(--weight-semibold)">Semibold 600</span>
+                <span style="font-weight:var(--weight-bold)">Bold 700</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

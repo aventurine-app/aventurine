@@ -13,15 +13,19 @@
 // State:
 //   txState.rows         — list of transactions, newest first
 //   txState.categories   — category vocabulary (shared with I&E + Settings)
-//   txState.editingId    — id of the row being edited, 'new' for the add row,
-//                          or null when nothing is being edited
+//   txState.editingId    — 'new' while the inline add row is open, else null.
+//                          (Existing rows are edited via the bulk-edit modal,
+//                          not in place.)
+//   txState.selectedIds  — Set of checked transaction ids; drives the header
+//                          Edit/Delete buttons and the two action modals
 //   txState.filters      — Transactions Search controls, raw input values;
 //                          a blank value means that filter is off
 
 const txState = {
-    rows:       [],
-    categories: [],
-    editingId:  null,
+    rows:        [],
+    categories:  [],
+    editingId:   null,
+    selectedIds: new Set(),
     filters: {
         dateFrom:  '',
         dateTo:    '',
@@ -136,82 +140,92 @@ function txRenderDisplayRow(t) {
     const typeLabel   = meta.label;
     const typeClass   = meta.cls;
 
+    const selected = txState.selectedIds.has(t.id);
     return `
-        <tr class="tx-row" data-id="${t.id}">
+        <tr class="tx-row${selected ? ' tx-selected' : ''}" data-id="${t.id}">
+            <td class="tx-col-select"><input type="checkbox" class="tx-checkbox tx-row-cb" data-id="${t.id}" ${selected ? 'checked' : ''} aria-label="Select transaction"></td>
             <td class="tx-col-date">${txEsc(txFmtDate(t.date))}</td>
             <td class="tx-col-description">${txEsc(t.description)}</td>
             <td class="tx-col-type"><span class="tx-type-pill ${typeClass}">${typeLabel}</span></td>
             <td class="tx-col-category">${catCell}</td>
             <td class="tx-col-amount ${amountClass}">${sign}${txFmtAmount(t.amount)}</td>
             <td class="tx-col-notes">${txEsc(t.notes)}</td>
-            <td class="tx-col-actions tx-actions-cell">
-                <div class="tx-action-group">
-                    <button class="tx-action-btn tx-action-edit"   data-action="edit"   data-id="${t.id}" title="Edit">${TX_ICONS.pencil}</button>
-                    <button class="tx-action-btn tx-action-delete" data-action="delete" data-id="${t.id}" title="Delete">${TX_ICONS.trash}</button>
-                </div>
-            </td>
         </tr>
     `;
 }
 
-function txRenderEditRow(t, { isNew }) {
-    // Category options — include an "Uncategorized" sentinel so the user
-    // can save without picking a category. Backend treats null category_id
-    // as Uncategorized.
+// Category <option>/<optgroup> markup for an edit control, grouped by type and
+// led by an "Uncategorized" sentinel (backend treats null category_id as
+// Uncategorized). Shared by the inline add row and the bulk-edit modal.
+function txCategoryOptions(selectedId) {
     const TYPE_ORDER = ['income', 'expense', 'savings', 'investing'];
     const TYPE_LABELS = { income: 'Income', expense: 'Expense', savings: 'Savings', investing: 'Investing' };
     const groups = {};
     TYPE_ORDER.forEach(k => { groups[k] = []; });
     txState.categories.forEach(c => { (groups[c.cat_type] || (groups[c.cat_type] = [])).push(c); });
     TYPE_ORDER.forEach(k => groups[k].sort((a, b) => a.position - b.position));
-    const catOptions = ['<option value="">Uncategorized</option>']
+    return ['<option value="">Uncategorized</option>']
         .concat(TYPE_ORDER.flatMap(k => {
             if (!groups[k].length) return [];
             const opts = groups[k].map(c => {
-                const sel = c.id === t.category_id ? 'selected' : '';
+                const sel = c.id === selectedId ? 'selected' : '';
                 return `<option value="${c.id}" ${sel}>${txEsc(c.name)}</option>`;
             }).join('');
             return [`<optgroup label="${TYPE_LABELS[k]}">${opts}</optgroup>`];
         })).join('');
+}
 
-    const rowClass  = isNew ? 'tx-row tx-new' : 'tx-row tx-editing';
-    const rowId     = isNew ? 'new' : t.id;
-    const txType    = t.tx_type || 'expense';
+// The six editable field cells (date / description / type / category / amount /
+// notes) for one transaction. Each input carries a data-field so txReadFields()
+// can read it back. Used both as <td>s in the inline add row and (re-tagged by
+// the caller's container) as cells in the bulk-edit modal.
+function txEditFieldsCells(t) {
+    const txType = t.tx_type || 'expense';
     return `
-        <tr class="${rowClass}" data-id="${rowId}">
-            <td class="tx-col-date">
-                <input type="date" class="tx-input tx-input-date" data-field="date"
-                       value="${txEsc(t.date || '')}">
-            </td>
-            <td class="tx-col-description">
-                <input type="text" class="tx-input tx-input-description" data-field="description"
-                       value="${txEsc(t.description || '')}" placeholder="Description">
-            </td>
-            <td class="tx-col-type">
-                <select class="tx-select tx-input-type" data-field="tx_type">
-                    <option value="expense"  ${txType === 'expense'   ? 'selected' : ''}>Expense</option>
-                    <option value="income"   ${txType === 'income'    ? 'selected' : ''}>Income</option>
-                    <option value="savings"  ${txType === 'savings'   ? 'selected' : ''}>Savings</option>
-                    <option value="investing"${txType === 'investing' ? 'selected' : ''}>Investing</option>
-                </select>
-            </td>
-            <td class="tx-col-category">
-                <select class="tx-select tx-input-category" data-field="category_id">${catOptions}</select>
-            </td>
-            <td class="tx-col-amount">
-                <input type="text" inputmode="decimal" class="tx-input tx-input-amount" data-field="amount"
-                       value="${t.amount != null ? t.amount : ''}" placeholder="0.00">
-            </td>
-            <td class="tx-col-notes">
-                <input type="text" class="tx-input tx-input-notes" data-field="notes"
-                       value="${txEsc(t.notes || '')}" placeholder="Optional">
-            </td>
-            <td class="tx-col-actions tx-actions-cell">
+        <td class="tx-col-date">
+            <input type="date" class="tx-input tx-input-date" data-field="date"
+                   value="${txEsc(t.date || '')}">
+        </td>
+        <td class="tx-col-description">
+            <input type="text" class="tx-input tx-input-description" data-field="description"
+                   value="${txEsc(t.description || '')}" placeholder="Description">
+        </td>
+        <td class="tx-col-type">
+            <select class="tx-select tx-input-type" data-field="tx_type">
+                <option value="expense"  ${txType === 'expense'   ? 'selected' : ''}>Expense</option>
+                <option value="income"   ${txType === 'income'    ? 'selected' : ''}>Income</option>
+                <option value="savings"  ${txType === 'savings'   ? 'selected' : ''}>Savings</option>
+                <option value="investing"${txType === 'investing' ? 'selected' : ''}>Investing</option>
+            </select>
+        </td>
+        <td class="tx-col-category">
+            <select class="tx-select tx-input-category" data-field="category_id">${txCategoryOptions(t.category_id)}</select>
+        </td>
+        <td class="tx-col-amount">
+            <input type="text" inputmode="decimal" class="tx-input tx-input-amount" data-field="amount"
+                   value="${t.amount != null ? t.amount : ''}" placeholder="0.00">
+        </td>
+        <td class="tx-col-notes">
+            <input type="text" class="tx-input tx-input-notes" data-field="notes"
+                   value="${txEsc(t.notes || '')}" placeholder="Optional">
+        </td>
+    `;
+}
+
+// The inline add row — the only inline editor left (existing rows edit via the
+// modal). Save/Cancel live in the leading select cell now that the Actions
+// column is gone.
+function txRenderEditRow(t, { isNew }) {
+    const rowId = isNew ? 'new' : t.id;
+    return `
+        <tr class="tx-row tx-new" data-id="${rowId}">
+            <td class="tx-col-select tx-new-actions">
                 <div class="tx-action-group">
                     <button class="tx-action-btn tx-action-save"   data-action="save"   data-id="${rowId}" title="Save">${TX_ICONS.check}</button>
                     <button class="tx-action-btn tx-action-cancel" data-action="cancel" data-id="${rowId}" title="Cancel">${TX_ICONS.cross}</button>
                 </div>
             </td>
+            ${txEditFieldsCells(t)}
         </tr>
     `;
 }
@@ -238,7 +252,8 @@ function txEmptyRow(filtered) {
 function txSkeletonRows(n) {
     const cell = (w) => `<td><div class="skeleton skeleton-line sk-w-${w}"></div></td>`;
     const row = '<tr class="tx-row tx-skeleton-row">'
-        + cell('75') + cell('90') + cell('50') + cell('60') + cell('50') + cell('40') + cell('40')
+        + '<td class="tx-col-select"></td>'
+        + cell('75') + cell('90') + cell('50') + cell('60') + cell('50') + cell('40')
         + '</tr>';
     return row.repeat(n);
 }
@@ -336,13 +351,8 @@ function txSearchInit() {
         const el = document.getElementById(id);
         el?.addEventListener('input', () => {
             txState.filters[key] = el.value;
-            // A filter that hides the row being edited cancels the edit —
-            // otherwise editingId points at a row that's no longer in the
-            // DOM and "Add Transaction" stays blocked.
-            if (txState.editingId !== null && txState.editingId !== 'new') {
-                const t = txState.rows.find(r => r.id === txState.editingId);
-                if (!t || !txRowMatchesFilters(t)) txState.editingId = null;
-            }
+            // txRender() prunes the selection to the rows that remain visible,
+            // so a filter change never leaves an off-screen row selected.
             txRender();
         });
     }
@@ -372,34 +382,42 @@ function txRender() {
     }
 
     const visible = txVisibleRows();
+
+    // Selection only ever covers rows the user can see: drop any ids that the
+    // current filters hide, so a bulk action never touches an off-screen row.
+    const visibleIds = new Set(visible.map(t => t.id));
+    for (const id of txState.selectedIds) {
+        if (!visibleIds.has(id)) txState.selectedIds.delete(id);
+    }
+
     if (visible.length === 0 && txState.editingId !== 'new') {
         out.push(txEmptyRow(txState.rows.length > 0));
     } else {
-        for (const t of visible) {
-            if (t.id === txState.editingId) {
-                out.push(txRenderEditRow(t, { isNew: false }));
-            } else {
-                out.push(txRenderDisplayRow(t));
-            }
-        }
+        for (const t of visible) out.push(txRenderDisplayRow(t));
     }
 
     tbody.innerHTML = out.join('');
-    txWireEditRow();
+    const newRow = document.querySelector('tr.tx-new');
+    if (newRow) txWireDirectionLock(newRow);
     txFocusFirstInput();
+    txUpdateSelectionUI();
+
+    // Keep the sidebar's uncategorized-count pill live. Every mutation on this
+    // page lands in txState.rows before re-rendering, so count from there
+    // rather than re-fetching the count endpoint.
+    window.setUncatBadge?.(txState.rows.filter(r => r.category_id == null).length);
 }
 
 /**
- * Direction is owned by the category (Category.cat_type): when the edit
- * row has a category selected, the Type select mirrors it and locks; only
- * Uncategorized rows pick their own type. The backend enforces the same
- * rule, this just keeps the UI honest about it.
+ * Direction is owned by the category (Category.cat_type): when an edit control
+ * group has a category selected, its Type select mirrors it and locks; only
+ * Uncategorized rows pick their own type. The backend enforces the same rule,
+ * this just keeps the UI honest about it. `scope` is any element containing a
+ * .tx-input-category + .tx-input-type pair (the inline row or a modal row).
  */
-function txWireEditRow() {
-    const row = document.querySelector('tr.tx-new, tr.tx-editing');
-    if (!row) return;
-    const catSel  = row.querySelector('.tx-input-category');
-    const typeSel = row.querySelector('.tx-input-type');
+function txWireDirectionLock(scope) {
+    const catSel  = scope.querySelector('.tx-input-category');
+    const typeSel = scope.querySelector('.tx-input-type');
     if (!catSel || !typeSel) return;
 
     const syncType = () => {
@@ -417,12 +435,39 @@ function txWireEditRow() {
 }
 
 function txFocusFirstInput() {
-    if (txState.editingId == null) return;
-    const sel = txState.editingId === 'new'
-        ? 'tr.tx-new .tx-input-description'
-        : `tr.tx-editing[data-id="${txState.editingId}"] .tx-input-description`;
-    const el = document.querySelector(sel);
-    if (el) el.focus();
+    if (txState.editingId !== 'new') return;
+    document.querySelector('tr.tx-new .tx-input-description')?.focus();
+}
+
+// ─── Selection ───────────────────────────────────────────────────────────────
+// Checkbox state lives in txState.selectedIds; the header Edit/Delete buttons
+// and the select-all box are derived from it on every render.
+
+function txUpdateSelectionUI() {
+    const n = txState.selectedIds.size;
+    const editBtn   = document.querySelector('.tx-edit-btn');
+    const deleteBtn = document.querySelector('.tx-delete-btn');
+    if (editBtn)   { editBtn.disabled   = n === 0; editBtn.querySelector('.tx-btn-label').textContent   = n ? `Edit (${n})` : 'Edit'; }
+    if (deleteBtn) { deleteBtn.disabled = n === 0; deleteBtn.querySelector('.tx-btn-label').textContent = n ? `Delete (${n})` : 'Delete'; }
+
+    const all = document.getElementById('tx-select-all');
+    if (all) {
+        const visible = txVisibleRows();
+        all.checked       = visible.length > 0 && n === visible.length;
+        all.indeterminate = n > 0 && n < visible.length;
+    }
+}
+
+function txToggleSelect(id, on) {
+    if (on) txState.selectedIds.add(id);
+    else    txState.selectedIds.delete(id);
+    document.querySelector(`tr.tx-row[data-id="${id}"]`)?.classList.toggle('tx-selected', on);
+    txUpdateSelectionUI();
+}
+
+function txToggleSelectAll(on) {
+    txState.selectedIds = on ? new Set(txVisibleRows().map(t => t.id)) : new Set();
+    txRender();
 }
 
 // ─── Edit-mode actions ───────────────────────────────────────────────────────
@@ -437,11 +482,12 @@ function txCancelEdit() {
     txRender();
 }
 
-function txReadEditedRow() {
-    const sel = txState.editingId === 'new' ? 'tr.tx-new' : 'tr.tx-editing';
-    const row = document.querySelector(sel);
-    if (!row) return null;
-    const get = (field) => row.querySelector(`[data-field="${field}"]`)?.value;
+// Read one edit-control group (the inline add row or a bulk-edit modal row)
+// into an update/create payload. `scope` is any element containing the
+// data-field inputs.
+function txReadFields(scope) {
+    if (!scope) return null;
+    const get = (field) => scope.querySelector(`[data-field="${field}"]`)?.value;
     const rawAmount   = (get('amount') || '').toString().replace(/,/g, '').trim();
     const amount      = parseFloat(rawAmount);
     const categoryRaw = get('category_id');
@@ -455,23 +501,17 @@ function txReadEditedRow() {
     };
 }
 
+// Save the inline add row (create only — existing rows save through the modal).
 async function txSaveEdit() {
-    const payload = txReadEditedRow();
+    const payload = txReadFields(document.querySelector('tr.tx-new'));
     if (!payload) return;
 
     if (!payload.date)                    { alert('Date is required.');          return; }
     if (!Number.isFinite(payload.amount)) { alert('Amount must be a number.');   return; }
 
     try {
-        let saved;
-        if (txState.editingId === 'new') {
-            saved = await txApiCreate(payload);
-            txState.rows.unshift(saved);
-        } else {
-            saved = await txApiUpdate(txState.editingId, payload);
-            const idx = txState.rows.findIndex(r => r.id === saved.id);
-            if (idx !== -1) txState.rows[idx] = saved;
-        }
+        const saved = await txApiCreate(payload);
+        txState.rows.unshift(saved);
         txState.editingId = null;
         txSortRows();
         txRender();
@@ -486,19 +526,142 @@ async function txSaveEdit() {
     }
 }
 
-async function txDeleteRow(id) {
-    const t = txState.rows.find(r => r.id === id);
-    if (!t) return;
-    const label = t.description ? `"${t.description}"` : `the transaction from ${txFmtDate(t.date)}`;
-    if (!confirm(`Delete ${label}?\nThis cannot be undone.`)) return;
-    try {
-        await txApiDelete(id);
-        txState.rows = txState.rows.filter(r => r.id !== id);
-        if (txState.editingId === id) txState.editingId = null;
+// ─── Bulk actions (selected rows) ─────────────────────────────────────────────
+
+// The transactions currently checked, in display order.
+function txSelectedRows() {
+    const sel = txState.selectedIds;
+    return txState.rows.filter(r => sel.has(r.id));
+}
+
+// Warning modal → permanently delete every selected row. Mirrors the app-wide
+// .confirm-overlay pattern (see tables.js confirmDelete). Deletes loop the
+// single-row endpoint; failures stay selected so the user can retry.
+function txConfirmBulkDelete() {
+    const ids = txSelectedRows().map(t => t.id);
+    if (!ids.length) return;
+    const plural = ids.length === 1 ? '' : 's';
+
+    const overlay = document.createElement('div');
+    overlay.className = 'confirm-overlay';
+    overlay.innerHTML = `
+        <div class="confirm-dialog">
+            <button class="dialog-close-btn" aria-label="Close">×</button>
+            <p>Delete <strong>${ids.length}</strong> transaction${plural}?<br>
+               This permanently removes ${ids.length === 1 ? 'it' : 'them'} and cannot be undone.</p>
+            <div class="confirm-actions">
+                <button class="confirm-cancel">Cancel</button>
+                <button class="confirm-delete">Delete</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+    overlay.querySelector('.dialog-close-btn').addEventListener('click', close);
+    overlay.querySelector('.confirm-cancel').addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    overlay.querySelector('.confirm-delete').addEventListener('click', async (e) => {
+        e.target.disabled = true;
+        const failed = [];
+        for (const id of ids) {
+            try {
+                await txApiDelete(id);
+                txState.rows = txState.rows.filter(r => r.id !== id);
+            } catch (_) {
+                failed.push(id);
+            }
+        }
+        close();
+        txState.selectedIds = new Set(failed);
         txRender();
-    } catch (err) {
-        alert('Delete failed: ' + err.message);
-    }
+        if (failed.length) alert(`${failed.length} transaction${failed.length === 1 ? '' : 's'} could not be deleted.`);
+    });
+}
+
+// Editing modal → every selected row laid out with all fields editable and one
+// Save-all button. Reuses the inline editor's field cells + direction lock;
+// saves loop the single-row update endpoint (which owns the direction rule and
+// match-rule learning), so a row that fails stays selected for a retry.
+function txOpenBulkEditModal() {
+    const txs = txSelectedRows();
+    if (!txs.length) return;
+    const plural = txs.length === 1 ? '' : 's';
+
+    const bodyRows = txs.map(t => `
+        <tr class="tx-edit-row" data-id="${t.id}">${txEditFieldsCells(t)}</tr>
+    `).join('');
+
+    const overlay = document.createElement('div');
+    overlay.className = 'tx-edit-overlay';
+    overlay.id = 'tx-edit-overlay';
+    overlay.innerHTML = `
+        <div class="tx-edit-dialog">
+            <div class="tx-edit-header">
+                <span class="tx-edit-title">Edit ${txs.length} transaction${plural}</span>
+                <button class="tx-import-close" id="tx-edit-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="tx-edit-body">
+                <div class="tx-edit-table-wrap">
+                    <table class="tx-edit-table">
+                        <thead>
+                            <tr>
+                                <th class="tx-col-date">Date</th>
+                                <th class="tx-col-description">Description</th>
+                                <th class="tx-col-type">Type</th>
+                                <th class="tx-col-category">Category</th>
+                                <th class="tx-col-amount">Amount</th>
+                                <th class="tx-col-notes">Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>${bodyRows}</tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="tx-edit-footer">
+                <button class="tx-similar-skip" id="tx-edit-cancel">Cancel</button>
+                <button class="button-primary" id="tx-edit-save">Save all changes</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+
+    // Each row's Type select mirrors + locks to its category, same as the inline row.
+    overlay.querySelectorAll('.tx-edit-row').forEach(row => txWireDirectionLock(row));
+
+    const close = () => overlay.remove();
+    const saveBtn = overlay.querySelector('#tx-edit-save');
+    overlay.querySelector('#tx-edit-close').addEventListener('click', close);
+    overlay.querySelector('#tx-edit-cancel').addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    saveBtn.addEventListener('click', async () => {
+        // Validate every row up front so a bad field doesn't leave a half-saved batch.
+        const edits = [];
+        for (const row of overlay.querySelectorAll('.tx-edit-row')) {
+            const payload = txReadFields(row);
+            if (!payload.date)                    { alert('Every transaction needs a date.');      return; }
+            if (!Number.isFinite(payload.amount)) { alert('Every amount must be a number.');       return; }
+            edits.push({ id: parseInt(row.dataset.id, 10), payload });
+        }
+
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving…';
+        const failed = [];
+        for (const { id, payload } of edits) {
+            try {
+                const saved = await txApiUpdate(id, payload);
+                const idx = txState.rows.findIndex(r => r.id === saved.id);
+                if (idx !== -1) txState.rows[idx] = saved;
+            } catch (_) {
+                failed.push(id);
+            }
+        }
+        close();
+        txState.selectedIds = new Set(failed);
+        txSortRows();
+        txRender();
+        if (failed.length) alert(`${failed.length} transaction${failed.length === 1 ? '' : 's'} could not be saved.`);
+    });
 }
 
 function txSortRows() {
@@ -522,11 +685,16 @@ function txOnTableClick(e) {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
     const action = btn.dataset.action;
-    const id     = btn.dataset.id;
-    if (action === 'edit')   txEnterEdit(parseInt(id, 10));
     if (action === 'save')   txSaveEdit();
     if (action === 'cancel') txCancelEdit();
-    if (action === 'delete') txDeleteRow(parseInt(id, 10));
+}
+
+// Delegated checkbox handling for the row checkboxes (re-rendered constantly,
+// so we listen on the tbody rather than each box).
+function txOnTableChange(e) {
+    const cb = e.target.closest('.tx-row-cb');
+    if (!cb) return;
+    txToggleSelect(parseInt(cb.dataset.id, 10), cb.checked);
 }
 
 function txOnTableKey(e) {
@@ -569,7 +737,13 @@ async function txInit() {
     const tbody = document.getElementById('tx-tbody');
     tbody?.addEventListener('click',   txOnTableClick);
     tbody?.addEventListener('keydown', txOnTableKey);
+    tbody?.addEventListener('change',  txOnTableChange);
     document.querySelector('.tx-add-btn')?.addEventListener('click', txOnAddClick);
+
+    // Selection-driven header actions + the select-all header checkbox.
+    document.querySelector('.tx-edit-btn')?.addEventListener('click', txOpenBulkEditModal);
+    document.querySelector('.tx-delete-btn')?.addEventListener('click', txConfirmBulkDelete);
+    document.getElementById('tx-select-all')?.addEventListener('change', (e) => txToggleSelectAll(e.target.checked));
     txSearchInit();
     // Import/export handlers are owned by txfileimport.js / txexport.js so
     // this file doesn't have to know about file dialects, preview UIs, or
@@ -585,6 +759,7 @@ document.addEventListener('DOMContentLoaded', txInit);
 // Re-fetch and re-render after a successful file import.
 window.addEventListener('transactions:reload', async () => {
     txState.editingId = null;
+    txState.selectedIds.clear();
     await txLoad();
     txSearchPopulateCategories();
     txRender();

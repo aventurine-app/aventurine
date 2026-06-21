@@ -59,10 +59,12 @@
 .db-field input[type="password"] {
     flex: 1;
     min-width: 0;
+    box-sizing: border-box;
+    height: var(--control-height);
     background: var(--surface2);
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 8px 10px;
+    padding: 4px 10px;
     color: var(--text-primary);
     font-size: var(--size-small);
 }
@@ -177,7 +179,11 @@
     white-space: nowrap;
 }
 
-.db-btn:hover { background: var(--surface3); }
+/* Border lightens on hover too: in the dark theme --surface2 (the button's base)
+   and --surface3 resolve to the same base-800, so a background-only hover is
+   invisible there. The border-color delta keeps the affordance visible in both
+   themes — same pattern as .range-selector-btn / .empty-state-action. */
+.db-btn:not(:disabled):not(.db-btn-link):not(.db-btn-primary):hover { background: var(--surface3); border-color: var(--text-tertiary); }
 
 .db-btn-primary {
     background: var(--accent-primary);
@@ -185,7 +191,7 @@
     color: var(--accent-contrast, #fff);
 }
 
-.db-btn-primary:hover { filter: brightness(1.1); background: var(--accent-primary); }
+.db-btn-primary:not(:disabled):hover { filter: brightness(1.1); background: var(--accent-primary); }
 .db-btn-primary:disabled { opacity: 0.6; cursor: default; }
 
 .db-btn-link {

@@ -111,28 +111,6 @@
     margin-left: auto;
 }
 
-/* Clear all — same quiet secondary-button shape as Import/Export. */
-.tx-search-clear {
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: 5px;
-    color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-widest);
-    text-transform: uppercase;
-    padding: 10px 16px;
-    cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.tx-search-clear:hover {
-    background: var(--surface2);
-    color: var(--text-primary);
-    border-color: var(--text-tertiary);
-}
-
 .tx-table {
     border-collapse: collapse;
     width: 100%;
@@ -171,11 +149,9 @@
 .tx-col-category    { width: 180px; }
 .tx-col-amount      { width: 140px; text-align: right; }
 .tx-col-notes       { width: auto;  min-width: 180px; }
-/* Actions cell is center-aligned so the button group sits at the cell's
-   centerpoint, which is invariant across display ↔ edit mode (padding is
-   symmetric). Right-aligning would tie the buttons to the edit-mode
-   horizontal padding and shift them when toggling modes. */
-.tx-col-actions     { width: 110px; text-align: center; }
+/* Leading selection cell — a centered checkbox (or, on the inline add row, the
+   Save/Cancel buttons). Fixed narrow width keeps the column tight. */
+.tx-col-select      { width: 44px; text-align: center; }
 
 
 /* ─── 3. Display-mode row ──────────────────────────────────────────────────
@@ -233,50 +209,36 @@
     letter-spacing: var(--track-normal);
 }
 
-/* Uncategorized stands out like a Type pill, on the secondary accent. */
+/* Uncategorized stands out like a Type pill, on the info-blue accent (matches
+   the nav uncategorized-count badge). */
 .tx-category-pill.tx-category-empty {
     padding: 3px 9px;
     font-weight: var(--weight-semibold);
-    background: color-mix(in srgb, var(--accent-secondary) 15%, transparent);
-    color: var(--accent-secondary);
+    background: color-mix(in srgb, var(--accent-info) 15%, transparent);
+    color: var(--accent-info);
 }
 
-/* Type pill — coloured income/expense badge in its own column. */
+/* Type pill — neutral grey badge in its own column. All four types (income,
+   expense, savings, investing) share the same grey treatment as the category
+   pill; direction is conveyed by the amount colour instead. */
 .tx-type-pill {
     display: inline-block;
     padding: 3px 9px;
     border-radius: 5px;
+    background: var(--surface2);
+    color: var(--text-primary);
     font-family: var(--font-h3);
     font-size: var(--size-small);
     font-weight: var(--weight-semibold);
     letter-spacing: var(--track-normal);
 }
 
-.tx-type-income  {
-    background: color-mix(in srgb, var(--accent-primary) 15%, transparent);
-    color: var(--accent-primary);
-}
-
-.tx-type-expense {
-    background: color-mix(in srgb, var(--accent-tertiary) 15%, transparent);
-    color: var(--accent-tertiary);
-}
-
-.tx-type-savings {
-    background: color-mix(in srgb, var(--accent-primary) 15%, transparent);
-    color: var(--accent-primary);
-}
-
-.tx-type-investing {
-    background: color-mix(in srgb, var(--accent-quatenary) 15%, transparent);
-    color: var(--accent-quatenary);
-}
-
-/* Amount colour follows tx_type. */
+/* Amount colour follows sign: money in (income) reads green, money out
+   (expense / savings / investing) reads red. */
 .tx-row td.tx-amount-income    { color: var(--accent-primary); }
 .tx-row td.tx-amount-expense   { color: var(--accent-tertiary); }
-.tx-row td.tx-amount-savings   { color: var(--accent-primary); }
-.tx-row td.tx-amount-investing { color: var(--accent-quatenary); }
+.tx-row td.tx-amount-savings   { color: var(--accent-tertiary); }
+.tx-row td.tx-amount-investing { color: var(--accent-tertiary); }
 
 
 /* ─── 4. Edit-mode + new-row (floating bordered inputs) ──────────────────── */
@@ -296,6 +258,7 @@
 .tx-select {
     width: 100%;
     box-sizing: border-box;
+    height: var(--control-height);
     background: var(--background);
     border: 1px solid var(--border);
     border-radius: 6px;
@@ -303,7 +266,7 @@
     font-family: var(--font-menu);
     font-size: var(--size-body);
     font-weight: var(--weight-regular);
-    padding: 8px 10px;
+    padding: 4px 10px;
     outline: none;
     transition: border-color 0.15s ease, background-color 0.15s ease;
 }
@@ -355,16 +318,49 @@
 }
 
 
-/* ─── 5. Action-button cell ──────────────────────────────────────────────── */
-.tx-actions-cell {
+/* ─── 5. Selection column + inline add-row actions ───────────────────────── */
+/* The leading select cell is narrow, so trim its horizontal padding (a
+   checkbox doesn't need the 16px gutter the text cells use). */
+.tx-row td.tx-col-select,
+.tx-header-row th.tx-col-select {
+    padding-left: 8px;
+    padding-right: 8px;
+    /* Override the header row's left alignment so the select-all checkbox lines
+       up with the centered checkboxes in the rows below it. */
     text-align: center;
-    white-space: nowrap;
+}
+
+/* Themed checkbox — tracks the accent colour, sized for comfortable hit area. */
+.tx-checkbox {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--accent-primary);
+    cursor: pointer;
+    vertical-align: middle;
+}
+
+/* Selected rows get a subtle accent wash (sits above the hover frost). */
+.tx-row.tx-selected td {
+    background: color-mix(in srgb, var(--accent-primary) 10%, var(--background));
 }
 
 .tx-action-group {
     display: inline-flex;
     gap: 6px;
     justify-content: center;
+}
+
+/* The add row's Save/Cancel live in the narrow select cell, so stack them
+   vertically as compact buttons to fit the 44px column. */
+.tx-new-actions .tx-action-group {
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tx-new-actions .tx-action-btn {
+    width: 26px;
+    height: 22px;
 }
 
 .tx-action-btn {
@@ -393,7 +389,8 @@
     height: 16px;
 }
 
-/* The Save button becomes the primary accent when a row is being edited. */
+/* The add row's Save button carries the primary accent; Cancel keeps the gray
+   base treatment. */
 .tx-action-btn.tx-action-save {
     background: var(--accent-primary);
     border-color: var(--accent-primary);
@@ -404,9 +401,6 @@
     background: var(--accent400);
     border-color: var(--accent400);
 }
-
-/* Cancel + Delete share the gray base treatment — visually neutral so they
-   don't compete with the primary save action next to them. */
 
 
 /* ─── 6. Empty-state ─────────────────────────────────────────────────────── */
@@ -882,4 +876,122 @@
 .tx-import-close:disabled {
     opacity: 0.35;
     cursor: not-allowed;
+}
+
+
+/* ─── 10. Selection-driven header actions ────────────────────────────────── */
+/* Edit + Delete sit in the page header (.db-actions) and stay disabled until a
+   row is selected; the disabled affordance (opacity + not-allowed) comes from
+   .button-secondary:disabled in buttons.css. A thin divider separates these
+   selection actions from the always-on Import / Add. */
+/* Constrain the leading icons to match Import/Add so the icon + label group
+   centers cleanly inside the button (the .button-secondary inline-flex already
+   centers the group). Without this the SVGs render at an uncontrolled size and
+   shove the label off-center, including while the button is disabled. */
+.tx-edit-btn svg,
+.tx-delete-btn svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+.tx-actions-divider {
+    width: 1px;
+    align-self: stretch;
+    margin: 4px 2px;
+    background: var(--border);
+}
+
+/* Delete is destructive — red outline that fills in on hover, the page-action
+   counterpart to the red row-delete treatment used elsewhere. */
+.tx-delete-btn:not(:disabled) {
+    color: var(--accent-tertiary);
+    border-color: var(--accent-tertiary);
+}
+
+.tx-delete-btn:not(:disabled):hover {
+    background: var(--accent-tertiary);
+    color: var(--accent-contrast, #fff);
+    border-color: var(--accent-tertiary);
+}
+
+
+/* ─── 11. Bulk-edit modal ────────────────────────────────────────────────── */
+/* Opened from the header Edit button: every selected transaction laid out with
+   all fields editable and one Save-all button. Shell mirrors the similar /
+   import modals; it's wider to hold the six editable columns. */
+
+/* Positioning + centering come from the shared overlay rule in style.css §8. */
+.tx-edit-overlay {
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 1100;
+    padding: 24px;
+    box-sizing: border-box;
+}
+
+.tx-edit-dialog {
+    display: flex;
+    flex-direction: column;
+    width: 94vw;
+    max-width: 940px;
+    max-height: 82vh;
+    background: var(--dialog-surface);
+    border: 1px solid var(--dialog-stroke);
+    border-radius: 10px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+    overflow: hidden;
+}
+
+.tx-edit-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 22px 16px;
+    border-bottom: 1px solid var(--dialog-stroke);
+    flex-shrink: 0;
+}
+
+.tx-edit-title {
+    color: var(--text-primary);
+    font-family: var(--font-h3);
+    font-size: var(--size-body);
+    font-weight: var(--weight-semibold);
+}
+
+.tx-edit-body {
+    padding: 16px 22px;
+    overflow: auto;
+    flex: 1;
+}
+
+.tx-edit-table {
+    width: 100%;
+    min-width: 820px;
+    border-collapse: collapse;
+}
+
+.tx-edit-table th {
+    text-align: left;
+    padding: 0 8px 8px;
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+}
+
+.tx-edit-table td {
+    padding: 4px 8px;
+    vertical-align: middle;
+}
+
+.tx-edit-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 22px 18px;
+    border-top: 1px solid var(--dialog-stroke);
+    flex-shrink: 0;
 }

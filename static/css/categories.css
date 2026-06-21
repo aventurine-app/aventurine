@@ -70,6 +70,8 @@
 .cat-add-name {
   flex: 1;
   min-width: 0;
+  box-sizing: border-box;
+  height: var(--control-height);
   background: var(--surface1);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -77,7 +79,7 @@
   color: var(--text-primary);
   font-family: var(--font-menu);
   font-size: var(--size-body);
-  padding: 8px 10px;
+  padding: 4px 10px;
   caret-color: var(--frost-caret);
   transition: border-color 0.15s ease, background 0.15s ease;
 }
@@ -87,33 +89,9 @@
 .cat-add-name::placeholder { color: var(--text-tertiary); }
 
 /* The primary action — the only filled accent button on the page. */
-.cat-add-btn {
-  flex: none;
-  font-family: var(--font-menu);
-  font-size: var(--size-micro);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--track-widest);
-  text-transform: uppercase;
-  padding: 9px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  background: var(--accent-primary);
-  border: 1px solid var(--accent-primary);
-  color: var(--text-primary);
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
-}
-
-.cat-add-btn:hover {
-  background: var(--accent400);
-  border-color: var(--accent400);
-}
-
-.cat-add-btn:active { transform: translateY(1px); }
-
-.cat-add-btn:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 2px;
-}
+/* .cat-add-btn (accent eyebrow action button) shape, hover, active and focus
+   now live in buttons.css. Only its flex layout is page-specific. */
+.cat-add-btn { flex: none; }
 
 /* ─── Quadrant grid ──────────────────────────────────────────────────────── */
 .cat-grid {
@@ -245,6 +223,8 @@
 .cat-name {
   flex: 1;
   min-width: 0;
+  box-sizing: border-box;
+  height: var(--control-height);
   background: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
@@ -252,7 +232,8 @@
   color: var(--text-primary);
   font-family: var(--font-menu);
   font-size: var(--size-body);
-  padding: 8px 10px;
+  padding: 4px 10px;
+  margin: 4px 0;
   caret-color: var(--frost-caret);
   transition: border-color 0.15s ease, background 0.15s ease;
 }
@@ -283,6 +264,8 @@
 .cat-type-select {
   appearance: none;
   -webkit-appearance: none;
+  box-sizing: border-box;
+  height: var(--control-height);
   background: var(--surface1);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -305,7 +288,7 @@
 
 /* The create card's dropdown is always visible, so give it the full body size
    to sit level with the input beside it. */
-.cat-add .cat-type-select { font-size: var(--size-body); padding: 8px 28px 8px 10px; }
+.cat-add .cat-type-select { font-size: var(--size-body); padding: 4px 28px 4px 10px; }
 
 /* Borderless icon button — the delete ×. Subtle until hovered. */
 .cat-icon-btn {
@@ -332,10 +315,18 @@
 
 .cat-icon-btn svg { width: 12px; height: 12px; }
 
-/* Delete X turns red on hover so the destructive action announces itself. */
+/* Delete × wears the expense-pill colours (dark-red glyph on a light-red tint —
+   same recipe as .cat-quadrant-title for an expense quadrant) so the
+   destructive action reads as red at rest. A small right margin lifts it off
+   the row edge; the fill deepens on hover for feedback. */
+.cat-icon-btn.cat-delete {
+  margin-right: 4px;
+  color: var(--accent-tertiary);
+  background: color-mix(in srgb, var(--accent-tertiary) 15%, transparent);
+}
 .cat-icon-btn.cat-delete:hover {
   color: var(--accent-tertiary);
-  background: var(--frost-2);
+  background: color-mix(in srgb, var(--accent-tertiary) 25%, transparent);
 }
 
 /* Accent line marking exactly where the dragged category will land — between

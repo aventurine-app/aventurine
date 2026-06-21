@@ -1,0 +1,66 @@
+<!-- @dsCard group="Components" name="Form Controls" subtitle="Text input, select, slider" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Form Controls — Oliv Design System</title>
+    <link rel="stylesheet" href="../../static/css/style.css">
+    <link rel="stylesheet" href="../../static/css/themes.css">
+    <link rel="stylesheet" href="../../static/css/settings.css">
+    <link rel="stylesheet" href="../_canvas.css">
+</head>
+<body>
+    <div class="ds-card">
+        <div class="ds-card-head">
+            <h1 class="ds-card-title">Form Controls</h1>
+            <p class="ds-card-note">Text fields, dropdowns and the custom range slider — all theme-token driven so
+                native chrome (track colour, caret) follows the active theme rather than the OS.</p>
+        </div>
+        <div class="ds-themes">
+
+            <div class="ds-panel" data-ds-theme="light">
+                <div class="ds-panel-label">Light</div>
+                <div class="ds-col">
+                    <div class="enc-field">
+                        <label class="enc-label">Text input</label>
+                        <input class="enc-input" type="text" value="Coffee &amp; Co." spellcheck="false">
+                    </div>
+                    <div class="enc-field">
+                        <label class="enc-label">Select</label>
+                        <select class="settings-select"><option>1,234.56</option><option>1.234,56</option></select>
+                    </div>
+                    <div class="enc-field">
+                        <label class="enc-label">Range slider</label>
+                        <div class="settings-threshold-control">
+                            <input class="settings-threshold-slider" type="range" min="0.5" max="1" step="0.05" value="0.85">
+                            <span class="settings-threshold-value">85%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ds-panel" data-ds-theme="dark">
+                <div class="ds-panel-label">Dark (default)</div>
+                <div class="ds-col">
+                    <div class="enc-field">
+                        <label class="enc-label">Text input</label>
+                        <input class="enc-input" type="text" value="Coffee &amp; Co." spellcheck="false">
+                    </div>
+                    <div class="enc-field">
+                        <label class="enc-label">Select</label>
+                        <select class="settings-select"><option>1,234.56</option><option>1.234,56</option></select>
+                    </div>
+                    <div class="enc-field">
+                        <label class="enc-label">Range slider</label>
+                        <div class="settings-threshold-control">
+                            <input class="settings-threshold-slider" type="range" min="0.5" max="1" step="0.05" value="0.85">
+                            <span class="settings-threshold-value">85%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</body>
+</html>

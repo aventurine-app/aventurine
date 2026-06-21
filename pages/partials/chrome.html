@@ -34,16 +34,30 @@
 
 
     <div class="settings-modal-overlay" data-modal="preferences" hidden>
-        <div class="settings-modal">
+        <div class="settings-modal settings-modal-tabbed">
             <div class="settings-modal-header">
                 <span class="settings-modal-title">Preferences</span>
                 <button class="settings-modal-close" aria-label="Close">×</button>
             </div>
+            <div class="settings-tabs" role="tablist" aria-label="Preferences sections">
+                <button class="settings-tab active" type="button" role="tab"
+                        id="settings-tab-appearance" data-tab="appearance"
+                        aria-selected="true" aria-controls="settings-panel-appearance">Appearance</button>
+                <button class="settings-tab" type="button" role="tab"
+                        id="settings-tab-transactions" data-tab="transactions"
+                        aria-selected="false" tabindex="-1" aria-controls="settings-panel-transactions">Transactions</button>
+                <button class="settings-tab" type="button" role="tab"
+                        id="settings-tab-format" data-tab="format"
+                        aria-selected="false" tabindex="-1" aria-controls="settings-panel-format">Format</button>
+                <button class="settings-tab" type="button" role="tab"
+                        id="settings-tab-security" data-tab="security"
+                        aria-selected="false" tabindex="-1" aria-controls="settings-panel-security">Security</button>
+            </div>
             <div class="settings-modal-body">
 
 
-<div class="settings-section">
-    <div class="settings-section-header">Appearance</div>
+<div class="settings-tabpanel active" data-tabpanel="appearance" role="tabpanel"
+     id="settings-panel-appearance" aria-labelledby="settings-tab-appearance">
     <div class="settings-card">
         <div class="settings-row">
             <div class="settings-row-label">
@@ -96,8 +110,8 @@
     </div>
 </div>
 
-<div class="settings-section">
-    <div class="settings-section-header">Transactions</div>
+<div class="settings-tabpanel" data-tabpanel="transactions" role="tabpanel" hidden
+     id="settings-panel-transactions" aria-labelledby="settings-tab-transactions">
     <div class="settings-card">
         <div class="settings-row">
             <div class="settings-row-label">
@@ -143,8 +157,8 @@
     </div>
 </div>
 
-<div class="settings-section">
-    <div class="settings-section-header">Format</div>
+<div class="settings-tabpanel" data-tabpanel="format" role="tabpanel" hidden
+     id="settings-panel-format" aria-labelledby="settings-tab-format">
     <div class="settings-card">
         <div class="settings-row">
             <div class="settings-row-label">
@@ -230,8 +244,8 @@
     </div>
 </div>
 
-<div class="settings-section">
-    <div class="settings-section-header">Security</div>
+<div class="settings-tabpanel" data-tabpanel="security" role="tabpanel" hidden
+     id="settings-panel-security" aria-labelledby="settings-tab-security">
     <div class="settings-card">
         <div class="settings-row">
             <div class="settings-row-label">

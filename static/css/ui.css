@@ -171,3 +171,74 @@
         background-color: var(--frost-3);
     }
 }
+
+
+/* ─── Range selector ───────────────────────────────────────────────────────
+ * The time-range dropdown used on the chart pages (Home, Spending Trends,
+ * Forecast). Lives here, in the globally-loaded primitives, because it's shared
+ * across pages — previously it was copy-pasted into home.css, trends.css and
+ * forecast.css (each page CSS loads alone, so the duplication was the only way
+ * to reach all three before this file existed for them). */
+.range-selector { position: relative; }
+
+.range-selector-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+    padding: 6px 26px 6px 12px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    /* Caret drawn via background-image so the button text stays clean. */
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                      linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 14px) 50%, calc(100% - 10px) 50%;
+    background-size: 4px 4px;
+    background-repeat: no-repeat;
+}
+
+.range-selector-btn:hover {
+    background-color: var(--surface3);
+    color: var(--text-primary);
+    border-color: var(--text-tertiary);
+}
+
+.range-selector-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 140px;
+    z-index: 20;
+    padding: 4px 0;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+}
+
+.range-selector-menu[hidden] { display: none; }
+
+.range-selector-menu button {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-regular);
+    text-align: left;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+}
+
+.range-selector-menu button:hover {
+    background: var(--surface3);
+    color: var(--text-primary);
+}

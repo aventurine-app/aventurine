@@ -1,0 +1,113 @@
+/* ============================================================================
+   _canvas.css — Chrome for the design-system preview cards ONLY.
+   ============================================================================
+   This styles the scaffolding *around* each component (the page frame, the
+   light/dark split, section labels, swatch grids). It deliberately uses
+   literal neutral values — NOT the app's theme tokens — so the frame stays
+   stable while each panel inside it renders the real tokens from
+   style.css + themes.css.
+
+   Every component preview links this plus the app's real CSS, so editing the
+   app's styling updates these cards automatically. Do not put component
+   styling here; that lives in static/css/ and is the single source of truth.
+   ============================================================================ */
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 32px;
+    background: #6b6b6b;            /* neutral mid-grey so both themes read */
+    font-family: system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+.ds-card {
+    max-width: 920px;
+    margin: 0 auto;
+}
+
+.ds-card-head {
+    margin-bottom: 20px;
+    color: #fff;
+}
+.ds-card-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+}
+.ds-card-note {
+    margin: 6px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: rgba(255,255,255,0.72);
+    max-width: 60ch;
+}
+
+/* Light / dark split. Each panel carries the app's theme tokens via the
+   .settings-theme-swatch[data-theme="…"] selectors the app already defines,
+   so descendants inherit the real semantic tokens for that theme. */
+.ds-themes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+@media (max-width: 720px) {
+    .ds-themes { grid-template-columns: 1fr; }
+}
+
+.ds-panel {
+    background: var(--background);
+    color: var(--text-primary);
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid rgba(0,0,0,0.25);
+    overflow: hidden;
+}
+
+.ds-panel-label {
+    font-family: var(--font-menu, system-ui);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-tertiary);
+    margin-bottom: 18px;
+}
+
+/* Generic horizontal/vertical stacks for arranging specimens in a panel. */
+.ds-row  { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.ds-col  { display: flex; flex-direction: column; gap: 16px; }
+.ds-col-tight { display: flex; flex-direction: column; gap: 8px; }
+
+/* Token swatch grid (colors). */
+.ds-swatches { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.ds-swatch {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-numeric, monospace);
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+.ds-chip {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.ds-swatch b { color: var(--text-primary); font-weight: 600; }
+.ds-swatch small { color: var(--text-tertiary); }
+
+/* A faint divider between specimen groups within one panel. */
+.ds-hr { height: 1px; background: var(--border); border: 0; margin: 4px 0; }
+
+.ds-caption {
+    font-family: var(--font-menu, system-ui);
+    font-size: 11px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}

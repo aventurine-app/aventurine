@@ -73,7 +73,8 @@
  * contexts are wired the same way in themes.css). Update the palette above
  * and every swatch follows automatically. */
 :root,
-.settings-theme-swatch[data-theme="light"] {
+.settings-theme-swatch[data-theme="light"],
+[data-ds-theme="light"] {   /* style-free scoping hook — see themes.css dark block */
 
     /* Match native controls (range tracks, etc.) to the active theme rather
        than the OS appearance. */
@@ -95,25 +96,33 @@
    --text-secondary:   var(--base-700);
    --text-tertiary:    var(--base-600);
 
-   /* Surfaces */
+   /* Surfaces — cards sit lighter than the grey page; controls and hover/
+      elevated tiers step progressively darker so each rung is distinct (no two
+      collide). 1 = card, 2 = control fill, 3 = hover/prominent, 4 = top
+      elevation (scrollbar thumbs). */
    --background:       var(--base-100);
    --surface1:         var(--base-050);
-   --surface2:         var(--base-050);
+   --surface2:         var(--base-100);
    --surface3:         var(--base-200);
-   --surface4:         var(--base-100);
+   --surface4:         var(--base-300);
 
    /* Border */
    --border:           var(--base-300);
 
    /* Accent */
    --accent-primary:   #8b9751;
-   --accent400:        var(--color-400);
-   --accent300:        var(--color-300);
+   /* See themes.css. Deeper olive in the light theme so it clears AA as text on
+      light surfaces and still reads as a fill behind white text. */
+   --accent400:        color-mix(in srgb, var(--accent-primary) 82%, #000);
    --accent-secondary: #b8921e;
-   --accent-quatenary: #2a6e6e;
+   --accent-quatenary: #e28623;
    --accent-quinary:   #5a2a6e;
    --accent-tertiary:  #c44448;
    --warning:          #c97a14;
+   /* Deeper blue in the light theme so it clears AA as text on light surfaces
+      (mirrors the --accent-secondary light-theme adjustment). See themes.css. */
+   --accent-info:      #1d4ed8;
+   --accent-info-light: #2b60eb;
    
 
    /* Frost layer — flip from white-tinted to black-tinted */
@@ -187,6 +196,7 @@
     --weight-medium:   500;
     --weight-semibold: 600;
     --weight-bold:     700;
+    --weight-superbold:900;
 
     /* ── Line-height ──────────────────────────────────────────────────────
      *   tight   → display sizes, hero numbers
@@ -232,6 +242,15 @@
     --space-32: 32px;
     --space-48: 48px;
     --space-64: 64px;
+
+    /* Shared height for standalone form controls (text inputs + selects) so a
+       field lines up with the buttons beside it on every page. The button
+       shapes are padding-driven and land at ~32px; pinning controls to the
+       same value (with box-sizing:border-box) keeps inputs and buttons the
+       same height. NOT applied to in-cell table editors (.db-input/.p-input —
+       their height is owned by the spreadsheet row), the dense column-manager
+       inline editor (.col-row-input), or borderless inline-rename inputs. */
+    --control-height: 32px;
 
     /* Empty space framing every main page's content inside the .page scroll
        area. One token so every page (table pages, home, and the report-style
@@ -401,7 +420,8 @@ div.page::-webkit-scrollbar-thumb:hover {
 .settings-modal-overlay,
 .confirm-overlay,
 .tx-import-overlay,
-.tx-similar-overlay {
+.tx-similar-overlay,
+.tx-edit-overlay {
     position: fixed;
     inset: 0;
     display: flex;

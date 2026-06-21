@@ -1,0 +1,145 @@
+/* ============================================================================
+   buttons.css — the canonical button system. Loaded globally (head.html).
+   ============================================================================
+   The app has two deliberate button SHAPES:
+     • Dialog button   (.db-btn / -primary / -link)  — normal-case, small text.
+       Modals, settings, inline Browse/Cancel.  Defined in dbmodal.css.
+     • Action button   (.button-primary / -secondary) — uppercase micro "eyebrow".
+       The page call-to-action (Add Year, Export, Add Card …) plus a tail of
+       page-specific aliases (forecast-add, budget-copy, sync-bulk, cat-add,
+       col-add) that share this shape.
+
+   The per-shape fill/size still lives in each component file for now; what this
+   file owns is the CROSS-CUTTING INTERACTION STATES — keyboard focus ring,
+   pressed feedback, and the disabled affordance — in ONE place. Several
+   variants were missing a focus ring entirely (a keyboard-a11y bug on the
+   primary page actions); centralizing fixes them all at once and keeps them
+   from drifting again. This file is the staging ground for folding the shapes
+   themselves together next.
+   ============================================================================ */
+
+/* ── Keyboard focus ring ────────────────────────────────────────────────────
+   :focus-visible only triggers on keyboard focus, never on mouse click, so this
+   is purely additive for pointer users. Was present only on budget-nav/copy;
+   now every button gets it. */
+.db-btn:focus-visible,
+.button-primary:focus-visible,
+.button-secondary:focus-visible,
+.tx-add-btn:focus-visible,
+.cat-add-btn:focus-visible,
+.forecast-add-btn:focus-visible,
+.budget-nav-btn:focus-visible,
+.budget-copy-btn:focus-visible,
+.sync-bulk-btn:focus-visible,
+.col-add-btn:focus-visible,
+/* icon / close buttons — these all lacked a focus ring entirely */
+.tx-action-btn:focus-visible,
+.cat-icon-btn:focus-visible,
+.cc-remove-btn:focus-visible,
+.p-menu-btn:focus-visible,
+.dialog-close-btn:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+/* ── Pressed feedback ───────────────────────────────────────────────────────
+   A 1px nudge on active press. Skipped for disabled buttons. */
+.button-primary:not(:disabled):active,
+.button-secondary:not(:disabled):active,
+.cat-add-btn:not(:disabled):active,
+.forecast-add-btn:not(:disabled):active,
+.sync-bulk-btn:not(:disabled):active,
+.col-add-btn:not(:disabled):active,
+.tx-action-btn:not(:disabled):active,
+.p-menu-btn:not(:disabled):active {
+    transform: translateY(1px);
+}
+
+/* ── Disabled affordance ────────────────────────────────────────────────────
+   Consistent not-allowed cursor for every disabled button. (Opacity/colour
+   dimming stays per-shape in the component files.) */
+.db-btn:disabled,
+.button-primary:disabled,
+.button-secondary:disabled,
+.tx-add-btn:disabled,
+.cat-add-btn:disabled,
+.forecast-add-btn:disabled,
+.sync-bulk-btn:disabled,
+.col-add-btn:disabled,
+.tx-action-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+
+/* ============================================================================
+   Action button (eyebrow) — the uppercase-micro page call-to-action.
+   ============================================================================
+   ONE definition. The class names below were each re-declaring this shape in
+   their own page CSS with drifted geometry (radius 5 vs 6; paddings 10×16 /
+   6×14 / 8×14 / 6×12 / 9×16, none on the 4px grid; tracking widest vs wider;
+   surface1 vs surface2 fill; cat-add even used text-primary on the olive fill).
+   Standardized here: radius 6, 8/16 padding (4px grid), widest tracking, and
+   the contrast text colour on accent fills. Per-page LAYOUT (flex sizing) stays
+   in the page file; only the button SHAPE moved here. */
+.button-primary, .button-secondary,
+.forecast-add-btn, .budget-copy-btn, .sync-bulk-btn,
+.cat-add-btn, .col-add-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-8);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-superbold);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+    padding: var(--space-8) var(--space-16);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.15s ease, color 0.15s ease,
+                border-color 0.15s ease, transform 0.1s ease;
+}
+
+/* Outlined accent — secondary emphasis (Manage Columns, Add row, Sync-all …).
+   Neutral fill with the accent carried by the text + border, so it reads as a
+   quieter sibling of the accent-filled primary action. */
+.button-secondary,
+.forecast-add-btn, .budget-copy-btn, .sync-bulk-btn {
+    background: none;
+    color: var(--accent-primary);
+    border-color: var(--accent-primary);
+    font-weight: var(--weight-superbold);
+}
+/* On hover the outlined secondary fills in to match the primary's hover state
+   (accent400 fill + contrast text), so both shapes feel the same to interact with. */
+.button-secondary:not(:disabled):hover,
+.forecast-add-btn:not(:disabled):hover,
+.budget-copy-btn:not(:disabled):hover,
+.sync-bulk-btn:not(:disabled):hover {
+    background: var(--accent400);
+    color: var(--accent-contrast, #fff);
+    border-color: var(--accent400);
+}
+/* Disabled outlined secondary — drop the accent so it reads inert: gray text
+   and border instead of carrying the primary accent at reduced opacity. */
+.button-secondary:disabled,
+.forecast-add-btn:disabled, .budget-copy-btn:disabled, .sync-bulk-btn:disabled {
+    color: var(--text-tertiary);
+    border-color: var(--border);
+}
+
+/* Accent fill — the primary call-to-action (Add Year, Add Account, Export …) */
+.button-primary, .cat-add-btn, .col-add-btn {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--accent-contrast, #fff);
+}
+.button-primary:not(:disabled):hover,
+.cat-add-btn:not(:disabled):hover,
+.col-add-btn:not(:disabled):hover {
+    background: var(--accent400);
+    border-color: var(--accent400);
+}

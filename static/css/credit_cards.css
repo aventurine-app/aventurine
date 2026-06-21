@@ -83,21 +83,23 @@
 .cc-name-input:hover  { border-bottom-color: var(--frost-dim); }
 .cc-name-input:focus  { border-bottom-color: var(--frost-focus); outline: none; }
 
+/* Remove × wears the shared destructive treatment — dark-red glyph on a
+   light-red expense-pill tint (matches .cat-delete), deepening on hover. */
 .cc-remove-btn {
     flex: 0 0 auto;
     width: 26px;
     height: 26px;
     border: none;
     border-radius: 6px;
-    background: transparent;
-    color: var(--frost-icon);
+    background: color-mix(in srgb, var(--accent-tertiary) 15%, transparent);
+    color: var(--accent-tertiary);
     font-size: var(--size-h3);
     line-height: 1;
     cursor: pointer;
 }
 
 .cc-remove-btn:hover {
-    background: var(--frost-2);
+    background: color-mix(in srgb, var(--accent-tertiary) 25%, transparent);
     color: var(--accent-tertiary);
 }
 
@@ -128,10 +130,11 @@
 .cc-input {
     width: 100%;
     box-sizing: border-box;
+    height: var(--control-height);
     background: var(--frost-2);
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 7px 10px;
+    padding: 4px 10px;
     color: var(--text-primary);
     font-family: var(--font-numeric);
     font-size: var(--size-small);

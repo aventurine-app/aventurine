@@ -40,6 +40,17 @@ function list(ctx) {
   };
 }
 
+// Lightweight count of still-uncategorized rows, for the sidebar badge. Kept
+// separate from list() so every page can poll it without pulling the whole
+// ledger across IPC.
+function uncategorizedCount(ctx) {
+  const db = ctx.db();
+  const { n } = db
+    .prepare('SELECT COUNT(*) AS n FROM transactions WHERE category_id IS NULL')
+    .get();
+  return { count: n };
+}
+
 function create(ctx, { body }) {
   const db = ctx.db();
   const data = body || {};
@@ -392,6 +403,7 @@ const routes = [
   ['POST', '/api/transactions', create],
   ['PUT', '/api/transactions/<int:tx_id>', update],
   ['DELETE', '/api/transactions/<int:tx_id>', remove],
+  ['GET', '/api/transactions/uncategorized-count', uncategorizedCount],
   ['GET', '/api/transactions/similar', similar],
   ['POST', '/api/transactions/categorize-similar', categorizeSimilar],
   ['GET', '/api/transactions/hashes', hashes],

@@ -8,7 +8,9 @@
    (The light theme is the :root baseline in style.css; this block overrides it
    when data-theme="dark" is set on <html>.) */
 html[data-theme="dark"],
-.settings-theme-swatch[data-theme="dark"] {
+.settings-theme-swatch[data-theme="dark"],
+[data-ds-theme="dark"] {   /* style-free scoping hook: render a subtree in dark
+                              regardless of the page theme (design-system previews) */
 
     color-scheme: dark;
 
@@ -26,21 +28,27 @@ html[data-theme="dark"],
 
     /* Background + surfaces.
        background  — the deepest layer (body / page bg).
-       surface1-4  — opaque layers stacked from subtle to prominent.
-                     1 is a card on bg; 4 is the highlight tier. */
+       surface1-4  — opaque layers stacked from subtle to prominent, one
+                     palette stop apart so each rung is a visible step lighter
+                     than the one below (raised = lighter in dark).
+                     1 = card on bg, 2 = control fill, 3 = hover/prominent,
+                     4 = top elevation (scrollbar thumbs). */
     --background: var(--base-950);
     --surface1:   var(--base-900);
     --surface2:   var(--base-800);
     --surface3:   var(--base-800);
-    --surface4:   var(--base-950);
+    --surface4:   var(--base-600);
 
     /* Borders / dividers — one neutral grey used across cards, inputs, menus. */
     --border: var(--base-800);
 
     /* Accents — primary brand colour in three lightnesses. */
     --accent-primary: #8b9751;   /* base — primary actions, links, positive deltas */
-    --accent400: var(--color-400);   /* hover / focus */
-    --accent300: var(--color-300);   /* disabled / faint emphasis */
+    /* Brighter olive for hover/focus, positive deltas, active/selected states and
+       save-action fills. Was var(--color-400) — an undefined palette that silently
+       dropped all 10 consumers app-wide; derived from the primary so it stays on-brand.
+       Lighter here because it sits on dark surfaces. */
+    --accent400: color-mix(in srgb, var(--accent-primary) 70%, #fff);
 
     --accent-secondary: #c5ac63;
     --accent-tertiary:  #e2585b;
@@ -49,6 +57,11 @@ html[data-theme="dark"],
     
     /* Status colours — system meaning, not brand. */
     --warning: #f5a524;
+    /* Vivid primary blue — attention/notification accent (Uncategorized pill,
+       nav uncategorized-count badge). Lightened on dark surfaces (mirrors the
+       --accent400 treatment) so it stays legible against the deep background. */
+    
+    --accent-info: var(--accent-info-light);
 
     /* ── Frost layer tokens ──────────────────────────────────────────────
      * Translucent overlays that tint surfaces in the current theme's

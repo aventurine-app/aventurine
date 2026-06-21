@@ -56,52 +56,11 @@
     justify-content: space-between;
 }
 
-/* == Primary / secondary action buttons (shared app-wide) ==
-   The two canonical button treatments. Every action button is one or the
-   other — only the fill differs, the geometry/typography is shared:
-     • .button-primary   — solid accent fill, dark text. The default call to
-                           action (Add Year, Add Account, Add, Export, Import…).
-     • .button-secondary — surface fill + outline, lower emphasis. The
-                           companion (Manage Columns, add/remove asset…).
-   Uses --accent-primary, --accent400, --surface1/2, --border. */
+/* .button-primary / .button-secondary (the eyebrow action buttons) now live in
+   buttons.css — they were duplicated across several page stylesheets. */
 .db-actions {
     display: flex;
     gap: 8px;
-}
-
-.button-primary,
-.button-secondary {
-    background: var(--accent-primary);
-    border: 1px solid transparent;
-    border-radius: 5px;
-    color: var(--color-color-950);
-    font-family: var(--font-menu);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-widest);
-    text-transform: uppercase;
-    padding: 10px 16px;
-    cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.button-secondary {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--surface1);
-    border: 1px solid var(--border);
-    color: var(--text-secondary);
-}
-
-.button-primary:hover {
-    background: var(--accent400);
-}
-
-.button-secondary:hover {
-    background: var(--surface2);
-    color: var(--text-primary);
-    border-color: var(--text-tertiary);
 }
 
 /* == Outer layout & side buttons == */
@@ -390,19 +349,16 @@
 
 /* ── Synced cell ───────────────────────────────────────────────────────────
    A (year, category) cell computed from transactions (set per table via
-   ⋮ → Sync Settings) renders as a read-only value with a translucent
-   --accent400 wash so synced cells read as a distinct, non-editable range.
-   Sync is per-table now, so headers carry no sync affordance. */
-.db-table td.db-col-synced {
-    background: color-mix(in srgb, var(--accent400) 5%, transparent);
-}
-
+   ⋮ → Sync Settings) renders as a read-only value. The synced state is signalled
+   by the value's --accent-info text colour (no cell-background wash), so synced
+   cells read as a distinct, non-editable range. Sync is per-table now, so
+   headers carry no sync affordance. */
 .db-synced-value {
     display: block;
     box-sizing: border-box;
     width: 100%;
     text-align: right;
-    color: var(--text-secondary);
+    color: var(--accent-info);
     font-family: var(--font-numeric);
     font-size: var(--size-body);
     font-style: italic;       /* "computed" affordance — sets it apart from input cells */
@@ -574,6 +530,7 @@
 .year-prompt-input {
     width: 100%;
     box-sizing: border-box;
+    height: var(--control-height);
     background: var(--frost-2);
     border: 1px solid var(--frost-dim);
     border-radius: 4px;
@@ -581,7 +538,7 @@
     color: var(--text-primary);
     font-family: var(--font-numeric);
     font-size: var(--size-body);
-    padding: 8px 10px;
+    padding: 4px 10px;
     margin-bottom: 16px;
     caret-color: var(--frost-caret);
     transition: border-color 0.15s ease;
@@ -731,25 +688,7 @@
     flex-shrink: 0;
 }
 
-.sync-bulk-btn {
-    font-family: var(--font-menu);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wider);
-    text-transform: uppercase;
-    padding: 6px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--text-secondary);
-    transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
-}
-
-.sync-bulk-btn:hover {
-    background: var(--surface3);
-    color: var(--text-primary);
-}
+/* .sync-bulk-btn (neutral eyebrow action button) now lives in buttons.css. */
 
 .sync-list {
     display: flex;
@@ -802,23 +741,23 @@
 
 .sync-switch-knob {
     position: absolute;
-    top: 1px;
+    top: 50%;
     left: 1px;
+    transform: translateY(-50%);
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background: var(--text-tertiary);
-    transition: left 0.15s ease, background 0.15s ease;
+    background: #fff;
+    transition: left 0.15s ease;
 }
 
 .sync-switch input:checked + .sync-switch-track {
-    background: var(--accent-primary);
-    border-color: var(--accent-primary);
+    background: var(--accent-info);
+    border-color: var(--accent-info);
 }
 
 .sync-switch input:checked + .sync-switch-track .sync-switch-knob {
-    left: 16px;
-    background: var(--text-primary);
+    left: 15px;
 }
 
 .col-row {
@@ -894,10 +833,12 @@
     opacity: 0.4;
 }
 
+/* Delete × wears the shared destructive treatment — dark-red glyph on a
+   light-red expense-pill tint (matches .cat-delete), deepening on hover. */
 .col-row-delete {
-    background: none;
+    background: color-mix(in srgb, var(--accent-tertiary) 15%, transparent);
     border: none;
-    color: var(--text-tertiary);
+    color: var(--accent-tertiary);
     font-size: var(--size-h3);
     cursor: pointer;
     padding: 2px 5px;
@@ -908,8 +849,8 @@
 }
 
 .col-row-delete:hover {
-    color: rgba(255, 100, 100, 0.9);
-    background: var(--surface3);
+    color: var(--accent-tertiary);
+    background: color-mix(in srgb, var(--accent-tertiary) 25%, transparent);
 }
 
 .col-manager-add {
@@ -970,13 +911,15 @@
 .col-name-input {
     flex: 1;
     min-width: 0;
+    box-sizing: border-box;
+    height: var(--control-height);
     background: var(--surface2);
     border: 1px solid var(--border);
     border-radius: 6px;
     outline: none;
     color: var(--text-primary);
     font-size: var(--size-small);
-    padding: 8px 10px;
+    padding: 4px 10px;
     transition: border-color 120ms ease;
 }
 
@@ -988,19 +931,6 @@
     border-color: rgba(200, 60, 60, 0.7);
 }
 
-.col-add-btn {
-    background: var(--accent-primary);
-    border: 1px solid var(--accent-primary);
-    border-radius: 6px;
-    padding: 7px 14px;
-    color: var(--accent-contrast, #fff);
-    font-size: var(--size-small);
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: filter 120ms ease;
-    white-space: nowrap;
-}
-
-.col-add-btn:hover {
-    filter: brightness(1.1);
-}
+/* .col-add-btn (accent eyebrow action button) now lives in buttons.css.
+   Only its flex layout in the column-manager is page-specific. */
+.col-add-btn { flex-shrink: 0; }

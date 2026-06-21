@@ -70,7 +70,7 @@
   border-color: var(--text-tertiary);
 }
 .budget-nav-btn:active { transform: translateY(1px); }
-.budget-nav-btn:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+/* :focus-visible centralized in buttons.css */
 
 .budget-month-label {
   color: var(--text-primary);
@@ -82,27 +82,9 @@
   text-align: center;
 }
 
-.budget-copy-btn {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-secondary);
-  font-family: var(--font-menu);
-  font-size: var(--size-micro);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--track-wider);
-  text-transform: uppercase;
-  padding: 8px 14px;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
-}
-.budget-copy-btn:hover {
-  background: var(--surface3);
-  color: var(--text-primary);
-  border-color: var(--text-tertiary);
-}
+/* .budget-copy-btn (neutral eyebrow action button) now lives in buttons.css. */
 .budget-copy-btn:active { transform: translateY(1px); }
-.budget-copy-btn:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+/* :focus-visible centralized in buttons.css */
 
 /* ─── Info tooltip ("i" badge + CSS hover/focus card) ─────────────────────── */
 .fc-info {
@@ -238,6 +220,8 @@
 /* Expected income is editable — styled to read like a stat value but typeable. */
 .budget-income-input {
   width: 140px;
+  box-sizing: border-box;
+  height: var(--control-height);
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -434,6 +418,8 @@
 .budget-target-input {
   margin-left: auto;
   width: 96px;
+  box-sizing: border-box;
+  height: var(--control-height);
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: 6px;

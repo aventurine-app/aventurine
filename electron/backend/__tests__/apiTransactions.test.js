@@ -72,6 +72,21 @@ test('uncategorized tx keeps explicit type', (t) => {
   assert.equal(tx.tx_type, 'income');
 });
 
+test('uncategorized-count reflects NULL-category rows', (t) => {
+  const c = makeClient(t);
+  const expense = firstCat(c, 'expense');
+  assert.equal(c.get('/api/transactions/uncategorized-count').body.count, 0);
+
+  createTx(c, 'gift', { txType: 'income', amount: 50 });
+  const coffee = createTx(c, 'coffee', { amount: 4 });
+  createTx(c, 'rent', { catId: expense.id, amount: 1500 }); // already categorized
+  assert.equal(c.get('/api/transactions/uncategorized-count').body.count, 2);
+
+  // Categorizing an uncategorized row drops the count by one.
+  c.put(`/api/transactions/${coffee.id}`, { category_id: expense.id });
+  assert.equal(c.get('/api/transactions/uncategorized-count').body.count, 1);
+});
+
 test('category retype updates transactions', (t) => {
   const c = makeClient(t);
   const cat = firstCat(c, 'expense');

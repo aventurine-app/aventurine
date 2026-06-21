@@ -339,4 +339,42 @@
 
     wireSettingRadios('tx_auto_match', 'on');
     wireFuzzyThreshold();
+
+
+    // ── Section tabs (Preferences modal) ───────────────────────────────────────
+    // The Preferences sections are split across horizontal tabs. Each tab reveals
+    // one .settings-tabpanel; inactive panels carry the [hidden] attribute. Roving
+    // tabindex + arrow-key navigation follow the WAI-ARIA tabs pattern. Controls in
+    // hidden panels stay in the DOM, so the class-based wiring above is unaffected.
+
+    function wireSettingsTabs(tabBar) {
+        const tabs = Array.from(tabBar.querySelectorAll('.settings-tab'));
+        const modal = tabBar.closest('.settings-modal');
+        const panels = modal ? Array.from(modal.querySelectorAll('.settings-tabpanel')) : [];
+
+        function activate(tab, focus) {
+            tabs.forEach(t => {
+                const on = t === tab;
+                t.classList.toggle('active', on);
+                t.setAttribute('aria-selected', on ? 'true' : 'false');
+                t.tabIndex = on ? 0 : -1;
+            });
+            panels.forEach(p => { p.hidden = p.dataset.tabpanel !== tab.dataset.tab; });
+            if (focus) tab.focus();
+        }
+
+        tabs.forEach((tab, i) => {
+            tab.addEventListener('click', () => activate(tab));
+            tab.addEventListener('keydown', e => {
+                let next = null;
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = tabs[(i + 1) % tabs.length];
+                else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = tabs[(i - 1 + tabs.length) % tabs.length];
+                else if (e.key === 'Home') next = tabs[0];
+                else if (e.key === 'End') next = tabs[tabs.length - 1];
+                if (next) { e.preventDefault(); activate(next, true); }
+            });
+        });
+    }
+
+    document.querySelectorAll('.settings-tabs').forEach(wireSettingsTabs);
 }());

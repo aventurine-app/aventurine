@@ -1,0 +1,85 @@
+<!-- @dsCard group="Patterns" name="Modal Dialog" subtitle="Shared frame, header, footer" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Modal Dialog — Oliv Design System</title>
+    <link rel="stylesheet" href="../../static/css/style.css">
+    <link rel="stylesheet" href="../../static/css/themes.css">
+    <link rel="stylesheet" href="../../static/css/dbmodal.css">
+    <link rel="stylesheet" href="../_canvas.css">
+</head>
+<body>
+    <div class="ds-card">
+        <div class="ds-card-head">
+            <h1 class="ds-card-title">Modal Dialog</h1>
+            <p class="ds-card-note">The shared modal primitives in <code>style.css</code> (frame / header / close / body)
+                power the DB, Preferences, and column-manager dialogs. Shown here as the New Database modal; the overlay
+                scrim is neutralised so the frame sits inline.</p>
+        </div>
+        <div class="ds-themes">
+
+            <div class="ds-panel" data-ds-theme="light">
+                <div class="ds-panel-label">Light</div>
+                <div class="db-modal-overlay" style="position:static;display:block;">
+                    <div class="db-modal" style="width:100%;">
+                        <div class="db-modal-header">
+                            <span class="db-modal-title">New Database</span>
+                            <button class="db-modal-close" aria-label="Close">&times;</button>
+                        </div>
+                        <div class="db-modal-body">
+                            <label class="db-field">
+                                <span>File location</span>
+                                <span class="db-path-inputs">
+                                    <input type="text" value="~/Documents/finance.db" spellcheck="false">
+                                    <button type="button" class="db-btn">Browse…</button>
+                                </span>
+                            </label>
+                            <label class="db-check">
+                                <input type="checkbox" checked>
+                                <span>Encrypt this database with a password</span>
+                            </label>
+                        </div>
+                        <div class="db-modal-actions">
+                            <span class="db-modal-actions-spacer"></span>
+                            <button type="button" class="db-btn">Cancel</button>
+                            <button type="button" class="db-btn db-btn-primary">Create</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ds-panel" data-ds-theme="dark">
+                <div class="ds-panel-label">Dark (default)</div>
+                <div class="db-modal-overlay" style="position:static;display:block;">
+                    <div class="db-modal" style="width:100%;">
+                        <div class="db-modal-header">
+                            <span class="db-modal-title">New Database</span>
+                            <button class="db-modal-close" aria-label="Close">&times;</button>
+                        </div>
+                        <div class="db-modal-body">
+                            <label class="db-field">
+                                <span>File location</span>
+                                <span class="db-path-inputs">
+                                    <input type="text" value="~/Documents/finance.db" spellcheck="false">
+                                    <button type="button" class="db-btn">Browse…</button>
+                                </span>
+                            </label>
+                            <label class="db-check">
+                                <input type="checkbox" checked>
+                                <span>Encrypt this database with a password</span>
+                            </label>
+                        </div>
+                        <div class="db-modal-actions">
+                            <span class="db-modal-actions-spacer"></span>
+                            <button type="button" class="db-btn">Cancel</button>
+                            <button type="button" class="db-btn db-btn-primary">Create</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</body>
+</html>

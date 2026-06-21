@@ -1008,7 +1008,7 @@ async function renderUpcomingExpenses() {
             icon: 'calendar', compact: true,
             title: 'No upcoming expenses yet',
             desc: 'Oliv flags recurring charges automatically once it sees a few months of transactions.',
-            action: { label: 'Add transactions', href: '/transactions', icon: 'plus' },
+            action: { label: 'Add transactions', href: '/transactions', icon: 'plus', primary: true },
         });
         return;
     }
