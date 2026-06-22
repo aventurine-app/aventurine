@@ -768,6 +768,34 @@
     overflow: hidden;
 }
 
+/* Each category the detector matched is its own labelled section, stacked in
+   the dialog body. The header doubles as a per-category select-all. */
+.tx-similar-group + .tx-similar-group { margin-top: 16px; }
+
+.tx-similar-group-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    color: var(--text-primary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+}
+
+.tx-similar-group-count {
+    margin-left: auto;
+    padding: 1px 8px;
+    border-radius: 20px;
+    background: var(--frost-2);
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    font-variant-numeric: tabular-nums;
+}
+
 /* Base shell + header cells + row dividers come from the grouped preview-table
    rules in section 7; this modal's cells use slightly roomier padding. */
 .tx-similar-table th,

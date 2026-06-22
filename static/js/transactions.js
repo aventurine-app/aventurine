@@ -823,6 +823,10 @@ function txOpenBulkEditModal() {
     overlay.querySelector('#tx-edit-cancel').addEventListener('click', close);
     overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
 
+    // Categories before this edit, so we can tell which rows were actually
+    // (re)categorized and only run the detector for those.
+    const prevCat = new Map(txs.map(t => [t.id, t.category_id]));
+
     saveBtn.addEventListener('click', async () => {
         // Validate every row up front so a bad field doesn't leave a half-saved batch.
         const edits = [];
@@ -836,9 +840,11 @@ function txOpenBulkEditModal() {
         saveBtn.disabled = true;
         saveBtn.textContent = 'Saving…';
         const failed = [];
+        const savedRows = [];
         for (const { id, payload } of edits) {
             try {
                 const saved = await txApiUpdate(id, payload);
+                savedRows.push(saved);
                 const idx = txState.rows.findIndex(r => r.id === saved.id);
                 if (idx !== -1) txState.rows[idx] = saved;
             } catch (_) {
@@ -850,6 +856,10 @@ function txOpenBulkEditModal() {
         txSortRows();
         txRender();
         if (failed.length) alert(`${failed.length} transaction${failed.length === 1 ? '' : 's'} could not be saved.`);
+
+        // Same as the inline add row: once rows are categorized, offer to apply
+        // each new category to other uncategorized transactions that match.
+        await txRunSimilarDetector(savedRows, prevCat);
     });
 }
 
@@ -959,38 +969,96 @@ window.addEventListener('transactions:reload', async () => {
 });
 
 // ─── Categorize-similar feature ──────────────────────────────────────────────
-// After saving a categorized transaction, silently check whether any other
-// uncategorized rows share the same description. If so, show a modal letting
-// the user apply the same category to all (or a subset) of them.
+// After categorizing transactions (the inline add row or a bulk edit), find
+// other uncategorized rows whose description matches and offer, in one combined
+// dialog grouped by category, to apply the same categories to them.
 
-async function txCheckSimilar(saved) {
-    try {
-        const params = new URLSearchParams({
-            description: saved.description,
-            exclude_id:  saved.id,
-        });
-        const r = await apiFetch(`/api/transactions/similar?${params}`);
-        if (!r.ok) return;
-        const data = await r.json();
-        if (data.transactions && data.transactions.length > 0) {
-            txShowSimilarModal(saved, data.transactions);
+// Gather, for each category the user just applied, the still-uncategorized rows
+// that match its description. Returns groups keyed by category; each matching
+// row is claimed by the first category that hits it, so no row is ever offered
+// for two categories at once. `queries` is a list of
+// {description, category_id, exclude_id}.
+async function txGatherSimilarGroups(queries) {
+    const claimed = new Set();   // row ids already placed in a group
+    const byCat   = new Map();   // category_id -> group
+    const groups  = [];
+    for (const q of queries) {
+        let matches;
+        try {
+            const params = new URLSearchParams({
+                description: q.description,
+                exclude_id:  q.exclude_id,
+            });
+            const r = await apiFetch(`/api/transactions/similar?${params}`);
+            if (!r.ok) continue;
+            const data = await r.json();
+            matches = data.transactions || [];
+        } catch (_) {
+            continue;   // non-critical path, skip this query
         }
-    } catch (_) {
-        // Non-critical path — swallow silently.
+        for (const m of matches) {
+            if (claimed.has(m.id)) continue;
+            claimed.add(m.id);
+            let g = byCat.get(q.category_id);
+            if (!g) {
+                g = {
+                    categoryId: q.category_id,
+                    catName:    txCategoryName(q.category_id) ?? 'the selected category',
+                    matches:    [],
+                };
+                byCat.set(q.category_id, g);
+                groups.push(g);
+            }
+            g.matches.push(m);
+        }
     }
+    return groups;
 }
 
-function txShowSimilarModal(saved, matches) {
-    const catName = txCategoryName(saved.category_id) ?? 'the selected category';
+// Inline add row: one saved row -> one category group.
+async function txCheckSimilar(saved) {
+    if (saved.category_id == null || !saved.description) return;
+    const groups = await txGatherSimilarGroups([
+        { description: saved.description, category_id: saved.category_id, exclude_id: saved.id },
+    ]);
+    if (groups.length) await txShowSimilarModal(groups);
+}
 
-    const rows = matches.map(t => {
+// After a bulk edit, offer a single combined dialog: every row whose category
+// actually changed contributes a query (deduped by description+category), and
+// the matches are grouped by category in one prompt rather than a chain.
+async function txRunSimilarDetector(savedRows, prevCat) {
+    const seen = new Set();
+    const queries = [];
+    for (const t of savedRows) {
+        if (t.category_id == null || !t.description) continue;
+        if (prevCat.get(t.id) === t.category_id) continue;   // category unchanged
+        const key = `${t.description.toLowerCase()} ${t.category_id}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        queries.push({ description: t.description, category_id: t.category_id, exclude_id: t.id });
+    }
+    if (!queries.length) return;
+    const groups = await txGatherSimilarGroups(queries);
+    if (groups.length) await txShowSimilarModal(groups);
+}
+
+// One combined dialog listing the uncategorized matches grouped by the category
+// that would be applied. Each group and the whole dialog have select-all
+// affordances; Apply runs one categorize-similar call per category, then
+// reloads. Returns a Promise that resolves when the dialog is dismissed.
+function txShowSimilarModal(groups) {
+  return new Promise(resolve => {
+    const totalMatches = groups.reduce((n, g) => n + g.matches.length, 0);
+
+    const rowHtml = (g) => g.matches.map(t => {
         const isIncome = t.tx_type === 'income';
         const amtClass = isIncome ? 'tx-amount-income' : 'tx-amount-expense';
         const sign     = isIncome ? '+ ' : '− ';
         return `
             <tr>
                 <td class="tx-similar-col-check">
-                    <input type="checkbox" class="tx-similar-cb" data-id="${t.id}" checked>
+                    <input type="checkbox" class="tx-similar-cb" data-id="${t.id}" data-cat="${g.categoryId}" checked>
                 </td>
                 <td class="tx-similar-col-date">${txEsc(txFmtDate(t.date))}</td>
                 <td>${txEsc(t.description)}</td>
@@ -998,6 +1066,19 @@ function txShowSimilarModal(saved, matches) {
             </tr>
         `;
     }).join('');
+
+    const groupsHtml = groups.map(g => `
+        <div class="tx-similar-group" data-cat="${g.categoryId}">
+            <label class="tx-similar-group-head">
+                <input type="checkbox" class="tx-similar-group-all" data-cat="${g.categoryId}" checked>
+                <span class="tx-similar-group-name">${txEsc(g.catName)}</span>
+                <span class="tx-similar-group-count">${g.matches.length}</span>
+            </label>
+            <div class="tx-similar-table-wrap">
+                <table class="tx-similar-table"><tbody>${rowHtml(g)}</tbody></table>
+            </div>
+        </div>
+    `).join('');
 
     const html = `
         <div class="tx-similar-overlay" id="tx-similar-overlay">
@@ -1007,30 +1088,14 @@ function txShowSimilarModal(saved, matches) {
                     <button class="tx-import-close" id="tx-similar-close" aria-label="Close">&times;</button>
                 </div>
                 <div class="tx-similar-hint">
-                    Applying <strong>${txEsc(catName)}</strong> to uncategorized transactions
-                    matching <em>&ldquo;${txEsc(saved.description)}&rdquo;</em>
+                    Found <strong>${totalMatches}</strong> uncategorized transaction${totalMatches === 1 ? '' : 's'}
+                    matching what you just categorized. Apply the categories below?
                 </div>
-                <div class="tx-similar-body">
-                    <div class="tx-similar-table-wrap">
-                        <table class="tx-similar-table">
-                            <thead>
-                                <tr>
-                                    <th class="tx-similar-col-check">
-                                        <input type="checkbox" id="tx-similar-check-all" checked title="Select all">
-                                    </th>
-                                    <th>Date</th>
-                                    <th>Description</th>
-                                    <th class="tx-similar-col-amount">Amount</th>
-                                </tr>
-                            </thead>
-                            <tbody>${rows}</tbody>
-                        </table>
-                    </div>
-                </div>
+                <div class="tx-similar-body">${groupsHtml}</div>
                 <div class="tx-similar-footer">
                     <button class="tx-similar-skip" id="tx-similar-skip">Skip</button>
                     <button class="button-primary tx-similar-apply" id="tx-similar-apply">
-                        Apply to ${matches.length} selected
+                        Apply to ${totalMatches} selected
                     </button>
                 </div>
             </div>
@@ -1041,59 +1106,68 @@ function txShowSimilarModal(saved, matches) {
 
     const overlay  = document.getElementById('tx-similar-overlay');
     const applyBtn = document.getElementById('tx-similar-apply');
-    const allCb    = document.getElementById('tx-similar-check-all');
 
-    function getCheckedIds() {
-        return [...overlay.querySelectorAll('.tx-similar-cb:checked')]
-            .map(cb => parseInt(cb.dataset.id, 10));
-    }
+    const checkedCount = () => overlay.querySelectorAll('.tx-similar-cb:checked').length;
 
     function updateApplyBtn() {
-        const n = getCheckedIds().length;
+        const n = checkedCount();
         applyBtn.textContent = `Apply to ${n} selected`;
         applyBtn.disabled    = n === 0;
     }
 
-    function close() { overlay.remove(); }
+    // A group's header checkbox mirrors its rows: toggling it sets them all,
+    // toggling a row leaves the header checked while any of its rows are.
+    function syncGroupAll(cat) {
+        const all = overlay.querySelector(`.tx-similar-group-all[data-cat="${cat}"]`);
+        const cbs = overlay.querySelectorAll(`.tx-similar-cb[data-cat="${cat}"]`);
+        if (all) all.checked = [...cbs].some(cb => cb.checked);
+    }
 
     overlay.querySelectorAll('.tx-similar-cb').forEach(cb =>
-        cb.addEventListener('change', updateApplyBtn)
+        cb.addEventListener('change', () => { syncGroupAll(cb.dataset.cat); updateApplyBtn(); })
+    );
+    overlay.querySelectorAll('.tx-similar-group-all').forEach(all =>
+        all.addEventListener('change', () => {
+            overlay.querySelectorAll(`.tx-similar-cb[data-cat="${all.dataset.cat}"]`)
+                .forEach(cb => { cb.checked = all.checked; });
+            updateApplyBtn();
+        })
     );
 
-    allCb.addEventListener('change', () => {
-        overlay.querySelectorAll('.tx-similar-cb').forEach(cb => {
-            cb.checked = allCb.checked;
-        });
-        updateApplyBtn();
-    });
-
+    function close() { overlay.remove(); resolve(); }
     document.getElementById('tx-similar-close').addEventListener('click', close);
     document.getElementById('tx-similar-skip').addEventListener('click', close);
     overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
 
     applyBtn.addEventListener('click', async () => {
-        const ids = getCheckedIds();
-        if (!ids.length) return;
+        // Collect checked ids per category, one categorize-similar call each.
+        const byCat = new Map();
+        for (const cb of overlay.querySelectorAll('.tx-similar-cb:checked')) {
+            const cat = parseInt(cb.dataset.cat, 10);
+            if (!byCat.has(cat)) byCat.set(cat, []);
+            byCat.get(cat).push(parseInt(cb.dataset.id, 10));
+        }
+        if (!byCat.size) return;
         applyBtn.disabled    = true;
         applyBtn.textContent = 'Applying…';
         try {
-            const r = await apiFetch('/api/transactions/categorize-similar', {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                // No tx_type — the backend derives it from the category.
-                body:    JSON.stringify({
-                    ids,
-                    category_id: saved.category_id,
-                }),
-            });
-            const data = await r.json().catch(() => ({}));
-            if (!r.ok) throw new Error(data.error || 'failed');
+            for (const [categoryId, ids] of byCat) {
+                const r = await apiFetch('/api/transactions/categorize-similar', {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    // No tx_type, the backend derives it from the category.
+                    body:    JSON.stringify({ ids, category_id: categoryId }),
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok) throw new Error(data.error || 'failed');
+            }
             close();
             window.dispatchEvent(new Event('transactions:reload'));
         } catch (err) {
-            applyBtn.disabled    = false;
+            applyBtn.disabled = false;
             updateApplyBtn();
             alert('Failed to apply: ' + err.message);
         }
     });
+  });
 }
