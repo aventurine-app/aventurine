@@ -122,7 +122,7 @@
    /* Deeper blue in the light theme so it clears AA as text on light surfaces
       (mirrors the --accent-secondary light-theme adjustment). See themes.css. */
    --accent-info:      #1d4ed8;
-   --accent-info-light: #2b60eb;
+   --accent-info-light: #4177ff;
 
    /* Neutral charcoal — secondary (outlined) buttons read as a quiet neutral
       sibling of the accent-filled primary instead of carrying the olive accent.

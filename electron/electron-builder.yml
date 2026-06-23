@@ -68,6 +68,7 @@ publish:
 
 linux:
   target:
+    - AppImage
     - rpm
     - deb
   icon: build/icon.png
@@ -83,6 +84,12 @@ linux:
       # "name") so the desktop environment links the running window to this
       # launcher / taskbar icon.
       StartupWMClass: oliv
+
+appImage:
+  # Self-contained, distro-agnostic single file. Unlike rpm/deb (owned by the
+  # system package manager), AppImage CAN auto-update via electron-updater off
+  # the same GitHub publish feed / latest-linux.yml.
+  artifactName: ${name}-${version}.${arch}.${ext}
 
 rpm:
   # fpm/rpmbuild fills these out; depends are the shared libs Electron needs.

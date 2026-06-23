@@ -1,0 +1,39 @@
+name: release
+
+# Cut a release by pushing a version tag, e.g.:
+#   git tag v0.2.1 && git push origin v0.2.1
+# electron-builder builds the Linux targets and uploads them (plus the
+# auto-update metadata) to the GitHub Release for that tag as a DRAFT.
+# Review the draft on the Releases page, add notes, then Publish.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write   # required for electron-builder to create/upload the release
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # postinstall (scripts/setup-native-abis.js) fetches the prebuilt
+      # better-sqlite3-multiple-ciphers binaries; no C toolchain / rebuild.
+      - name: Install dependencies
+        working-directory: electron
+        run: npm install
+
+      # Builds AppImage + rpm + deb (electron-builder.yml `linux.target`) and
+      # publishes them to the release for the pushed tag. GITHUB_TOKEN is the
+      # repo-scoped token Actions provides automatically.
+      - name: Build and publish
+        working-directory: electron
+        run: npx electron-builder --linux --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
