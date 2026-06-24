@@ -19,6 +19,12 @@ CLAUDE.md
 .env
 MIGRATION.md
 
+# Internal security docs — keep private.
+THREAT-MODEL.md
+
+# Design-system component library — kept out of the app repo.
+design-system/
+
 # Editor / OS scratch
 .DS_Store
 .vscode/
