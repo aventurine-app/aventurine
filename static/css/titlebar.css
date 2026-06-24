@@ -32,6 +32,31 @@
     /* The drag region is invisible — purely a hit area for window moves. */
 }
 
+/* ── Active database name (center) ────────────────────────────────────────
+   Absolutely centered on the bar — not flowed between the menu and control
+   clusters — so it reads as the window's title regardless of those clusters'
+   (asymmetric) widths. It overlaps the drag region and is itself a drag
+   handle, so the whole center still moves the window. A max-width plus
+   ellipsis keeps a long file name from running into either cluster. */
+.titlebar-title {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 46%;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    letter-spacing: var(--track-wide);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-app-region: drag;
+}
+
+/* Nothing open yet (or chrome served without a backend) — take no space. */
+.titlebar-title:empty { display: none; }
+
 /* ── App icon (far left) ─────────────────────────────────────────────── */
 .titlebar-icon {
     height: 25px;

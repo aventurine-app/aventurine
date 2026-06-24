@@ -112,4 +112,29 @@
         document.querySelectorAll('.settings-modal-overlay:not([hidden])')
             .forEach(m => { m.hidden = true; });
     });
+
+    // ── Active database name (center of the bar) ──────────────────────
+    // Show the file name of the open database. Every DB switch (New / Open /
+    // Save As / Unlock) reloads the page, so reading status once on load is
+    // enough — no live updates to maintain. A locked DB still reports its
+    // path, so the name shows behind the unlock prompt too.
+    const titleEl = bar.querySelector('.titlebar-title');
+    if (titleEl) {
+        apiFetch('/api/db/status')
+            .then(r => r.json())
+            .then(s => {
+                const p = s && typeof s.path === 'string' ? s.path : '';
+                titleEl.textContent = dbDisplayName(p);
+                if (p) titleEl.title = p; // full path on hover
+            })
+            .catch(() => { /* status unreachable — leave the title blank */ });
+    }
+
+    // Basename of a DB path, minus a trailing SQLite extension — a clean
+    // "name" to display, not the full filesystem path.
+    function dbDisplayName(p) {
+        if (!p) return '';
+        const base = p.split(/[\\/]/).pop() || p;
+        return base.replace(/\.(db|sqlite|sqlite3)$/i, '');
+    }
 }());
