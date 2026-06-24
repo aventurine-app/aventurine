@@ -78,6 +78,8 @@ li {
     text-decoration: none;
     color: var(--nav-text);
     padding: var(--space-8) var(--space-12);
+    /* 8px — shared with the action buttons (buttons.css) and the table wrappers
+       (.tx-wrapper / .db-wrapper) so those three surfaces read the same. */
     border-radius: 8px;
     transition: background 0.15s ease, color 0.15s ease;
     width: 100%;

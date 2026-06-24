@@ -97,7 +97,9 @@
     box-sizing: border-box;
     height: var(--control-height);
     border: 1px solid var(--border);
-    border-radius: 6px;
+    /* 8px — shared with the table wrappers (.tx-wrapper / .db-wrapper) and the
+       sidebar nav items (.nav li a) so those three surfaces read the same. */
+    border-radius: 8px;
     font-family: var(--font-menu);
     font-size: var(--size-micro);
     font-weight: var(--weight-superbold);

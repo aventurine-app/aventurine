@@ -40,7 +40,9 @@
 
 .tx-wrapper {
     border: 1px solid var(--border);
-    border-radius: 5px;
+    /* 8px — shared with the action buttons (buttons.css) and the sidebar nav
+       items (.nav li a) so those three surfaces read the same. */
+    border-radius: 8px;
     background: var(--surface1);
     /* Claims the height left under the header + chips. It scrolls the table
        HORIZONTALLY only (the table keeps its 1100px min-width); the VERTICAL
