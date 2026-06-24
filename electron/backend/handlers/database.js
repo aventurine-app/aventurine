@@ -136,6 +136,9 @@ function create(ctx, { body }) {
   }
 
   if (fs.existsSync(p)) bad('A file already exists at that location', 409);
+  // Containment: a path the renderer relayed but didn't get from a native
+  // dialog needs the user's out-of-renderer confirmation before we write.
+  ctx.authorizeWrite(p);
   try {
     const parent = path.dirname(p);
     if (parent) fs.mkdirSync(parent, { recursive: true });
@@ -165,6 +168,7 @@ function saveAs(ctx, { body }) {
     bad('Choose a location other than the current database file', 409);
   }
   if (fs.existsSync(dest)) bad('A file already exists at that location', 409);
+  ctx.authorizeWrite(dest); // confirm non-dialog destinations (see create)
 
   // Flush pending writes so the on-disk bytes are current before we copy them.
   // (Default rollback-journal mode already commits to the main file; the

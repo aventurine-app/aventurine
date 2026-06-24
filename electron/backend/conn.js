@@ -10,6 +10,7 @@
 // Python test built a fresh app via create_app()).
 
 const fs = require('fs');
+const path = require('path');
 
 const { connect, sqlQuote } = require('./db');
 const { createDbState } = require('./dbstate');
@@ -29,6 +30,46 @@ function createConn() {
   const dbstate = createDbState();
   const { state } = dbstate;
   let handle = null;
+
+  // ─── File-write authorization (renderer-trust-boundary containment) ────────
+  // The renderer is sandboxed: these backend file endpoints (db create /
+  // save-as, transactions export) are its ONLY way to write to disk. A path
+  // can reach them from three places — a native OS dialog, the in-modal file
+  // browser, or free typing — and the renderer is the one relaying it, so a
+  // compromised renderer could ask to write anywhere the user can.
+  //
+  // The Electron shell injects a guard (setWriteGuard) and pre-approves every
+  // path it hands out through a native save/open dialog (approveWrite) — those
+  // the renderer cannot drive. authorizeWrite() then lets dialog-issued paths
+  // through untouched but routes any other path through a native confirmation
+  // the renderer can't auto-dismiss. With no guard injected (host-Node tests,
+  // smoke, plain-browser dev — no untrusted renderer) writes are unrestricted,
+  // so behavior off the Electron boundary is unchanged.
+  let writeGuard = null;
+  const approvedWrites = new Set();
+  const normWrite = (p) => path.resolve(p);
+
+  function setWriteGuard(guard) {
+    writeGuard = guard;
+  }
+
+  /** Mark a path the shell issued via a native dialog as user-authorized. */
+  function approveWrite(p) {
+    if (typeof p === 'string' && p) approvedWrites.add(normWrite(p));
+  }
+
+  /** Gate a pending file write. Throws ApiError(403) if the user declines a
+   *  path that wasn't dialog-issued. No-op when no guard is wired. */
+  function authorizeWrite(p) {
+    if (!writeGuard) return;
+    const key = normWrite(p);
+    if (approvedWrites.has(key)) return;
+    if (writeGuard.confirm(key)) {
+      approvedWrites.add(key); // remember so chunked writes don't re-prompt
+      return;
+    }
+    throw new ApiError('write_not_authorized', 403);
+  }
 
   /** Open + migrate + seed the DB named by current state (startup path).
    *  A locked (encrypted, no key yet) DB stays unopened until unlock. */
@@ -202,7 +243,10 @@ function createConn() {
     }
   }
 
-  return { state, init, db, statusPayload, switchTo, lock, rekey, closeAll };
+  return {
+    state, init, db, statusPayload, switchTo, lock, rekey, closeAll,
+    setWriteGuard, approveWrite, authorizeWrite,
+  };
 }
 
 module.exports = { createConn };

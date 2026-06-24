@@ -321,6 +321,10 @@ function exportTx(ctx, { body }) {
   const { where, args } = exportFilterSql(data.filters);
   const dest = normalisePath(data.path);
   const part = dest + '.part';
+  // Containment: confirm any export destination the renderer relayed without a
+  // native dialog. Idempotent across the chunk loop — approved once, the
+  // offset>0 appends pass straight through (see conn.authorizeWrite).
+  ctx.authorizeWrite(dest);
 
   if (offset === 0) {
     // Same guard + error string as /api/db/create; the renderer retries

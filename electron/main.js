@@ -78,6 +78,27 @@ function startBackend() {
     conn = createConn();
     conn.init();
 
+    // Renderer-trust-boundary containment for file writes (see conn.js). The
+    // backend only ever writes to a path the renderer relayed; for anything the
+    // user didn't pick through a native dialog (approveWrite, below), require an
+    // OS-level confirmation the sandboxed renderer can't forge or auto-dismiss.
+    conn.setWriteGuard({
+        confirm: (filePath) => {
+            const win = BrowserWindow.getFocusedWindow() || mainWindow || undefined;
+            const choice = dialog.showMessageBoxSync(win, {
+                type:      'warning',
+                buttons:   ['Cancel', 'Write file'],
+                defaultId: 0,
+                cancelId:  0,
+                noLink:    true,
+                title:     'Confirm file write',
+                message:   'Oliv is about to write to a location you didn’t pick from a file dialog:',
+                detail:    `${filePath}\n\nContinue only if you started this action. Cancel if you didn’t.`,
+            });
+            return choice === 1;
+        },
+    });
+
     // The single data-plane channel. The renderer sends HTTP-shaped requests
     // (method, '/api/...', body); routing/validation/status codes all live in
     // backend/ — the bridge is a dumb pipe and never trusts the renderer.
@@ -122,7 +143,11 @@ ipcMain.handle('db-choose-new-path', async (e) => {
         defaultPath: 'finance.db',
         filters:     DB_FILE_FILTERS,
     });
-    return r.canceled ? null : r.filePath;
+    if (r.canceled) return null;
+    // The user picked this through a native dialog the renderer can't drive —
+    // pre-authorize it so the subsequent create/save-as write isn't re-confirmed.
+    conn?.approveWrite(r.filePath);
+    return r.filePath;
 });
 
 ipcMain.handle('db-choose-existing-path', async (e) => {
@@ -157,7 +182,9 @@ ipcMain.handle('export-choose-path', async (e, format) => {
         defaultPath: `transactions-${today}.${fmt}`,
         filters:     [EXPORT_FILE_FILTERS[fmt], { name: 'All Files', extensions: ['*'] }],
     });
-    return r.canceled ? null : r.filePath;
+    if (r.canceled) return null;
+    conn?.approveWrite(r.filePath); // dialog-issued → no write re-confirmation
+    return r.filePath;
 });
 
 // ─── app:// protocol ────────────────────────────────────────────────────────
