@@ -73,6 +73,47 @@
     box-sizing: border-box;
 }
 
+/* Year-table cards (Cash Flow, Balance Sheet) lift their forehead out of the
+   horizontally-scrolling .db-wrapper into a sibling .db-forehead so it can pin
+   to the page top as the user scrolls (the wrapper's overflow-x would otherwise
+   trap position: sticky). That makes .db-outer a vertical stack rather than the
+   default row. Scoped to :has(.db-forehead) so Portfolio — which keeps its
+   forehead inside the table — is unaffected. */
+.db-outer:has(.db-forehead) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+}
+
+/* == Forehead bar (year + ⋮), lifted out of the wrapper ==
+   position: sticky pins it to the top of the .page scroll viewport so the year
+   stays visible while its table scrolls past. It's opaque (--surface1) so the
+   table rows scroll up cleanly behind it, and forms the rounded TOP of the card
+   — the .db-wrapper below drops its top border + top radius to meet it. The
+   hover tint mirrors the old in-table title row. z-index sits above the wrapper
+   contents the bar overlaps while stuck. */
+.db-forehead {
+    position: sticky;
+    /* The .page scroll container carries --page-pad of top padding; a plain
+       top: 0 would pin the bar BELOW that padding, leaving a gap where the
+       scrolling rows (clipped at the padding box) bleed through above it.
+       Offsetting the stick point up by the padding pins the bar flush to the
+       visible top instead. */
+    top: calc(var(--page-pad) * -1);
+    z-index: 10;
+    background-color: var(--surface1);
+    border: 1px solid var(--border);
+    border-radius: 8px 8px 0 0;
+    cursor: pointer;
+    user-select: none;
+}
+
+.db-forehead:hover {
+    /* --frost-2 is translucent; layer it over the opaque --surface1 as a
+       background-image so the hover reads like a normal frosted surface. */
+    background-image: linear-gradient(var(--frost-2), var(--frost-2));
+}
+
 /* == Title "forehead" row — year / account name + options menu == */
 /* Left padding uses --col-first-pad so the title aligns with the first data column below */
 .db-title-row {
@@ -130,20 +171,22 @@
     z-index: 1;
 }
 
-.db-table.collapsed tbody,
-.db-table.collapsed tfoot,
-.db-table.collapsed .db-header-row {
+/* Collapsed: hide the whole table, leaving just the forehead as a fully
+   rounded standalone card. It picks up the wrapper's drop shadow (otherwise
+   hidden with the wrapper) so the collapsed card still reads as raised. */
+.db-outer.collapsed .db-wrapper {
     display: none;
+}
+
+.db-outer.collapsed .db-forehead {
+    border-radius: 8px;
+    box-shadow: 0px 5px 5px rgba(0, 0, 0, 0.2);
 }
 
 /* The ⋮ options menu acts on the table's contents, which are hidden while
    collapsed — so hide the button too. It reappears when the table expands. */
-.db-table.collapsed .p-menu-btn {
+.db-outer.collapsed .p-menu-btn {
     display: none;
-}
-
-.db-table.collapsed .db-title-row th {
-    border-bottom: none;
 }
 
 /* == Table wrapper == */
@@ -158,6 +201,14 @@
     background-color: var(--surface1);
     box-shadow: 0px 5px 5px rgba(0, 0, 0, 0.2);
     overflow-x: auto;
+}
+
+/* In a year-table card the forehead sits above and owns the top border + top
+   rounded corners, so the wrapper only rounds its bottom and drops its top
+   edge — otherwise the two would stack into a doubled divider. */
+.db-outer:has(.db-forehead) .db-wrapper {
+    border-top: none;
+    border-radius: 0 0 8px 8px;
 }
 
 .db-wrapper::-webkit-scrollbar {
@@ -277,6 +328,50 @@
 .total-row {
     border-top: 1px solid var(--border);
     background-color: var(--frost-2);
+}
+
+/* == Sticky first column ==
+   Pin the Month / Total column to the left edge of the .db-wrapper scroll
+   viewport so it stays put when a wide table (many columns) is scrolled
+   horizontally — without it, the data columns slide away from the month
+   labels that name their rows. Used by Cash Flow and Balance Sheet.
+
+   Three things fall out of position: sticky on a table cell:
+     • Opaque background. A sticky cell paints OVER the data cells sliding
+       under it; with their default transparent fill those columns would bleed
+       through. --surface1 matches the .db-wrapper so the static look is
+       unchanged.
+     • Hover / totals parity. A normal body cell on row hover shows --frost-2
+       (translucent) composited over the wrapper's --surface1; the totals row
+       does the same via its own tr background. The opaque sticky cell can't
+       let that translucent tr background show through, so we re-create the
+       identical colour by layering --frost-2 as a background-IMAGE over the
+       --surface1 background-color — same composite, now opaque.
+     • A right divider that travels with the cell. The 1px line between the
+       first two columns is the SECOND column's border-left, which slides away
+       under the sticky cell during a scroll. border-collapse on .db-table
+       means a border-right here wouldn't reliably stay put, so the divider is
+       drawn as an inset box-shadow that moves with the cell instead.
+   z-index keeps the column above the scrolling data cells (default stacking). */
+.col-month,
+.month-label {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background-color: var(--surface1);
+    box-shadow: inset -1px 0 0 var(--border);
+}
+
+/* Row hover: re-create --frost-2-over-surface1 as an opaque fill so the pinned
+   month label tracks the rest of the hovered row. */
+.db-table tbody tr:hover .month-label {
+    background-image: linear-gradient(var(--frost-2), var(--frost-2));
+}
+
+/* Totals row: its tr already carries --frost-2; the opaque sticky cell layers
+   the same tint over --surface1 to match the rest of the (non-sticky) row. */
+.db-table .total-row .month-label {
+    background-image: linear-gradient(var(--frost-2), var(--frost-2));
 }
 
 /* The "Total" span in the tfoot. Block layout so the right-aligned padding

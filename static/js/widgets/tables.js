@@ -388,7 +388,7 @@ function renderYearTables(ctx) {
     const isFirstRender  = tableEls.length === 0;
     const collapsedYears = new Set(
         Array.from(tableEls)
-            .filter(el => el.querySelector('.db-table')?.classList.contains('collapsed'))
+            .filter(el => el.classList.contains('collapsed'))
             .map(el => parseInt(el.dataset.year))
     );
 
@@ -398,7 +398,7 @@ function renderYearTables(ctx) {
         ctx.container.appendChild(outerEl);
         initYearTable(outerEl, ctx.entries[String(year)] || {}, ctx);
         const shouldCollapse = isFirstRender ? i > 0 : collapsedYears.has(year);
-        if (shouldCollapse) outerEl.querySelector('.db-table').classList.add('collapsed');
+        if (shouldCollapse) outerEl.classList.add('collapsed');
     });
 }
 
@@ -423,8 +423,10 @@ async function reloadYearTables(ctx) {
 
 /**
  * Build the DOM for one year's table:
- *   - thead row 1: forehead — year title + ⋮ menu button
- *   - thead row 2: column labels (Month | col1 | col2 | …)
+ *   - .db-forehead: year title + ⋮ menu button — a sibling div ABOVE the
+ *                   scrolling wrapper, so it can pin to the page top (the
+ *                   wrapper's overflow-x would trap a sticky thead). See CSS.
+ *   - thead:        column labels (Month | col1 | col2 | …)
  *   - tbody:        twelve month rows of editable currency inputs
  *   - tfoot:        optional totals row (when ctx.includeTotals is true)
  *
@@ -447,14 +449,12 @@ function createYearTable(year, ctx) {
     const table = document.createElement('table');
     table.className = 'db-table';
 
-    // ── thead row 1: forehead (year + ⋮ menu) ───────────────────────────────
-    const thead = document.createElement('thead');
-
-    const titleRow = document.createElement('tr');
-    titleRow.className = 'db-title-row';
-    const titleTh = document.createElement('th');
-    // Span all columns so the forehead stretches the full width of the table.
-    titleTh.colSpan = ctx.columns.length + 1;
+    // ── Forehead bar (year + ⋮ menu) ────────────────────────────────────────
+    // A sibling div ABOVE the scrolling .db-wrapper (not a thead row) so it can
+    // pin to the page top with position: sticky — the wrapper's overflow-x
+    // would otherwise trap it. See .db-forehead in tables.css.
+    const forehead = document.createElement('div');
+    forehead.className = 'db-forehead';
     const titleInner = document.createElement('div');
     titleInner.className = 'db-title-inner';
     const titleLabel = document.createElement('span');
@@ -464,22 +464,17 @@ function createYearTable(year, ctx) {
     menuBtn.className = 'p-menu-btn';
     menuBtn.textContent = '⋮';
     menuBtn.title = 'Table options';
-    // Wrap the menu button in a .p-forehead-btns group — same wrapper used
-    // by portfolio.js. The CSS rule on .p-forehead-btns (tables.css) makes
-    // it position: sticky so the ⋮ stays anchored to the visible right edge
-    // of the scroll viewport when the table is wider than its container.
-    // Without the wrapper the button sat at the far right of the th and
-    // got pushed off-screen as soon as the user scrolled horizontally.
+    // Same .p-forehead-btns wrapper portfolio.js uses; it anchors the ⋮
+    // dropdown (openTableMenu positions the menu against it).
     const actions = document.createElement('div');
     actions.className = 'p-forehead-btns';
     actions.appendChild(menuBtn);
     titleInner.appendChild(titleLabel);
     titleInner.appendChild(actions);
-    titleTh.appendChild(titleInner);
-    titleRow.appendChild(titleTh);
-    thead.appendChild(titleRow);
+    forehead.appendChild(titleInner);
 
-    // ── thead row 2: column headers ─────────────────────────────────────────
+    // ── thead: column headers ───────────────────────────────────────────────
+    const thead = document.createElement('thead');
     // Sync state is per-table now and managed from the ⋮ → Sync Settings modal,
     // so headers carry no sync affordance — the read-only body cells are the cue.
     const headerRow = document.createElement('tr');
@@ -532,6 +527,7 @@ function createYearTable(year, ctx) {
     }
 
     wrapper.appendChild(table);
+    outer.appendChild(forehead);
     outer.appendChild(wrapper);
     return outer;
 }
@@ -635,7 +631,7 @@ window.addEventListener('pagehide', () => {
  */
 function initYearTable(outerEl, yearEntries, ctx) {
     const table       = outerEl.querySelector('.db-table');
-    const titleRow    = outerEl.querySelector('.db-title-row');
+    const forehead    = outerEl.querySelector('.db-forehead');
     const menuBtn     = outerEl.querySelector('.p-menu-btn');
     const currentYear = parseInt(outerEl.dataset.year);
 
@@ -748,9 +744,11 @@ function initYearTable(outerEl, yearEntries, ctx) {
     if (ctx.includeTotals) updateYearTotals(outerEl, ctx);
 
     // Click anywhere on the forehead (except the ⋮ button) to toggle collapse.
-    titleRow.addEventListener('click', e => {
+    // The flag lives on .db-outer now (the forehead is its sibling, not a row
+    // inside .db-table), so collapse can hide the whole wrapper.
+    forehead.addEventListener('click', e => {
         if (e.target.closest('.p-menu-btn')) return;
-        table.classList.toggle('collapsed');
+        outerEl.classList.toggle('collapsed');
     });
 
     // ⋮ menu: Duplicate / Delete. Year tables don't support Rename because
