@@ -8,7 +8,7 @@
 // Table names come from our own config (never user input), so they are safe
 // to interpolate into the SQL strings.
 
-const { bad, cleanLabel, parseEntry, validateYear } = require('../validate');
+const { bad, cleanLabel, parseEntry, validateYear, monthNumber, monthName } = require('../validate');
 
 function yearTableRoutes({
   prefix,
@@ -59,7 +59,8 @@ function yearTableRoutes({
     const entries = {};
     for (const e of db.prepare(`SELECT * FROM ${entryTable}`).all()) {
       const months = (entries[String(e.year)] ??= {});
-      (months[e.month] ??= {})[e.category] = e.value;
+      // Stored as 1-12; the response keys cells by month name.
+      (months[monthName(e.month)] ??= {})[e.category] = e.value;
     }
     const cols = db.prepare(`SELECT * FROM ${colTable} ORDER BY position`).all();
     return { years, entries, columns: cols.map(columnPayload) };
@@ -71,7 +72,7 @@ function yearTableRoutes({
     db.prepare(
       `INSERT INTO ${entryTable} (year, month, category, value) VALUES (?, ?, ?, ?)
        ON CONFLICT(year, month, category) DO UPDATE SET value = excluded.value`
-    ).run(parsed.year, parsed.month, parsed.category, parsed.value);
+    ).run(parsed.year, monthNumber(parsed.month), parsed.category, parsed.value);
     return { ok: true };
   }
 
@@ -80,7 +81,7 @@ function yearTableRoutes({
     const parsed = parseEntry(body, { requireValue: false });
     db.prepare(`DELETE FROM ${entryTable} WHERE year = ? AND month = ? AND category = ?`).run(
       parsed.year,
-      parsed.month,
+      monthNumber(parsed.month),
       parsed.category
     );
     return { ok: true };

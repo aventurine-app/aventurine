@@ -5,7 +5,7 @@
 // transactions. Targets are validated/rounded with the same parseEntry helper
 // the Cash Flow entries use; the projection/assembly is in services/budget.js.
 
-const { bad, parseEntry, validateYear, isFiniteNumber, round2, VALID_MONTHS } = require('../validate');
+const { bad, parseEntry, validateYear, isFiniteNumber, round2, VALID_MONTHS, monthNumber } = require('../validate');
 const { isBudgetable, monthPrefix, buildBudget } = require('../services/budget');
 const { monthlyTotals, trailingAverage } = require('../services/forecast');
 
@@ -30,14 +30,15 @@ function resolveMonth(query) {
 function budgetGet(ctx, { query }) {
   const db = ctx.db();
   const { year, month } = resolveMonth(query);
-  const prefix = monthPrefix(year, month);
+  const prefix = monthPrefix(year, month); // 'YYYY-MM' for matching tx dates
+  const monthNum = monthNumber(month); // the on-disk 1-12 form for table lookups
 
   const categories = db.prepare('SELECT * FROM categories ORDER BY position').all();
 
   const targets = new Map(
     db
       .prepare('SELECT category, amount FROM budget_targets WHERE year = ? AND month = ?')
-      .all(year, month)
+      .all(year, monthNum)
       .map((r) => [r.category, r.amount])
   );
 
@@ -76,7 +77,7 @@ function budgetGet(ctx, { query }) {
   // day 1 instead of climbing as paychecks arrive).
   const override = db
     .prepare('SELECT amount FROM budget_income WHERE year = ? AND month = ?')
-    .get(year, month);
+    .get(year, monthNum);
   let expectedIncome;
   let incomeSource;
   if (override) {
@@ -107,7 +108,7 @@ function targetUpsert(ctx, { body }) {
   db.prepare(
     `INSERT INTO budget_targets (year, month, category, amount) VALUES (?, ?, ?, ?)
      ON CONFLICT(year, month, category) DO UPDATE SET amount = excluded.amount`
-  ).run(parsed.year, parsed.month, parsed.category, parsed.value);
+  ).run(parsed.year, monthNumber(parsed.month), parsed.category, parsed.value);
   return { ok: true };
 }
 
@@ -116,7 +117,7 @@ function targetDelete(ctx, { body }) {
   const parsed = parseEntry(body, { requireValue: false });
   db.prepare('DELETE FROM budget_targets WHERE year = ? AND month = ? AND category = ?').run(
     parsed.year,
-    parsed.month,
+    monthNumber(parsed.month),
     parsed.category
   );
   return { ok: true };
@@ -136,7 +137,7 @@ function copyMonth(ctx, { body }) {
        SELECT ?, ?, category, amount FROM budget_targets WHERE year = ? AND month = ?
        ON CONFLICT(year, month, category) DO UPDATE SET amount = excluded.amount`
     )
-    .run(ty, tm, fy, fm);
+    .run(ty, monthNumber(tm), fy, monthNumber(fm));
   return { ok: true, copied: info.changes };
 }
 
@@ -154,14 +155,14 @@ function incomeUpsert(ctx, { body }) {
   db.prepare(
     `INSERT INTO budget_income (year, month, amount) VALUES (?, ?, ?)
      ON CONFLICT(year, month) DO UPDATE SET amount = excluded.amount`
-  ).run(body.year, body.month, round2(body.amount));
+  ).run(body.year, monthNumber(body.month), round2(body.amount));
   return { ok: true };
 }
 
 function incomeDelete(ctx, { body }) {
   const db = ctx.db();
   requireYearMonth(body);
-  db.prepare('DELETE FROM budget_income WHERE year = ? AND month = ?').run(body.year, body.month);
+  db.prepare('DELETE FROM budget_income WHERE year = ? AND month = ?').run(body.year, monthNumber(body.month));
   return { ok: true };
 }
 

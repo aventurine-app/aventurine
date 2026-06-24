@@ -7,7 +7,7 @@
 // monthly value is computed from transactions instead of hand-entered. See
 // categorySync.js.
 
-const { bad, parseEntry, validateYear, VALID_MONTHS } = require('../validate');
+const { bad, parseEntry, validateYear, VALID_MONTHS, monthNumber, monthName } = require('../validate');
 const { syncedMap, isSynced } = require('../categorySync');
 
 const NULL_SYNC_KEYS = { income: 'uncat_income', expense: 'uncat_expense' };
@@ -64,7 +64,8 @@ function dataGet(ctx) {
     // A synced cell ignores any stored manual value — it follows transactions.
     if (synced[String(e.year)]?.has(e.category)) continue;
     const months = (entries[String(e.year)] ??= {});
-    (months[e.month] ??= {})[e.category] = e.value;
+    // Stored as 1-12; the response (and the renderer) key cells by month name.
+    (months[monthName(e.month)] ??= {})[e.category] = e.value;
   }
 
   const sums = syncSums(db);
@@ -98,7 +99,7 @@ function entryUpsert(ctx, { body }) {
   db.prepare(
     `INSERT INTO entries (year, month, category, value) VALUES (?, ?, ?, ?)
      ON CONFLICT(year, month, category) DO UPDATE SET value = excluded.value`
-  ).run(parsed.year, parsed.month, parsed.category, parsed.value);
+  ).run(parsed.year, monthNumber(parsed.month), parsed.category, parsed.value);
   return { ok: true };
 }
 
@@ -110,7 +111,7 @@ function entryDelete(ctx, { body }) {
   }
   db.prepare('DELETE FROM entries WHERE year = ? AND month = ? AND category = ?').run(
     parsed.year,
-    parsed.month,
+    monthNumber(parsed.month),
     parsed.category
   );
   return { ok: true };

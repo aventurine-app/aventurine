@@ -5,14 +5,12 @@
 // forecast_planned table (schema v2). Projection logic lives in
 // services/forecast.js; this handler only gathers inputs and validates writes.
 
-const { bad, cleanLabel, isFiniteNumber, round2, parseIsoDate, VALID_MONTHS } = require('../validate');
+const { bad, cleanLabel, isFiniteNumber, round2, parseIsoDate } = require('../validate');
 const { forecast } = require('../services/forecast');
 
 const ALLOWED_MONTHS = new Set([1, 3, 6]);
 const DEFAULT_MONTHS = 3;
 const VALID_FLOWS = new Set(['income', 'expense']);
-
-const MONTH_INDEX = new Map(VALID_MONTHS.map((m, i) => [m, i]));
 
 function serialisePlanned(p) {
   return { id: p.id, label: p.label, amount: p.amount, flow: p.flow, date: p.date };
@@ -31,7 +29,7 @@ function plannedList(db) {
  * data for. Only `col_type = 'cash'` columns are listed: the forecast tracks a
  * spendable cash balance, so investment/retirement/debt accounts aren't offered
  * as a starting point. `balance` is null when the account has no entries yet.
- * `month` is stored as a name, so recency is by (year, VALID_MONTHS index).
+ * `month` is stored as 1-12, so recency is by (year, month).
  * Ordered by column position so the picker mirrors the Balance Sheet's order.
  *
  * This is what the renderer's account drop-down is built from, and what the
@@ -45,14 +43,12 @@ function accountBalances(db) {
     )
     .all();
 
-  // Newest (year, month) entry per account key.
+  // Newest (year, month) entry per account key. month is stored as 1-12.
   const latest = new Map();
   for (const r of db.prepare('SELECT category, year, month, value FROM balance_entries').all()) {
-    const idx = MONTH_INDEX.get(r.month);
-    if (idx === undefined) continue;
     const cur = latest.get(r.category);
-    if (!cur || r.year > cur.year || (r.year === cur.year && idx > cur.idx)) {
-      latest.set(r.category, { year: r.year, idx, value: r.value });
+    if (!cur || r.year > cur.year || (r.year === cur.year && r.month > cur.idx)) {
+      latest.set(r.category, { year: r.year, idx: r.month, value: r.value });
     }
   }
 

@@ -12,7 +12,6 @@
 // the exact same numbers the Cash Flow page shows: hand-entered cell values plus,
 // for synced cells, the transaction-derived sums (see incomeExpenses.dataGet).
 
-const { VALID_MONTHS } = require('../validate');
 const { syncedMap } = require('../categorySync');
 const { syncSums } = require('./incomeExpenses');
 const { buildReportCards } = require('../services/reportCard');
@@ -29,8 +28,6 @@ const BUCKET_BY_CAT_TYPE = {
 // The two uncategorized sync buckets (NULL-category transactions, by tx_type)
 // feed the same income/expense headline figures.
 const BUCKET_BY_SYNC_KEY = { uncat_income: 'income', uncat_expense: 'expenses' };
-
-const MONTH_INDEX = new Map(VALID_MONTHS.map((m, i) => [m, i]));
 
 /**
  * Per-year { income, expenses, savings } from the Cash Flow statement. Mirrors
@@ -89,7 +86,7 @@ function yearlyTotals(db) {
  * Per-year total debt = the sum of debt-type Balance-Sheet columns at the most
  * recent month that has any debt entry in that year. A year with no debt data
  * is absent from the map (→ null debt, an N/A debt-to-income metric). Mirrors
- * forecast.js' accountBalances month-recency pick (month is stored as a name).
+ * forecast.js' accountBalances month-recency pick (month is stored as 1-12).
  */
 function debtByYear(db) {
   const rows = db
@@ -101,18 +98,15 @@ function debtByYear(db) {
     )
     .all();
 
-  const latestIdx = new Map(); // year -> highest month index seen
+  const latestIdx = new Map(); // year -> highest month (1-12) seen
   for (const r of rows) {
-    const idx = MONTH_INDEX.get(r.month);
-    if (idx === undefined) continue;
     const cur = latestIdx.get(r.year);
-    if (cur === undefined || idx > cur) latestIdx.set(r.year, idx);
+    if (cur === undefined || r.month > cur) latestIdx.set(r.year, r.month);
   }
 
   const debt = new Map();
   for (const r of rows) {
-    const idx = MONTH_INDEX.get(r.month);
-    if (idx === undefined || idx !== latestIdx.get(r.year)) continue;
+    if (r.month !== latestIdx.get(r.year)) continue;
     debt.set(r.year, (debt.get(r.year) || 0) + r.value);
   }
   return debt;
