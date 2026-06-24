@@ -9,6 +9,24 @@ const VALID_MONTHS = [
   'July',    'August',   'September', 'October', 'November', 'December',
 ];
 
+// Months persist on disk as 1-12 integers (so `ORDER BY year, month` sorts
+// chronologically for anyone querying the DB directly). The API contract — and
+// every request/response payload — still speaks the English month NAME; these
+// two helpers convert at the storage boundary. parseEntry deliberately keeps
+// returning the name (it mirrors the Python validator); callers convert with
+// monthNumber() at the INSERT and monthName() when shaping a response.
+const _MONTH_TO_NUM = new Map(VALID_MONTHS.map((name, i) => [name, i + 1]));
+
+/** English month name -> 1..12, or null if not a valid month name. */
+function monthNumber(name) {
+  return _MONTH_TO_NUM.get(name) ?? null;
+}
+
+/** 1..12 -> English month name, or null if out of range. */
+function monthName(num) {
+  return VALID_MONTHS[num - 1] ?? null;
+}
+
 /** Error carrying an HTTP-ish status; the IPC router turns it into the same
  *  { ok:false, error, ...extra } + status envelope Flask's _bad() produced.
  *  `extra` covers bodies with fields beyond the message (e.g. the category
@@ -129,6 +147,8 @@ function parseEntry(data, { requireValue = true } = {}) {
 
 module.exports = {
   VALID_MONTHS,
+  monthNumber,
+  monthName,
   ApiError,
   bad,
   cleanLabel,

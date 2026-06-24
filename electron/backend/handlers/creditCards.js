@@ -5,11 +5,9 @@
 // derived stats hinge on that category's average monthly spend, computed here
 // and shipped alongside so the client recomputes without another round trip.
 
-const { bad, cleanLabel, isFiniteNumber, round2, VALID_MONTHS } = require('../validate');
+const { bad, cleanLabel, isFiniteNumber, round2 } = require('../validate');
 const { recentMonthlyAverage } = require('../services/creditCards');
 const { syncedMap } = require('../categorySync');
-
-const MONTH_INDEX = new Map(VALID_MONTHS.map((name, i) => [name, i + 1]));
 
 function serialiseCard(c) {
   return {
@@ -45,9 +43,8 @@ function monthlySpendByCategory(db) {
     const cid = idByKey.get(e.category);
     if (cid === undefined) continue; // not an expense category
     if (isCellSynced(String(e.year), e.category)) continue;
-    const month = MONTH_INDEX.get(e.month);
-    if (!month) continue;
-    bump(totals.get(cid), e.year * 100 + month, e.value);
+    // month is stored as 1-12; the cell key stays numerically chronological.
+    bump(totals.get(cid), e.year * 100 + e.month, e.value);
   }
 
   // Synced cells — transactions. Categorized expense rows map by their category

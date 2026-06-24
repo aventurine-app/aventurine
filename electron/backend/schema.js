@@ -19,19 +19,20 @@
 
 const SCHEMA_VERSION = 4;
 
-// Months are stored as English names (mirrors validate.VALID_MONTHS). Kept here
-// standalone so this file stays pure DDL with no app-code dependency. Drives
-// both the `month` CHECK domain and the views' sortable month_num.
+// Months persist as 1-12 integers so `ORDER BY year, month` sorts
+// chronologically (the app translates to/from English names at its API
+// boundary — see validate.monthNumber/monthName). MONTH_NAMES (mirrors
+// validate.VALID_MONTHS, kept standalone so this file stays pure DDL) drives
+// the human-readable month_name column the views expose.
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
-const MONTHS_IN = MONTH_NAMES.map((m) => `'${m}'`).join(', ');
 
-// A CASE expression mapping a month-name column to 1..12 so external queries can
-// sort chronologically — a plain `ORDER BY month` sorts alphabetically.
-function monthNum(col) {
-  const arms = MONTH_NAMES.map((m, i) => `          WHEN '${m}' THEN ${i + 1}`).join('\n');
+// A CASE expression mapping a 1-12 month column back to its English name, for
+// the readable month_name column in the views.
+function monthNameCase(col) {
+  const arms = MONTH_NAMES.map((m, i) => `          WHEN ${i + 1} THEN '${m}'`).join('\n');
   return `CASE ${col}\n${arms}\n        END`;
 }
 
@@ -70,7 +71,7 @@ const DDL = [
      -- negative net-worth line, etc.) so it carries no sign CHECK.
      id INTEGER NOT NULL,
      year INTEGER NOT NULL CHECK (year BETWEEN 1000 AND 9999),
-     month VARCHAR(20) NOT NULL CHECK (month IN (${MONTHS_IN})),
+     month INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
      category VARCHAR(50) NOT NULL,
      value FLOAT NOT NULL,
      PRIMARY KEY (id),
@@ -119,7 +120,7 @@ const DDL = [
      -- transactions and ignores any stored value here.
      id INTEGER NOT NULL,
      year INTEGER NOT NULL CHECK (year BETWEEN 1000 AND 9999),
-     month VARCHAR(20) NOT NULL CHECK (month IN (${MONTHS_IN})),
+     month INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
      category VARCHAR(50) NOT NULL,
      value FLOAT NOT NULL,
      PRIMARY KEY (id),
@@ -186,7 +187,7 @@ const DDL = [
      -- computed from transactions at read time, never stored here.
      id INTEGER NOT NULL,
      year INTEGER NOT NULL CHECK (year BETWEEN 1000 AND 9999),
-     month VARCHAR(20) NOT NULL CHECK (month IN (${MONTHS_IN})),
+     month INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
      category VARCHAR(50) NOT NULL,
      amount FLOAT NOT NULL CHECK (amount >= 0),
      PRIMARY KEY (id),
@@ -197,7 +198,7 @@ const DDL = [
      -- Optional per-month override of the budget's "expected income" figure.
      -- When absent the budget falls back to a trailing income average.
      year INTEGER NOT NULL CHECK (year BETWEEN 1000 AND 9999),
-     month VARCHAR(20) NOT NULL CHECK (month IN (${MONTHS_IN})),
+     month INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
      amount FLOAT NOT NULL CHECK (amount >= 0),
      PRIMARY KEY (year, month)
    )`,
@@ -240,13 +241,14 @@ const DDL = [
      LEFT JOIN categories c ON c.id = t.category_id`,
 
   `CREATE VIEW v_cash_flow AS
-     -- Cash Flow manual entries with the category resolved to a name/type and a
-     -- sortable month_num (1-12). Cells whose (year, category) is in
-     -- category_sync are computed from transactions and do NOT appear here.
+     -- Cash Flow manual entries with the category resolved to a name/type.
+     -- month is the 1-12 number (sort by year, month); month_name is its label.
+     -- Cells whose (year, category) is in category_sync are computed from
+     -- transactions and do NOT appear here.
      SELECT
        e.year,
        e.month,
-       ${monthNum('e.month')} AS month_num,
+       ${monthNameCase('e.month')} AS month_name,
        e.category AS category_key,
        c.name     AS category_name,
        c.cat_type,
@@ -255,12 +257,12 @@ const DDL = [
      LEFT JOIN categories c ON c."key" = e.category`,
 
   `CREATE VIEW v_balance_sheet AS
-     -- Balance Sheet entries with the account resolved to a label/type and a
-     -- sortable month_num (1-12).
+     -- Balance Sheet entries with the account resolved to a label/type.
+     -- month is the 1-12 number (sort by year, month); month_name is its label.
      SELECT
        b.year,
        b.month,
-       ${monthNum('b.month')} AS month_num,
+       ${monthNameCase('b.month')} AS month_name,
        b.category AS account_key,
        col.label  AS account_label,
        col.col_type,
@@ -269,13 +271,13 @@ const DDL = [
      LEFT JOIN balance_columns col ON col."key" = b.category`,
 
   `CREATE VIEW v_budget AS
-     -- Budget targets with the category resolved to a name and a sortable
-     -- month_num (1-12). Actual spend is not stored; aggregate v_transactions
-     -- by month for actuals.
+     -- Budget targets with the category resolved to a name. month is the 1-12
+     -- number (sort by year, month); month_name is its label. Actual spend is
+     -- not stored; aggregate v_transactions by month for actuals.
      SELECT
        t.year,
        t.month,
-       ${monthNum('t.month')} AS month_num,
+       ${monthNameCase('t.month')} AS month_name,
        t.category AS category_key,
        c.name     AS category_name,
        c.cat_type,
