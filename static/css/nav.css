@@ -47,7 +47,7 @@ ul {
 }
 
 li {
-    margin-bottom: var(--space-8);  /* Spacing between each menu item */
+    margin-bottom: var(--space-4);  /* Spacing between each menu item */
 }
 
 /* Section heading inside the sidebar ("Savings & Investing", "Account").
