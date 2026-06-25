@@ -3,10 +3,10 @@
    (the styles used to be split with the Settings → Manage Categories modal in
    settings.css; that block was retired when the editor moved here).
 
-   Layout:
-     • a "create" card pinned at the top — the page's single primary action;
-     • a four-column row of type quadrants (Income · Expense · Savings · Investing),
-       collapsing to two columns then one as the viewport narrows.
+   Layout: a four-column row of type quadrants (Income · Expense · Savings ·
+   Investing), collapsing to two columns then one as the viewport narrows. Each
+   quadrant's header carries a green "+" button — the page's only way to
+   create a category, scoped to that box.
    Categories render as clean, container-less lines inside each quadrant.
    Reordering and recategorizing are drag-and-drop (grip handle, same as the
    Cash Flow column manager); the only other per-row control — a delete × —
@@ -39,60 +39,6 @@
   flex-direction: column;
   gap: 16px;
 }
-
-/* ─── Create card (top) ──────────────────────────────────────────────────── */
-.cat-create-card {
-  background: var(--surface1);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  backdrop-filter: blur(5px) saturate(100%);
-  padding: 16px 20px;
-  box-sizing: border-box;
-}
-
-.cat-create-title {
-  color: var(--label-muted);
-  font-family: var(--font-h3);
-  font-size: var(--size-micro);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--track-widest);
-  text-transform: uppercase;
-  margin-bottom: 12px;
-}
-
-.cat-add {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* The create input is the one always-visible field — give it a real box
-   (the in-list rename inputs stay borderless until interacted with). */
-.cat-add-name {
-  flex: 1;
-  min-width: 0;
-  box-sizing: border-box;
-  height: var(--control-height);
-  background: var(--surface1);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  outline: none;
-  color: var(--text-primary);
-  font-family: var(--font-menu);
-  font-size: var(--size-body);
-  padding: 4px 10px;
-  caret-color: var(--frost-caret);
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
-
-.cat-add-name:hover { border-color: var(--text-tertiary); }
-.cat-add-name:focus { border-color: var(--accent-primary); }
-.cat-add-name::placeholder { color: var(--text-tertiary); }
-
-/* The primary action — the only filled accent button on the page. */
-/* .cat-add-btn (accent eyebrow action button) shape, hover, active and focus
-   now live in buttons.css. Only its flex layout is page-specific. */
-.cat-add-btn { flex: none; }
 
 /* ─── Quadrant grid ──────────────────────────────────────────────────────── */
 .cat-grid {
@@ -130,13 +76,17 @@
 
 /* Negative horizontal margins pull the head out to the quadrant's inner edges
    (cancelling its 16px padding) so the bottom rule spans the full width; the
-   matching horizontal padding keeps the title/count aligned with the rows. */
+   -4px top margin lifts it into the card's 16px top padding so the "+" button
+   clears the top by 12px. The 16px left padding keeps the title aligned with the
+   rows below, while 12px on the right and bottom give the button equal 12px
+   breathing room on top, right, and down to the divider — one 4px-grid step
+   tighter than the card's own padding. */
 .cat-quadrant-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 -16px;
-  padding: 0 16px 8px;
+  margin: -4px -16px 0;
+  padding: 0 12px 12px 16px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -156,19 +106,20 @@
   letter-spacing: var(--track-normal);
 }
 
-/* Count badge — fixed height keeps it on the spacing scale without a tall pill. */
-.cat-quadrant-count {
+/* Per-box "+" button — the accent fill + interaction states come from
+   .cat-add-btn (buttons.css); here we reshape it into a square icon button at
+   the standard control height (so it stands the same height as the app's
+   primary action buttons) and pin it to the header's right edge where the count
+   badge used to sit. */
+.cat-quadrant-add {
   margin-left: auto;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: var(--frost-2);
-  color: var(--text-tertiary);
-  font-family: var(--font-numeric);
-  font-size: var(--size-micro);
+  flex: none;
+  width: var(--control-height);
+  height: var(--control-height);
+  padding: 0;
 }
+
+.cat-quadrant-add svg { width: 12px; height: 12px; }
 
 .cat-list {
   display: flex;
@@ -267,37 +218,6 @@
   pointer-events: auto;
 }
 
-/* The recategorize dropdown. Native <select> with a CSS-drawn caret (same
-   technique as .tx-select) so the menu text stays clean. */
-.cat-type-select {
-  appearance: none;
-  -webkit-appearance: none;
-  box-sizing: border-box;
-  height: var(--control-height);
-  background: var(--surface1);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  outline: none;
-  color: var(--text-secondary);
-  font-family: var(--font-menu);
-  font-size: var(--size-small);
-  padding: 6px 26px 6px 10px;
-  cursor: pointer;
-  background-image: linear-gradient(45deg,  transparent 50%, currentColor 50%),
-                    linear-gradient(135deg, currentColor 50%, transparent 50%);
-  background-position: calc(100% - 13px) 50%, calc(100% - 9px) 50%;
-  background-size: 4px 4px;
-  background-repeat: no-repeat;
-  transition: border-color 0.15s ease, color 0.15s ease;
-}
-
-.cat-type-select:hover { color: var(--text-primary); border-color: var(--text-tertiary); }
-.cat-type-select:focus { border-color: var(--accent-primary); color: var(--text-primary); }
-
-/* The create card's dropdown is always visible, so give it the full body size
-   to sit level with the input beside it. */
-.cat-add .cat-type-select { font-size: var(--size-body); padding: 4px 28px 4px 10px; }
-
 /* Borderless icon button — the delete ×. Subtle until hovered. */
 .cat-icon-btn {
   width: 32px;
@@ -357,7 +277,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .cat-row, .cat-name, .cat-row-actions, .cat-icon-btn, .cat-grip,
-  .cat-type-select, .cat-add-btn, .cat-add-name {
+  .cat-add-btn {
     transition: none;
   }
 }

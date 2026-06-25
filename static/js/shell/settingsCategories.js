@@ -3,9 +3,10 @@
 // ─── settingsCategories.js ──────────────────────────────────────────────────
 // Categories editor for the Categories page (pages/categories.html).
 //
-// Layout: a "create" card pinned at the top, then a 2×2 grid of quadrants —
-// one per category type (Income · Expense · Savings · Investing). Each quadrant
-// lists its categories as clean, container-less lines.
+// Layout: a 2×2 grid of quadrants — one per category type (Income · Expense ·
+// Savings · Investing). Each quadrant lists its categories as clean,
+// container-less lines, and its header carries a green "+" button that drops a
+// fresh "New Category" into that box, ready to rename.
 //
 // Reordering and recategorizing are both **drag-and-drop** — the same grip-
 // handle interaction as the Cash Flow column manager (tables.js). Drag a
@@ -98,17 +99,19 @@
     // across the app.
     const ICON_GRIP = '<svg viewBox="0 0 10 16" fill="currentColor" aria-hidden="true"><circle cx="2.5" cy="3" r="1.4"/><circle cx="7.5" cy="3" r="1.4"/><circle cx="2.5" cy="8" r="1.4"/><circle cx="7.5" cy="8" r="1.4"/><circle cx="2.5" cy="13" r="1.4"/><circle cx="7.5" cy="13" r="1.4"/></svg>';
     const ICON_X    = '<svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    const ICON_PLUS = '<svg viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 
-    function typeSelectHtml(currentType, idAttrs = '') {
-        // Two-option <select> for the create card's "Add" form. Per-row type is
-        // no longer a dropdown — it's the box the row lives in.
-        const opt = (val) => {
-            const sel = val === currentType ? 'selected' : '';
-            return `<option value="${val}" ${sel}>${TYPE_LABEL[val]}</option>`;
-        };
-        return `<select class="cat-type-select" ${idAttrs}>
-                    ${TYPE_ORDER.map(opt).join('')}
-                </select>`;
+    // Default name for a freshly added category. The create endpoint rejects
+    // duplicate names (409), so if "New Category" is already taken — e.g. the
+    // user clicks Add twice before renaming — fall back to "New Category 2",
+    // "New Category 3", … so the button always succeeds.
+    const DEFAULT_NAME = 'New Category';
+    function uniqueDefaultName(rows) {
+        const names = new Set(rows.map(c => c.name));
+        if (!names.has(DEFAULT_NAME)) return DEFAULT_NAME;
+        let n = 2;
+        while (names.has(`${DEFAULT_NAME} ${n}`)) n++;
+        return `${DEFAULT_NAME} ${n}`;
     }
 
     function rowHtml(c) {
@@ -134,31 +137,20 @@
         // Each type gets its own card and acts as a drop target (data-type on
         // the list). The title renders as a coloured pill (colour-on-tinted-box)
         // reusing the Transactions ledger type-pill look; the colour comes from
-        // the [data-type] hook in categories.css.
+        // the [data-type] hook in categories.css. The header's green "+" button
+        // (the global accent action shape) is the page's only way to create a
+        // category — it adds one to this box. Icon-only, so the descriptive
+        // intent lives in title/aria-label.
         return `
             <section class="cat-quadrant" data-type="${type}">
                 <header class="cat-quadrant-head">
                     <h2 class="cat-quadrant-title">${TYPE_LABEL[type]}</h2>
-                    <span class="cat-quadrant-count">${rows.length}</span>
+                    <button type="button" class="cat-add-btn cat-quadrant-add"
+                            title="Add ${TYPE_LABEL[type]} category"
+                            aria-label="Add ${TYPE_LABEL[type]} category">${ICON_PLUS}</button>
                 </header>
                 <div class="cat-list" data-type="${type}">${items}</div>
             </section>
-        `;
-    }
-
-    function createCardHtml() {
-        // The single primary action of the page. Defaults to "expense" — still
-        // the most common type users add.
-        return `
-            <div class="cat-create-card">
-                <div class="cat-create-title">Add a category</div>
-                <div class="cat-add">
-                    <input type="text" class="cat-add-name" placeholder="New category name"
-                           maxlength="100" aria-label="New category name">
-                    ${typeSelectHtml('expense', 'data-add-type-select')}
-                    <button class="cat-add-btn">+ Add</button>
-                </div>
-            </div>
         `;
     }
 
@@ -169,11 +161,10 @@
     function render(rootEl, rows) {
         stateByRoot.set(rootEl, rows);
         const groups = groupByType(rows);
-        // Create card leads; the 2×2 type grid follows below it. The grid's DOM
-        // order is TYPE_ORDER, which is also the global-position order we write
-        // back on a drop.
+        // The 2×2 type grid is the whole editor now — each quadrant header owns
+        // its own "+ Add" button. The grid's DOM order is TYPE_ORDER, which is
+        // also the global-position order we write back on a drop.
         rootEl.innerHTML =
-            createCardHtml() +
             `<div class="cat-grid">
                 ${quadrantHtml('income',    groups.income)}
                 ${quadrantHtml('expense',   groups.expense)}
@@ -230,17 +221,19 @@
                 return;
             }
 
-            // Add-row submit. Reads the input + dropdown values straight from the
-            // DOM so the form has no separate state to track.
+            // A quadrant's "+ Add" button drops a fresh "New Category" into that
+            // box (its data-type) and lands the cursor in the new row's name,
+            // text selected, so the user renames it immediately.
             if (addBtn) {
-                const nameInput = rootEl.querySelector('.cat-add-name');
-                const typeSel   = rootEl.querySelector('[data-add-type-select]');
-                const name      = (nameInput?.value || '').trim();
-                const cat_type  = typeSel?.value || 'expense';
-                if (!name) return;
+                const type = addBtn.closest('.cat-quadrant')?.dataset.type;
+                if (!type) return;
+                const name = uniqueDefaultName(stateByRoot.get(rootEl) || []);
                 try {
-                    await apiCreate({ name, cat_type });
+                    const created = await apiCreate({ name, cat_type: type });
                     await refresh(rootEl);
+                    const input = created &&
+                        rootEl.querySelector(`.cat-row[data-id="${created.id}"] .cat-name`);
+                    if (input) { input.focus(); input.select(); }
                 } catch (err) {
                     alert(err.message);
                 }
