@@ -426,6 +426,28 @@
     stroke-width: 1;
 }
 
+/* Each category's wave (the ribbon) + its labels is one link to that category's
+   transactions; the node bar is a bare cap, not part of the link. Brighten the
+   wave and labels on hover/keyboard-focus so the click target reads, and outline
+   the wave's own contour on focus (a box around a ribbon would be huge). */
+.cashflow-sankey .sankey-cat { cursor: pointer; }
+.cashflow-sankey .sankey-cat .sankey-link,
+.cashflow-sankey .sankey-cat .sankey-label,
+.cashflow-sankey .sankey-cat .sankey-amount {
+    transition: fill 0.15s ease, opacity 0.15s ease, stroke 0.15s ease;
+}
+.cashflow-sankey .sankey-cat:hover .sankey-link,
+.cashflow-sankey .sankey-cat:focus-visible .sankey-link { opacity: 0.72; }
+.cashflow-sankey .sankey-cat:hover .sankey-label,
+.cashflow-sankey .sankey-cat:focus-visible .sankey-label { fill: var(--text-primary); }
+.cashflow-sankey .sankey-cat:hover .sankey-amount,
+.cashflow-sankey .sankey-cat:focus-visible .sankey-amount { fill: var(--text-secondary); }
+.cashflow-sankey .sankey-cat:focus { outline: none; }
+.cashflow-sankey .sankey-cat:focus-visible .sankey-link {
+    stroke: var(--accent-primary);
+    stroke-width: 1.5;
+}
+
 .cashflow-sankey .sankey-link {
     opacity: 0.42;
     transition: opacity 0.15s ease;

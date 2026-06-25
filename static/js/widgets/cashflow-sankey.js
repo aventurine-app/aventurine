@@ -21,11 +21,20 @@
   const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
 
-  // Colourful node palette — the same hues home.js/chart.js cycle, so the
-  // diagram reads as part of the same chart family.
-  const PALETTE = [
-    '#78b9ff', '#64d28c', '#ffa550', '#b482ff',
-    '#ff78aa', '#ffd250', '#50d2c8', '#ff6464',
+  // Green is reserved for income, everywhere on this diagram. The primary green
+  // is the hero: it fills the central Net Inflow node and leads the income ramp,
+  // so money-in reads as one green family flowing into the centre. Income
+  // categories get shades of that green; expenses draw from a deliberately
+  // green-free palette so colour alone separates inflow from outflow.
+  const NET_GREEN = '#64d28c';            // central Net Inflow node + income hero
+  const INCOME_PALETTE = [
+    '#64d28c', '#2f9e63', '#9be8b4', '#3aa86a', '#1c7d4c', '#c2f0d4',
+  ];
+  // Expense hues — the chart family's non-green colours (blue/orange/purple/
+  // pink/amber/red/indigo). No green here, by design.
+  const EXPENSE_PALETTE = [
+    '#78b9ff', '#ffa550', '#b482ff', '#ff78aa',
+    '#ffd250', '#ff6464', '#5b8def', '#c0a0e8',
   ];
 
   const CHART_RATIO = 320 / 800;   // taller than the line charts — Sankeys need room
@@ -34,6 +43,7 @@
   const GAP = 8;                   // vertical gap between stacked side nodes
   const MIN_BAND = 1.5;            // floor so a tiny category is still visible
   const LABEL_GAP = 26;            // min vertical spacing between adjacent labels (name + amount)
+  const CENTER_LABEL_GAP = 12;     // breathing room between the centre label group and the Net Inflow node
 
   const state = {
     data: null,   // last /api/data payload
@@ -42,6 +52,15 @@
 
   let chartObserver = null;
   let firstPaint = true;
+
+  // Deep-link a category to the Transactions ledger, pre-filtered to that
+  // category and the year on screen. The Transactions page reads these back from
+  // location.search (txApplyUrlFilters). `cat` is the stable category key — the
+  // same slug both this diagram (GET /api/data columns) and the Transactions
+  // category list share — so it survives renames.
+  function categoryHref(key) {
+    return `/transactions?year=${state.year}&cat=${encodeURIComponent(key)}`;
+  }
 
   // ─── Currency helpers (mirror forecast.js) ─────────────────────────────────
   const fmtMoney = (n) => formatCurrency(n, true);
@@ -101,11 +120,6 @@
 
   // ─── SVG builder ─────────────────────────────────────────────────────────────
 
-  function readAccent() {
-    const v = getComputedStyle(document.documentElement).getPropertyValue('--accent-primary').trim();
-    return v || '#8b9751';
-  }
-
   /** Horizontal Sankey ribbon between two equal-height slots. */
   function ribbon(sx, s0, tx, t0, h) {
     const f = (n) => Math.round(n * 100) / 100;
@@ -140,47 +154,26 @@
     const expenseX = W - PAD.r - NODE_W;
     const centerX = (W - NODE_W) / 2;
     const centerH = maxTotal * scale;
-    const centerTop = (H - centerH) / 2;
+    // Centre the node, but float it down off the top edge when it would otherwise
+    // fill the full height (e.g. a single dominant income source), so the two-line
+    // label + its CENTER_LABEL_GAP always clears the chart top.
+    const centerTop = Math.max((H - centerH) / 2, CENTER_LABEL_GAP + 22);
 
     // Lay out a stacked side column, vertically centred. Returns nodes with y/h
-    // and a colour, in payload order.
-    const layoutSide = (items, x, colorOffset) => {
+    // and a colour drawn from the side's own palette, in payload order.
+    const layoutSide = (items, x, palette) => {
       const colH = items.reduce((a, c) => a + Math.max(c.total * scale, MIN_BAND), 0) + gaps(items.length);
       let y = (H - colH) / 2;
       return items.map((c, i) => {
         const h = Math.max(c.total * scale, MIN_BAND);
-        const node = { ...c, x, y, h, color: PALETTE[(colorOffset + i) % PALETTE.length] };
+        const node = { ...c, x, y, h, color: palette[i % palette.length] };
         y += h + GAP;
         return node;
       });
     };
 
-    const incomeNodes = layoutSide(income, incomeX, 0);
-    const expenseNodes = layoutSide(expense, expenseX, income.length);
-    const accent = readAccent();
-
-    let links = '';
-
-    // Incoming bands: each income node → a slot on the centre node, stacked from
-    // its top (continuous, no gaps) so they sum to totalIncome. Each ribbon is a
-    // single, contained colour (its income node's) — no blending into the next.
-    let inSlot = centerTop;
-    incomeNodes.forEach((n) => {
-      const h = n.total * scale; // slot uses true value height (no MIN floor) so the stack stays exact
-      links += `<path class="sankey-link" d="${ribbon(n.x + NODE_W, n.y, centerX, inSlot, Math.max(h, MIN_BAND))}" fill="${n.color}">`
-             + `<title>${escapeHtml(n.label)} → Net Inflow: ${fmtMoney(n.total)}</title></path>`;
-      inSlot += h;
-    });
-
-    // Outgoing bands: centre node → each expense node, stacked from the centre
-    // top, summing to totalExpense. Each ribbon takes its expense node's colour.
-    let outSlot = centerTop;
-    expenseNodes.forEach((n) => {
-      const h = n.total * scale;
-      links += `<path class="sankey-link" d="${ribbon(centerX + NODE_W, outSlot, n.x, n.y, Math.max(h, MIN_BAND))}" fill="${n.color}">`
-             + `<title>Net Inflow → ${escapeHtml(n.label)}: ${fmtMoney(n.total)}</title></path>`;
-      outSlot += h;
-    });
+    const incomeNodes = layoutSide(income, incomeX, INCOME_PALETTE);
+    const expenseNodes = layoutSide(expense, expenseX, EXPENSE_PALETTE);
 
     // Nodes + labels. A tiny category sits on a near-zero-height node, so
     // centring its label on the node would stack it onto its neighbour. Decouple
@@ -211,38 +204,69 @@
     };
 
     const r1 = (v) => Math.round(v * 10) / 10;
+    // Build one side. Each category is a single link wrapping its WAVE (the
+    // ribbon) + leader + labels — that whole flow is the click target, so you
+    // click the big wave, not the thin end bar. The bars come back separately to
+    // paint on top as bare caps, outside any link. The ribbon stacks against the
+    // centre node from centerTop (income flows node→centre, expense centre→node).
     // dir: -1 → income (labels to the left), +1 → expense (labels to the right).
-    const sideMarkup = (sideNodes, anchor, dir) => {
+    const sideMarkup = (sideNodes, anchor, dir, isIncome) => {
       const labelYs = spreadLabels(sideNodes);
-      let out = '';
+      let waves = '';
+      let bars = '';
+      let slot = centerTop;
       sideNodes.forEach((n, i) => {
         const cy = n.y + n.h / 2;
         const ly = labelYs[i];
         const edgeX = dir < 0 ? n.x : n.x + NODE_W; // node edge facing the label
         const labelX = edgeX + dir * 10;            // text anchor x
-        out += `<rect class="sankey-node" x="${n.x}" y="${n.y}" width="${NODE_W}" height="${n.h}" rx="2" fill="${n.color}">`
-             + `<title>${escapeHtml(n.label)}: ${fmtMoney(n.total)}</title></rect>`;
+        const h = n.total * scale;                  // true height; slot stays exact
+        // Income flows node→centre slot; expense flows centre slot→node.
+        const d = isIncome
+          ? ribbon(n.x + NODE_W, n.y, centerX, slot, Math.max(h, MIN_BAND))
+          : ribbon(centerX + NODE_W, slot, n.x, n.y, Math.max(h, MIN_BAND));
+        const flow = isIncome
+          ? `${escapeHtml(n.label)} → Net Inflow`
+          : `Net Inflow → ${escapeHtml(n.label)}`;
+        const aria = `${n.label}: ${fmtMoney(n.total)} — view transactions for ${state.year}`;
+
+        // Wave + leader + labels are one link; the <title> gives the whole flow
+        // a single hover tooltip.
+        let g = `<a class="sankey-cat" href="${escapeHtml(categoryHref(n.key))}" tabindex="0" role="link" aria-label="${escapeHtml(aria)}">`
+              + `<title>${flow}: ${fmtMoney(n.total)}</title>`
+              + `<path class="sankey-link" d="${d}" fill="${n.color}"></path>`;
         if (Math.abs(ly - cy) > 1) {
-          out += `<path class="sankey-leader" d="M ${r1(edgeX)} ${r1(cy)} L ${r1(labelX)} ${r1(ly)}" fill="none"/>`;
+          g += `<path class="sankey-leader" d="M ${r1(edgeX)} ${r1(cy)} L ${r1(labelX)} ${r1(ly)}" fill="none"/>`;
         }
-        out += `<text class="sankey-label" x="${labelX}" y="${r1(ly - 3)}" text-anchor="${anchor}">${escapeHtml(n.label)}</text>`
-             + `<text class="sankey-amount" x="${labelX}" y="${r1(ly + 11)}" text-anchor="${anchor}">${escapeHtml(fmtCompact(n.total))}</text>`;
+        g += `<text class="sankey-label" x="${labelX}" y="${r1(ly - 3)}" text-anchor="${anchor}">${escapeHtml(n.label)}</text>`
+           + `<text class="sankey-amount" x="${labelX}" y="${r1(ly + 11)}" text-anchor="${anchor}">${escapeHtml(fmtCompact(n.total))}</text>`
+           + `</a>`;
+        waves += g;
+
+        // Bare node cap, painted on top of the waves layer (outside the link).
+        bars += `<rect class="sankey-node" x="${n.x}" y="${n.y}" width="${NODE_W}" height="${n.h}" rx="2" fill="${n.color}">`
+              + `<title>${escapeHtml(n.label)}: ${fmtMoney(n.total)}</title></rect>`;
+        slot += h;
       });
-      return out;
+      return { waves, bars };
     };
 
-    let nodes = sideMarkup(incomeNodes, 'end', -1) + sideMarkup(expenseNodes, 'start', 1);
+    const inc = sideMarkup(incomeNodes, 'end', -1, true);
+    const exp = sideMarkup(expenseNodes, 'start', 1, false);
+    const waves = inc.waves + exp.waves;   // bottom layer: ribbons + labels (clickable)
+    let bars = inc.bars + exp.bars;        // top layer: bare node caps
 
-    // Centre node — sized to the larger side; label sits above it.
+    // Centre node — sized to the larger side; label sits above it. Not a
+    // category, so it stays outside any link.
     const cLabelX = centerX + NODE_W / 2;
-    nodes += `<rect class="sankey-node sankey-node-center" x="${centerX}" y="${centerTop}" width="${NODE_W}" height="${centerH}" rx="2" fill="${accent}">`
-           + `<title>Net Inflow: ${fmtMoney(totalIncome)}</title></rect>`
-           + `<text class="sankey-label sankey-label-center" x="${cLabelX}" y="${centerTop - 12}" text-anchor="middle">Net Inflow</text>`
-           + `<text class="sankey-amount sankey-label-center" x="${cLabelX}" y="${centerTop - 1}" text-anchor="middle">${escapeHtml(fmtCompact(totalIncome))}</text>`;
+    bars += `<rect class="sankey-node sankey-node-center" x="${centerX}" y="${centerTop}" width="${NODE_W}" height="${centerH}" rx="2" fill="${NET_GREEN}">`
+          + `<title>Net Inflow: ${fmtMoney(totalIncome)}</title></rect>`
+          + `<text class="sankey-label sankey-label-center" x="${cLabelX}" y="${centerTop - CENTER_LABEL_GAP - 11}" text-anchor="middle">Net Inflow</text>`
+          + `<text class="sankey-amount sankey-label-center" x="${cLabelX}" y="${centerTop - CENTER_LABEL_GAP}" text-anchor="middle">${escapeHtml(fmtCompact(totalIncome))}</text>`;
 
     const cls = `cashflow-sankey${firstPaint ? ' sankey-enter' : ''}`;
     return `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" class="${cls}" style="display:block;">`
-         + `${links}${nodes}</svg>`;
+         + `${waves}${bars}</svg>`;
   }
 
   // ─── Render + responsive redraw ──────────────────────────────────────────────
