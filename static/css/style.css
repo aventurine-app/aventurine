@@ -281,7 +281,7 @@
        own downward shadow (it casts vertically, not as a floating card) and
        modals keep their heavier overlay shadow. Theme-independent — shadows are
        black in both light and dark. */
-    --shadow-card: 0 0px 5px rgba(0, 0, 0, 0.2);
+    --shadow-card: 0 0px 0px rgba(0, 0, 0, 0.2);
 }
 
 /* Compact display density (Settings → Appearance). Tightens the spreadsheet
