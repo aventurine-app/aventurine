@@ -488,6 +488,10 @@ function txSearchInit() {
     txQuickInit();
 }
 
+// Open the search popover programmatically. Set by txSearchPopoverInit; used by
+// the deep-link handler to reveal the pre-filled search on arrival.
+let txOpenSearchPopover = () => {};
+
 // Open/close the search popover from the magnifying-glass chip. Closes on
 // outside click or Escape; the field IDs inside are untouched so txSearchInit's
 // per-field listeners keep filtering live as the user types.
@@ -503,6 +507,7 @@ function txSearchPopoverInit() {
         if (e.key === 'Escape') { close(); toggle.focus(); }
     };
     const open = () => {
+        if (!popover.hidden) return;
         popover.hidden = false;
         toggle.classList.add('is-open');
         toggle.setAttribute('aria-expanded', 'true');
@@ -518,10 +523,53 @@ function txSearchPopoverInit() {
         document.removeEventListener('keydown', onKey);
     };
 
+    txOpenSearchPopover = open;
     toggle.addEventListener('click', (e) => {
         e.stopPropagation();
         popover.hidden ? open() : close();
     });
+}
+
+// ─── Deep-link filters ───────────────────────────────────────────────────────
+// The Cash Flow report links each category to
+// /transactions?year=<year>&cat=<categoryKey>. On arrival with those params,
+// pre-fill the search — that year's Jan–Dec range plus the matching category —
+// then open the popover so the pre-filled search is visible. Must run after the
+// category vocabulary and popover controls exist (i.e. after txSearchInit).
+function txApplyUrlFilters() {
+    let params;
+    try { params = new URLSearchParams(location.search); }
+    catch { return; }
+    const yearRaw = params.get('year');
+    const catKey  = params.get('cat');
+    if (yearRaw == null && catKey == null) return;
+
+    const year = parseInt(yearRaw, 10);
+    if (Number.isInteger(year) && year > 0) {
+        txState.filters.dateFrom = `${year}-01-01`;
+        txState.filters.dateTo   = `${year}-12-31`;
+    }
+    if (catKey) {
+        // Match on the stable category key the link carries; map it to the id the
+        // filter state holds. An unknown key just leaves the category filter off.
+        const cat = txState.categories.find(c => c.key === catKey);
+        if (cat) txState.filters.category = String(cat.id);
+    }
+
+    // Mirror the parsed state onto the popover controls, sync the chip/pills,
+    // then redraw the now-narrowed ledger.
+    for (const [key, id] of Object.entries(TX_SEARCH_FIELDS)) {
+        const el = document.getElementById(id);
+        if (el) el.value = txState.filters[key] ?? '';
+    }
+    txState.page = 1;
+    txSyncFilterUI();
+    txRender();
+    txOpenSearchPopover();
+
+    // Consume the deep-link: keep the applied filters but strip the query string
+    // so a manual refresh or bookmark doesn't silently re-prefill and re-open.
+    try { history.replaceState(null, '', location.pathname); } catch { /* non-fatal */ }
 }
 
 // ─── Render orchestration ────────────────────────────────────────────────────
@@ -954,6 +1002,11 @@ async function txInit() {
     document.querySelector('.tx-import-btn')?.addEventListener('click', () => TxFileImport.run());
     document.querySelector('.tx-export-btn')?.addEventListener('click', () =>
         TxFileExport.run({ filters: txExportFilters(), count: txVisibleRows().length }));
+
+    // Apply any deep-link filters last, once the category vocabulary, popover
+    // controls and live listeners are all in place (e.g. arriving from a Cash
+    // Flow category click).
+    txApplyUrlFilters();
 }
 
 document.addEventListener('DOMContentLoaded', txInit);
