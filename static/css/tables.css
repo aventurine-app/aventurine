@@ -184,9 +184,12 @@
 }
 
 /* The ⋮ options menu acts on the table's contents, which are hidden while
-   collapsed — so hide the button too. It reappears when the table expands. */
+   collapsed — so hide the button too. visibility (not display:none) keeps it
+   occupying its --control-height footprint, so the forehead stays the SAME
+   height collapsed as expanded (the button is the tallest thing in the bar;
+   removing it from layout would shrink the bar to the year label's height). */
 .db-outer.collapsed .p-menu-btn {
-    display: none;
+    visibility: hidden;
 }
 
 /* == Table wrapper == */
