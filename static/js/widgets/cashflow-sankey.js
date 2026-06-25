@@ -21,11 +21,20 @@
   const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
 
-  // Colourful node palette — the same hues home.js/chart.js cycle, so the
-  // diagram reads as part of the same chart family.
-  const PALETTE = [
-    '#78b9ff', '#64d28c', '#ffa550', '#b482ff',
-    '#ff78aa', '#ffd250', '#50d2c8', '#ff6464',
+  // Green is reserved for income, everywhere on this diagram. The primary green
+  // is the hero: it fills the central Net Inflow node and leads the income ramp,
+  // so money-in reads as one green family flowing into the centre. Income
+  // categories get shades of that green; expenses draw from a deliberately
+  // green-free palette so colour alone separates inflow from outflow.
+  const NET_GREEN = '#64d28c';            // central Net Inflow node + income hero
+  const INCOME_PALETTE = [
+    '#64d28c', '#2f9e63', '#9be8b4', '#3aa86a', '#1c7d4c', '#c2f0d4',
+  ];
+  // Expense hues — the chart family's non-green colours (blue/orange/purple/
+  // pink/amber/red/indigo). No green here, by design.
+  const EXPENSE_PALETTE = [
+    '#78b9ff', '#ffa550', '#b482ff', '#ff78aa',
+    '#ffd250', '#ff6464', '#5b8def', '#c0a0e8',
   ];
 
   const CHART_RATIO = 320 / 800;   // taller than the line charts — Sankeys need room
@@ -34,6 +43,7 @@
   const GAP = 8;                   // vertical gap between stacked side nodes
   const MIN_BAND = 1.5;            // floor so a tiny category is still visible
   const LABEL_GAP = 26;            // min vertical spacing between adjacent labels (name + amount)
+  const CENTER_LABEL_GAP = 12;     // breathing room between the centre label group and the Net Inflow node
 
   const state = {
     data: null,   // last /api/data payload
@@ -101,11 +111,6 @@
 
   // ─── SVG builder ─────────────────────────────────────────────────────────────
 
-  function readAccent() {
-    const v = getComputedStyle(document.documentElement).getPropertyValue('--accent-primary').trim();
-    return v || '#8b9751';
-  }
-
   /** Horizontal Sankey ribbon between two equal-height slots. */
   function ribbon(sx, s0, tx, t0, h) {
     const f = (n) => Math.round(n * 100) / 100;
@@ -140,24 +145,26 @@
     const expenseX = W - PAD.r - NODE_W;
     const centerX = (W - NODE_W) / 2;
     const centerH = maxTotal * scale;
-    const centerTop = (H - centerH) / 2;
+    // Centre the node, but float it down off the top edge when it would otherwise
+    // fill the full height (e.g. a single dominant income source), so the two-line
+    // label + its CENTER_LABEL_GAP always clears the chart top.
+    const centerTop = Math.max((H - centerH) / 2, CENTER_LABEL_GAP + 22);
 
     // Lay out a stacked side column, vertically centred. Returns nodes with y/h
-    // and a colour, in payload order.
-    const layoutSide = (items, x, colorOffset) => {
+    // and a colour drawn from the side's own palette, in payload order.
+    const layoutSide = (items, x, palette) => {
       const colH = items.reduce((a, c) => a + Math.max(c.total * scale, MIN_BAND), 0) + gaps(items.length);
       let y = (H - colH) / 2;
       return items.map((c, i) => {
         const h = Math.max(c.total * scale, MIN_BAND);
-        const node = { ...c, x, y, h, color: PALETTE[(colorOffset + i) % PALETTE.length] };
+        const node = { ...c, x, y, h, color: palette[i % palette.length] };
         y += h + GAP;
         return node;
       });
     };
 
-    const incomeNodes = layoutSide(income, incomeX, 0);
-    const expenseNodes = layoutSide(expense, expenseX, income.length);
-    const accent = readAccent();
+    const incomeNodes = layoutSide(income, incomeX, INCOME_PALETTE);
+    const expenseNodes = layoutSide(expense, expenseX, EXPENSE_PALETTE);
 
     let links = '';
 
@@ -235,10 +242,10 @@
 
     // Centre node — sized to the larger side; label sits above it.
     const cLabelX = centerX + NODE_W / 2;
-    nodes += `<rect class="sankey-node sankey-node-center" x="${centerX}" y="${centerTop}" width="${NODE_W}" height="${centerH}" rx="2" fill="${accent}">`
+    nodes += `<rect class="sankey-node sankey-node-center" x="${centerX}" y="${centerTop}" width="${NODE_W}" height="${centerH}" rx="2" fill="${NET_GREEN}">`
            + `<title>Net Inflow: ${fmtMoney(totalIncome)}</title></rect>`
-           + `<text class="sankey-label sankey-label-center" x="${cLabelX}" y="${centerTop - 12}" text-anchor="middle">Net Inflow</text>`
-           + `<text class="sankey-amount sankey-label-center" x="${cLabelX}" y="${centerTop - 1}" text-anchor="middle">${escapeHtml(fmtCompact(totalIncome))}</text>`;
+           + `<text class="sankey-label sankey-label-center" x="${cLabelX}" y="${centerTop - CENTER_LABEL_GAP - 11}" text-anchor="middle">Net Inflow</text>`
+           + `<text class="sankey-amount sankey-label-center" x="${cLabelX}" y="${centerTop - CENTER_LABEL_GAP}" text-anchor="middle">${escapeHtml(fmtCompact(totalIncome))}</text>`;
 
     const cls = `cashflow-sankey${firstPaint ? ' sankey-enter' : ''}`;
     return `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" class="${cls}" style="display:block;">`
