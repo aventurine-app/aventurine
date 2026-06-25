@@ -170,12 +170,12 @@
 }
 
 
-/* ─── 1b. Chip row + search popover ──────────────────────────────────────────
+/* ─── 1b. Chip row + filter chips ────────────────────────────────────────────
    The row between the page header and the table. It has NO container
-   background — chips sit directly on the page. The left group holds the search
-   trigger (pinned to the far left of the table) and the lone Uncategorized
-   quick filter; the right group holds the action chips. The search filters
-   themselves live in a popover that drops down from the magnifying-glass chip. */
+   background — chips sit directly on the page. The left group holds one filter
+   chip per search field (Date / Name / Amount / Type / Category) plus a Clear
+   all; the right group holds the action chips. The filter chips and their option
+   popovers are defined at the end of this section. */
 .tx-chips {
     display: flex;
     align-items: center;
@@ -216,21 +216,15 @@
     transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
-/* Quick pills wear their hover look while active, so a selected filter reads
-   the same as a hovered one. */
-.tx-chip:not(:disabled):hover,
-.tx-quick.is-active {
+/* Action chips lift on hover. */
+.tx-chip:not(:disabled):hover {
     color: var(--text-primary);
     border-color: var(--border-strong, var(--border));
     background: var(--frost-3);
 }
 
-/* Rounded squares: the icon chips (action chips + the search trigger, wherever
-   they sit in the row) and the Uncategorized quick filter all share this shape,
-   so the Uncategorized pill matches the chips beside it instead of reading as a
-   fully-rounded pill. */
-.tx-chip-icon,
-.tx-quick-uncat {
+/* Rounded squares: the icon (action) chips. */
+.tx-chip-icon {
     border-radius: 8px;
 }
 
@@ -247,23 +241,8 @@
     color: var(--text-tertiary);
 }
 
-/* The Uncategorized pill carries the info-blue identity of the Uncategorized
-   tag + nav badge, instead of the neutral/olive of the other quick pills. Like
-   the rest, its active look matches its hover look. */
-.tx-quick-uncat {
-    color: var(--accent-info);
-    border-color: color-mix(in srgb, var(--accent-info) 45%, var(--border));
-}
-
-.tx-quick-uncat:not(:disabled):hover,
-.tx-quick-uncat.is-active {
-    color: var(--accent-info);
-    border-color: var(--accent-info);
-    background: color-mix(in srgb, var(--accent-info) 12%, transparent);
-}
-
-/* Icon-only chip (the magnifying glass) — square footprint, so its width
-   tracks the chip height above. */
+/* Icon-only chips (the action chips) — square footprint, so the width tracks
+   the chip height above. */
 .tx-chip-icon {
     width: 32px;
     padding: 0;
@@ -275,49 +254,167 @@
     height: 16px;
 }
 
-/* Open / filters-active state for the search chip. */
-.tx-search-toggle.is-open,
-.tx-search-toggle.has-filters {
-    color: var(--accent, var(--text-primary));
-    border-color: var(--accent, var(--border-strong, var(--border)));
-}
-
-/* ── Search popover ──────────────────────────────────────────────────────── */
-/* Anchored under the search chip; the wrapper provides the positioning origin. */
-.tx-search-popover-wrap {
+/* ── Filter chips ──────────────────────────────────────────────────────────
+   The chip is the visual unit; its two child buttons (clear ×, label) sit
+   transparently inside the shared border. Inactive → dotted outline, grayed,
+   just the field name. Active → solid primary-accent identity with the leading
+   × revealed and the " : value" half shown. */
+.tx-filter-chip {
     position: relative;
+    display: inline-flex;
+    align-items: stretch;
+    height: 32px;
+    border: 1px dashed var(--text-tertiary);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
-.tx-search-popover {
+/* Inactive hover lifts the text + border so the chip reads clickable. */
+.tx-filter-chip:not(.is-active):hover {
+    color: var(--text-secondary);
+    border-color: var(--text-secondary);
+    background: var(--frost-2);
+}
+
+/* Active → primary accent: tinted fill, solid accent border + text. */
+.tx-filter-chip.is-active {
+    border-style: solid;
+    border-color: var(--accent-primary);
+    background: color-mix(in srgb, var(--accent-primary) 14%, transparent);
+    color: var(--accent-primary);
+}
+
+.tx-filter-chip.is-active:hover {
+    background: color-mix(in srgb, var(--accent-primary) 22%, transparent);
+}
+
+/* The label button: field name, then a full-height divider + value once active. */
+.tx-filter-main {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 100%;
+    padding: 0 12px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+/* Active: the label sits tight against the × on its left. */
+.tx-filter-chip.is-active .tx-filter-main { padding-left: 6px; }
+
+.tx-filter-name { font-weight: var(--weight-medium); }
+
+/* The divider rule + value — only shown once the chip is active. The rule is a
+   full-height vertical line between the field name and its value: align-self
+   stretch makes it span the chip's full inner height regardless of the text. */
+.tx-filter-rule {
+    display: none;
+    align-self: stretch;
+    width: 1px;
+    background: currentColor;
+    opacity: 0.4;
+}
+
+.tx-filter-value {
+    display: none;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.tx-filter-chip.is-active .tx-filter-rule,
+.tx-filter-chip.is-active .tx-filter-value { display: block; }
+
+/* The leading × — only in flow on an active chip. Its SVG wears a perfect
+   circle (equal box + border-radius:50%) around the glyph; the button itself is
+   just the hit area + left spacing. */
+.tx-filter-clear {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    margin-left: 5px;
+    padding: 3px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+.tx-filter-chip.is-active .tx-filter-clear { display: inline-flex; }
+.tx-filter-clear svg {
+    width: 16px;
+    height: 16px;
+    padding: 1px;
+    box-sizing: border-box;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+}
+.tx-filter-clear:hover { color: var(--accent-tertiary); }
+
+/* Keyboard focus rings. The label ring is inset so the chip's rounded border
+   doesn't clip it; the × ring hugs its circle. */
+.tx-filter-main:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: -2px;
+    border-radius: 6px;
+}
+.tx-filter-clear:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 1px;
+    border-radius: 50%;
+}
+
+/* Clear all — a quiet text button shown only while ≥1 filter is on. */
+.tx-clear-all {
+    height: 32px;
+    padding: 0 8px;
+    border: 0;
+    background: transparent;
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    cursor: pointer;
+    transition: color 0.15s ease;
+}
+.tx-clear-all:hover { color: var(--text-primary); text-decoration: underline; }
+.tx-clear-all[hidden] { display: none; }
+
+/* ── Filter option popover ─────────────────────────────────────────────────
+   Built on demand under the clicked chip; the chip provides the positioning
+   origin. Reuses the dialog surface tokens. */
+.tx-filter-popover {
     position: absolute;
-    top: calc(100% + 8px);
-    /* Anchored to the LEFT of the trigger so it drops straight down and opens
-       rightward — the chip now lives at the far left of the table, so a
-       right:0 anchor would push the popover off the left edge. */
+    top: calc(100% + 6px);
     left: 0;
     z-index: 60;
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    width: 280px;
-    padding: 16px;
+    gap: 10px;
+    min-width: 220px;
+    padding: 10px;
     background: var(--dialog-surface);
     border: 1px solid var(--dialog-stroke);
     border-radius: 10px;
     box-shadow: var(--shadow-card);
 }
 
-/* display:flex above otherwise beats the UA [hidden]{display:none} rule. */
-.tx-search-popover[hidden] { display: none; }
-
-.tx-search-field {
+.tx-pop-field {
     display: flex;
     flex-direction: column;
     gap: 6px;
 }
 
 /* Same eyebrow voice as the table headers, one size quieter. */
-.tx-search-label {
+.tx-pop-label {
     color: var(--text-tertiary);
     font-family: var(--font-menu);
     font-size: var(--size-micro);
@@ -326,35 +423,62 @@
     text-transform: uppercase;
 }
 
-/* Paired min/max inputs (dates, amounts) joined by an en-dash. */
-.tx-search-range {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
+/* Min/Max amount inputs side by side. */
+.tx-pop-row { display: flex; gap: 8px; }
+.tx-pop-row .tx-pop-field { flex: 1 1 0; min-width: 0; }
 
-.tx-search-range-sep {
-    color: var(--text-tertiary);
-    font-family: var(--font-menu);
-}
-
-/* Inside the popover every control fills the column width. */
-.tx-search-popover .tx-input,
-.tx-search-popover .tx-select {
+.tx-filter-popover .tx-input {
     width: 100%;
     box-sizing: border-box;
 }
 
-.tx-search-popover .tx-search-range .tx-input {
-    flex: 1 1 0;
-    min-width: 0;
+/* Single-select option lists (Type / Category). */
+.tx-pop-options {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 280px;
+    overflow-y: auto;
+    /* Let the option hover fill reach the popover's padding edge. */
+    margin: -2px;
+    padding: 2px;
 }
 
-.tx-search-actions {
+.tx-pop-option {
     display: flex;
-    justify-content: flex-end;
-    margin-top: 2px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    height: 30px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-body);
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
 }
+
+.tx-pop-option:hover { background: var(--frost-3); color: var(--text-primary); }
+.tx-pop-option.is-selected { color: var(--accent-primary); }
+
+.tx-pop-option:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: -2px;
+}
+
+.tx-pop-option-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tx-pop-check { width: 15px; height: 15px; flex-shrink: 0; opacity: 0; }
+.tx-pop-option.is-selected .tx-pop-check { opacity: 1; }
 
 .tx-table {
     border-collapse: collapse;

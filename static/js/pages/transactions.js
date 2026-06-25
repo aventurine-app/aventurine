@@ -396,146 +396,273 @@ function txExportFilters() {
     return Object.keys(out).length ? out : null;
 }
 
-// Field key in txState.filters → control id in the search bar.
-const TX_SEARCH_FIELDS = {
-    dateFrom:  'tx-search-date-from',
-    dateTo:    'tx-search-date-to',
-    name:      'tx-search-name',
-    amountMin: 'tx-search-amount-min',
-    amountMax: 'tx-search-amount-max',
-    type:      'tx-search-type',
-    category:  'tx-search-category',
+// ─── Filter chips ────────────────────────────────────────────────────────────
+// Each chip owns one search filter. Inactive chips show a dotted outline with
+// just the field name; clicking one opens a popover of options, and once a value
+// is set the chip fills with the primary accent and reads "Field : value" with a
+// leading × to clear it. Every chip writes the same txState.filters object that
+// powers txRowMatchesFilters / txExportFilters, so the table, Export and the
+// Cash Flow deep-link pre-fill all stay in sync. The chip nodes are static in
+// the page; only their active class + value text are mutated (txSyncChips), so
+// an open popover and its focused input survive a live keystroke.
+
+// Display labels for the field name and the Type values.
+const TX_FILTER_LABELS = { date: 'Date', name: 'Name', amount: 'Amount', type: 'Type', category: 'Category' };
+const TX_TYPE_LABELS   = { income: 'Income', expense: 'Expense', savings: 'Savings', investing: 'Investing' };
+
+// Which txState.filters keys each chip owns (cleared together by its ×).
+const TX_FILTER_FIELDS = {
+    date:     ['dateFrom', 'dateTo'],
+    name:     ['name'],
+    amount:   ['amountMin', 'amountMax'],
+    type:     ['type'],
+    category: ['category'],
 };
 
-function txSearchPopulateCategories() {
-    const sel = document.getElementById('tx-search-category');
-    if (!sel) return;
-    const prev = sel.value;
-    sel.innerHTML = ['<option value="">All</option>', '<option value="none">Uncategorized</option>']
-        .concat(txState.categories.map(c => `<option value="${c.id}">${txEsc(c.name)}</option>`))
-        .join('');
-    sel.value = prev;
-    if (sel.value !== prev) {   // selected category no longer exists
-        sel.value = '';
-        txState.filters.category = '';
+// Short date for the Date chip; a clean full-calendar-year range (what the Cash
+// Flow deep-link sets) collapses to just the year.
+function txFilterDateText() {
+    const { dateFrom, dateTo } = txState.filters;
+    if (!dateFrom && !dateTo) return null;
+    if (dateFrom && dateTo) {
+        const m = /^(\d{4})-01-01$/.exec(dateFrom);
+        if (m && dateTo === `${m[1]}-12-31`) return m[1];
+        return `${txFmtDate(dateFrom)} – ${txFmtDate(dateTo)}`;
+    }
+    return dateFrom ? `From ${txFmtDate(dateFrom)}` : `Until ${txFmtDate(dateTo)}`;
+}
+
+// Amount chip text: format each bound as currency when it parses, else echo the
+// raw (still-being-typed) input so the chip never blanks mid-keystroke.
+function txFilterAmountText() {
+    const minRaw = String(txState.filters.amountMin).trim();
+    const maxRaw = String(txState.filters.amountMax).trim();
+    if (!minRaw && !maxRaw) return null;
+    const fmt = (raw) => {
+        const v = txParseAmountFilter(raw);
+        return Number.isFinite(v) ? formatCurrency(Math.abs(v)) : raw;
+    };
+    if (minRaw && maxRaw) return `${fmt(minRaw)} – ${fmt(maxRaw)}`;
+    return minRaw ? `≥ ${fmt(minRaw)}` : `≤ ${fmt(maxRaw)}`;
+}
+
+// The active-chip value text for a filter, or null when that filter is off.
+function txFilterValueText(key) {
+    const f = txState.filters;
+    switch (key) {
+        case 'date':   return txFilterDateText();
+        case 'name':   return f.name.trim() || null;
+        case 'amount': return txFilterAmountText();
+        case 'type':   return f.type ? TX_TYPE_LABELS[f.type] : null;
+        case 'category':
+            if (f.category === '' || f.category == null) return null;
+            if (f.category === 'none') return 'Uncategorized';
+            return txCategoryName(parseInt(f.category, 10)) || 'Category';
+        default: return null;
     }
 }
 
-// Reset every search field and re-render. Shared by the search popover's Clear
-// button and the "Clear filters" action in the filtered-empty state.
-function txClearFilters() {
-    for (const [key, id] of Object.entries(TX_SEARCH_FIELDS)) {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-        txState.filters[key] = '';
-    }
+// Reflect txState.filters onto the chips in place: toggle the active styling,
+// fill the value text, and show/hide the Clear all button. Never rebuilds the
+// chip nodes, so an open popover is untouched.
+function txSyncChips() {
+    let anyActive = false;
+    document.querySelectorAll('.tx-filter-chip').forEach(chip => {
+        const key  = chip.dataset.filter;
+        const text = txFilterValueText(key);
+        const on   = text != null;
+        anyActive = anyActive || on;
+        chip.classList.toggle('is-active', on);
+        const valEl = chip.querySelector('.tx-filter-value');
+        if (valEl) valEl.textContent = on ? text : '';
+        chip.querySelector('.tx-filter-main')?.setAttribute('aria-label',
+            on ? `${TX_FILTER_LABELS[key]}: ${text}, edit filter` : `Filter by ${TX_FILTER_LABELS[key]}`);
+    });
+    const clearAll = document.getElementById('tx-clear-all');
+    if (clearAll) clearAll.hidden = !anyActive;
+}
+
+// Merge a filter change into state, snap to page 1, then refresh chips + table.
+// txRender() also prunes the selection to the rows that remain visible, so a
+// tightened filter never leaves an off-screen row selected.
+function txSetFilter(patch) {
+    Object.assign(txState.filters, patch);
     txState.page = 1;
-    txSyncFilterUI();
+    txSyncChips();
     txRender();
 }
 
-// Reflect the current filter state on the chrome that lives outside the
-// popover: the search chip's "filters active" flag and the quick-pill
-// highlights. Called after every filter change so pills, popover controls and
-// the chip stay in lockstep no matter which one the user drove.
-function txSyncFilterUI() {
-    const toggle = document.getElementById('tx-search-toggle');
-    if (toggle) {
-        const active = Object.values(txState.filters).some(v => v !== '' && v != null);
-        toggle.classList.toggle('has-filters', active);
+// Drop the category filter if it points at a category that no longer exists
+// (after an import or a category delete). Called on every (re)load.
+function txReconcileCategoryFilter() {
+    const c = txState.filters.category;
+    if (c === '' || c === 'none' || c == null) return;
+    if (!txCategoryById(parseInt(c, 10))) txState.filters.category = '';
+}
+
+// Clear one chip's filter (its leading ×).
+function txClearFilter(key) {
+    txCloseFilterPopover();
+    const patch = {};
+    for (const field of TX_FILTER_FIELDS[key]) patch[field] = '';
+    txSetFilter(patch);
+}
+
+// Reset every filter. Shared by the Clear all chip and the "Clear filters"
+// action in the filtered-empty state.
+function txClearFilters() {
+    txCloseFilterPopover();
+    for (const fields of Object.values(TX_FILTER_FIELDS)) {
+        for (const field of fields) txState.filters[field] = '';
     }
-    document.querySelectorAll('.tx-quick').forEach(pill => {
-        const on = txState.filters[pill.dataset.quick] === pill.dataset.value;
-        pill.classList.toggle('is-active', on);
-        pill.setAttribute('aria-pressed', on ? 'true' : 'false');
+    txState.page = 1;
+    txSyncChips();
+    txRender();
+}
+
+// ─── Filter popovers ─────────────────────────────────────────────────────────
+// One popover open at a time, built on demand under the clicked chip and removed
+// on close. Date/Name/Amount popovers carry live inputs; Type/Category popovers
+// are single-select option lists that apply and close on pick.
+
+// The currently-open popover, or null: { el, chip, key, onOutside, onKey }.
+let txOpenPopover = null;
+
+function txCloseFilterPopover() {
+    if (!txOpenPopover) return;
+    const { el, chip, onOutside, onKey } = txOpenPopover;
+    document.removeEventListener('click', onOutside, true);
+    document.removeEventListener('keydown', onKey);
+    chip.querySelector('.tx-filter-main')?.setAttribute('aria-expanded', 'false');
+    el.remove();
+    txOpenPopover = null;
+}
+
+// Live-filter as the user types in a Date/Name/Amount popover.
+function txWirePopoverInputs(wrap) {
+    wrap.querySelectorAll('[data-k]').forEach(input => {
+        input.addEventListener('input', () => txSetFilter({ [input.dataset.k]: input.value }));
     });
 }
 
-// Quick-pill click → toggle one filter. A pill maps to a popover control (Type
-// or Category), so we drive that control's value too and route through the same
-// filter state, keeping the pill and the popover perfectly in sync.
-function txQuickInit() {
-    document.querySelectorAll('.tx-quick').forEach(pill => {
-        pill.addEventListener('click', () => {
-            const key = pill.dataset.quick;             // 'type' | 'category'
-            const value = pill.dataset.value;
-            const next = txState.filters[key] === value ? '' : value;
-            txState.filters[key] = next;
-            const control = document.getElementById(TX_SEARCH_FIELDS[key]);
-            if (control) control.value = next;
-            txState.page = 1;
-            txSyncFilterUI();
-            txRender();
-        });
+// A single-select option list for the Type/Category popovers. Picking an option
+// writes the filter and closes the popover; the current value is checked.
+function txBuildOptionList(key, options, current) {
+    const list = document.createElement('div');
+    list.className = 'tx-pop-options';
+    list.setAttribute('role', 'listbox');
+    list.innerHTML = options.map(([value, label]) => {
+        const sel = value === current;
+        return `<button type="button" class="tx-pop-option${sel ? ' is-selected' : ''}" role="option" aria-selected="${sel}" data-value="${txEsc(value)}">
+                    <span class="tx-pop-option-label">${txEsc(label)}</span>
+                    <svg class="tx-pop-check" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 10.5l3.5 3.5L15 6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>`;
+    }).join('');
+    list.addEventListener('click', (e) => {
+        const btn = e.target.closest('.tx-pop-option');
+        if (!btn) return;
+        txCloseFilterPopover();
+        txSetFilter({ [key]: btn.dataset.value });
     });
+    return list;
 }
 
-function txSearchInit() {
-    for (const [key, id] of Object.entries(TX_SEARCH_FIELDS)) {
-        const el = document.getElementById(id);
-        el?.addEventListener('input', () => {
-            txState.filters[key] = el.value;
-            // A filter change reshapes the list, so snap back to the first page.
-            // txRender() also prunes the selection to the rows that remain
-            // visible, so it never leaves an off-screen row selected.
-            txState.page = 1;
-            txSyncFilterUI();
-            txRender();
+// Build the popover body for one filter. Category options are read live from the
+// current vocabulary, so the list is always up to date without pre-populating.
+function txBuildPopover(key) {
+    const wrap = document.createElement('div');
+    wrap.className = 'tx-filter-popover';
+    wrap.setAttribute('role', 'dialog');
+    wrap.setAttribute('aria-label', `${TX_FILTER_LABELS[key]} filter`);
+    const f = txState.filters;
+
+    if (key === 'date') {
+        wrap.innerHTML = `
+            <label class="tx-pop-field">
+                <span class="tx-pop-label">From</span>
+                <input type="date" class="tx-input tx-input-date" data-k="dateFrom" value="${txEsc(f.dateFrom)}">
+            </label>
+            <label class="tx-pop-field">
+                <span class="tx-pop-label">To</span>
+                <input type="date" class="tx-input tx-input-date" data-k="dateTo" value="${txEsc(f.dateTo)}">
+            </label>`;
+        txWirePopoverInputs(wrap);
+    } else if (key === 'name') {
+        wrap.innerHTML = `
+            <label class="tx-pop-field">
+                <span class="tx-pop-label">Description contains</span>
+                <input type="text" class="tx-input" data-k="name" value="${txEsc(f.name)}" placeholder="Search descriptions" spellcheck="false" autocomplete="off">
+            </label>`;
+        txWirePopoverInputs(wrap);
+    } else if (key === 'amount') {
+        wrap.innerHTML = `
+            <div class="tx-pop-row">
+                <label class="tx-pop-field">
+                    <span class="tx-pop-label">Min</span>
+                    <input type="text" inputmode="decimal" class="tx-input tx-input-amount" data-k="amountMin" value="${txEsc(f.amountMin)}" placeholder="0.00" autocomplete="off">
+                </label>
+                <label class="tx-pop-field">
+                    <span class="tx-pop-label">Max</span>
+                    <input type="text" inputmode="decimal" class="tx-input tx-input-amount" data-k="amountMax" value="${txEsc(f.amountMax)}" placeholder="0.00" autocomplete="off">
+                </label>
+            </div>`;
+        txWirePopoverInputs(wrap);
+    } else if (key === 'type') {
+        wrap.appendChild(txBuildOptionList('type', [
+            ['', 'All'], ['income', 'Income'], ['expense', 'Expense'], ['savings', 'Savings'], ['investing', 'Investing'],
+        ], f.type || ''));
+    } else if (key === 'category') {
+        const opts = [['', 'All'], ['none', 'Uncategorized']]
+            .concat(txState.categories.map(c => [String(c.id), c.name]));
+        wrap.appendChild(txBuildOptionList('category', opts, f.category || ''));
+    }
+    return wrap;
+}
+
+// Open (or, if already open for this chip, toggle closed) a filter's popover.
+function txOpenFilterPopover(key, chip) {
+    if (txOpenPopover && txOpenPopover.key === key) { txCloseFilterPopover(); return; }
+    txCloseFilterPopover();
+
+    const main = chip.querySelector('.tx-filter-main');
+    const el   = txBuildPopover(key);
+    chip.appendChild(el);
+    main?.setAttribute('aria-expanded', 'true');
+
+    // Anything clicked outside this chip closes it; Escape closes and returns
+    // focus to the chip. Registered now, so they fire only on the next event —
+    // the opening click already passed the document capture phase.
+    const onOutside = (e) => { if (!chip.contains(e.target)) txCloseFilterPopover(); };
+    const onKey     = (e) => { if (e.key === 'Escape') { txCloseFilterPopover(); main?.focus(); } };
+    txOpenPopover = { el, chip, key, onOutside, onKey };
+    document.addEventListener('click', onOutside, true);
+    document.addEventListener('keydown', onKey);
+
+    (el.querySelector('input') || el.querySelector('.tx-pop-option.is-selected') || el.querySelector('.tx-pop-option'))?.focus();
+}
+
+// Wire the chip row: the leading × clears its filter; the label opens/toggles
+// its option popover. Delegated so the static chip nodes need no per-chip setup.
+function txChipsInit() {
+    const row = document.getElementById('tx-filter-chips');
+    if (row) {
+        row.addEventListener('click', (e) => {
+            const clearBtn = e.target.closest('.tx-filter-clear');
+            if (clearBtn) { txClearFilter(clearBtn.closest('.tx-filter-chip').dataset.filter); return; }
+            const main = e.target.closest('.tx-filter-main');
+            if (main) { txOpenFilterPopover(main.closest('.tx-filter-chip').dataset.filter, main.closest('.tx-filter-chip')); }
         });
     }
-    document.getElementById('tx-search-clear')?.addEventListener('click', txClearFilters);
-    txSearchPopoverInit();
-    txQuickInit();
-}
-
-// Open the search popover programmatically. Set by txSearchPopoverInit; used by
-// the deep-link handler to reveal the pre-filled search on arrival.
-let txOpenSearchPopover = () => {};
-
-// Open/close the search popover from the magnifying-glass chip. Closes on
-// outside click or Escape; the field IDs inside are untouched so txSearchInit's
-// per-field listeners keep filtering live as the user types.
-function txSearchPopoverInit() {
-    const toggle  = document.getElementById('tx-search-toggle');
-    const popover = document.getElementById('tx-search-popover');
-    if (!toggle || !popover) return;
-
-    const onOutside = (e) => {
-        if (!popover.contains(e.target) && !toggle.contains(e.target)) close();
-    };
-    const onKey = (e) => {
-        if (e.key === 'Escape') { close(); toggle.focus(); }
-    };
-    const open = () => {
-        if (!popover.hidden) return;
-        popover.hidden = false;
-        toggle.classList.add('is-open');
-        toggle.setAttribute('aria-expanded', 'true');
-        document.addEventListener('click', onOutside, true);
-        document.addEventListener('keydown', onKey);
-        popover.querySelector('input, select')?.focus();
-    };
-    const close = () => {
-        popover.hidden = true;
-        toggle.classList.remove('is-open');
-        toggle.setAttribute('aria-expanded', 'false');
-        document.removeEventListener('click', onOutside, true);
-        document.removeEventListener('keydown', onKey);
-    };
-
-    txOpenSearchPopover = open;
-    toggle.addEventListener('click', (e) => {
-        e.stopPropagation();
-        popover.hidden ? open() : close();
-    });
+    document.getElementById('tx-clear-all')?.addEventListener('click', txClearFilters);
+    txSyncChips();
 }
 
 // ─── Deep-link filters ───────────────────────────────────────────────────────
 // The Cash Flow report links each category to
 // /transactions?year=<year>&cat=<categoryKey>. On arrival with those params,
-// pre-fill the search — that year's Jan–Dec range plus the matching category —
-// then open the popover so the pre-filled search is visible. Must run after the
-// category vocabulary and popover controls exist (i.e. after txSearchInit).
+// pre-fill the filters — that year's Jan–Dec range plus the matching category —
+// so the chips light up to reveal the active search. Must run after the category
+// vocabulary and chips are in place (i.e. after txChipsInit).
 function txApplyUrlFilters() {
     let params;
     try { params = new URLSearchParams(location.search); }
@@ -556,19 +683,12 @@ function txApplyUrlFilters() {
         if (cat) txState.filters.category = String(cat.id);
     }
 
-    // Mirror the parsed state onto the popover controls, sync the chip/pills,
-    // then redraw the now-narrowed ledger.
-    for (const [key, id] of Object.entries(TX_SEARCH_FIELDS)) {
-        const el = document.getElementById(id);
-        if (el) el.value = txState.filters[key] ?? '';
-    }
     txState.page = 1;
-    txSyncFilterUI();
+    txSyncChips();
     txRender();
-    txOpenSearchPopover();
 
     // Consume the deep-link: keep the applied filters but strip the query string
-    // so a manual refresh or bookmark doesn't silently re-prefill and re-open.
+    // so a manual refresh or bookmark doesn't silently re-prefill.
     try { history.replaceState(null, '', location.pathname); } catch { /* non-fatal */ }
 }
 
@@ -980,7 +1100,7 @@ async function txInit() {
     });
     await txLoad();
     cancelSkeleton();
-    txSearchPopulateCategories();
+    txReconcileCategoryFilter();
     txRender();
 
     const tbody = document.getElementById('tx-tbody');
@@ -994,7 +1114,7 @@ async function txInit() {
     document.querySelector('.tx-delete-btn')?.addEventListener('click', txConfirmBulkDelete);
     document.getElementById('tx-select-all')?.addEventListener('change', (e) => txToggleSelectAll(e.target.checked));
     document.getElementById('tx-pagination')?.addEventListener('click', txOnPaginationClick);
-    txSearchInit();
+    txChipsInit();
     // Import/export handlers are owned by txfileimport.js / txexport.js so
     // this file doesn't have to know about file dialects, preview UIs, or
     // rules engines. Export sits beside Import in the page header and saves the
@@ -1017,7 +1137,8 @@ window.addEventListener('transactions:reload', async () => {
     txState.selectedIds.clear();
     txState.page = 1;
     await txLoad();
-    txSearchPopulateCategories();
+    txReconcileCategoryFilter();
+    txSyncChips();
     txRender();
 });
 

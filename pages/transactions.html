@@ -23,73 +23,57 @@
         </div>
     </div>
 
-    <!-- Chip row above the table — no container background. The search trigger
-         is pinned to the far left of the table, with the lone Uncategorized
-         quick filter beside it; the right group holds the action chips (Edit /
-         Delete / Import / Export / Add). Search trigger, action chips and the
-         Uncategorized filter all read as rounded squares. -->
+    <!-- Chip row above the table — no container background. The left group is
+         one filter chip per search field (Date / Name / Amount / Type /
+         Category) plus a Clear all; the right group holds the action chips
+         (Edit / Delete / Import / Export / Add). Inactive filter chips read as a
+         dotted outline with just the field name; clicking one drops a popover of
+         options, and once a value is picked the chip fills with the primary
+         accent and reads "Field : value" with a leading × to clear it. The
+         option popovers are built on demand in transactions.js. -->
     <div class="tx-chips">
-        <div class="tx-chips-group tx-chips-left">
-            <!-- Search trigger, far left. The filters it writes share the same
-                 state the Uncategorized quick filter toggles, so the two
-                 highlight in lockstep. The filter controls themselves live in a
-                 popover that drops down from this chip. -->
-            <div class="tx-search-popover-wrap">
-                <button class="tx-chip tx-chip-icon tx-search-toggle" type="button" id="tx-search-toggle"
-                        aria-label="Search transactions" aria-haspopup="dialog" aria-expanded="false">
-                    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                        <circle cx="9" cy="9" r="5.5" stroke="currentColor" stroke-width="1.5"/>
-                        <path d="M13.2 13.2 16.5 16.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    </svg>
+        <div class="tx-chips-group tx-chips-left" id="tx-filter-chips">
+            <div class="tx-filter-chip" data-filter="date">
+                <button class="tx-filter-clear" type="button" aria-label="Clear date filter">
+                    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
                 </button>
-
-                <!-- Search popover — every filled-in filter narrows the table
-                     below in real time. Anchored under the magnifying chip. -->
-                <div class="tx-search-popover" id="tx-search-popover" role="dialog" aria-label="Search transactions" hidden>
-                    <div class="tx-search-field">
-                        <span class="tx-search-label">Date</span>
-                        <div class="tx-search-range">
-                            <input type="date" class="tx-input tx-search-date" id="tx-search-date-from" aria-label="From date">
-                            <span class="tx-search-range-sep">&ndash;</span>
-                            <input type="date" class="tx-input tx-search-date" id="tx-search-date-to" aria-label="To date">
-                        </div>
-                    </div>
-                    <div class="tx-search-field tx-search-field-name">
-                        <span class="tx-search-label">Name</span>
-                        <input type="text" class="tx-input" id="tx-search-name" placeholder="Search descriptions" spellcheck="false" autocomplete="off">
-                    </div>
-                    <div class="tx-search-field">
-                        <span class="tx-search-label">Amount</span>
-                        <div class="tx-search-range">
-                            <input type="text" inputmode="decimal" class="tx-input tx-input-amount tx-search-amount" id="tx-search-amount-min" placeholder="Min" aria-label="Minimum amount" autocomplete="off">
-                            <span class="tx-search-range-sep">&ndash;</span>
-                            <input type="text" inputmode="decimal" class="tx-input tx-input-amount tx-search-amount" id="tx-search-amount-max" placeholder="Max" aria-label="Maximum amount" autocomplete="off">
-                        </div>
-                    </div>
-                    <div class="tx-search-field">
-                        <span class="tx-search-label">Type</span>
-                        <select class="tx-select" id="tx-search-type">
-                            <option value="">All</option>
-                            <option value="income">Income</option>
-                            <option value="expense">Expense</option>
-                            <option value="savings">Savings</option>
-                            <option value="investing">Investing</option>
-                        </select>
-                    </div>
-                    <div class="tx-search-field">
-                        <span class="tx-search-label">Category</span>
-                        <select class="tx-select" id="tx-search-category">
-                            <option value="">All</option>
-                        </select>
-                    </div>
-                    <div class="tx-search-actions">
-                        <button class="button-secondary" type="button" id="tx-search-clear">Clear all</button>
-                    </div>
-                </div>
+                <button class="tx-filter-main" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Filter by Date">
+                    <span class="tx-filter-name">Date</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
+                </button>
             </div>
-            <!-- The lone remaining quick filter — an independent category filter
-                 onto the same filter state the search popover writes. -->
-            <button class="tx-chip tx-quick tx-quick-uncat" type="button" data-quick="category" data-value="none" aria-pressed="false">Uncategorized</button>
+            <div class="tx-filter-chip" data-filter="name">
+                <button class="tx-filter-clear" type="button" aria-label="Clear name filter">
+                    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+                </button>
+                <button class="tx-filter-main" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Filter by Name">
+                    <span class="tx-filter-name">Name</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
+                </button>
+            </div>
+            <div class="tx-filter-chip" data-filter="amount">
+                <button class="tx-filter-clear" type="button" aria-label="Clear amount filter">
+                    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+                </button>
+                <button class="tx-filter-main" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Filter by Amount">
+                    <span class="tx-filter-name">Amount</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
+                </button>
+            </div>
+            <div class="tx-filter-chip" data-filter="type">
+                <button class="tx-filter-clear" type="button" aria-label="Clear type filter">
+                    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+                </button>
+                <button class="tx-filter-main" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Filter by Type">
+                    <span class="tx-filter-name">Type</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
+                </button>
+            </div>
+            <div class="tx-filter-chip" data-filter="category">
+                <button class="tx-filter-clear" type="button" aria-label="Clear category filter">
+                    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+                </button>
+                <button class="tx-filter-main" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Filter by Category">
+                    <span class="tx-filter-name">Category</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
+                </button>
+            </div>
+            <button class="tx-clear-all" type="button" id="tx-clear-all" hidden>Clear all</button>
         </div>
         <div class="tx-chips-group tx-chips-right">
             <!-- Selection-driven action chips: disabled until at least one row
