@@ -390,7 +390,20 @@ function buildChartSVG({ series, years, slots: customSlots, W, animate = true })
     // Every chart snaps its value range to "nice" tick boundaries so the
     // grid labels read as clean round numbers ($80K, $100K, $120K) instead
     // of arbitrary padded values — one scale treatment everywhere.
-    const yTicks = niceTicks(Math.min(...allValues), Math.max(...allValues), 4);
+    //
+    // Before snapping, enforce a minimum vertical span (scaled to the
+    // values' magnitude, with an absolute floor near zero) and centre the
+    // data within it. Without this a flat or plateaued series collapses to
+    // a zero-height range and glues the line to the bottom axis; centring a
+    // padded span instead lays a flat stretch mid-chart. The extra head/
+    // footroom also keeps peaks and troughs off the frame edges. Series with
+    // real variation already exceed the minimum span, so they're unaffected.
+    const dataLo = Math.min(...allValues);
+    const dataHi = Math.max(...allValues);
+    const mid    = (dataLo + dataHi) / 2;
+    const span   = Math.max(dataHi - dataLo, Math.abs(mid) * 0.25, 1);
+    const pad    = span * 0.1;
+    const yTicks = niceTicks(mid - span / 2 - pad, mid + span / 2 + pad, 4);
     const minVal = yTicks[0];
     const maxVal = yTicks[yTicks.length - 1];
     const valRange = maxVal - minVal || 1;
