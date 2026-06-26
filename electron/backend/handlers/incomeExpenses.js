@@ -122,7 +122,18 @@ function yearAdd(ctx, { body }) {
   if (!body) bad('invalid request');
   const year = body.year;
   if (!validateYear(year)) bad('invalid year');
-  db.prepare('INSERT OR IGNORE INTO active_years (year) VALUES (?)').run(year);
+  db.transaction(() => {
+    const info = db.prepare('INSERT OR IGNORE INTO active_years (year) VALUES (?)').run(year);
+    // A newly created year-table defaults to fully synced: every category is
+    // computed from transactions, so the user opts cells OUT rather than IN.
+    // Guard on `info.changes` so re-posting an existing year is a no-op and
+    // never silently re-syncs categories the user had already turned off.
+    if (info.changes > 0) {
+      db.prepare(
+        'INSERT OR IGNORE INTO category_sync (year, category) SELECT ?, "key" FROM categories'
+      ).run(year);
+    }
+  })();
   return { ok: true, year };
 }
 

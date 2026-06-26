@@ -594,13 +594,16 @@ test('sync is independent per year', (t) => {
   const c = makeClient(t);
   const food = categoryByKey(c, 'food');
   c.post('/api/year', { year: 2025 });
+  // New years default to fully synced; hand-enter food in 2025 only.
+  setSync(c, 2025, { category: 'food', sync: false });
   addEntry(c, 2025, 'January', 'food', 42); // manual in 2025
   setSync(c, 2026, { category: 'food', sync: true });
   addTx(c, '2026-01-10', 70, { catId: food.id });
 
   const d = getData(c);
+  // food is synced in 2026 (the bootstrap year) but hand-entered in 2025.
   assert.deepStrictEqual(d.sync['2026'], ['food']);
-  assert.equal(d.sync['2025'], undefined);
+  assert.ok(!d.sync['2025'].includes('food'));
   assert.equal(d.entries['2025'].January.food, 42); // manual preserved
   assert.equal(d.entries['2026'].January.food, 70); // computed
 });
@@ -616,9 +619,8 @@ test('sync: sync-all then unsync-all', (t) => {
 
 test('sync: deleting a year clears its sync rows', (t) => {
   const c = makeClient(t);
-  c.post('/api/year', { year: 2030 });
-  setSync(c, 2030, { category: 'food', sync: true });
-  assert.deepStrictEqual(getData(c).sync['2030'], ['food']);
+  c.post('/api/year', { year: 2030 }); // new years default fully synced
+  assert.ok(getData(c).sync['2030'].length > 0);
   assert.equal(c.del('/api/year/2030').status, 200);
   assert.equal(getData(c).sync['2030'], undefined);
 });

@@ -150,6 +150,7 @@ test('report-card API: a fresh DB shows only the seeded current year, no evaluab
 test('report-card API: aggregates a Cash Flow year by category cat_type', (t) => {
   const c = makeClient(t);
   c.post('/api/year', { year: 2025 });
+  c.post('/api/year/2025/sync', { all: true, sync: false }); // new years default synced; hand-enter below
   const entry = (category, value) =>
     c.post('/api/entry', { year: 2025, month: 'January', category, value });
 
@@ -188,7 +189,9 @@ test('report-card API: transactions alone do not feed an unsynced year', (t) => 
   const c = makeClient(t);
   const id = categoryIds(c);
   c.post('/api/year', { year: 2025 });
-  // Not synced → the Cash Flow cell stays hand-entered (here, empty).
+  // New years default to fully synced; turn it off so the cell stays
+  // hand-entered (here, empty) and transactions do NOT feed it.
+  c.post('/api/year/2025/sync', { all: true, sync: false });
   c.post('/api/transactions', { date: '2025-03-01', description: 'pay', category_id: id.income, amount: 100000 });
 
   const y = c.get('/api/report-card').body.years.find((yr) => yr.year === 2025);
@@ -216,6 +219,7 @@ test('report-card API: synced cells pull figures from transactions', (t) => {
 test('report-card API: debt-to-income uses the latest Balance-Sheet debt month', (t) => {
   const c = makeClient(t);
   c.post('/api/year', { year: 2025 });
+  c.post('/api/year/2025/sync', { all: true, sync: false }); // new years default synced; hand-enter below
   c.post('/api/entry', { year: 2025, month: 'June', category: 'income', value: 100000 });
 
   // Add a debt-type Balance-Sheet column and give it two months in 2025.
@@ -234,6 +238,9 @@ test('report-card API: multiple years come back newest-first with YoY changes', 
   const c = makeClient(t);
   c.post('/api/year', { year: 2024 });
   c.post('/api/year', { year: 2025 });
+  // New years default to fully synced; hand-enter income below.
+  c.post('/api/year/2024/sync', { all: true, sync: false });
+  c.post('/api/year/2025/sync', { all: true, sync: false });
   c.post('/api/entry', { year: 2024, month: 'January', category: 'income', value: 80000 });
   c.post('/api/entry', { year: 2025, month: 'January', category: 'income', value: 100000 });
 
