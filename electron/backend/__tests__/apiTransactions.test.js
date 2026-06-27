@@ -238,16 +238,18 @@ test('similar: match strength of 100% is exact, lower is fuzzy', (t) => {
 test('auto-match catches near-identical descriptions only below 100% strength', (t) => {
   const c = makeClient(t);
   const cat = makeCategory(c, 'Match Music');
-  createTx(c, 'Spotify Premium', { catId: cat });
+  // Synthetic merchant the built-in lexicon doesn't know, so this isolates the
+  // LEARNED fuzzy-match behavior from cold-start categorization.
+  createTx(c, 'Zentrix Premium', { catId: cat });
 
   // Default strength is exact, so a near-identical (not identical) import misses.
-  let result = importRows(c, ['Spotify Premiums']);
+  let result = importRows(c, ['Zentrix Premiums']);
   assert.equal(result.auto_categorized, 0);
 
   setSetting(c, 'tx_fuzzy_threshold', '0.85');
-  result = importRows(c, ['Spotify Premiums']);
+  result = importRows(c, ['Zentrix Premiums']);
   assert.equal(result.auto_categorized, 1);
-  assert.ok(txByDesc(c, 'Spotify Premiums').some((x) => x.category_id === cat));
+  assert.ok(txByDesc(c, 'Zentrix Premiums').some((x) => x.category_id === cat));
 });
 
 test('fuzzy: far descriptions stay uncategorized', (t) => {
@@ -281,6 +283,44 @@ test('category delete drops its rules', (t) => {
   assert.equal(c.del(`/api/categories/${cat}`).status, 200);
 
   assert.equal(importRows(c, ['Doomed Merchant']).auto_categorized, 0);
+});
+
+test('import cold-categorizes known merchants via the built-in lexicon (no learned rules)', (t) => {
+  const c = makeClient(t);
+  const catId = (key) => getCategories(c).find((x) => x.key === key).id;
+
+  // No prior categorizations exist, so this exercises the built-in lexicon: it
+  // must catch recognizable merchants even in messy bank-export form, and leave
+  // genuinely-unknown rows blank.
+  const result = importRows(c, [
+    'NETFLIX.COM',
+    'POS DEBIT SHELL OIL 57210 HOUSTON TX',
+    'ZZZ Unknown Corner Store',
+  ]);
+  assert.equal(result.auto_categorized, 2);
+  assert.equal(txByDesc(c, 'NETFLIX.COM')[0].category_id, catId('entertainment'));
+  assert.ok(
+    txByDesc(c, 'POS DEBIT SHELL OIL 57210 HOUSTON TX').every(
+      (x) => x.category_id === catId('automobile')
+    )
+  );
+  assert.equal(txByDesc(c, 'ZZZ Unknown Corner Store')[0].category_id, null);
+});
+
+test('built-in categorization respects the direction guard and the on/off setting', (t) => {
+  const c = makeClient(t);
+
+  // A positive (income) row matching an expense merchant is left alone rather
+  // than flipped into an expense category.
+  let result = importRows(c, ['SHELL OIL REFUND'], 'income');
+  assert.equal(result.auto_categorized, 0);
+  assert.equal(txByDesc(c, 'SHELL OIL REFUND')[0].category_id, null);
+
+  // Turning auto-match off disables the built-in pass too.
+  setSetting(c, 'tx_auto_match', 'off');
+  result = importRows(c, ['NETFLIX.COM']);
+  assert.equal(result.auto_categorized, 0);
+  assert.equal(txByDesc(c, 'NETFLIX.COM')[0].category_id, null);
 });
 
 // ── test_predictions.py (API half) ────────────────────────────────────────────

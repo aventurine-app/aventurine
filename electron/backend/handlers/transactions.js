@@ -24,6 +24,7 @@ const {
   sequenceRatio,
   getFuzzyThreshold,
 } = require('../services/matchRules');
+const { applyBuiltinCategorize } = require('../services/categorize');
 
 function list(ctx) {
   const db = ctx.db();
@@ -217,9 +218,13 @@ function importRows(ctx, { body }) {
     inserted.push(t);
   }
 
-  // Imported rows arrive uncategorized; the learned rules categorize the
-  // confident matches in one batch pass, then everything commits together.
-  const autoCategorized = applyAutoMatch(db, inserted);
+  // Imported rows arrive uncategorized. Two batch passes categorize the
+  // confident ones, then everything commits together. Order matters: the
+  // user's learned rules run first (they personalise and win), then the
+  // built-in lexicon fills in still-uncategorized rows for a useful cold
+  // start. Both skip already-categorized rows, so they never fight.
+  const autoCategorized =
+    applyAutoMatch(db, inserted) + applyBuiltinCategorize(db, inserted);
   if (inserted.length) {
     db.transaction(() => {
       for (const t of inserted) insertTx(db, t);
