@@ -22,7 +22,8 @@ const { normaliseMerchant, categorize } = require('../services/categorize');
 test('normaliseMerchant strips processor prefixes, masks, store/phone numbers, state tails', () => {
   assert.equal(normaliseMerchant('SQ *BLUE BOTTLE COFFEE 866-123-4567 CA'), 'blue bottle coffee');
   assert.equal(normaliseMerchant("POS DEBIT MCDONALD'S #4521 CHICAGO IL"), "debit mcdonald's chicago");
-  assert.equal(normaliseMerchant('AMZN MKTP US*2X4AB1CD3'), 'amzn mktp us*2x4ab1cd3');
+  assert.equal(normaliseMerchant('AMZN MKTP US*2X4AB1CD3'), 'amzn mktp us 2x4ab1cd3');
+  assert.equal(normaliseMerchant('UBER *EATS'), 'uber eats'); // stray '*' → space, so the merchant token is contiguous
   assert.equal(normaliseMerchant('CHECKCARD 1234 SHELL OIL'), 'shell oil');
   assert.equal(normaliseMerchant(''), '');
   assert.equal(normaliseMerchant(null), '');
@@ -49,13 +50,18 @@ test('categorize: does not fire on ambiguous substrings (no false positives)', (
   assert.equal(categorize('NATIONAL GAS SUPPLY CO'), null);
 });
 
-test('corpus: precision is perfect and coverage clears 90%', () => {
+test('corpus: precision is perfect, coverage clears 90%, breadth across categories', () => {
   const corpus = JSON.parse(
     fs.readFileSync(path.join(__dirname, 'fixtures', 'categorize-corpus.json'), 'utf8')
   );
-  assert.ok(corpus.length >= 30, 'corpus has enough cases');
+  assert.ok(corpus.length >= 100, 'corpus has enough cases');
+  // A meaningful precision fence needs real abstention cases (incl. substring
+  // traps like "red cross"/"tacoma"/"parent"), not just positives.
+  const abstentions = corpus.filter((r) => r.expected === null).length;
+  assert.ok(abstentions >= 12, 'corpus has enough abstention cases');
 
   let categorizable = 0, covered = 0, wrong = 0, falsePositives = 0;
+  const coveredCats = new Set();
   for (const { desc, expected } of corpus) {
     const hit = categorize(desc);
     const got = hit ? hit.categoryKey : null;
@@ -64,7 +70,7 @@ test('corpus: precision is perfect and coverage clears 90%', () => {
       continue;
     }
     categorizable++;
-    if (got === expected) covered++;
+    if (got === expected) { covered++; coveredCats.add(expected); }
     else if (got !== null) wrong++; // categorized, but to the wrong bucket
   }
 
@@ -76,4 +82,7 @@ test('corpus: precision is perfect and coverage clears 90%', () => {
   // Coverage of the merchants the lexicon claims to know.
   const coverage = covered / categorizable;
   assert.ok(coverage >= 0.9, `coverage ${(coverage * 100).toFixed(1)}% should be >= 90%`);
+
+  // Breadth: the lexicon must work across the taxonomy, not just dining/shopping.
+  assert.ok(coveredCats.size >= 9, `covered ${coveredCats.size} categories, expected >= 9`);
 });

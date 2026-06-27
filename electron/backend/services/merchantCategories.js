@@ -6,15 +6,21 @@
 // per-user MatchRules exist. It ships in the binary — no network, no telemetry.
 //
 // Mapped categories use the stable default category keys from seed.js
-// (food, automobile, utilities, rent, health, entertainment, general, income,
-// …). categorize.js resolves a key to this DB's category row at runtime and
-// skips any key the user has deleted, so a customised taxonomy never breaks.
+// (groceries, dining, automobile, utilities, …). categorize.js resolves a key
+// to this DB's category row at runtime and skips any key the user deleted, so a
+// customised taxonomy never breaks.
 //
 // Design rule: PRECISION OVER RECALL. A confident wrong category costs more
 // user trust than leaving a row blank (the user fixes blanks in one click, and
-// that fix trains a MatchRule). So keep entries unambiguous; when a token has
-// two common meanings, omit it rather than guess. Recall is recovered later by
-// the learned-rules layer and a future trained classifier.
+// that fix trains a MatchRule). Two concrete consequences:
+//   1. When a token has two common meanings, omit it (no bare "gas"/"rent"/
+//      "store"/"market"/"bar").
+//   2. Needles are matched as SUBSTRINGS, so a short needle can hide inside an
+//      unrelated word ("macy" in "pharmacy", "gap" in "singapore", "ross" in
+//      "red cross"). Such needles are deliberately excluded or qualified
+//      ("macys", "boost mobile"); the eval corpus's abstention cases guard this.
+// categorize.js matches the LONGEST needle first, so a specific entry
+// ("boost mobile", "uber eats") wins over a shorter prefix ("mobil", —).
 
 // ── Noise stripping ───────────────────────────────────────────────────────────
 // Bank descriptions bury the merchant in transport noise: payment-network
@@ -25,9 +31,12 @@ const NOISE_PATTERNS = [
   // Payment-processor / aggregator prefixes (the "<proc> *<merchant>" idiom).
   /\b(sq|tst|sp|pp|paypal|google|goog|apl|apple|amzn mktp|amazon mktpl|amzn|toast|clover|venmo|cash app|zelle)\s*\*+\s*/gi,
   // Transaction-type markers banks staple onto the front.
-  /\b(pos|ach|web|recur(?:ring)?|autopay|auto pay|electronic|online|mobile|debit card purchase|debit card|credit card|checkcard|check card|chkcard|visa dda pur|visa|mastercard|purchase authorized on|purchase|payment|pmt|withdrawal|ext trnsfr)\b/gi,
-  // Card masks, reference/auth numbers, store numbers, phone numbers.
+  // NB: no bare "mobile" here — it would eat carrier names (T-Mobile, Boost Mobile).
+  /\b(pos|ach|web|recur(?:ring)?|autopay|auto pay|electronic|online|debit card purchase|debit card|credit card|checkcard|check card|chkcard|visa dda pur|visa|mastercard|purchase authorized on|purchase|payment|pmt|withdrawal|ext trnsfr)\b/gi,
+  // Card masks, then any remaining stray asterisks (an un-prefixed "uber *eats"
+  // or "amzn*2x4" → spaces) so the merchant token is contiguous for matching.
   /[x*]{2,}\d+/gi, // xxxx1234 / ****1234
+  /\*+/g,
   /#\s*\d+/g, // store #1234
   /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/g, // phone numbers
   /\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g, // embedded dates
@@ -38,100 +47,207 @@ const NOISE_PATTERNS = [
 
 // ── Merchant lexicon ──────────────────────────────────────────────────────────
 // [normalized-substring, category-key]. Matched as a substring of the cleaned
-// description, longest needle first (so "uber eats" beats "uber"). High
-// confidence — these are named brands with a single obvious category.
+// description, longest needle first. High confidence — named brands with a
+// single obvious category.
 const MERCHANTS = [
-  // Groceries — supermarkets & grocery delivery
+  // ── Groceries — supermarkets & grocery delivery ──
   ['whole foods', 'groceries'], ['trader joe', 'groceries'], ['safeway', 'groceries'],
   ['kroger', 'groceries'], ['aldi', 'groceries'], ['publix', 'groceries'],
   ['wegmans', 'groceries'], ['sprouts', 'groceries'], ['instacart', 'groceries'],
-  ['grocery', 'groceries'], ['supermarket', 'groceries'],
+  ['food lion', 'groceries'], ['harris teeter', 'groceries'], ['giant eagle', 'groceries'],
+  ['stop & shop', 'groceries'], ['shoprite', 'groceries'], ['meijer', 'groceries'],
+  ['ralphs', 'groceries'], ['vons', 'groceries'], ['albertsons', 'groceries'],
+  ['winco', 'groceries'], ['hy-vee', 'groceries'], ['grocery outlet', 'groceries'],
+  ['fresh market', 'groceries'], ['save mart', 'groceries'], ['food 4 less', 'groceries'],
+  ['fred meyer', 'groceries'], ['lidl', 'groceries'], ['market basket', 'groceries'],
+  ['smart & final', 'groceries'], ['grocery', 'groceries'], ['supermarket', 'groceries'],
 
-  // Dining — restaurants, fast food, coffee, food delivery
+  // ── Dining — restaurants, fast food, coffee, food delivery ──
   ['uber eats', 'dining'], ['ubereats', 'dining'], ['doordash', 'dining'],
-  ['grubhub', 'dining'], ['postmates', 'dining'], ['mcdonald', 'dining'],
-  ['starbucks', 'dining'], ['chipotle', 'dining'], ['taco bell', 'dining'],
+  ['grubhub', 'dining'], ['postmates', 'dining'], ['seamless', 'dining'],
+  ['caviar', 'dining'], ['mcdonald', 'dining'], ['starbucks', 'dining'],
+  ['chipotle', 'dining'], ['taco bell', 'dining'], ['del taco', 'dining'],
   ['burger king', 'dining'], ['wendys', 'dining'], ["wendy's", 'dining'],
   ['subway', 'dining'], ['dunkin', 'dining'], ['panera', 'dining'],
   ['chick-fil-a', 'dining'], ['chick fil a', 'dining'], ['popeyes', 'dining'],
   ['dominos', 'dining'], ["domino's", 'dining'], ['pizza hut', 'dining'],
-  ['kfc', 'dining'],
+  ['little caesars', 'dining'], ['papa john', 'dining'], ['blaze pizza', 'dining'],
+  ['mod pizza', 'dining'], ['kfc', 'dining'], ['sonic drive', 'dining'],
+  ['arbys', 'dining'], ["arby's", 'dining'], ['jack in the box', 'dining'],
+  ['in-n-out', 'dining'], ['in n out', 'dining'], ['five guys', 'dining'],
+  ['shake shack', 'dining'], ['whataburger', 'dining'], ['culvers', 'dining'],
+  ["culver's", 'dining'], ['raising cane', 'dining'], ['panda express', 'dining'],
+  ['qdoba', 'dining'], ['noodles & co', 'dining'], ['olive garden', 'dining'],
+  ['applebee', 'dining'], ['chilis', 'dining'], ["chili's", 'dining'],
+  ['outback steak', 'dining'], ['red lobster', 'dining'], ['ihop', 'dining'],
+  ['denny', 'dining'], ['waffle house', 'dining'], ['cracker barrel', 'dining'],
+  ['buffalo wild wings', 'dining'], ['wingstop', 'dining'], ['jersey mike', 'dining'],
+  ['jimmy john', 'dining'], ['firehouse subs', 'dining'], ['baskin robbins', 'dining'],
+  ['dairy queen', 'dining'], ['krispy kreme', 'dining'], ['el pollo loco', 'dining'],
+  ['carls jr', 'dining'], ["carl's jr", 'dining'], ['hardees', 'dining'],
+  ['bojangles', 'dining'], ['zaxby', 'dining'], ['white castle', 'dining'],
+  ['steak n shake', 'dining'], ['portillo', 'dining'], ['sweetgreen', 'dining'],
+  ['cava grill', 'dining'], ['peets coffee', 'dining'], ["peet's coffee", 'dining'],
+  ['caribou coffee', 'dining'], ['tim hortons', 'dining'], ['dutch bros', 'dining'],
+  ['philz coffee', 'dining'], ['la colombe', 'dining'],
 
-  // Auto & Transport — fuel, rideshare, parts, service
+  // ── Auto & Transport — fuel, rideshare, parts, service ──
   ['shell', 'automobile'], ['chevron', 'automobile'], ['exxon', 'automobile'],
   ['texaco', 'automobile'], ['valero', 'automobile'], ['marathon petro', 'automobile'],
-  ['circle k', 'automobile'], ['lyft', 'automobile'], ['autozone', 'automobile'],
-  ['oreilly auto', 'automobile'], ["o'reilly auto", 'automobile'], ['jiffy lube', 'automobile'],
-  ['valvoline', 'automobile'], ['firestone', 'automobile'],
-  // 'mobil' is last in this group and shorter than 't mobile'/'tmobile' below;
-  // longest-needle-first matching means the carrier wins over the gas station.
+  ['circle k', 'automobile'], ['arco ampm', 'automobile'], ['sunoco', 'automobile'],
+  ['speedway', 'automobile'], ['phillips 66', 'automobile'], ['conoco', 'automobile'],
+  ['lyft', 'automobile'], ['uber trip', 'automobile'], ['uber technologies', 'automobile'],
+  ['autozone', 'automobile'], ['oreilly auto', 'automobile'], ["o'reilly auto", 'automobile'],
+  ['pep boys', 'automobile'], ['advance auto', 'automobile'], ['napa auto', 'automobile'],
+  ['discount tire', 'automobile'], ['les schwab', 'automobile'], ['jiffy lube', 'automobile'],
+  ['valvoline', 'automobile'], ['firestone', 'automobile'], ['midas', 'automobile'],
+  ['meineke', 'automobile'], ['maaco', 'automobile'], ['spothero', 'automobile'],
+  // 'mobil' is shorter than 't mobile'/'boost mobile' (utilities) below; longest-
+  // needle-first means the carrier wins over the gas station.
   ['mobil', 'automobile'],
 
-  // Entertainment — streaming, gaming, media
+  // ── Entertainment — streaming, gaming, media ──
   ['netflix', 'entertainment'], ['spotify', 'entertainment'], ['hulu', 'entertainment'],
   ['disney plus', 'entertainment'], ['disney+', 'entertainment'], ['hbo max', 'entertainment'],
   ['paramount+', 'entertainment'], ['peacock', 'entertainment'], ['youtube premium', 'entertainment'],
-  ['prime video', 'entertainment'], ['steam games', 'entertainment'], ['steampowered', 'entertainment'],
-  ['playstation', 'entertainment'], ['nintendo', 'entertainment'], ['xbox', 'entertainment'],
-  ['twitch', 'entertainment'], ['patreon', 'entertainment'], ['ticketmaster', 'entertainment'],
-  ['fandango', 'entertainment'], ['amc theatres', 'entertainment'], ['regal cinemas', 'entertainment'],
-  ['audible', 'entertainment'],
+  ['youtube', 'entertainment'], ['prime video', 'entertainment'], ['apple music', 'entertainment'],
+  ['apple tv', 'entertainment'], ['itunes', 'entertainment'], ['sirius xm', 'entertainment'],
+  ['siriusxm', 'entertainment'], ['tidal', 'entertainment'], ['crunchyroll', 'entertainment'],
+  ['steam games', 'entertainment'], ['steampowered', 'entertainment'], ['playstation', 'entertainment'],
+  ['nintendo', 'entertainment'], ['xbox', 'entertainment'], ['twitch', 'entertainment'],
+  ['epic games', 'entertainment'], ['ea games', 'entertainment'], ['ubisoft', 'entertainment'],
+  ['riot games', 'entertainment'], ['roblox', 'entertainment'], ['discord', 'entertainment'],
+  ['patreon', 'entertainment'], ['ticketmaster', 'entertainment'], ['fandango', 'entertainment'],
+  ['stubhub', 'entertainment'], ['amc theatres', 'entertainment'], ['regal cinemas', 'entertainment'],
+  ['cinemark', 'entertainment'], ['audible', 'entertainment'], ['kindle', 'entertainment'],
+  ['espn', 'entertainment'], ['starz', 'entertainment'], ['showtime', 'entertainment'],
+  ['sling tv', 'entertainment'], ['fubo', 'entertainment'], ['dazn', 'entertainment'],
 
-  // Health — pharmacies, fitness, care
-  ['cvs', 'health'], ['walgreens', 'health'], ['rite aid', 'health'],
-  ['planet fitness', 'health'], ['la fitness', 'health'], ['equinox', 'health'],
-  ['24 hour fitness', 'health'], ['gnc', 'health'], ['quest diagnostics', 'health'],
-  ['labcorp', 'health'],
+  // ── Health — pharmacies, fitness, care, vision ──
+  ['cvs', 'health'], ['walgreen', 'health'], ['rite aid', 'health'],
+  ['duane reade', 'health'], ['planet fitness', 'health'], ['la fitness', 'health'],
+  ['equinox', 'health'], ['24 hour fitness', 'health'], ['crunch fitness', 'health'],
+  ['anytime fitness', 'health'], ['orangetheory', 'health'], ['lifetime fitness', 'health'],
+  ["gold's gym", 'health'], ['goldsgym', 'health'], ['ymca', 'health'],
+  ['peloton', 'health'], ['gnc', 'health'], ['quest diagnostics', 'health'],
+  ['labcorp', 'health'], ['express scripts', 'health'], ['optum', 'health'],
+  ['kaiser', 'health'], ['one medical', 'health'], ['minuteclinic', 'health'],
+  ['teladoc', 'health'], ['goodrx', 'health'], ['warby parker', 'health'],
+  ['lenscrafters', 'health'], ['pearle vision', 'health'], ['aspen dental', 'health'],
 
-  // Utilities — telecom, internet, power, water
+  // ── Utilities — telecom, internet, power, water, TV service ──
   ['comcast', 'utilities'], ['xfinity', 'utilities'], ['verizon', 'utilities'],
   ['at&t', 'utilities'], ['t mobile', 'utilities'], ['t-mobile', 'utilities'],
-  ['tmobile', 'utilities'], ['spectrum', 'utilities'], ['centurylink', 'utilities'],
-  ['cox comm', 'utilities'], ['pg&e', 'utilities'], ['duke energy', 'utilities'],
-  ['national grid', 'utilities'], ['con edison', 'utilities'], ['coned', 'utilities'],
+  ['tmobile', 'utilities'], ['boost mobile', 'utilities'], ['metro pcs', 'utilities'],
+  ['metropcs', 'utilities'], ['cricket wireless', 'utilities'], ['us cellular', 'utilities'],
+  ['google fi', 'utilities'], ['sprint', 'utilities'], ['spectrum', 'utilities'],
+  ['centurylink', 'utilities'], ['cox comm', 'utilities'], ['optimum', 'utilities'],
+  ['mediacom', 'utilities'], ['frontier comm', 'utilities'], ['windstream', 'utilities'],
+  ['earthlink', 'utilities'], ['dish network', 'utilities'], ['directv', 'utilities'],
+  ['pg&e', 'utilities'], ['xcel energy', 'utilities'], ['dominion energy', 'utilities'],
+  ['duke energy', 'utilities'], ['dte energy', 'utilities'], ['ameren', 'utilities'],
+  ['consumers energy', 'utilities'], ['georgia power', 'utilities'], ['fpl', 'utilities'],
+  ['peco energy', 'utilities'], ['pseg', 'utilities'], ['national grid', 'utilities'],
+  ['con edison', 'utilities'], ['coned', 'utilities'], ['socal edison', 'utilities'],
+  ['austin energy', 'utilities'],
 
-  // Shopping — big-box & online retail
+  // ── Shopping — big-box & online retail, department stores ──
   ['amazon', 'shopping'], ['amzn mktp', 'shopping'], ['walmart', 'shopping'],
-  ['target', 'shopping'], ['costco', 'shopping'], ['best buy', 'shopping'],
+  ['target', 'shopping'], ['costco', 'shopping'], ['sams club', 'shopping'],
+  ['bjs wholesale', 'shopping'], ["bj's wholesale", 'shopping'], ['best buy', 'shopping'],
   ['home depot', 'shopping'], ['lowes', 'shopping'], ["lowe's", 'shopping'],
   ['ikea', 'shopping'], ['etsy', 'shopping'], ['ebay', 'shopping'],
+  ['macys', 'shopping'], ["macy's", 'shopping'], ['nordstrom', 'shopping'],
+  ['kohls', 'shopping'], ['tj maxx', 'shopping'], ['marshalls', 'shopping'],
+  ['old navy', 'shopping'], ['banana republic', 'shopping'], ['sephora', 'shopping'],
+  ['ulta', 'shopping'], ['dicks sporting', 'shopping'], ["dick's sporting", 'shopping'],
+  ['michaels', 'shopping'], ['hobby lobby', 'shopping'], ['petco', 'shopping'],
+  ['petsmart', 'shopping'], ['chewy', 'shopping'], ['staples', 'shopping'],
+  ['office depot', 'shopping'], ['wayfair', 'shopping'], ['overstock', 'shopping'],
+  ['shein', 'shopping'], ['temu', 'shopping'], ['aliexpress', 'shopping'],
+  ['dollar general', 'shopping'], ['dollar tree', 'shopping'], ['family dollar', 'shopping'],
+  ['five below', 'shopping'], ['big lots', 'shopping'], ['bed bath', 'shopping'],
+  ['gamestop', 'shopping'], ['barnes & noble', 'shopping'], ['nike', 'shopping'],
+  ['adidas', 'shopping'], ['lululemon', 'shopping'], ['foot locker', 'shopping'],
+  ['zappos', 'shopping'], ['uniqlo', 'shopping'], ['h&m', 'shopping'],
 
-  // Travel — airlines, hotels, booking
+  // ── Travel — airlines, hotels, booking, car rental ──
   ['united airlines', 'travel'], ['delta air', 'travel'], ['american airlines', 'travel'],
   ['southwest air', 'travel'], ['jetblue', 'travel'], ['alaska air', 'travel'],
+  ['spirit air', 'travel'], ['frontier air', 'travel'], ['hawaiian air', 'travel'],
   ['marriott', 'travel'], ['hilton', 'travel'], ['hyatt', 'travel'],
-  ['airbnb', 'travel'], ['expedia', 'travel'], ['booking.com', 'travel'],
-  ['priceline', 'travel'],
+  ['holiday inn', 'travel'], ['best western', 'travel'], ['la quinta', 'travel'],
+  ['hampton inn', 'travel'], ['courtyard by', 'travel'], ['motel 6', 'travel'],
+  ['super 8', 'travel'], ['airbnb', 'travel'], ['vrbo', 'travel'],
+  ['expedia', 'travel'], ['booking.com', 'travel'], ['priceline', 'travel'],
+  ['travelocity', 'travel'], ['orbitz', 'travel'], ['kayak', 'travel'],
+  ['hertz', 'travel'], ['enterprise rent', 'travel'], ['avis car', 'travel'],
+  ['avis rent', 'travel'], ['budget rent', 'travel'], ['national car', 'travel'],
 
-  // Insurance — carriers (a dedicated bucket makes the "insurance" keyword safe)
+  // ── Insurance — carriers (a dedicated bucket makes the "insurance" keyword safe) ──
   ['geico', 'insurance'], ['state farm', 'insurance'], ['progressive ins', 'insurance'],
   ['allstate', 'insurance'], ['liberty mutual', 'insurance'], ['nationwide ins', 'insurance'],
+  ['farmers ins', 'insurance'], ['aflac', 'insurance'], ['metlife', 'insurance'],
 
-  // Income — payroll / deposits (direction-guarded in categorize.js)
+  // ── Income — payroll / deposits (direction-guarded in categorize.js) ──
   ['adp payroll', 'income'], ['gusto pay', 'income'], ['payroll', 'income'],
   ['direct deposit', 'income'],
 ];
 
 // ── Keyword rules ─────────────────────────────────────────────────────────────
 // [normalized-substring, category-key]. Generic descriptive terms (a notch less
-// certain than a named brand). Checked only after the merchant lexicon misses.
-// Still kept high-precision: no bare "store"/"shop"/"online"/"gas" (gas = fuel
-// vs. gas utility) — ambiguous words are intentionally absent.
+// certain than a named brand). Checked only after the merchant lexicon misses,
+// in array order (first match wins). Still high-precision: no bare
+// "gas"/"store"/"market"/"bar"/"taco"/"tire"/"deli" — each hides inside an
+// unrelated word or spans categories.
 const KEYWORDS = [
-  ['restaurant', 'dining'], ['coffee', 'dining'], ['cafe', 'dining'],
-  ['pizzeria', 'dining'], ['taqueria', 'dining'], ['bakery', 'dining'],
-  ['steakhouse', 'dining'], ['sushi', 'dining'],
-  ['supermarket', 'groceries'], ['grocery', 'groceries'],
+  // Dining
+  ['restaurant', 'dining'], ['coffee', 'dining'], ['espresso', 'dining'],
+  ['cafe', 'dining'], ['diner', 'dining'], ['grill', 'dining'],
+  ['kitchen', 'dining'], ['bistro', 'dining'], ['eatery', 'dining'],
+  ['tavern', 'dining'], ['brewery', 'dining'], ['brewing', 'dining'],
+  ['pizzeria', 'dining'], ['pizza', 'dining'], ['taqueria', 'dining'],
+  ['burrito', 'dining'], ['bakery', 'dining'], ['donut', 'dining'],
+  ['doughnut', 'dining'], ['creamery', 'dining'], ['steakhouse', 'dining'],
+  ['sushi', 'dining'], ['ramen', 'dining'], ['noodle', 'dining'],
+  ['sandwich', 'dining'], ['barbecue', 'dining'], ['bbq', 'dining'],
+  // Groceries
+  ['farmers market', 'groceries'], ['food mart', 'groceries'],
+  // Auto & Transport
+  ['parking', 'automobile'], ['toll', 'automobile'], ['fuel', 'automobile'],
+  ['gasoline', 'automobile'], ['gas station', 'automobile'], ['car wash', 'automobile'],
+  ['auto parts', 'automobile'], ['auto repair', 'automobile'], ['transit', 'automobile'],
+  ['dmv', 'automobile'],
+  // Health
   ['pharmacy', 'health'], ['dental', 'health'], ['dentist', 'health'],
   ['clinic', 'health'], ['hospital', 'health'], ['fitness', 'health'],
-  ['parking', 'automobile'], ['toll', 'automobile'],
-  ['airlines', 'travel'], ['hotel', 'travel'],
-  // A dedicated Insurance category makes this token safe to map now (previously
-  // ambiguous between auto/health/home with no bucket to land in).
+  ['medical', 'health'], ['wellness', 'health'], ['urgent care', 'health'],
+  ['optometry', 'health'], ['optical', 'health'], ['chiropractic', 'health'],
+  ['orthodontic', 'health'], ['drugstore', 'health'], ['drug store', 'health'],
+  // Utilities (note: "natural gas" → utilities; bare "gas" is intentionally absent)
+  ['natural gas', 'utilities'], ['wireless', 'utilities'], ['broadband', 'utilities'],
+  ['internet', 'utilities'], ['electric', 'utilities'], ['sewer', 'utilities'],
+  ['water dept', 'utilities'], ['water utility', 'utilities'], ['telecom', 'utilities'],
+  // Entertainment
+  ['cinema', 'entertainment'], ['theatre', 'entertainment'], ['theater', 'entertainment'],
+  ['movie', 'entertainment'], ['arcade', 'entertainment'], ['concert', 'entertainment'],
+  // Shopping
+  ['department store', 'shopping'], ['boutique', 'shopping'],
+  // Travel
+  ['airlines', 'travel'], ['air lines', 'travel'], ['hotel', 'travel'],
+  ['motel', 'travel'], ['resort', 'travel'], ['hostel', 'travel'],
+  ['lodging', 'travel'], ['cruise', 'travel'], ['airport', 'travel'],
+  ['car rental', 'travel'], ['rental car', 'travel'],
+  // Insurance — a dedicated category makes this token safe to map now.
   ['insurance', 'insurance'],
-  // Rent is hard to detect generically (bare "rent" is a substring of "parent"/
-  // "current"; and "payment" is stripped as noise), so only unambiguous tokens.
+  // Rent — only unambiguous tokens (bare "rent" is a substring of "parent"/
+  // "current"; "payment" is stripped as noise).
   ['mortgage', 'rent'], ['property manage', 'rent'], ['leasing office', 'rent'],
+  ['apartments', 'rent'], ['apartment homes', 'rent'],
+  // Income / other income (direction-guarded, so these only apply to inflows)
+  ['salary', 'income'], ['paycheck', 'income'],
+  ['tax refund', 'other_income'], ['irs treas', 'other_income'], ['pension', 'other_income'],
+  ['unemployment', 'other_income'], ['dividend', 'other_income'], ['interest paid', 'other_income'],
 ];
 
 module.exports = { NOISE_PATTERNS, MERCHANTS, KEYWORDS };
