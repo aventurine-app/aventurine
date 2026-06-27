@@ -30,8 +30,8 @@ test('normaliseMerchant strips processor prefixes, masks, store/phone numbers, s
 
 test('categorize: named merchant beats keyword and a longer needle beats a prefix', () => {
   assert.equal(categorize('NETFLIX.COM').categoryKey, 'entertainment');
-  assert.equal(categorize('UBER EATS 123 MAIN').categoryKey, 'food'); // not "uber" -> automobile
-  assert.equal(categorize('CVS/PHARMACY #1').source, 'merchant');     // cvs (merchant) over pharmacy (keyword)
+  assert.equal(categorize('UBER EATS 123 MAIN').categoryKey, 'dining'); // not "uber" -> automobile
+  assert.equal(categorize('CVS/PHARMACY #1').source, 'merchant');       // cvs (merchant) over pharmacy (keyword)
 });
 
 test('categorize: abstains (returns null) on unknown merchants', () => {

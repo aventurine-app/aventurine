@@ -36,7 +36,7 @@ function thisMonthDate() {
 
 test('trends: monthly per-expense-category sums over the trailing window', (t) => {
   const c = makeClient(t);
-  const food = catId(c, 'food');
+  const groceries = catId(c, 'groceries');
   const income = catId(c, 'income');
   const savings = catId(c, 'savings');
 
@@ -44,11 +44,11 @@ test('trends: monthly per-expense-category sums over the trailing window', (t) =
   const m6 = monthsAgo(6);
   const m13 = monthsAgo(13); // older than a 12-month window → excluded
 
-  insertTx(c, { date: m1.date, amount: 200, category_id: food });
-  insertTx(c, { date: m1.date, amount: 50, category_id: food }); // same month → 250
-  insertTx(c, { date: m6.date, amount: 120, category_id: food });
-  insertTx(c, { date: m13.date, amount: 999, category_id: food }); // outside window
-  insertTx(c, { date: thisMonthDate(), amount: 777, category_id: food }); // current partial month → excluded
+  insertTx(c, { date: m1.date, amount: 200, category_id: groceries });
+  insertTx(c, { date: m1.date, amount: 50, category_id: groceries }); // same month → 250
+  insertTx(c, { date: m6.date, amount: 120, category_id: groceries });
+  insertTx(c, { date: m13.date, amount: 999, category_id: groceries }); // outside window
+  insertTx(c, { date: thisMonthDate(), amount: 777, category_id: groceries }); // current partial month → excluded
   insertTx(c, { date: m1.date, amount: 5000, category_id: income }); // income category → excluded
   insertTx(c, { date: m1.date, amount: 400, category_id: savings }); // savings category → excluded
   insertTx(c, { date: m1.date, amount: 60, category_id: null, tx_type: 'expense' }); // uncategorized
@@ -60,12 +60,12 @@ test('trends: monthly per-expense-category sums over the trailing window', (t) =
   assert.equal(r.body.months[11], m1.ym); // newest = last complete month
   assert.equal(r.body.months[0], monthsAgo(12).ym); // oldest
 
-  const foodCat = r.body.categories.find((x) => x.key === 'food');
-  assert.ok(foodCat, 'food present');
-  assert.equal(foodCat.monthly[m1.ym], 250);
-  assert.equal(foodCat.monthly[m6.ym], 120);
-  assert.ok(!(m13.ym in foodCat.monthly), 'month outside window excluded');
-  assert.ok(!(thisMonthDate().slice(0, 7) in foodCat.monthly), 'current partial month excluded');
+  const groceriesCat = r.body.categories.find((x) => x.key === 'groceries');
+  assert.ok(groceriesCat, 'groceries present');
+  assert.equal(groceriesCat.monthly[m1.ym], 250);
+  assert.equal(groceriesCat.monthly[m6.ym], 120);
+  assert.ok(!(m13.ym in groceriesCat.monthly), 'month outside window excluded');
+  assert.ok(!(thisMonthDate().slice(0, 7) in groceriesCat.monthly), 'current partial month excluded');
 
   // Income + savings categories are not expense → excluded entirely.
   assert.ok(!r.body.categories.some((x) => x.key === 'income'));

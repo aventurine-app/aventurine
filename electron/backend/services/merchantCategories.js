@@ -41,26 +41,31 @@ const NOISE_PATTERNS = [
 // description, longest needle first (so "uber eats" beats "uber"). High
 // confidence — these are named brands with a single obvious category.
 const MERCHANTS = [
-  // Food — delivery, fast food, chains, groceries
-  ['uber eats', 'food'], ['ubereats', 'food'], ['doordash', 'food'],
-  ['grubhub', 'food'], ['postmates', 'food'], ['instacart', 'food'],
-  ['mcdonald', 'food'], ['starbucks', 'food'], ['chipotle', 'food'],
-  ['taco bell', 'food'], ['burger king', 'food'], ['wendys', 'food'],
-  ["wendy's", 'food'], ['subway', 'food'], ['dunkin', 'food'],
-  ['panera', 'food'], ['chick-fil-a', 'food'], ['chick fil a', 'food'],
-  ['popeyes', 'food'], ['dominos', 'food'], ["domino's", 'food'],
-  ['pizza hut', 'food'], ['kfc', 'food'], ['whole foods', 'food'],
-  ['trader joe', 'food'], ['safeway', 'food'], ['kroger', 'food'],
-  ['aldi', 'food'], ['publix', 'food'], ['wegmans', 'food'],
-  ['sprouts', 'food'], ['grocery', 'food'], ['supermarket', 'food'],
+  // Groceries — supermarkets & grocery delivery
+  ['whole foods', 'groceries'], ['trader joe', 'groceries'], ['safeway', 'groceries'],
+  ['kroger', 'groceries'], ['aldi', 'groceries'], ['publix', 'groceries'],
+  ['wegmans', 'groceries'], ['sprouts', 'groceries'], ['instacart', 'groceries'],
+  ['grocery', 'groceries'], ['supermarket', 'groceries'],
 
-  // Automobile — fuel, rideshare, parts, transport
+  // Dining — restaurants, fast food, coffee, food delivery
+  ['uber eats', 'dining'], ['ubereats', 'dining'], ['doordash', 'dining'],
+  ['grubhub', 'dining'], ['postmates', 'dining'], ['mcdonald', 'dining'],
+  ['starbucks', 'dining'], ['chipotle', 'dining'], ['taco bell', 'dining'],
+  ['burger king', 'dining'], ['wendys', 'dining'], ["wendy's", 'dining'],
+  ['subway', 'dining'], ['dunkin', 'dining'], ['panera', 'dining'],
+  ['chick-fil-a', 'dining'], ['chick fil a', 'dining'], ['popeyes', 'dining'],
+  ['dominos', 'dining'], ["domino's", 'dining'], ['pizza hut', 'dining'],
+  ['kfc', 'dining'],
+
+  // Auto & Transport — fuel, rideshare, parts, service
   ['shell', 'automobile'], ['chevron', 'automobile'], ['exxon', 'automobile'],
-  ['mobil', 'automobile'], ['texaco', 'automobile'], ['valero', 'automobile'],
-  ['marathon petro', 'automobile'], ['circle k', 'automobile'],
-  ['lyft', 'automobile'], ['autozone', 'automobile'], ['oreilly auto', 'automobile'],
-  ["o'reilly auto", 'automobile'], ['jiffy lube', 'automobile'],
+  ['texaco', 'automobile'], ['valero', 'automobile'], ['marathon petro', 'automobile'],
+  ['circle k', 'automobile'], ['lyft', 'automobile'], ['autozone', 'automobile'],
+  ['oreilly auto', 'automobile'], ["o'reilly auto", 'automobile'], ['jiffy lube', 'automobile'],
   ['valvoline', 'automobile'], ['firestone', 'automobile'],
+  // 'mobil' is last in this group and shorter than 't mobile'/'tmobile' below;
+  // longest-needle-first matching means the carrier wins over the gas station.
+  ['mobil', 'automobile'],
 
   // Entertainment — streaming, gaming, media
   ['netflix', 'entertainment'], ['spotify', 'entertainment'], ['hulu', 'entertainment'],
@@ -80,20 +85,31 @@ const MERCHANTS = [
 
   // Utilities — telecom, internet, power, water
   ['comcast', 'utilities'], ['xfinity', 'utilities'], ['verizon', 'utilities'],
-  ['at&t', 'utilities'], ['t-mobile', 'utilities'], ['tmobile', 'utilities'],
-  ['spectrum', 'utilities'], ['centurylink', 'utilities'], ['cox comm', 'utilities'],
-  ['pg&e', 'utilities'], ['duke energy', 'utilities'], ['national grid', 'utilities'],
-  ['con edison', 'utilities'], ['coned', 'utilities'],
+  ['at&t', 'utilities'], ['t mobile', 'utilities'], ['t-mobile', 'utilities'],
+  ['tmobile', 'utilities'], ['spectrum', 'utilities'], ['centurylink', 'utilities'],
+  ['cox comm', 'utilities'], ['pg&e', 'utilities'], ['duke energy', 'utilities'],
+  ['national grid', 'utilities'], ['con edison', 'utilities'], ['coned', 'utilities'],
 
-  // General — big-box / online retail (deliberately broad bucket)
-  ['amazon', 'general'], ['amzn mktp', 'general'], ['walmart', 'general'],
-  ['target', 'general'], ['costco', 'general'], ['best buy', 'general'],
-  ['home depot', 'general'], ['lowes', 'general'], ["lowe's", 'general'],
-  ['ikea', 'general'], ['etsy', 'general'], ['ebay', 'general'],
+  // Shopping — big-box & online retail
+  ['amazon', 'shopping'], ['amzn mktp', 'shopping'], ['walmart', 'shopping'],
+  ['target', 'shopping'], ['costco', 'shopping'], ['best buy', 'shopping'],
+  ['home depot', 'shopping'], ['lowes', 'shopping'], ["lowe's", 'shopping'],
+  ['ikea', 'shopping'], ['etsy', 'shopping'], ['ebay', 'shopping'],
+
+  // Travel — airlines, hotels, booking
+  ['united airlines', 'travel'], ['delta air', 'travel'], ['american airlines', 'travel'],
+  ['southwest air', 'travel'], ['jetblue', 'travel'], ['alaska air', 'travel'],
+  ['marriott', 'travel'], ['hilton', 'travel'], ['hyatt', 'travel'],
+  ['airbnb', 'travel'], ['expedia', 'travel'], ['booking.com', 'travel'],
+  ['priceline', 'travel'],
+
+  // Insurance — carriers (a dedicated bucket makes the "insurance" keyword safe)
+  ['geico', 'insurance'], ['state farm', 'insurance'], ['progressive ins', 'insurance'],
+  ['allstate', 'insurance'], ['liberty mutual', 'insurance'], ['nationwide ins', 'insurance'],
 
   // Income — payroll / deposits (direction-guarded in categorize.js)
-  ['payroll', 'income'], ['direct deposit', 'income'], ['adp payroll', 'income'],
-  ['gusto pay', 'income'],
+  ['adp payroll', 'income'], ['gusto pay', 'income'], ['payroll', 'income'],
+  ['direct deposit', 'income'],
 ];
 
 // ── Keyword rules ─────────────────────────────────────────────────────────────
@@ -102,12 +118,17 @@ const MERCHANTS = [
 // Still kept high-precision: no bare "store"/"shop"/"online"/"gas" (gas = fuel
 // vs. gas utility) — ambiguous words are intentionally absent.
 const KEYWORDS = [
-  ['restaurant', 'food'], ['coffee', 'food'], ['cafe', 'food'],
-  ['pizzeria', 'food'], ['taqueria', 'food'], ['bakery', 'food'],
-  ['steakhouse', 'food'], ['sushi', 'food'], ['groceries', 'food'],
+  ['restaurant', 'dining'], ['coffee', 'dining'], ['cafe', 'dining'],
+  ['pizzeria', 'dining'], ['taqueria', 'dining'], ['bakery', 'dining'],
+  ['steakhouse', 'dining'], ['sushi', 'dining'],
+  ['supermarket', 'groceries'], ['grocery', 'groceries'],
   ['pharmacy', 'health'], ['dental', 'health'], ['dentist', 'health'],
   ['clinic', 'health'], ['hospital', 'health'], ['fitness', 'health'],
   ['parking', 'automobile'], ['toll', 'automobile'],
+  ['airlines', 'travel'], ['hotel', 'travel'],
+  // A dedicated Insurance category makes this token safe to map now (previously
+  // ambiguous between auto/health/home with no bucket to land in).
+  ['insurance', 'insurance'],
   // Rent is hard to detect generically (bare "rent" is a substring of "parent"/
   // "current"; and "payment" is stripped as noise), so only unambiguous tokens.
   ['mortgage', 'rent'], ['property manage', 'rent'], ['leasing office', 'rent'],

@@ -27,7 +27,7 @@ test('fresh DB: baseline schema + seed', () => {
   assert.equal(db.pragma('user_version', { simple: true }), SCHEMA_VERSION);
 
   const cats = db.prepare('SELECT * FROM categories ORDER BY position').all();
-  assert.equal(cats.length, 14, 'fourteen default categories');
+  assert.equal(cats.length, 18, 'eighteen default categories');
 
   // Clean slate: nothing is synced until the user turns it on per table.
   assert.equal(db.prepare('SELECT COUNT(*) c FROM category_sync').get().c, 0);
@@ -56,7 +56,7 @@ test('seed is idempotent', () => {
   bootstrapSchema(db);
   seedDefaults(db);
   seedDefaults(db);
-  assert.equal(db.prepare('SELECT COUNT(*) c FROM categories').get().c, 14);
+  assert.equal(db.prepare('SELECT COUNT(*) c FROM categories').get().c, 18);
   assert.equal(db.prepare('SELECT COUNT(*) c FROM portfolio_accounts').get().c, 1);
   db.close();
 });
@@ -68,9 +68,9 @@ test('bootstrapSchema is a no-op on an already-initialised DB', () => {
   seedDefaults(db);
   // Drop a category so we can prove a second bootstrap does NOT recreate the
   // baseline (which would re-add tables / reset state).
-  db.prepare("DELETE FROM categories WHERE \"key\" = 'food'").run();
+  db.prepare("DELETE FROM categories WHERE \"key\" = 'groceries'").run();
   bootstrapSchema(db);
-  assert.equal(db.prepare('SELECT COUNT(*) c FROM categories').get().c, 13);
+  assert.equal(db.prepare('SELECT COUNT(*) c FROM categories').get().c, 17);
   db.close();
 });
 

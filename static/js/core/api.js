@@ -94,9 +94,9 @@
       years: [year],
       entries: {
         [String(year)]: {
-          January:  { income: 4200, rent: 1500, food: 520, savings: 400 },
-          February: { income: 4200, rent: 1500, food: 487, savings: 400 },
-          March:    { income: 4350, rent: 1500, food: 552, savings: 450 },
+          January:  { income: 4200, rent: 1500, groceries: 520, savings: 400 },
+          February: { income: 4200, rent: 1500, groceries: 487, savings: 400 },
+          March:    { income: 4350, rent: 1500, groceries: 552, savings: 450 },
         },
       },
       columns: [
@@ -104,7 +104,7 @@
         { key: 'other_income',  label: 'Other Income',       type: 'income'    },
         { key: 'uncat_income',  label: 'Uncategorized',      type: 'income'    },
         { key: 'rent',          label: 'Rent / Mortgage',    type: 'expense'   },
-        { key: 'food',          label: 'Food',               type: 'expense'   },
+        { key: 'groceries',     label: 'Groceries',          type: 'expense'   },
         { key: 'uncat_expense', label: 'Uncategorized',      type: 'expense'   },
         { key: 'savings',       label: 'Primary Savings',    type: 'savings'   },
         { key: 'investing',     label: 'Investment Account', type: 'investing' },
