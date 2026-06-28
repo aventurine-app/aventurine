@@ -98,6 +98,15 @@
     // manager's handle (tables.js _GRIP) so the affordance reads consistently
     // across the app.
     const ICON_GRIP = '<svg viewBox="0 0 10 16" fill="currentColor" aria-hidden="true"><circle cx="2.5" cy="3" r="1.4"/><circle cx="7.5" cy="3" r="1.4"/><circle cx="2.5" cy="8" r="1.4"/><circle cx="7.5" cy="8" r="1.4"/><circle cx="2.5" cy="13" r="1.4"/><circle cx="7.5" cy="13" r="1.4"/></svg>';
+
+    // The spend character bound to a category (see services/categories.js
+    // VALID_FLEX_TYPES). Mirror its order/values exactly; the backend rejects
+    // anything else. 'flex' is the default for a fresh category.
+    const FLEX_TYPES = [
+        ['fixed', 'Fixed'],
+        ['flex',  'Flex'],
+        ['goal',  'Goal'],
+    ];
     const ICON_X    = '<svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
     const ICON_PLUS = '<svg viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 
@@ -114,16 +123,30 @@
         return `${DEFAULT_NAME} ${n}`;
     }
 
+    // The flex-type dropdown for a row — a compact native <select> showing the
+    // category's spend character. Sits between the name and the delete ×; unlike
+    // the delete it's always visible, since it carries a real value. Selecting a
+    // value PUTs flex_type (see the change handler in attach()).
+    function flexSelectHtml(c) {
+        const opts = FLEX_TYPES.map(([val, label]) =>
+            `<option value="${val}"${c.flex_type === val ? ' selected' : ''}>${label}</option>`
+        ).join('');
+        return `<select class="cat-flex-type" data-action="flextype"
+                        aria-label="Cost type for ${esc(c.name)}">${opts}</select>`;
+    }
+
     function rowHtml(c) {
-        // A clean, container-less line: [grip] [name] [delete]. Only the grip is
-        // draggable, so the rename input keeps its pointer events. The delete ×
-        // is revealed by CSS on row hover / focus-within so a full box stays
-        // calm at rest; the grip stays faintly visible to advertise the drag.
+        // A clean, container-less line: [grip] [name] [flex-type] [delete]. Only
+        // the grip is draggable, so the rename input and the dropdown keep their
+        // pointer events. The delete × is revealed by CSS on row hover /
+        // focus-within so a full box stays calm at rest; the grip stays faintly
+        // visible to advertise the drag.
         return `
             <div class="cat-row" data-id="${c.id}">
                 <span class="cat-grip" draggable="true" aria-label="Drag ${esc(c.name)} to reorder or recategorize">${ICON_GRIP}</span>
                 <input type="text" class="cat-name" value="${esc(c.name)}" maxlength="100"
                        data-action="rename" aria-label="Category name">
+                ${flexSelectHtml(c)}
                 <div class="cat-row-actions">
                     <button class="cat-icon-btn cat-delete" data-action="delete" title="Delete category" aria-label="Delete category">${ICON_X}</button>
                 </div>
@@ -259,6 +282,29 @@
                 await refresh(rootEl);
             }
         }, true);   // capture phase so blur reaches the root
+
+        // ── Flex-type change ─────────────────────────────────────────────────
+        // The per-row dropdown commits immediately on change. On failure we
+        // re-render from server state, which restores the select to its stored
+        // value (same revert strategy as rename).
+        rootEl.addEventListener('change', async (e) => {
+            const sel = e.target.closest('.cat-flex-type');
+            if (!sel) return;
+            const row = sel.closest('.cat-row');
+            const id  = row && parseInt(row.dataset.id, 10);
+            if (!id) return;
+            try {
+                await apiUpdate(id, { flex_type: sel.value });
+                // Keep the in-memory snapshot in step so a later drag diff
+                // doesn't see a stale flex_type (it diffs position/type only,
+                // but the snapshot should still reflect the truth).
+                const snap = (stateByRoot.get(rootEl) || []).find(c => c.id === id);
+                if (snap) snap.flex_type = sel.value;
+            } catch (err) {
+                alert(err.message);
+                await refresh(rootEl);
+            }
+        });
 
         // ── Drag-and-drop reorder + recategorize ─────────────────────────────
         // The grip is the draggable element; the source row stays put (dimmed)

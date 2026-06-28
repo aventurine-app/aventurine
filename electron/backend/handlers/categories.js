@@ -4,7 +4,7 @@
 // functions (ctx, {params, query, body}); ctx is the conn manager.
 
 const { bad, cleanLabel } = require('../validate');
-const { VALID_CAT_TYPES, serialiseCategory } = require('../services/categories');
+const { VALID_CAT_TYPES, VALID_FLEX_TYPES, serialiseCategory } = require('../services/categories');
 
 function getCat(db, id) {
   return db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
@@ -22,6 +22,9 @@ function create(ctx, { body }) {
   const name = cleanLabel(data.name);
   if (!name) bad('name required');
   if (!VALID_CAT_TYPES.includes(data.cat_type)) bad('invalid cat_type');
+  // flex_type is optional on create; new categories default to 'flex'.
+  const flexType = data.flex_type === undefined ? 'flex' : data.flex_type;
+  if (!VALID_FLEX_TYPES.includes(flexType)) bad('invalid flex_type');
   if (db.prepare('SELECT 1 FROM categories WHERE name = ?').get(name)) {
     bad('category already exists', 409);
   }
@@ -31,9 +34,9 @@ function create(ctx, { body }) {
       (db.prepare('SELECT MAX(position) AS m FROM categories').get().m ?? -1) + 1;
     const info = db
       .prepare(
-        'INSERT INTO categories ("key", name, cat_type, position) VALUES (?, ?, ?, ?)'
+        'INSERT INTO categories ("key", name, cat_type, position, flex_type) VALUES (?, ?, ?, ?, ?)'
       )
-      .run('__tmp__', name, data.cat_type, nextPos);
+      .run('__tmp__', name, data.cat_type, nextPos, flexType);
     const id = info.lastInsertRowid;
     // Stable key derived from the new row's id, so renames never orphan
     // Entry rows (mirror of the Flask flush-then-set-key dance).
@@ -78,9 +81,14 @@ function update(ctx, { params, body }) {
       cat.position = data.position;
     }
 
+    if ('flex_type' in data) {
+      if (!VALID_FLEX_TYPES.includes(data.flex_type)) bad('invalid flex_type');
+      cat.flex_type = data.flex_type;
+    }
+
     db.prepare(
-      'UPDATE categories SET name = ?, cat_type = ?, position = ? WHERE id = ?'
-    ).run(cat.name, cat.cat_type, cat.position, cat.id);
+      'UPDATE categories SET name = ?, cat_type = ?, position = ?, flex_type = ? WHERE id = ?'
+    ).run(cat.name, cat.cat_type, cat.position, cat.flex_type, cat.id);
   })();
 
   return { ok: true, category: serialiseCategory(cat) };

@@ -54,6 +54,20 @@ const MIGRATIONS = [
        PRIMARY KEY (year, month)
      )`);
   }],
+  // v5 — Categories gain flex_type (fixed cost / flexible cost / goal). ADD
+  // COLUMN is not idempotent, so guard on the column already existing (a
+  // re-bootstrap, or a fresh DB whose baseline already carries it). New rows
+  // default to 'flex'; we seed the existing rows to mirror the fresh-DB intent —
+  // savings/investing categories are goals, the standard fixed bills are fixed.
+  [5, (db) => {
+    const hasCol = db.pragma('table_info(categories)').some((c) => c.name === 'flex_type');
+    if (!hasCol) {
+      db.exec(`ALTER TABLE categories ADD COLUMN flex_type VARCHAR(20) DEFAULT 'flex' NOT NULL
+                 CHECK (flex_type IN ('fixed', 'flex', 'goal'))`);
+      db.exec("UPDATE categories SET flex_type = 'goal' WHERE cat_type IN ('savings', 'investing')");
+      db.exec("UPDATE categories SET flex_type = 'fixed' WHERE \"key\" IN ('rent', 'insurance')");
+    }
+  }],
 ];
 
 function bootstrapSchema(db) {

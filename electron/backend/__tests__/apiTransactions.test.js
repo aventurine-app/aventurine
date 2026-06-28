@@ -96,6 +96,40 @@ test('category retype updates transactions', (t) => {
   assert.equal(row.tx_type, 'income');
 });
 
+test('flex_type round-trips through create + update and is validated', (t) => {
+  const c = makeClient(t);
+
+  // Defaults to 'flex' when omitted on create.
+  const def = c.post('/api/categories', { name: 'Subscriptions', cat_type: 'expense' });
+  assert.equal(def.status, 200, JSON.stringify(def.body));
+  assert.equal(def.body.category.flex_type, 'flex');
+
+  // Honoured when supplied on create.
+  const made = c.post('/api/categories', {
+    name: 'Mortgage', cat_type: 'expense', flex_type: 'fixed',
+  });
+  assert.equal(made.status, 200, JSON.stringify(made.body));
+  assert.equal(made.body.category.flex_type, 'fixed');
+
+  // Updatable on its own without disturbing the rest of the row.
+  const upd = c.put(`/api/categories/${made.body.category.id}`, { flex_type: 'goal' });
+  assert.equal(upd.status, 200, JSON.stringify(upd.body));
+  assert.equal(upd.body.category.flex_type, 'goal');
+  assert.equal(upd.body.category.name, 'Mortgage');
+
+  // Rejected when invalid, on both create and update.
+  assert.equal(
+    c.post('/api/categories', { name: 'Bad', cat_type: 'expense', flex_type: 'nope' }).status, 400
+  );
+  assert.equal(
+    c.put(`/api/categories/${made.body.category.id}`, { flex_type: 'nope' }).status, 400
+  );
+
+  // Listing surfaces the stored value.
+  const listed = c.get('/api/categories').body.categories.find((x) => x.name === 'Mortgage');
+  assert.equal(listed.flex_type, 'goal');
+});
+
 test('categorize-similar derives type from the category', (t) => {
   const c = makeClient(t);
   const income = firstCat(c, 'income');

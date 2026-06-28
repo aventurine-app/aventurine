@@ -29,6 +29,16 @@ test('fresh DB: baseline schema + seed', () => {
   const cats = db.prepare('SELECT * FROM categories ORDER BY position').all();
   assert.equal(cats.length, 18, 'eighteen default categories');
 
+  // flex_type is seeded per the canonical taxonomy: contractual bills are
+  // 'fixed', savings/investing buckets are 'goal', the rest default to 'flex'.
+  const flexOf = (key) => cats.find((c) => c.key === key).flex_type;
+  assert.equal(flexOf('rent'), 'fixed');
+  assert.equal(flexOf('insurance'), 'fixed');
+  assert.equal(flexOf('groceries'), 'flex');
+  assert.equal(flexOf('savings'), 'goal');
+  assert.equal(flexOf('investing'), 'goal');
+  assert.ok(cats.every((c) => ['fixed', 'flex', 'goal'].includes(c.flex_type)));
+
   // Clean slate: nothing is synced until the user turns it on per table.
   assert.equal(db.prepare('SELECT COUNT(*) c FROM category_sync').get().c, 0);
 
@@ -71,6 +81,38 @@ test('bootstrapSchema is a no-op on an already-initialised DB', () => {
   db.prepare("DELETE FROM categories WHERE \"key\" = 'groceries'").run();
   bootstrapSchema(db);
   assert.equal(db.prepare('SELECT COUNT(*) c FROM categories').get().c, 17);
+  db.close();
+});
+
+test('migration v5: a pre-flex_type categories table gains the column + seeded values', () => {
+  const db = connect(tmpFile());
+  bootstrapSchema(db);
+  seedDefaults(db);
+
+  // Rebuild categories in its pre-v5 shape (no flex_type) and drop the stored
+  // version below 5 so bootstrapSchema takes the migration path.
+  db.exec('DROP TABLE categories');
+  db.exec(`CREATE TABLE categories (
+     id INTEGER NOT NULL, "key" VARCHAR(50) NOT NULL, name VARCHAR(100) NOT NULL,
+     cat_type VARCHAR(20) NOT NULL, position INTEGER DEFAULT 0 NOT NULL,
+     PRIMARY KEY (id), UNIQUE ("key"))`);
+  const ins = db.prepare(
+    'INSERT INTO categories ("key", name, cat_type, position) VALUES (?, ?, ?, ?)'
+  );
+  ins.run('rent', 'Rent', 'expense', 0);
+  ins.run('groceries', 'Groceries', 'expense', 1);
+  ins.run('savings', 'Savings', 'savings', 2);
+  db.pragma('user_version = 4');
+
+  bootstrapSchema(db); // climbs 4 -> SCHEMA_VERSION, running migration v5
+  assert.equal(Number(db.pragma('user_version', { simple: true })), SCHEMA_VERSION);
+
+  const flex = Object.fromEntries(
+    db.prepare('SELECT "key", flex_type FROM categories').all().map((r) => [r.key, r.flex_type])
+  );
+  assert.equal(flex.rent, 'fixed', 'a contractual bill becomes fixed');
+  assert.equal(flex.savings, 'goal', 'a savings category becomes a goal');
+  assert.equal(flex.groceries, 'flex', 'everything else defaults to flex');
   db.close();
 });
 
