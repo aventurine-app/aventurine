@@ -5,22 +5,41 @@
 // reset: each tracker is only seeded when still empty, and categories are
 // filled in by key so a partially-populated DB is completed, not duplicated.
 
-// (key, name, cat_type, position)
+// (key, name, cat_type, position, flex_type)
+//
+// The canonical category set: a recognizable, standard personal-finance taxonomy
+// shipped by default. Users layer their own categories on top (POST /api/categories)
+// and may rename/delete these — keys are stable slugs, so renames don't break
+// references. The built-in import categorizer (services/merchantCategories.js)
+// targets these keys; finer buckets here (groceries vs. dining, a real Insurance/
+// Travel category) directly raise auto-categorization usefulness. The two
+// uncat_* buckets are system buckets (NULL-category sums) — see
+// handlers/incomeExpenses.js NULL_SYNC_KEYS — and must not be removed.
+//
+// flex_type seeds the spend character used by budgeting features: the two
+// contractual bills (rent, insurance) are 'fixed', every savings/investing
+// bucket is a 'goal', and the rest default to 'flex'. The user can change any of
+// these per category. (Income has no cost character; it carries the neutral
+// 'flex' default.)
 const DEFAULT_CATEGORIES = [
-  ['income',         'Primary Income',     'income',    0],
-  ['other_income',   'Other Income',       'income',    1],
-  ['uncat_income',   'Uncategorized',      'income',    2],
-  ['rent',           'Rent / Mortgage',    'expense',   3],
-  ['utilities',      'Utilities',          'expense',   4],
-  ['food',           'Food',               'expense',   5],
-  ['automobile',     'Automobile',         'expense',   6],
-  ['health',         'Health / Wellness',  'expense',   7],
-  ['entertainment',  'Entertainment',      'expense',   8],
-  ['general',        'General',            'expense',   9],
-  ['uncat_expense',  'Uncategorized',      'expense',   10],
-  ['savings',        'Primary Savings',    'savings',   11],
-  ['emergency_fund', 'Emergency Fund',     'savings',   12],
-  ['investing',      'Investment Account', 'investing', 13],
+  ['income',         'Primary Income',      'income',    0,  'flex'],
+  ['other_income',   'Other Income',        'income',    1,  'flex'],
+  ['uncat_income',   'Uncategorized',       'income',    2,  'flex'],
+  ['rent',           'Rent / Mortgage',     'expense',   3,  'fixed'],
+  ['utilities',      'Utilities',           'expense',   4,  'flex'],
+  ['groceries',      'Groceries',           'expense',   5,  'flex'],
+  ['dining',         'Dining & Restaurants','expense',   6,  'flex'],
+  ['automobile',     'Auto & Transport',    'expense',   7,  'flex'],
+  ['health',         'Health & Wellness',   'expense',   8,  'flex'],
+  ['entertainment',  'Entertainment',       'expense',   9,  'flex'],
+  ['shopping',       'Shopping',            'expense',   10, 'flex'],
+  ['travel',         'Travel',              'expense',   11, 'flex'],
+  ['insurance',      'Insurance',           'expense',   12, 'fixed'],
+  ['general',        'General',             'expense',   13, 'flex'],
+  ['uncat_expense',  'Uncategorized',       'expense',   14, 'flex'],
+  ['savings',        'Primary Savings',     'savings',   15, 'goal'],
+  ['emergency_fund', 'Emergency Fund',      'savings',   16, 'goal'],
+  ['investing',      'Investment Account',  'investing', 17, 'goal'],
 ];
 
 // (key, label, col_type, position)
@@ -45,11 +64,11 @@ function seedDefaults(db) {
     db.prepare('SELECT "key" FROM categories').all().map((r) => r.key)
   );
   const insCat = db.prepare(
-    'INSERT INTO categories ("key", name, cat_type, position) VALUES (?, ?, ?, ?)'
+    'INSERT INTO categories ("key", name, cat_type, position, flex_type) VALUES (?, ?, ?, ?, ?)'
   );
-  for (const [key, name, catType, pos] of DEFAULT_CATEGORIES) {
+  for (const [key, name, catType, pos, flexType] of DEFAULT_CATEGORIES) {
     if (!existingKeys.has(key)) {
-      insCat.run(key, name, catType, pos);
+      insCat.run(key, name, catType, pos, flexType);
     }
   }
 

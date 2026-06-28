@@ -1,0 +1,30 @@
+name: test
+
+# Runs the backend test suite (host Node, no Electron) on every push and PR.
+# This is also the auto-categorization ACCURACY GATE: __tests__/categorize.test.js
+# fails the build if the lexicon's precision or corpus coverage regresses, so a
+# change that quietly makes import categorization worse can't merge.
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20   # matches release.yml; has upstream sqlite prebuilds
+
+      # postinstall (scripts/setup-native-abis.js) fetches the prebuilt
+      # better-sqlite3-multiple-ciphers binary for host Node — no C toolchain.
+      - name: Install dependencies
+        working-directory: electron
+        run: npm install
+
+      - name: Run backend suite (incl. categorization accuracy gate)
+        working-directory: electron
+        run: npm test

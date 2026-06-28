@@ -26,7 +26,9 @@
 //   6. Reload       — fire 'transactions:reload' so the ledger refreshes
 //
 // All parsing is client-side. The server only receives clean row objects.
-// Categories are left unassigned on import — the user categorises inline.
+// On import the server auto-categorizes confident rows on-device (learned
+// per-user rules first, then the built-in merchant lexicon); the count comes
+// back as `auto_categorized`. Anything left blank the user categorises inline.
 
 const TxFileImport = (() => {
 

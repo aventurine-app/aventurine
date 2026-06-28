@@ -96,6 +96,40 @@ test('category retype updates transactions', (t) => {
   assert.equal(row.tx_type, 'income');
 });
 
+test('flex_type round-trips through create + update and is validated', (t) => {
+  const c = makeClient(t);
+
+  // Defaults to 'flex' when omitted on create.
+  const def = c.post('/api/categories', { name: 'Subscriptions', cat_type: 'expense' });
+  assert.equal(def.status, 200, JSON.stringify(def.body));
+  assert.equal(def.body.category.flex_type, 'flex');
+
+  // Honoured when supplied on create.
+  const made = c.post('/api/categories', {
+    name: 'Mortgage', cat_type: 'expense', flex_type: 'fixed',
+  });
+  assert.equal(made.status, 200, JSON.stringify(made.body));
+  assert.equal(made.body.category.flex_type, 'fixed');
+
+  // Updatable on its own without disturbing the rest of the row.
+  const upd = c.put(`/api/categories/${made.body.category.id}`, { flex_type: 'goal' });
+  assert.equal(upd.status, 200, JSON.stringify(upd.body));
+  assert.equal(upd.body.category.flex_type, 'goal');
+  assert.equal(upd.body.category.name, 'Mortgage');
+
+  // Rejected when invalid, on both create and update.
+  assert.equal(
+    c.post('/api/categories', { name: 'Bad', cat_type: 'expense', flex_type: 'nope' }).status, 400
+  );
+  assert.equal(
+    c.put(`/api/categories/${made.body.category.id}`, { flex_type: 'nope' }).status, 400
+  );
+
+  // Listing surfaces the stored value.
+  const listed = c.get('/api/categories').body.categories.find((x) => x.name === 'Mortgage');
+  assert.equal(listed.flex_type, 'goal');
+});
+
 test('categorize-similar derives type from the category', (t) => {
   const c = makeClient(t);
   const income = firstCat(c, 'income');
@@ -238,16 +272,18 @@ test('similar: match strength of 100% is exact, lower is fuzzy', (t) => {
 test('auto-match catches near-identical descriptions only below 100% strength', (t) => {
   const c = makeClient(t);
   const cat = makeCategory(c, 'Match Music');
-  createTx(c, 'Spotify Premium', { catId: cat });
+  // Synthetic merchant the built-in lexicon doesn't know, so this isolates the
+  // LEARNED fuzzy-match behavior from cold-start categorization.
+  createTx(c, 'Zentrix Premium', { catId: cat });
 
   // Default strength is exact, so a near-identical (not identical) import misses.
-  let result = importRows(c, ['Spotify Premiums']);
+  let result = importRows(c, ['Zentrix Premiums']);
   assert.equal(result.auto_categorized, 0);
 
   setSetting(c, 'tx_fuzzy_threshold', '0.85');
-  result = importRows(c, ['Spotify Premiums']);
+  result = importRows(c, ['Zentrix Premiums']);
   assert.equal(result.auto_categorized, 1);
-  assert.ok(txByDesc(c, 'Spotify Premiums').some((x) => x.category_id === cat));
+  assert.ok(txByDesc(c, 'Zentrix Premiums').some((x) => x.category_id === cat));
 });
 
 test('fuzzy: far descriptions stay uncategorized', (t) => {
@@ -281,6 +317,44 @@ test('category delete drops its rules', (t) => {
   assert.equal(c.del(`/api/categories/${cat}`).status, 200);
 
   assert.equal(importRows(c, ['Doomed Merchant']).auto_categorized, 0);
+});
+
+test('import cold-categorizes known merchants via the built-in lexicon (no learned rules)', (t) => {
+  const c = makeClient(t);
+  const catId = (key) => getCategories(c).find((x) => x.key === key).id;
+
+  // No prior categorizations exist, so this exercises the built-in lexicon: it
+  // must catch recognizable merchants even in messy bank-export form, and leave
+  // genuinely-unknown rows blank.
+  const result = importRows(c, [
+    'NETFLIX.COM',
+    'POS DEBIT SHELL OIL 57210 HOUSTON TX',
+    'ZZZ Unknown Corner Store',
+  ]);
+  assert.equal(result.auto_categorized, 2);
+  assert.equal(txByDesc(c, 'NETFLIX.COM')[0].category_id, catId('entertainment'));
+  assert.ok(
+    txByDesc(c, 'POS DEBIT SHELL OIL 57210 HOUSTON TX').every(
+      (x) => x.category_id === catId('automobile')
+    )
+  );
+  assert.equal(txByDesc(c, 'ZZZ Unknown Corner Store')[0].category_id, null);
+});
+
+test('built-in categorization respects the direction guard and the on/off setting', (t) => {
+  const c = makeClient(t);
+
+  // A positive (income) row matching an expense merchant is left alone rather
+  // than flipped into an expense category.
+  let result = importRows(c, ['SHELL OIL REFUND'], 'income');
+  assert.equal(result.auto_categorized, 0);
+  assert.equal(txByDesc(c, 'SHELL OIL REFUND')[0].category_id, null);
+
+  // Turning auto-match off disables the built-in pass too.
+  setSetting(c, 'tx_auto_match', 'off');
+  result = importRows(c, ['NETFLIX.COM']);
+  assert.equal(result.auto_categorized, 0);
+  assert.equal(txByDesc(c, 'NETFLIX.COM')[0].category_id, null);
 });
 
 // ── test_predictions.py (API half) ────────────────────────────────────────────
@@ -474,16 +548,16 @@ test('cards: update fields round and validate', (t) => {
 test('cards: category assignment rules', (t) => {
   const c = makeClient(t);
   const card = makeCard(c);
-  const food = categoryByKey(c, 'food');
+  const groceries = categoryByKey(c, 'groceries');
   const income = categoryByKey(c, 'income');
 
   assert.equal(c.put(`/api/credit-cards/${card.id}`, { category_id: income.id }).status, 400);
   assert.equal(c.put(`/api/credit-cards/${card.id}`, { category_id: 999999 }).status, 404);
-  assert.equal(c.put(`/api/credit-cards/${card.id}`, { category_id: 'food' }).status, 400);
+  assert.equal(c.put(`/api/credit-cards/${card.id}`, { category_id: 'groceries' }).status, 400);
 
-  let r = c.put(`/api/credit-cards/${card.id}`, { category_id: food.id });
+  let r = c.put(`/api/credit-cards/${card.id}`, { category_id: groceries.id });
   assert.equal(r.status, 200);
-  assert.equal(r.body.card.category_id, food.id);
+  assert.equal(r.body.card.category_id, groceries.id);
 
   r = c.put(`/api/credit-cards/${card.id}`, { category_id: null });
   assert.equal(r.status, 200);
@@ -500,7 +574,7 @@ test('cards: delete card', (t) => {
 
 test('cards: category delete unlinks card', (t) => {
   const c = makeClient(t);
-  const catId = c.post('/api/categories', { name: 'Travel', cat_type: 'expense' }).body.category
+  const catId = c.post('/api/categories', { name: 'Hobbies', cat_type: 'expense' }).body.category
     .id;
   const card = makeCard(c);
   c.put(`/api/credit-cards/${card.id}`, { category_id: catId });
@@ -511,24 +585,24 @@ test('cards: category delete unlinks card', (t) => {
 
 test('cards: manual category averages entries', (t) => {
   const c = makeClient(t);
-  const food = categoryByKey(c, 'food');
-  addEntry(c, 2026, 'January', 'food', 300);
-  addEntry(c, 2026, 'February', 'food', 100);
-  addEntry(c, 2026, 'March', 'food', 0); // no spend -> skipped
-  assert.equal(ccData(c).monthly_spend[String(food.id)], 200.0);
+  const groceries = categoryByKey(c, 'groceries');
+  addEntry(c, 2026, 'January', 'groceries', 300);
+  addEntry(c, 2026, 'February', 'groceries', 100);
+  addEntry(c, 2026, 'March', 'groceries', 0); // no spend -> skipped
+  assert.equal(ccData(c).monthly_spend[String(groceries.id)], 200.0);
 });
 
 test('cards: synced category sums transactions, ignores stale entries', (t) => {
   const c = makeClient(t);
-  const food = categoryByKey(c, 'food');
-  addEntry(c, 2026, 'January', 'food', 9999);
-  setSync(c, 2026, { category: 'food', sync: true });
+  const groceries = categoryByKey(c, 'groceries');
+  addEntry(c, 2026, 'January', 'groceries', 9999);
+  setSync(c, 2026, { category: 'groceries', sync: true });
 
-  addTx(c, '2026-01-05', 100, { catId: food.id });
-  addTx(c, '2026-01-20', 50, { catId: food.id });
-  addTx(c, '2026-03-02', 250, { catId: food.id });
+  addTx(c, '2026-01-05', 100, { catId: groceries.id });
+  addTx(c, '2026-01-20', 50, { catId: groceries.id });
+  addTx(c, '2026-03-02', 250, { catId: groceries.id });
 
-  assert.equal(ccData(c).monthly_spend[String(food.id)], 200.0); // (150 + 250) / 2
+  assert.equal(ccData(c).monthly_spend[String(groceries.id)], 200.0); // (150 + 250) / 2
 });
 
 test('cards: uncategorized expense bucket', (t) => {
@@ -559,53 +633,53 @@ test('sync: /api/data ships an (empty by default) per-year sync map; columns car
 
 test('sync: a synced cell computes from transactions and ignores manual entry', (t) => {
   const c = makeClient(t);
-  const food = categoryByKey(c, 'food');
-  addEntry(c, 2026, 'January', 'food', 9999); // manual value, pre-sync
+  const groceries = categoryByKey(c, 'groceries');
+  addEntry(c, 2026, 'January', 'groceries', 9999); // manual value, pre-sync
 
-  setSync(c, 2026, { category: 'food', sync: true });
-  assert.deepStrictEqual(getData(c).sync['2026'], ['food']);
+  setSync(c, 2026, { category: 'groceries', sync: true });
+  assert.deepStrictEqual(getData(c).sync['2026'], ['groceries']);
 
-  addTx(c, '2026-01-05', 100, { catId: food.id });
-  addTx(c, '2026-01-20', 50, { catId: food.id });
+  addTx(c, '2026-01-05', 100, { catId: groceries.id });
+  addTx(c, '2026-01-20', 50, { catId: groceries.id });
 
   // The synced cell reflects the transaction sum (150), not the 9999 entry.
-  assert.equal(getData(c).entries['2026'].January.food, 150);
+  assert.equal(getData(c).entries['2026'].January.groceries, 150);
 
   // Writing the cell is refused while synced.
   assert.equal(
-    c.post('/api/entry', { year: 2026, month: 'January', category: 'food', value: 5 }).status,
+    c.post('/api/entry', { year: 2026, month: 'January', category: 'groceries', value: 5 }).status,
     409
   );
   assert.equal(
-    c.del('/api/entry', { year: 2026, month: 'January', category: 'food' }).status,
+    c.del('/api/entry', { year: 2026, month: 'January', category: 'groceries' }).status,
     409
   );
 
   // Unsync -> the original manual value returns and the cell is editable again.
-  setSync(c, 2026, { category: 'food', sync: false });
-  assert.equal(getData(c).entries['2026'].January.food, 9999);
+  setSync(c, 2026, { category: 'groceries', sync: false });
+  assert.equal(getData(c).entries['2026'].January.groceries, 9999);
   assert.equal(
-    c.post('/api/entry', { year: 2026, month: 'January', category: 'food', value: 5 }).status,
+    c.post('/api/entry', { year: 2026, month: 'January', category: 'groceries', value: 5 }).status,
     200
   );
 });
 
 test('sync is independent per year', (t) => {
   const c = makeClient(t);
-  const food = categoryByKey(c, 'food');
+  const groceries = categoryByKey(c, 'groceries');
   c.post('/api/year', { year: 2025 });
-  // New years default to fully synced; hand-enter food in 2025 only.
-  setSync(c, 2025, { category: 'food', sync: false });
-  addEntry(c, 2025, 'January', 'food', 42); // manual in 2025
-  setSync(c, 2026, { category: 'food', sync: true });
-  addTx(c, '2026-01-10', 70, { catId: food.id });
+  // New years default to fully synced; hand-enter groceries in 2025 only.
+  setSync(c, 2025, { category: 'groceries', sync: false });
+  addEntry(c, 2025, 'January', 'groceries', 42); // manual in 2025
+  setSync(c, 2026, { category: 'groceries', sync: true });
+  addTx(c, '2026-01-10', 70, { catId: groceries.id });
 
   const d = getData(c);
-  // food is synced in 2026 (the bootstrap year) but hand-entered in 2025.
-  assert.deepStrictEqual(d.sync['2026'], ['food']);
-  assert.ok(!d.sync['2025'].includes('food'));
-  assert.equal(d.entries['2025'].January.food, 42); // manual preserved
-  assert.equal(d.entries['2026'].January.food, 70); // computed
+  // groceries is synced in 2026 (the bootstrap year) but hand-entered in 2025.
+  assert.deepStrictEqual(d.sync['2026'], ['groceries']);
+  assert.ok(!d.sync['2025'].includes('groceries'));
+  assert.equal(d.entries['2025'].January.groceries, 42); // manual preserved
+  assert.equal(d.entries['2026'].January.groceries, 70); // computed
 });
 
 test('sync: sync-all then unsync-all', (t) => {
@@ -627,14 +701,14 @@ test('sync: deleting a year clears its sync rows', (t) => {
 
 test('sync: duplicating a year copies its sync config', (t) => {
   const c = makeClient(t);
-  setSync(c, 2026, { category: 'food', sync: true });
+  setSync(c, 2026, { category: 'groceries', sync: true });
   assert.equal(c.post('/api/year/2026/duplicate', { target_year: 2027 }).status, 200);
-  assert.deepStrictEqual(getData(c).sync['2027'], ['food']);
+  assert.deepStrictEqual(getData(c).sync['2027'], ['groceries']);
 });
 
 test('sync: deleting a category clears its sync rows', (t) => {
   const c = makeClient(t);
-  const id = makeCategory(c, 'Travel', 'expense');
+  const id = makeCategory(c, 'Hobbies', 'expense');
   const key = c.get('/api/categories').body.categories.find((x) => x.id === id).key;
   setSync(c, 2026, { category: key, sync: true });
   assert.equal(c.del(`/api/categories/${id}`).status, 200);
@@ -643,8 +717,8 @@ test('sync: deleting a category clears its sync rows', (t) => {
 
 test('sync: endpoint validation', (t) => {
   const c = makeClient(t);
-  assert.equal(c.post('/api/year/2026/sync', { category: 'food' }).status, 400); // missing sync
-  assert.equal(c.post('/api/year/2026/sync', { category: 'food', sync: 'yes' }).status, 400);
-  assert.equal(c.post('/api/year/1999/sync', { category: 'food', sync: true }).status, 404); // inactive year
+  assert.equal(c.post('/api/year/2026/sync', { category: 'groceries' }).status, 400); // missing sync
+  assert.equal(c.post('/api/year/2026/sync', { category: 'groceries', sync: 'yes' }).status, 400);
+  assert.equal(c.post('/api/year/1999/sync', { category: 'groceries', sync: true }).status, 404); // inactive year
   assert.equal(c.post('/api/year/2026/sync', { category: 'nope', sync: true }).status, 400); // unknown cat
 });

@@ -201,6 +201,42 @@
 .cat-row:hover .cat-name { border-color: var(--border); background: var(--surface1); }
 .cat-name:focus { border-color: var(--accent-primary); background: var(--surface1); }
 
+/* ─── Flex-type dropdown ─────────────────────────────────────────────────────
+   The per-row "Fixed / Flex / Goal" select, sitting between the name and the
+   delete ×. Unlike the delete it's always visible (it shows a real value), but
+   it stays quiet at rest — a fixed-width pill that picks up an accent border on
+   hover/focus, the same restraint as the rename input. The caret is drawn with
+   a background-image gradient (same recipe as .tx-select) so the menu text stays
+   clean. A solid surface fill keeps the open option list legible. */
+.cat-flex-type {
+  flex: none;
+  width: 92px;
+  box-sizing: border-box;
+  height: var(--control-height);
+  margin: 4px 0;
+  padding: 4px 26px 4px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-family: var(--font-menu);
+  font-size: var(--size-small);
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--surface1);
+  background-image: linear-gradient(45deg,  transparent 50%, currentColor 50%),
+                    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 14px) 50%, calc(100% - 10px) 50%;
+  background-size: 4px 4px;
+  background-repeat: no-repeat;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.cat-row:hover .cat-flex-type { border-color: var(--border); color: var(--text-primary); }
+.cat-flex-type:hover { border-color: var(--text-tertiary); }
+.cat-flex-type:focus { border-color: var(--accent-primary); color: var(--text-primary); }
+
 /* Action cluster — hidden at rest, revealed on hover or keyboard focus.
    pointer-events gate prevents click-through onto invisible controls. */
 .cat-row-actions {
@@ -277,8 +313,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cat-row, .cat-name, .cat-row-actions, .cat-icon-btn, .cat-grip,
-  .cat-add-btn {
+  .cat-row, .cat-name, .cat-flex-type, .cat-row-actions, .cat-icon-btn,
+  .cat-grip, .cat-add-btn {
     transition: none;
   }
 }
