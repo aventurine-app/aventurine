@@ -60,14 +60,24 @@ jobs:
       # Windows NSIS installer, cross-built. dist:win parks the win32-x64 sqlite
       # prebuild (scripts/setup-win-abi.js) then runs electron-builder --win;
       # Wine (installed above) does the .exe stamping. Also never published.
+      #
+      # BEST-EFFORT: the Wine cross-build is fragile against runner-image drift
+      # (a newer ubuntu-latest / Wine can break the .exe stamping — this is what
+      # the Install Wine note above warns about). continue-on-error keeps a Wine
+      # flake from failing the run: the SOURCE-ONLY release does not need this
+      # binary (it's a private artifact), so it must never block the release.
       - name: Build Windows installer
+        continue-on-error: true
         working-directory: electron
         run: npm run dist:win -- --publish never
 
       # Keep the installers as a private workflow artifact (the fenced official
       # binary). Downloadable from this Actions run; never attached to the
-      # public release.
+      # public release. `if: always()` so the Linux installers still upload even
+      # when the best-effort Windows step above failed (Linux always produces
+      # files, so if-no-files-found:error stays satisfied).
       - name: Upload installers as artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: oliv-installers-${{ github.ref_name }}
@@ -81,7 +91,12 @@ jobs:
       # Create the SOURCE-ONLY GitHub Release for this tag as a DRAFT. No assets
       # are uploaded, so it contains only GitHub's auto-generated source
       # archives. Review the draft on the Releases page, then Publish.
+      # `if: always()` decouples the public release from the private installer
+      # builds — a Wine flake (or any earlier best-effort step) must not stop us
+      # cutting the source-only release. The release content is the source tag,
+      # which exists regardless of whether the binaries built.
       - name: Create source-only draft release
+        if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release create "${{ github.ref_name }}" --draft --title "${{ github.ref_name }}" --generate-notes
