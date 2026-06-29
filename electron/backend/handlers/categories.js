@@ -138,8 +138,8 @@ function remove(ctx, { params }) {
     db.prepare('UPDATE credit_cards SET category_id = NULL WHERE category_id = ?').run(cat.id);
     // Drop any per-table sync config for this category (keyed by its stable key).
     db.prepare('DELETE FROM category_sync WHERE category = ?').run(cat.key);
-    // Drop any budget targets for this category (keyed by its stable key).
-    db.prepare('DELETE FROM budget_targets WHERE category = ?').run(cat.key);
+    // Drop this category's budget envelope (keyed by its stable key).
+    db.prepare('DELETE FROM budget_amounts WHERE category = ?').run(cat.key);
     db.prepare('DELETE FROM categories WHERE id = ?').run(cat.id);
     db.prepare('UPDATE categories SET position = position - 1 WHERE position > ?').run(
       cat.position

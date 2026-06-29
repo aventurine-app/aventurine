@@ -1,14 +1,17 @@
 /* ============================================================================
-   budget.css — Budget (envelope target-vs-actual) page.
+   budget.css — Budget (recurring envelopes) page.
 
    Full-bleed layout that fills the viewport like Categories / Settings: the
-   page is top-anchored and full width, the zero-based summary is a single
-   horizontal band, and the envelopes flow into a responsive auto-fill grid
-   grouped by category type — so wide screens use horizontal space instead of
-   forcing a long vertical scroll.
+   page is top-anchored and full width, and the envelopes flow into a responsive
+   auto-fill grid grouped by category type — so wide screens use horizontal
+   space instead of forcing a long vertical scroll.
 
-   Page-scoped: the shared card + tooltip chrome lives in pages that load it
-   (home.css / forecast.css), so the slices this page needs are restated here.
+   The page's focus is the envelopes themselves: ONE standing target per
+   category, its bar filled by the viewed month's spending. There is no
+   zero-based roll-up, no expense total, and income appears only as a small,
+   demoted reference. Categories without a budget are hidden behind an
+   "Add a budget" tile/menu rather than listed as empty cards.
+
    Everything draws from theme variables so it retones with palette / light mode.
    ============================================================================ */
 
@@ -39,10 +42,12 @@
 
 .budget-header-text { max-width: 64ch; }
 
+/* Month nav stacks over a small, demoted income caption, right-aligned. */
 .budget-toolbar {
   display: flex;
-  align-items: center;
-  gap: var(--space-12);
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-8);
   flex: none;
 }
 
@@ -82,190 +87,14 @@
   text-align: center;
 }
 
-/* .budget-copy-btn (neutral eyebrow action button) now lives in buttons.css. */
-.budget-copy-btn:active { transform: translateY(1px); }
-/* :focus-visible centralized in buttons.css */
-
-/* ─── Info tooltip ("i" badge + CSS hover/focus card) ─────────────────────── */
-.fc-info {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  margin-left: 6px;
-  border-radius: 50%;
-  border: 1px solid var(--text-tertiary);
+/* Income this month — a small, informational reference, never the focus. */
+.budget-income {
+  margin: 0;
   color: var(--text-tertiary);
-  font-family: var(--font-h3);
-  font-size: 9px;
-  font-weight: var(--weight-semibold);
-  font-style: normal;
-  line-height: 1;
-  text-transform: none;
-  letter-spacing: 0;
-  cursor: help;
-  position: relative;
-  vertical-align: middle;
-  top: -1px;
-  transition: color 0.15s, border-color 0.15s;
-}
-.fc-info:hover,
-.fc-info:focus-visible {
-  color: var(--text-primary);
-  border-color: var(--text-primary);
-  outline: none;
-}
-.fc-info::after {
-  content: attr(data-tip);
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  z-index: 40;
-  width: max-content;
-  max-width: 280px;
-  padding: 10px 12px;
-  background: var(--background);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: var(--shadow-card);
-  color: var(--text-secondary);
-  font-family: var(--font-menu);
+  font-family: var(--font-numeric);
   font-size: var(--size-small);
-  font-weight: var(--weight-regular);
-  line-height: 1.5;
-  letter-spacing: normal;
-  text-transform: none;
-  text-align: left;
-  white-space: normal;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-3px);
-  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
-}
-/* Right-edge variant — anchors the card to the icon's right so a tooltip near
-   the viewport edge (e.g. the right-aligned "Left to budget" hero) opens
-   leftward instead of pushing past the edge and creating a horizontal scroll. */
-.fc-info-right::after { left: auto; right: 0; }
-
-.fc-info:hover::after,
-.fc-info:focus-visible::after {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-}
-
-/* ─── Zero-based summary band ─────────────────────────────────────────────── */
-.budget-summary-card {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface1);
-  box-shadow: var(--shadow-card);
-  padding: var(--space-24);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-20);
-}
-
-.budget-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-16) var(--space-48);
-}
-
-.budget-stat {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-width: 0;
-}
-
-/* "Left to budget" is the hero — push it to the right edge of the band and
-   let it carry the largest, accent-weighted number. */
-.budget-stat-hero { margin-left: auto; text-align: right; align-items: flex-end; }
-
-.budget-stat-label {
-  color: var(--text-tertiary);
-  font-family: var(--font-h3);
-  font-size: var(--size-micro);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--track-wider);
-  text-transform: uppercase;
-}
-
-.budget-stat-value {
-  color: var(--text-primary);
-  font-family: var(--font-numeric);
-  font-size: var(--size-h3);
-  font-weight: var(--weight-light);
-  letter-spacing: var(--track-tight);
   font-variant-numeric: tabular-nums;
-}
-.budget-stat-hero .budget-stat-value { font-size: var(--size-display); line-height: var(--lh-tight); }
-
-.budget-stat-value.pos      { color: var(--text-primary); }
-.budget-stat-value.balanced { color: var(--accent-secondary); }
-.budget-stat-value.neg      { color: var(--accent-tertiary); }
-
-.budget-stat-sub {
-  color: var(--label-muted);
-  font-family: var(--font-h3);
-  font-size: var(--size-micro);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--track-wide);
-  text-transform: uppercase;
-}
-.budget-stat-sub.balanced { color: var(--accent-secondary); }
-.budget-stat-sub.neg      { color: var(--accent-tertiary); }
-
-/* Expected income is editable — styled to read like a stat value but typeable. */
-.budget-income-input {
-  width: 140px;
-  box-sizing: border-box;
-  height: var(--control-height);
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-primary);
-  font-family: var(--font-numeric);
-  font-size: var(--size-h3);
-  font-weight: var(--weight-light);
-  letter-spacing: var(--track-tight);
-  font-variant-numeric: tabular-nums;
-  padding: 4px 8px;
-  transition: border-color 0.15s ease;
-}
-.budget-income-input:hover { border-color: var(--text-tertiary); }
-.budget-income-input:focus { outline: none; border-color: var(--accent-secondary); }
-.budget-income-input::placeholder { color: var(--text-tertiary); }
-
-/* Allocation meter — how much of expected income is already budgeted. */
-.budget-alloc { display: flex; flex-direction: column; gap: var(--space-8); }
-
-.budget-alloc-bar {
-  width: 100%;
-  height: 10px;
-  border-radius: 6px;
-  background: var(--surface3);
-  overflow: hidden;
-}
-
-.budget-alloc-fill {
-  height: 100%;
-  border-radius: 6px;
-  transition: width 0.3s ease, background-color 0.3s ease;
-}
-.budget-alloc-fill.alloc-pos      { background: var(--accent-primary); }
-.budget-alloc-fill.alloc-balanced { background: var(--accent-secondary); }
-.budget-alloc-fill.alloc-neg      { background: var(--accent-tertiary); }
-
-.budget-alloc-legend {
-  display: flex;
-  justify-content: space-between;
-  color: var(--text-tertiary);
-  font-family: var(--font-numeric);
-  font-size: var(--size-micro);
-  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 /* ─── Envelope groups ─────────────────────────────────────────────────────── */
@@ -305,6 +134,7 @@
   letter-spacing: var(--track-normal);
 }
 
+/* Count of budgeted envelopes in the group (a count, not a money total). */
 .budget-group-count {
   height: 20px;
   display: inline-flex;
@@ -317,15 +147,6 @@
   font-size: var(--size-micro);
 }
 
-.budget-group-totals {
-  margin-left: auto;
-  color: var(--text-secondary);
-  font-family: var(--font-numeric);
-  font-size: var(--size-small);
-  font-variant-numeric: tabular-nums;
-}
-.budget-group-of { color: var(--text-tertiary); }
-
 /* Responsive auto-fill grid — fills the viewport width, reflows to fewer
    columns as the window narrows, and never drops below one column. */
 .budget-grid {
@@ -336,6 +157,7 @@
 
 /* ─── Envelope card ───────────────────────────────────────────────────────── */
 .budget-env {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-12);
@@ -348,15 +170,17 @@
 }
 .budget-env:hover { border-color: var(--text-tertiary); }
 .budget-env:focus-within { border-color: var(--accent-secondary); }
-.budget-env.is-untracked { opacity: 0.62; }
-.budget-env.is-untracked:hover,
-.budget-env.is-untracked:focus-within { opacity: 1; }
+
+/* A drafted budget (picked from the menu, target not yet saved) reads as a
+   to-be-filled slot via a dashed border. */
+.budget-env.is-draft { border-style: dashed; }
 
 .budget-env-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-8);
+  padding-right: 16px; /* reserve room for the absolutely-placed remove button */
 }
 
 .budget-env-name {
@@ -381,6 +205,34 @@
 .budget-env-status.pos   { color: var(--accent-secondary); }
 .budget-env-status.neg   { color: var(--accent-tertiary); }
 .budget-env-status.muted { color: var(--label-muted); }
+
+/* Remove the budget — a quiet "×" in the corner that reveals on hover/focus, so
+   the card stays clean until you reach for it. The category returns to the
+   "Add a budget" menu. */
+.budget-env-remove {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.budget-env:hover .budget-env-remove,
+.budget-env:focus-within .budget-env-remove { opacity: 1; }
+.budget-env-remove:hover { background: var(--surface3); color: var(--text-primary); }
+.budget-env-remove:focus-visible { opacity: 1; outline: 2px solid var(--accent-secondary); outline-offset: 1px; }
 
 .budget-bar {
   width: 100%;
@@ -436,11 +288,100 @@
 .budget-target-input:focus { outline: none; border-color: var(--accent-secondary); }
 .budget-target-input::placeholder { color: var(--text-tertiary); }
 
+/* ─── Add-a-budget tile (sits in the grid after a group's envelopes) ───────── */
+.budget-addtile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  min-height: 92px;
+  box-sizing: border-box;
+  padding: var(--space-16);
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-family: var(--font-menu);
+  font-size: var(--size-small);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+.budget-addtile svg { width: 18px; height: 18px; }
+.budget-addtile:hover {
+  border-color: var(--text-tertiary);
+  color: var(--text-primary);
+  background: var(--surface1);
+}
+.budget-addtile:active { transform: translateY(1px); }
+.budget-addtile:focus-visible { outline: none; border-color: var(--accent-secondary); color: var(--text-primary); }
+
+/* ─── Add-a-budget popover menu ────────────────────────────────────────────── */
+.budget-addmenu {
+  position: fixed;
+  z-index: 60;
+  min-width: 220px;
+  max-width: 280px;
+  max-height: 340px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-card);
+}
+
+.budget-addmenu-group {
+  padding: 8px 10px 4px;
+  color: var(--text-tertiary);
+  font-family: var(--font-h3);
+  font-size: var(--size-micro);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--track-wider);
+  text-transform: uppercase;
+}
+
+.budget-addmenu-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-12);
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-menu);
+  font-size: var(--size-body);
+  transition: background 0.12s ease;
+}
+.budget-addmenu-item:hover,
+.budget-addmenu-item:focus-visible { background: var(--surface2); outline: none; }
+
+.budget-addmenu-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.budget-addmenu-hint {
+  flex: none;
+  color: var(--text-tertiary);
+  font-family: var(--font-numeric);
+  font-size: var(--size-micro);
+  font-variant-numeric: tabular-nums;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .budget-bar-fill,
-  .budget-alloc-fill,
   .budget-nav-btn,
-  .budget-copy-btn,
   .budget-env,
-  .fc-info::after { transition: none; }
+  .budget-env-remove,
+  .budget-addtile { transition: none; }
 }

@@ -16,7 +16,6 @@ const { app, BrowserWindow, Menu, ipcMain, dialog, protocol, net } = require('el
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
-const { initUpdater } = require('./updater');
 
 const APP_HOST = 'oliv';
 const APP_ORIGIN = `app://${APP_HOST}`;
@@ -67,7 +66,7 @@ if (!app.isPackaged) {
 // ─── Backend (in-process) ───────────────────────────────────────────────────
 
 let conn = null;
-// The single app window. The updater broadcasts status to it (updater.js).
+// The single app window.
 let mainWindow = null;
 
 function startBackend() {
@@ -331,9 +330,6 @@ app.whenReady().then(async () => {
         return;
     }
     await createWindow();
-
-    // In-app updates (packaged Windows only; inert IPC handlers elsewhere).
-    initUpdater({ getWindow: () => mainWindow });
 
     // macOS: re-open the main window from the dock. No-op elsewhere.
     app.on('activate', async () => {

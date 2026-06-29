@@ -54,8 +54,7 @@ test('fresh DB: baseline schema + seed', () => {
 
   for (const t of ['active_years', 'app_settings', 'balance_entries', 'categories',
     'category_sync', 'credit_cards', 'entries', 'match_rules', 'portfolio_accounts',
-    'portfolio_entries', 'transactions', 'forecast_planned', 'budget_targets',
-    'budget_income']) {
+    'portfolio_entries', 'transactions', 'forecast_planned', 'budget_amounts']) {
     assert.ok(tableExists(db, t), `table ${t} present`);
   }
   db.close();

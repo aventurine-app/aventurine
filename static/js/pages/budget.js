@@ -1,21 +1,28 @@
 'use strict';
 
-// ─── Budget (Envelope target-vs-actual) ──────────────────────────────────────
-// Per-month zero-based budgeting: set a target per spending/savings/investing
-// category and watch a progress bar fill from your actual transactions, with a
-// "left to budget" roll-up and an allocation meter (budgeted vs expected income).
-// All data is server-side (GET /api/budget); targets are written through
-// POST/DELETE /api/budget/target, the income override through /api/budget/income.
+// ─── Budget (recurring envelopes) ────────────────────────────────────────────
+// One standing target per category, applied to every month — there is no
+// per-month target. The page shows each budgeted category as an envelope whose
+// bar fills from the *viewed* month's actual spending; the ‹ month › switcher
+// only changes which month's spend you're looking at, never the budget itself.
+//
+// Categories without a budget are hidden from the dashboard and tucked behind an
+// "Add a budget" menu, so the grid stays focused on the budgets that matter and
+// unused ones are one click away.
+//
+// Data is server-side: GET /api/budget?year=&month= returns every budgetable
+// category with its global `target` and the month's `spent`; targets are written
+// through POST/DELETE /api/budget/target ({ category, value }).
 //
 // Globals in play (loaded before this script): apiFetch (api.js), escapeHtml
-// (escape.js), CURRENCY_SYMBOL / formatCurrency / stripCurrencyValue /
-// applyCurrencyFormat (currency.js), UI (ui.js).
+// (escape.js), formatCurrency / stripCurrencyValue / applyCurrencyFormat
+// (currency.js), UI (ui.js).
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
 
 // Budgetable category types, in the order their sections stack down the page.
-// Income isn't budgeted — it's the inflow that drives "left to budget".
+// Income isn't budgeted — it's surfaced only as a small reference figure.
 const GROUPS = [
   ['expense', 'Expense'],
   ['savings', 'Savings'],
@@ -26,19 +33,27 @@ const state = {
   year: new Date().getFullYear(),
   monthIndex: new Date().getMonth(),
   data: null,
+  // Keys the user is drafting a budget for: shown as an empty envelope before a
+  // target is saved. Transient UI state, cleared when the month changes.
+  drafts: new Set(),
+  // A draft key whose input should grab focus after the next render.
+  pendingFocus: null,
+  // The open add-budget popover, or null.
+  menu: null,
 };
 
 const monthName = () => MONTHS[state.monthIndex];
+const fmtMoney = (n) => formatCurrency(n, true);
 
-// ─── Currency formatting (compact, currency-symbol aware) ────────────────────
-function fmtMoney(n) {
-  return formatCurrency(n, true);
+/** The server row for a category key (or undefined). */
+function catRow(key) {
+  return state.data ? state.data.categories.find((c) => c.key === key) : undefined;
 }
 
-function infoIcon(tip, align) {
-  const t = escapeHtml(tip);
-  const cls = align === 'right' ? 'fc-info fc-info-right' : 'fc-info';
-  return `<span class="${cls}" tabindex="0" role="note" aria-label="${t}" data-tip="${t}">i</span>`;
+/** A category's saved recurring target (0 when unbudgeted). */
+function catTarget(key) {
+  const c = catRow(key);
+  return c ? c.target : 0;
 }
 
 // ─── Data ────────────────────────────────────────────────────────────────────
@@ -53,88 +68,17 @@ async function load() {
 
 function render() {
   document.getElementById('budget-month-label').textContent = `${monthName()} ${state.year}`;
-  renderSummary();
+  renderIncome();
   renderGroups();
 }
 
-// ─── Zero-based summary + allocation meter ───────────────────────────────────
+// ─── Income reference (demoted) ──────────────────────────────────────────────
 
-function renderSummary() {
-  const el = document.getElementById('budget-summary');
+function renderIncome() {
+  const el = document.getElementById('budget-income');
   if (!el || !state.data) return;
-  const s = state.data.summary;
-
-  const expectedTip = 'What you expect to take in this month — the figure "left to budget" '
-    + 'is measured against, so it\'s meaningful from day 1. It defaults to your average '
-    + 'monthly income from recent months; type a number to set your own, or clear it to go '
-    + 'back to the average.';
-  const sourceNote = s.incomeSource === 'override' ? 'custom' : 'auto · avg of recent months';
-
-  // "Left to budget" is the hero of zero-based budgeting: zero means every
-  // dollar has a job, negative means you've over-committed.
-  let leftCls = 'pos';
-  let leftHint = 'still to assign';
-  if (s.leftToBudget < 0) { leftCls = 'neg'; leftHint = 'over-committed'; }
-  else if (s.leftToBudget === 0) { leftCls = 'balanced'; leftHint = 'every dollar assigned'; }
-
-  // Allocation meter — how much of expected income is already budgeted.
-  const allocPct = s.expectedIncome > 0
-    ? Math.min(s.budgeted / s.expectedIncome, 1) * 100
-    : (s.budgeted > 0 ? 100 : 0);
-  const allocBand = s.leftToBudget < 0 ? 'neg' : (s.leftToBudget === 0 ? 'balanced' : 'pos');
-
-  el.innerHTML = `
-    <div class="budget-stats">
-      <div class="budget-stat budget-stat-income">
-        <span class="budget-stat-label">Expected income${infoIcon(expectedTip)}</span>
-        <input type="text" id="budget-income-input" class="budget-income-input" inputmode="decimal"
-               spellcheck="false" autocomplete="off" placeholder="—" aria-label="Expected income"
-               value="${formatCurrency(s.expectedIncome, true, { editable: true })}">
-        <span class="budget-stat-sub">${fmtMoney(s.received)} received · ${escapeHtml(sourceNote)}</span>
-      </div>
-
-      <div class="budget-stat">
-        <span class="budget-stat-label">Budgeted${infoIcon('The sum of every envelope target you have set for this month.')}</span>
-        <span class="budget-stat-value">${fmtMoney(s.budgeted)}</span>
-        <span class="budget-stat-sub">${fmtMoney(s.spent)} spent so far</span>
-      </div>
-
-      <div class="budget-stat budget-stat-hero">
-        <span class="budget-stat-label">Left to budget${infoIcon('Expected income minus everything you have budgeted. Zero means every dollar has a job; negative means you have budgeted more than you expect to bring in.', 'right')}</span>
-        <span class="budget-stat-value ${leftCls}">${fmtMoney(s.leftToBudget)}</span>
-        <span class="budget-stat-sub ${leftCls}">${leftHint}</span>
-      </div>
-    </div>
-
-    <div class="budget-alloc">
-      <div class="budget-alloc-bar">
-        <div class="budget-alloc-fill alloc-${allocBand}" style="width:${allocPct}%"></div>
-      </div>
-      <div class="budget-alloc-legend">
-        <span>${fmtMoney(s.budgeted)} budgeted</span>
-        <span>of ${fmtMoney(s.expectedIncome)} expected</span>
-      </div>
-    </div>`;
-
-  const incomeInput = document.getElementById('budget-income-input');
-  incomeInput.addEventListener('input', () => applyCurrencyFormat(incomeInput));
-  incomeInput.addEventListener('change', () => commitIncome(incomeInput));
-  incomeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); incomeInput.blur(); } });
-}
-
-async function commitIncome(input) {
-  const raw = stripCurrencyValue(input.value);
-  const body = { year: state.year, month: monthName() };
-  if (raw === '') {
-    // Cleared → revert to the auto average (drop any override).
-    if (state.data.summary.incomeSource !== 'override') return;
-    await apiFetch('/api/budget/income', { method: 'DELETE', body: JSON.stringify(body) });
-  } else {
-    const amount = Number(raw);
-    if (!Number.isFinite(amount) || amount < 0) return;
-    await apiFetch('/api/budget/income', { method: 'POST', body: JSON.stringify({ ...body, amount }) });
-  }
-  load();
+  const received = state.data.summary.received || 0;
+  el.textContent = `${fmtMoney(received)} income in ${monthName()}`;
 }
 
 // ─── Envelope groups ─────────────────────────────────────────────────────────
@@ -154,30 +98,43 @@ function renderGroups() {
     return;
   }
 
+  // First run: nothing budgeted yet — one focused call to action beats three
+  // sparse, empty group sections.
+  const anyBudgeted = cats.some((c) => c.target > 0) || state.drafts.size > 0;
+  if (!anyBudgeted) {
+    el.innerHTML = UI.emptyState({
+      icon: 'target',
+      title: 'Set up your budgets',
+      desc: 'Give a category a monthly target and it becomes an envelope you can track. The target carries to every month.',
+      action: { label: 'Add a budget', name: 'add-budget', icon: 'plus', primary: true },
+    });
+    el.querySelector('[data-empty-action="add-budget"]')
+      ?.addEventListener('click', (e) => openAddMenu(e.currentTarget, null));
+    return;
+  }
+
   let html = '';
   for (const [type, label] of GROUPS) {
     const group = cats.filter((c) => c.cat_type === type);
     if (!group.length) continue;
-
-    const budgeted = group.reduce((a, c) => a + c.target, 0);
-    const spent = group.reduce((a, c) => a + c.spent, 0);
+    const cards = group.filter((c) => c.target > 0 || state.drafts.has(c.key));
+    const addable = group.filter((c) => c.target === 0 && !state.drafts.has(c.key));
+    if (!cards.length && !addable.length) continue;
 
     html += `<section class="budget-group" data-type="${type}">
       <div class="budget-group-head">
         <span class="budget-group-title">${label}</span>
-        <span class="budget-group-count">${group.length}</span>
-        <span class="budget-group-totals">${fmtMoney(spent)} <span class="budget-group-of">of</span> ${fmtMoney(budgeted)}</span>
+        <span class="budget-group-count">${cards.length}</span>
       </div>
-      <div class="budget-grid">${group.map(envelopeCard).join('')}</div>
+      <div class="budget-grid">
+        ${cards.map(envelopeCard).join('')}
+        ${addable.length ? addTile(type) : ''}
+      </div>
     </section>`;
   }
   el.innerHTML = html;
-
-  el.querySelectorAll('.budget-target-input').forEach((input) => {
-    input.addEventListener('input', () => applyCurrencyFormat(input));
-    input.addEventListener('change', () => commitTarget(input));
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
-  });
+  wireGroups(el);
+  focusPendingDraft(el);
 }
 
 function envelopeCard(c) {
@@ -194,7 +151,7 @@ function envelopeCard(c) {
   let statusText;
   let statusCls;
   if (!hasTarget) {
-    statusText = c.spent > 0 ? 'Untracked' : 'No target';
+    statusText = 'Set an amount';
     statusCls = 'muted';
   } else if (over) {
     statusText = `${fmtMoney(c.spent - c.target)} over`;
@@ -204,10 +161,13 @@ function envelopeCard(c) {
     statusCls = 'pos';
   }
 
-  return `<article class="budget-env${hasTarget ? '' : ' is-untracked'}" data-key="${escapeHtml(c.key)}">
+  const name = escapeHtml(c.name);
+  return `<article class="budget-env${hasTarget ? '' : ' is-draft'}" data-key="${escapeHtml(c.key)}">
     <div class="budget-env-head">
-      <span class="budget-env-name" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
+      <span class="budget-env-name" title="${name}">${name}</span>
       <span class="budget-env-status ${statusCls}">${statusText}</span>
+      <button type="button" class="budget-env-remove" data-remove="${escapeHtml(c.key)}"
+              aria-label="Remove budget for ${name}" title="Remove budget">×</button>
     </div>
     <div class="budget-bar">
       <div class="budget-bar-fill bar-${band}" style="width:${widthPct}%"></div>
@@ -216,28 +176,155 @@ function envelopeCard(c) {
       <span class="budget-env-spent">${fmtMoney(c.spent)}</span>
       <span class="budget-env-of">of</span>
       <input type="text" class="budget-target-input" inputmode="decimal" spellcheck="false"
-             autocomplete="off" placeholder="—" aria-label="Target for ${escapeHtml(c.name)}"
+             autocomplete="off" placeholder="—" aria-label="Monthly budget for ${name}"
              data-key="${escapeHtml(c.key)}" value="${hasTarget ? formatCurrency(c.target, true, { editable: true }) : ''}">
     </div>
   </article>`;
 }
 
+function addTile(type) {
+  const plus = UI.ICONS.plus;
+  return `<button type="button" class="budget-addtile" data-addtype="${type}" aria-haspopup="menu">
+    ${plus}<span>Add a budget</span>
+  </button>`;
+}
+
+// ─── Event wiring ────────────────────────────────────────────────────────────
+
+function wireGroups(root) {
+  root.querySelectorAll('.budget-target-input').forEach((input) => {
+    input.addEventListener('input', () => applyCurrencyFormat(input));
+    input.addEventListener('change', () => commitTarget(input));
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+  });
+  root.querySelectorAll('[data-remove]').forEach((btn) => {
+    btn.addEventListener('click', () => removeBudget(btn.dataset.remove));
+  });
+  root.querySelectorAll('.budget-addtile').forEach((tile) => {
+    tile.addEventListener('click', () => openAddMenu(tile, tile.dataset.addtype));
+  });
+}
+
+function focusPendingDraft(root) {
+  if (!state.pendingFocus) return;
+  const input = root.querySelector(`.budget-target-input[data-key="${CSS.escape(state.pendingFocus)}"]`);
+  state.pendingFocus = null;
+  if (!input) return;
+  input.focus();
+  input.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
 async function commitTarget(input) {
   const key = input.dataset.key;
   const raw = stripCurrencyValue(input.value);
-  const body = { year: state.year, month: monthName(), category: key };
 
   if (raw === '' || Number(raw) === 0) {
-    await apiFetch('/api/budget/target', { method: 'DELETE', body: JSON.stringify(body) });
-  } else {
-    const amount = Number(raw);
-    if (!Number.isFinite(amount) || amount < 0) return;
-    await apiFetch('/api/budget/target', { method: 'POST', body: JSON.stringify({ ...body, value: amount }) });
+    // Cleared → drop the budget (a never-saved draft just vanishes locally).
+    await removeBudget(key);
+    return;
   }
+  const amount = Number(raw);
+  if (!Number.isFinite(amount) || amount < 0) return;
+  await apiFetch('/api/budget/target', { method: 'POST', body: JSON.stringify({ category: key, value: amount }) });
+  state.drafts.delete(key);
   load();
 }
 
-// ─── Month navigation + copy ─────────────────────────────────────────────────
+async function removeBudget(key) {
+  const wasSaved = catTarget(key) > 0;
+  state.drafts.delete(key);
+  if (wasSaved) {
+    await apiFetch('/api/budget/target', { method: 'DELETE', body: JSON.stringify({ category: key }) });
+    load();
+  } else {
+    render();
+  }
+}
+
+// ─── Add-budget popover ──────────────────────────────────────────────────────
+// A category with no budget lives here until the user picks it. `type` scopes
+// the list to one group (from a group's add tile) or is null for all groups
+// (the first-run empty state).
+
+function addableByType(type) {
+  const cats = state.data.categories.filter(
+    (c) => c.target === 0 && !state.drafts.has(c.key) && (!type || c.cat_type === type)
+  );
+  return cats;
+}
+
+function menuItemHtml(c) {
+  const hint = c.spent > 0 ? `<span class="budget-addmenu-hint">${fmtMoney(c.spent)} spent</span>` : '';
+  return `<button type="button" class="budget-addmenu-item" role="menuitem" data-key="${escapeHtml(c.key)}">
+    <span class="budget-addmenu-name">${escapeHtml(c.name)}</span>${hint}
+  </button>`;
+}
+
+function openAddMenu(anchor, type) {
+  closeAddMenu();
+  const menu = document.createElement('div');
+  menu.className = 'budget-addmenu';
+  menu.setAttribute('role', 'menu');
+
+  if (type) {
+    menu.innerHTML = addableByType(type).map(menuItemHtml).join('');
+  } else {
+    // All groups, each under a small label.
+    menu.innerHTML = GROUPS.map(([t, label]) => {
+      const items = addableByType(t);
+      if (!items.length) return '';
+      return `<div class="budget-addmenu-group">${label}</div>${items.map(menuItemHtml).join('')}`;
+    }).join('');
+  }
+
+  document.body.appendChild(menu);
+  positionMenu(menu, anchor);
+
+  menu.querySelectorAll('.budget-addmenu-item').forEach((item) => {
+    item.addEventListener('click', () => { const key = item.dataset.key; closeAddMenu(); startDraft(key); });
+  });
+
+  const onDoc = (e) => { if (!menu.contains(e.target) && e.target !== anchor) closeAddMenu(); };
+  const onKey = (e) => { if (e.key === 'Escape') { closeAddMenu(); anchor.focus(); } };
+  const onScroll = () => closeAddMenu();
+  setTimeout(() => document.addEventListener('mousedown', onDoc), 0);
+  document.addEventListener('keydown', onKey);
+  window.addEventListener('scroll', onScroll, true);
+  state.menu = { el: menu, onDoc, onKey, onScroll };
+
+  menu.querySelector('.budget-addmenu-item')?.focus();
+}
+
+function closeAddMenu() {
+  if (!state.menu) return;
+  const { el, onDoc, onKey, onScroll } = state.menu;
+  document.removeEventListener('mousedown', onDoc);
+  document.removeEventListener('keydown', onKey);
+  window.removeEventListener('scroll', onScroll, true);
+  el.remove();
+  state.menu = null;
+}
+
+/** Place the fixed-position menu under the anchor, flipping at viewport edges. */
+function positionMenu(menu, anchor) {
+  const r = anchor.getBoundingClientRect();
+  const mw = menu.offsetWidth;
+  const mh = menu.offsetHeight;
+  let left = r.left;
+  let top = r.bottom + 6;
+  if (left + mw > window.innerWidth - 8) left = Math.max(8, r.right - mw);
+  if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 6);
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+}
+
+function startDraft(key) {
+  state.drafts.add(key);
+  state.pendingFocus = key;
+  render();
+}
+
+// ─── Month navigation ────────────────────────────────────────────────────────
 
 function step(delta) {
   let m = state.monthIndex + delta;
@@ -246,30 +333,14 @@ function step(delta) {
   else if (m > 11) { m = 0; y += 1; }
   state.monthIndex = m;
   state.year = y;
+  state.drafts.clear();
+  closeAddMenu();
   load();
-}
-
-async function copyLastMonth() {
-  const fromIndex = state.monthIndex === 0 ? 11 : state.monthIndex - 1;
-  const fromYear = state.monthIndex === 0 ? state.year - 1 : state.year;
-  const hasTargets = state.data && state.data.categories.some((c) => c.target > 0);
-  if (hasTargets && !confirm(`Overwrite this month's targets with those from ${MONTHS[fromIndex]} ${fromYear}?`)) {
-    return;
-  }
-  const res = await apiFetch('/api/budget/copy', {
-    method: 'POST',
-    body: JSON.stringify({
-      from_year: fromYear, from_month: MONTHS[fromIndex],
-      to_year: state.year, to_month: monthName(),
-    }),
-  });
-  if (res.ok) load();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('budget-prev').addEventListener('click', () => step(-1));
   document.getElementById('budget-next').addEventListener('click', () => step(1));
-  document.getElementById('budget-copy').addEventListener('click', copyLastMonth);
-  window.addEventListener('currencychange', render);
+  window.addEventListener('currencychange', () => { if (state.data) render(); });
   load();
 });

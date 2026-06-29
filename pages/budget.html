@@ -18,10 +18,10 @@
 
     <header class="budget-header">
         <div class="budget-header-text">
-            <h1 class="page-title">Budget</h1>
+            <h1 class="page-title">Budgets</h1>
             <p class="page-subtitle">
-                Give every dollar a job. Set a monthly target per category and
-                watch each envelope fill from your actual spending.
+                One standing target per category, applied to every month. Watch
+                each envelope fill from this month’s spending.
             </p>
         </div>
         <div class="budget-toolbar">
@@ -30,12 +30,9 @@
                 <span class="budget-month-label" id="budget-month-label">—</span>
                 <button type="button" class="budget-nav-btn" id="budget-next" aria-label="Next month">›</button>
             </div>
-            <button type="button" class="budget-copy-btn" id="budget-copy">Copy last month</button>
+            <p class="budget-income" id="budget-income" aria-live="polite"></p>
         </div>
     </header>
-
-    <!-- Zero-based roll-up + allocation meter, rendered by budget.js -->
-    <section class="budget-summary-card" id="budget-summary" aria-label="Monthly budget summary"></section>
 
     <!-- Envelope grids grouped by category type, rendered by budget.js -->
     <div class="budget-groups" id="budget-groups"></div>

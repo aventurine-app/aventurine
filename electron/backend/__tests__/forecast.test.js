@@ -313,18 +313,65 @@ test('migration: a legacy v1 DB climbs to SCHEMA_VERSION and gains the new table
     seedDefaults(db);
     // Simulate a DB created before these features: drop the post-v1 tables, drop to v1.
     db.exec('DROP TABLE forecast_planned');
-    db.exec('DROP TABLE budget_targets');
-    db.exec('DROP TABLE budget_income');
+    db.exec('DROP TABLE budget_amounts');
     db.pragma('user_version = 1');
 
     bootstrapSchema(db); // re-run the bootstrap as conn.init() would
     assert.equal(Number(db.pragma('user_version', { simple: true })), SCHEMA_VERSION);
-    for (const tbl of ['forecast_planned', 'budget_targets', 'budget_income']) {
-      assert.ok(
-        db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(tbl),
-        `${tbl} recreated`
-      );
-    }
+    const has = (tbl) => !!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(tbl);
+    assert.ok(has('forecast_planned'), 'forecast_planned recreated');
+    assert.ok(has('budget_amounts'), 'budget_amounts recreated');
+    // The per-month budget tables are created by v3/v4 then retired by v6.
+    assert.ok(!has('budget_targets'), 'budget_targets retired by v6');
+    assert.ok(!has('budget_income'), 'budget_income retired by v6');
+    db.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('migration v6: per-month targets collapse to one recurring amount (most recent month)', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fl-mig6-'));
+  const dbPath = path.join(dir, 'pre6.db');
+  try {
+    const db = connect(dbPath, null);
+    bootstrapSchema(db);
+    seedDefaults(db);
+    // Recreate the pre-v6 budget tables in their v3/v4 shape (month VARCHAR) and
+    // seed per-month targets, then drop the version below 6 so only v6 runs.
+    db.exec('DROP TABLE budget_amounts');
+    db.exec(`CREATE TABLE budget_targets (
+       id INTEGER NOT NULL, year INTEGER NOT NULL, month VARCHAR(20) NOT NULL,
+       category VARCHAR(50) NOT NULL, amount FLOAT NOT NULL,
+       PRIMARY KEY (id), CONSTRAINT uq_budget_target UNIQUE (year, month, category))`);
+    db.exec(`CREATE TABLE budget_income (
+       year INTEGER NOT NULL, month VARCHAR(20) NOT NULL, amount FLOAT NOT NULL,
+       PRIMARY KEY (year, month))`);
+    const ins = db.prepare('INSERT INTO budget_targets (year, month, category, amount) VALUES (?, ?, ?, ?)');
+    // groceries budgeted across three months of 2026 — November (month 11) is the
+    // most recent and must win. This also pins the CAST: as TEXT the string '11'
+    // sorts BEFORE '3', so a lexical comparison would wrongly pick March (400).
+    ins.run(2026, 3, 'groceries', 400);
+    ins.run(2026, 11, 'groceries', 525);
+    ins.run(2026, 5, 'groceries', 480);
+    // rent budgeted in two years — the later year wins.
+    ins.run(2026, 12, 'rent', 1500);
+    ins.run(2027, 1, 'rent', 1600);
+    db.prepare('INSERT INTO budget_income (year, month, amount) VALUES (?, ?, ?)').run(2026, 3, 4200);
+    db.pragma('user_version = 5');
+
+    bootstrapSchema(db); // climbs 5 -> SCHEMA_VERSION, running only v6
+    assert.equal(Number(db.pragma('user_version', { simple: true })), SCHEMA_VERSION);
+
+    const amounts = Object.fromEntries(
+      db.prepare('SELECT category, amount FROM budget_amounts').all().map((r) => [r.category, r.amount])
+    );
+    assert.equal(amounts.groceries, 525, 'most recent month (Nov) wins, compared numerically');
+    assert.equal(amounts.rent, 1600, 'most recent year wins');
+
+    const has = (tbl) => !!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(tbl);
+    assert.ok(!has('budget_targets'), 'budget_targets dropped by v6');
+    assert.ok(!has('budget_income'), 'budget_income dropped by v6');
     db.close();
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

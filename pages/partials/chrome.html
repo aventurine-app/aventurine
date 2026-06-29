@@ -33,7 +33,7 @@
 
     <div class="titlebar-dropdown" data-menu-panel="settings" hidden>
         <button class="titlebar-dropdown-item" data-action="open-preferences">Preferences</button>
-        <button class="titlebar-dropdown-item" data-action="open-about">About &amp; Updates</button>
+        <button class="titlebar-dropdown-item" data-action="open-about">About</button>
     </div>
 
 
@@ -295,14 +295,12 @@
     </div>
 
 
-    <!-- About & Updates. The update controls are driven by static/js/updater.js
-         against the electronUpdater preload bridge; when auto-update isn't
-         supported (dev, non-Windows, or a plain browser) the whole Updates
-         card hides itself. -->
+    <!-- About. Shows the installed version. (Oliv has no in-app updater; the
+         app never phones home — installs come from the source-only releases.) -->
     <div class="settings-modal-overlay" data-modal="about" hidden>
         <div class="settings-modal">
             <div class="settings-modal-header">
-                <span class="settings-modal-title">About &amp; Updates</span>
+                <span class="settings-modal-title">About</span>
                 <button class="settings-modal-close" aria-label="Close">×</button>
             </div>
             <div class="settings-modal-body">
@@ -316,28 +314,6 @@
                 <div class="settings-row-desc">The version of Oliv currently installed.</div>
             </div>
             <div class="about-version" data-about-version>—</div>
-        </div>
-    </div>
-</div>
-
-<div class="settings-section about-updates" data-about-updates hidden>
-    <div class="settings-section-header">Updates</div>
-    <div class="settings-card">
-        <div class="settings-row">
-            <div class="settings-row-label">
-                <div class="settings-row-name">Software Updates</div>
-                <div class="settings-row-desc about-status" data-update-status>
-                    Check for a newer version of Oliv.
-                </div>
-                <div class="about-progress" data-update-progress hidden>
-                    <div class="about-progress-bar" data-update-progress-bar></div>
-                </div>
-            </div>
-            <div class="about-actions">
-                <button class="db-btn" data-update-action="check">Check for Updates</button>
-                <button class="db-btn db-btn-primary" data-update-action="download" hidden>Download</button>
-                <button class="db-btn db-btn-primary" data-update-action="install" hidden>Restart &amp; Install</button>
-            </div>
         </div>
     </div>
 </div>

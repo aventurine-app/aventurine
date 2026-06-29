@@ -29,7 +29,6 @@
 .cat-add-btn:focus-visible,
 .forecast-add-btn:focus-visible,
 .budget-nav-btn:focus-visible,
-.budget-copy-btn:focus-visible,
 .sync-bulk-btn:focus-visible,
 .col-add-btn:focus-visible,
 /* icon / close buttons — these all lacked a focus ring entirely */
@@ -83,7 +82,7 @@
    the contrast text colour on accent fills. Per-page LAYOUT (flex sizing) stays
    in the page file; only the button SHAPE moved here. */
 .button-primary, .button-secondary,
-.forecast-add-btn, .budget-copy-btn, .sync-bulk-btn,
+.forecast-add-btn, .sync-bulk-btn,
 .cat-add-btn, .col-add-btn {
     display: inline-flex;
     align-items: center;
@@ -116,7 +115,7 @@
    Neutral fill with the accent carried by the text + border, so it reads as a
    quieter sibling of the accent-filled primary action. */
 .button-secondary,
-.forecast-add-btn, .budget-copy-btn, .sync-bulk-btn {
+.forecast-add-btn, .sync-bulk-btn {
     background: none;
     color: var(--accent-neutral);
     border-color: var(--accent-neutral);
@@ -126,7 +125,6 @@
    text, so it reads as a quiet neutral sibling of the accent-filled primary. */
 .button-secondary:not(:disabled):hover,
 .forecast-add-btn:not(:disabled):hover,
-.budget-copy-btn:not(:disabled):hover,
 .sync-bulk-btn:not(:disabled):hover {
     background: var(--accent-neutral-fill);
     color: var(--accent-contrast, #fff);
@@ -135,7 +133,7 @@
 /* Disabled outlined secondary — drop the accent so it reads inert: gray text
    and border instead of carrying the primary accent at reduced opacity. */
 .button-secondary:disabled,
-.forecast-add-btn:disabled, .budget-copy-btn:disabled, .sync-bulk-btn:disabled {
+.forecast-add-btn:disabled, .sync-bulk-btn:disabled {
     color: var(--text-tertiary);
     border-color: var(--border);
 }

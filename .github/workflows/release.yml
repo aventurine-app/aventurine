@@ -2,19 +2,31 @@ name: release
 
 # Cut a release by pushing a version tag, e.g.:
 #   git tag v0.2.1 && git push origin v0.2.1
-# electron-builder builds the Linux targets and uploads them (plus the
-# auto-update metadata) to the GitHub Release for that tag as a DRAFT.
-# Review the draft on the Releases page, add notes, then Publish.
+#
+# This builds the Linux AND Windows installers (Windows is cross-built from this
+# Linux host via Wine) but does NOT attach them to the GitHub Release. Releases
+# ship SOURCE ONLY: GitHub auto-generates the "Source code (zip/tar.gz)" assets
+# from the tag, and that is all the public release contains. This matches the
+# source-available licensing direction — the official compiled binary is fenced,
+# not distributed from the public release feed.
+#
+# The built installers are kept as private workflow ARTIFACTS (downloadable from
+# this Actions run), so the maintainer still gets the official binary without
+# publishing it.
+#
+# NOTE — no auto-update: the app ships no in-app updater (electron-updater was
+# removed), and releases carry no installers anyway. Users update by installing
+# a newer build.
 on:
   push:
     tags:
       - 'v*'
 
 permissions:
-  contents: write   # required for electron-builder to create/upload the release
+  contents: write   # create the source-only GitHub Release for the tag
 
 jobs:
-  build-linux:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,17 +35,53 @@ jobs:
         with:
           node-version: 20
 
-      # postinstall (scripts/setup-native-abis.js) fetches the prebuilt
-      # better-sqlite3-multiple-ciphers binaries; no C toolchain / rebuild.
+      # electron-builder cross-builds the Windows .exe on Linux but needs Wine
+      # to run rcedit (icon/version stamping). If a future runner image drops
+      # these stock packages, switch to the WineHQ apt repo.
+      - name: Install Wine (Windows cross-build toolchain)
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends wine64 wine32
+
+      # postinstall (scripts/setup-native-abis.js) parks the prebuilt
+      # better-sqlite3-multiple-ciphers Linux binaries; no C toolchain / rebuild.
       - name: Install dependencies
         working-directory: electron
         run: npm install
 
-      # Builds AppImage + rpm + deb (electron-builder.yml `linux.target`) and
-      # publishes them to the release for the pushed tag. GITHUB_TOKEN is the
-      # repo-scoped token Actions provides automatically.
-      - name: Build and publish
+      # Linux targets (AppImage + rpm + deb). `--publish never` guarantees
+      # nothing is uploaded to the GitHub Release even though a publish: block
+      # exists in electron-builder.yml — releases are source-only.
+      - name: Build Linux installers
         working-directory: electron
-        run: npx electron-builder --linux --publish always
+        run: npm run dist:linux -- --publish never
+
+      # Windows NSIS installer, cross-built. dist:win parks the win32-x64 sqlite
+      # prebuild (scripts/setup-win-abi.js) then runs electron-builder --win;
+      # Wine (installed above) does the .exe stamping. Also never published.
+      - name: Build Windows installer
+        working-directory: electron
+        run: npm run dist:win -- --publish never
+
+      # Keep the installers as a private workflow artifact (the fenced official
+      # binary). Downloadable from this Actions run; never attached to the
+      # public release.
+      - name: Upload installers as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: oliv-installers-${{ github.ref_name }}
+          path: |
+            electron/dist/*.AppImage
+            electron/dist/*.rpm
+            electron/dist/*.deb
+            electron/dist/*.exe
+          if-no-files-found: error
+
+      # Create the SOURCE-ONLY GitHub Release for this tag as a DRAFT. No assets
+      # are uploaded, so it contains only GitHub's auto-generated source
+      # archives. Review the draft on the Releases page, then Publish.
+      - name: Create source-only draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "${{ github.ref_name }}" --draft --title "${{ github.ref_name }}" --generate-notes

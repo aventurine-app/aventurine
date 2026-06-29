@@ -538,35 +538,11 @@
     color: var(--accent-tertiary);
 }
 
-/* ── About & Updates modal ─────────────────────────────────────────────── */
+/* ── About modal ───────────────────────────────────────────────────────── */
 
 .about-version {
     color: var(--text-secondary);
     font-size: var(--size-small);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
-}
-
-.about-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    align-items: stretch;
-}
-
-.about-progress {
-    margin-top: 10px;
-    height: 6px;
-    border-radius: 3px;
-    background: var(--surface2);
-    overflow: hidden;
-}
-
-.about-progress[hidden] { display: none; }
-
-.about-progress-bar {
-    height: 100%;
-    width: 0;
-    background: var(--accent-primary);
-    transition: width 150ms ease;
 }

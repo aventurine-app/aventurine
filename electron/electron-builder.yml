@@ -26,7 +26,6 @@ directories:
 files:
   - main.js
   - preload.js
-  - updater.js
   - backend/**/*
   - node_modules/**/*
   - package.json
@@ -48,23 +47,13 @@ asarUnpack:
 npmRebuild: false
 buildDependenciesFromSource: false
 
-# Auto-update feed. electron-updater (electron/updater.js) reads the release
-# metadata electron-builder publishes here to detect and fetch new versions.
-# The repo is PUBLIC, so release assets download with no token — the shipped
-# app needs no credentials. Cutting a release (CI: build with `--publish always`
-# and GH_TOKEN set) uploads each installer, its .blockmap (differential
-# downloads) and latest.yml. Auto-update is wired for Windows only for now;
-# Linux rpm/deb are owned by the system package manager, which electron-updater
-# cannot drive.
-#
-# NOTE: Windows installers are not Authenticode-signed yet — update integrity
-# currently rests on the SHA512 in latest.yml fetched over GitHub HTTPS. See the
-# SECURITY block on the `win:` target below for the full trust model and how to
-# close the gap.
-publish:
-  provider: github
-  owner: oliv-official
-  repo: oliv-app
+# No publish config and no in-app updater. Oliv ships no auto-update
+# (electron-updater was removed) and never phones home; CI builds with
+# `--publish never` and releases are SOURCE ONLY (the official binary is fenced
+# under the source-available license — see .github/workflows/release.yml). Users
+# update by installing a newer build. The win: target below still carries a
+# SECURITY note on Authenticode signing — that is about first-install trust
+# (SmartScreen), independent of the (now removed) update path.
 
 linux:
   target:
@@ -86,9 +75,7 @@ linux:
       StartupWMClass: oliv
 
 appImage:
-  # Self-contained, distro-agnostic single file. Unlike rpm/deb (owned by the
-  # system package manager), AppImage CAN auto-update via electron-updater off
-  # the same GitHub publish feed / latest-linux.yml.
+  # Self-contained, distro-agnostic single file.
   artifactName: ${name}-${version}.${arch}.${ext}
 
 rpm:
@@ -102,21 +89,13 @@ rpm:
 #
 # ── SECURITY: Windows installers are NOT Authenticode-signed yet ──────────────
 # Deliberate, recorded gap (revisit before wider Windows distribution / GA).
-# No signing block here means:
-#   • Auto-update (electron-updater, win32 only — see ../updater.js) has no
-#     publisher signature to verify, so verifyUpdateCodeSignature is a no-op.
-#   • Users see a SmartScreen "unknown publisher" warning on first install.
-# What still protects update integrity in the meantime: electron-builder
-# publishes a SHA512 for each artifact in latest.yml, and the updater fetches
-# that manifest + the installer over GitHub HTTPS (TLS + GitHub account
-# integrity), with download opt-in (autoDownload=false). That is the current
-# trust floor — transport- and host-based, not code-signature-based.
-# To close this, add code signing (for new — 2023+ — certs the key must live on
+# With no signing block, users see a SmartScreen "unknown publisher" warning on
+# first install. This is purely about first-install trust — the app ships no
+# in-app updater, so there is no update-signature path to worry about.
+# To close it, add code signing (for new — 2023+ — certs the key must live on
 # hardware or a cloud service; file-based .pfx OV certs are no longer issued):
 #   • Azure Trusted Signing  -> win.azureSignOptions (signs from CI/Linux)
 #   • Cloud CSP / hardware    -> win.certificateSubjectName / provider tooling
-# Then ensure the signing identity's publisherName matches what the updater
-# expects so verifyUpdateCodeSignature passes on the next release.
 win:
   target:
     - nsis

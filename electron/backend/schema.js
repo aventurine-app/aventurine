@@ -17,7 +17,7 @@
 //   - the v_* views pre-join the normalized tables into human-readable,
 //     chronologically-sortable shapes for ad-hoc querying.
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 // Months persist as 1-12 integers so `ORDER BY year, month` sorts
 // chronologically (the app translates to/from English names at its API
@@ -185,26 +185,16 @@ const DDL = [
      date DATE NOT NULL,                                    -- ISO 'YYYY-MM-DD'
      PRIMARY KEY (id)
    )`,
-  `CREATE TABLE budget_targets (
-     -- Budget Buckets: per-month spending target per category. category is a
-     -- categories."key" (an expense/savings/investing category). Actuals are
-     -- computed from transactions at read time, never stored here.
-     id INTEGER NOT NULL,
-     year INTEGER NOT NULL CHECK (year BETWEEN 1000 AND 9999),
-     month INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
+  `CREATE TABLE budget_amounts (
+     -- Budget envelopes: ONE recurring monthly target per category, applied to
+     -- every month (not stored per-month). category is a categories."key" (an
+     -- expense/savings/investing category) and is the primary key, so a category
+     -- has at most one budget. Actual spend is computed from transactions per
+     -- month at read time, never stored here.
      category VARCHAR(50) NOT NULL,
      amount FLOAT NOT NULL CHECK (amount >= 0),
-     PRIMARY KEY (id),
-     CONSTRAINT uq_budget_target UNIQUE (year, month, category),
+     PRIMARY KEY (category),
      FOREIGN KEY (category) REFERENCES categories ("key")
-   )`,
-  `CREATE TABLE budget_income (
-     -- Optional per-month override of the budget's "expected income" figure.
-     -- When absent the budget falls back to a trailing income average.
-     year INTEGER NOT NULL CHECK (year BETWEEN 1000 AND 9999),
-     month INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
-     amount FLOAT NOT NULL CHECK (amount >= 0),
-     PRIMARY KEY (year, month)
    )`,
   `CREATE INDEX ix_balance_entries_year ON balance_entries (year)`,
   `CREATE INDEX ix_credit_cards_category_id ON credit_cards (category_id)`,
@@ -215,7 +205,6 @@ const DDL = [
   `CREATE INDEX ix_transactions_category_id ON transactions (category_id)`,
   `CREATE INDEX ix_transactions_date ON transactions (date)`,
   `CREATE INDEX ix_forecast_planned_date ON forecast_planned (date)`,
-  `CREATE INDEX ix_budget_targets_year ON budget_targets (year)`,
 
   // ── Convenience views ──────────────────────────────────────────────────────
   // Read-only, pre-joined shapes for users querying the DB directly. They add
@@ -275,18 +264,15 @@ const DDL = [
      LEFT JOIN balance_columns col ON col."key" = b.category`,
 
   `CREATE VIEW v_budget AS
-     -- Budget targets with the category resolved to a name. month is the 1-12
-     -- number (sort by year, month); month_name is its label. Actual spend is
-     -- not stored; aggregate v_transactions by month for actuals.
+     -- Budget envelopes with the category resolved to a name. The target is a
+     -- single recurring figure applied to every month. Actual spend is not
+     -- stored; aggregate v_transactions by month for actuals.
      SELECT
-       t.year,
-       t.month,
-       ${monthNameCase('t.month')} AS month_name,
        t.category AS category_key,
        c.name     AS category_name,
        c.cat_type,
        t.amount   AS target_amount
-     FROM budget_targets t
+     FROM budget_amounts t
      LEFT JOIN categories c ON c."key" = t.category`,
 
   `CREATE VIEW v_portfolio AS

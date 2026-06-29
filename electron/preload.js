@@ -36,20 +36,3 @@ contextBridge.exposeInMainWorld('electronFile', {
 contextBridge.exposeInMainWorld('financeApi', {
     request: (method, url, body) => ipcRenderer.invoke('api:request', method, url, body),
 });
-
-// In-app updates (electron/updater.js). The renderer (static/js/updater.js)
-// reads the current state, triggers check/download/install, and subscribes to
-// push status updates. On unsupported platforms the main-process handlers
-// answer { supported:false } and no status is ever pushed, so the UI hides
-// itself. onStatus returns an unsubscribe fn.
-contextBridge.exposeInMainWorld('electronUpdater', {
-    getState: () => ipcRenderer.invoke('update:get-state'),
-    check:    () => ipcRenderer.invoke('update:check'),
-    download: () => ipcRenderer.invoke('update:download'),
-    install:  () => ipcRenderer.invoke('update:install'),
-    onStatus: (cb) => {
-        const handler = (_e, status) => cb(status);
-        ipcRenderer.on('update:status', handler);
-        return () => ipcRenderer.removeListener('update:status', handler);
-    },
-});

@@ -68,6 +68,34 @@ const MIGRATIONS = [
       db.exec("UPDATE categories SET flex_type = 'fixed' WHERE \"key\" IN ('rent', 'insurance')");
     }
   }],
+  // v6 — Budget envelopes go month-agnostic. ONE recurring target per category
+  // (budget_amounts) replaces the per-(year, month) budget_targets, and the
+  // per-month expected-income override (budget_income) is retired along with the
+  // zero-based "left to budget" summary it fed. Collapse any existing per-month
+  // targets to a single amount per category by taking that category's most
+  // recent month. (month is CAST to INTEGER because the v3 migration declared it
+  // VARCHAR, so a climbed DB may hold it with TEXT affinity — a plain ">" would
+  // compare months lexicographically and mis-order e.g. '11' before '3'.)
+  [6, (db) => {
+    db.exec(`CREATE TABLE IF NOT EXISTS budget_amounts (
+       category VARCHAR(50) NOT NULL,
+       amount FLOAT NOT NULL CHECK (amount >= 0),
+       PRIMARY KEY (category)
+     )`);
+    if (tableExists(db, 'budget_targets')) {
+      db.exec(`INSERT OR IGNORE INTO budget_amounts (category, amount)
+               SELECT category, amount FROM budget_targets bt
+               WHERE NOT EXISTS (
+                 SELECT 1 FROM budget_targets b2
+                 WHERE b2.category = bt.category
+                   AND (b2.year > bt.year
+                        OR (b2.year = bt.year
+                            AND CAST(b2.month AS INTEGER) > CAST(bt.month AS INTEGER)))
+               )`);
+      db.exec('DROP TABLE budget_targets');
+    }
+    db.exec('DROP TABLE IF EXISTS budget_income');
+  }],
 ];
 
 function bootstrapSchema(db) {
