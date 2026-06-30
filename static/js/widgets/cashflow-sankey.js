@@ -21,21 +21,28 @@
   const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
 
-  // Green is reserved for income, everywhere on this diagram. The primary green
-  // is the hero: it fills the central Net Inflow node and leads the income ramp,
-  // so money-in reads as one green family flowing into the centre. Income
-  // categories get shades of that green; expenses draw from a deliberately
-  // green-free palette so colour alone separates inflow from outflow.
-  const NET_GREEN = '#64d28c';            // central Net Inflow node + income hero
-  const INCOME_PALETTE = [
-    '#64d28c', '#2f9e63', '#9be8b4', '#3aa86a', '#1c7d4c', '#c2f0d4',
-  ];
-  // Expense hues — the chart family's non-green colours (blue/orange/purple/
-  // pink/amber/red/indigo). No green here, by design.
-  const EXPENSE_PALETTE = [
-    '#78b9ff', '#ffa550', '#b482ff', '#ff78aa',
-    '#ffd250', '#ff6464', '#5b8def', '#c0a0e8',
-  ];
+  // The whole diagram stays in the UI accent family and follows the accent on a
+  // palette/theme swap. Inflow vs. outflow separate by SATURATION, not hue:
+  // income takes the saturated accent (--chart-* tokens) and leads on the base
+  // accent at the central Net Inflow node; expenses take the greyed muted-accent
+  // ramp (--chart-muted-*). Colours are read from the tokens at render time
+  // (readSankeyPalettes) — the arrays below are first-paint fallbacks mirroring
+  // the light-theme accent ramp.
+  const NET_FALLBACK = '#8fb088';
+  const INCOME_FALLBACK = ['#8fb088', '#a9c1a4', '#7c9670', '#647a59', '#5c7152', '#b6c8b2'];
+  const EXPENSE_FALLBACK = ['#7d8a78', '#5f6b5b', '#737f6e', '#8b9785'];
+
+  function readSankeyPalettes() {
+    const cs = getComputedStyle(document.documentElement);
+    const v = (name, fb) => cs.getPropertyValue(name).trim() || fb;
+    return {
+      net: v('--chart-1', NET_FALLBACK),
+      income: ['--chart-1', '--chart-3', '--chart-5', '--chart-7', '--chart-2', '--chart-6']
+        .map((n, i) => v(n, INCOME_FALLBACK[i])),
+      expense: ['--chart-muted-1', '--chart-muted-2', '--chart-muted-3', '--chart-muted-4']
+        .map((n, i) => v(n, EXPENSE_FALLBACK[i])),
+    };
+  }
 
   const CHART_RATIO = 320 / 800;   // taller than the line charts — Sankeys need room
   const PAD = { l: 150, r: 150, t: 28, b: 16 };
@@ -133,6 +140,9 @@
   function buildSVG(W) {
     const { income, expense, totalIncome, totalExpense } = aggregate(state.year);
     if (totalIncome <= 0 && totalExpense <= 0) return null; // caller → empty state
+
+    // Accent-derived colours, read fresh so a palette/theme swap retones the diagram.
+    const { net: NET_COLOR, income: INCOME_PALETTE, expense: EXPENSE_PALETTE } = readSankeyPalettes();
 
     // Tall enough that every category label on the busier side gets its own
     // LABEL_GAP of vertical room (so the spread pass below never has to overlap).
@@ -259,7 +269,7 @@
     // Centre node — sized to the larger side; label sits above it. Not a
     // category, so it stays outside any link.
     const cLabelX = centerX + NODE_W / 2;
-    bars += `<rect class="sankey-node sankey-node-center" x="${centerX}" y="${centerTop}" width="${NODE_W}" height="${centerH}" rx="2" fill="${NET_GREEN}">`
+    bars += `<rect class="sankey-node sankey-node-center" x="${centerX}" y="${centerTop}" width="${NODE_W}" height="${centerH}" rx="2" fill="${NET_COLOR}">`
           + `<title>Net Inflow: ${fmtMoney(totalIncome)}</title></rect>`
           + `<text class="sankey-label sankey-label-center" x="${cLabelX}" y="${centerTop - CENTER_LABEL_GAP - 11}" text-anchor="middle">Net Inflow</text>`
           + `<text class="sankey-amount sankey-label-center" x="${cLabelX}" y="${centerTop - CENTER_LABEL_GAP}" text-anchor="middle">${escapeHtml(fmtCompact(totalIncome))}</text>`;

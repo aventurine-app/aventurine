@@ -14,16 +14,20 @@ const MONTH_INDEX = new Map(MONTHS.map((m, i) => [m, i]));
 // escapeHtml is a global from escape.js (loaded by base.html). All
 // user-controlled label values go through it before innerHTML interpolation.
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const ACCOUNT_COLORS = [
-    'rgba(120,185,255,0.9)',
-    'rgba(100,210,140,0.9)',
-    'rgba(255,165,80,0.9)',
-    'rgba(180,130,255,0.9)',
-    'rgba(255,120,170,0.9)',
-    'rgba(255,210,80,0.9)',
-    'rgba(80,210,200,0.9)',
-    'rgba(255,100,100,0.9)',
+
+// Chart series palette — read from the accent-derived --chart-* tokens (style.css)
+// at use time so every graph follows the UI accent and retones on a palette/theme
+// swap. The fallbacks mirror the light-theme accent ramp for the rare first paint
+// before styles resolve.
+const CHART_PALETTE_FALLBACK = [
+    '#8fb088', '#5c7152', '#a9c1a4', '#33402d',
+    '#7c9670', '#b6c8b2', '#647a59', '#5a6f50',
 ];
+function readChartPalette() {
+    const cs = getComputedStyle(document.documentElement);
+    return CHART_PALETTE_FALLBACK.map((fb, i) =>
+        cs.getPropertyValue(`--chart-${i + 1}`).trim() || fb);
+}
 
 /** Find the most recent (year, month) entry across the dataset. */
 function findMostRecentPoint(entries) {
@@ -83,20 +87,21 @@ function fmtValue(n) {
 // the sum of each column's most recent value (carried forward via
 // latestValueByColumn, so a partially-filled latest month doesn't blank out
 // accounts that were only updated in an earlier month). Debt is shown as its absolute
-// magnitude so the slice has visible area; the colour (--accent-tertiary) flags it
-// as a liability rather than an asset.
+// magnitude so the slice has visible area; its distinct accent shade and the legend
+// label mark it as a liability rather than an asset.
 
-/** Pull the four chart colours from the theme so a palette swap retones the pie
- *  alongside the rest of the chrome. Assets use the finance-positive green ramp
- *  (NOT the pink UI accent); debt flags red. */
+/** Pull the four slice colours from the accent-derived --chart-* tokens so the
+ *  capital-profile pie follows the UI accent and retones on a palette/theme swap.
+ *  Four well-separated stops keep the slices distinguishable within the single-hue
+ *  accent family; the green/red tokens stay reserved for the numeric figures. */
 function getAccountsPieColors() {
     const cs = getComputedStyle(document.documentElement);
     const v  = (name, fallback) => cs.getPropertyValue(name).trim() || fallback;
     return {
-        cash:       v('--accent-positive',         '#7C8F4A'),
-        investment: v('--accent-positive-strong',  '#94AB5B'),
-        retirement: v('--accent-positive-lighter', '#B1BF7A'),
-        debt:       v('--accent-tertiary',         '#e2585b'),
+        investment: v('--chart-1', '#8fb088'),
+        cash:       v('--chart-2', '#5c7152'),
+        retirement: v('--chart-3', '#a9c1a4'),
+        debt:       v('--chart-4', '#33402d'),
     };
 }
 
@@ -684,11 +689,13 @@ function renderNetworthSection(balanceData) {
         return;
     }
 
-    // Read the finance-positive green (NOT the pink UI accent) so the net-worth
-    // line, gradient and nodes stay a finance-metric green and retone with the
-    // palette when it changes.
+    // Read the UI accent so the net-worth line, gradient and nodes follow the
+    // accent colour and retone when the user swaps the palette. Net worth is a
+    // neutral metric, not a gain/loss figure, so it tracks the accent rather
+    // than the finance-positive green (which stays reserved for the +/- delta
+    // numbers and the income/asset indicators).
     const accentColor = getComputedStyle(document.documentElement)
-        .getPropertyValue('--accent-positive').trim() || '#7c8f4a';
+        .getPropertyValue('--accent-primary').trim() || '#8fb088';
     const series = [{ label: 'Net Worth', color: accentColor, points: filtered }];
 
     observeChart('networth-chart', (W, animate) => buildChartSVG({ series, slots, W, animate }));
@@ -725,16 +732,17 @@ function wireRangePicker(btnId, menuId, onSelect) {
 
 // ─── Income & Expenses + Account Balances charts ─────────────────────────────
 
-/** Pull income/expense colours from the theme so a palette swap retones the
- *  chart alongside the rest of the chrome. Income uses the finance-positive
- *  green (favourable direction, NOT the pink UI accent); expenses share
- *  --accent-tertiary with the delta indicators. */
+/** Pull income/expense line colours from the accent-derived --chart-* tokens so
+ *  the chart follows the UI accent and retones on a palette/theme swap. Income
+ *  leads on the base accent, expenses take a high-contrast accent shade so the two
+ *  lines stay apart within the single-hue family. The green/red gain-loss tokens
+ *  stay reserved for the numeric figures (deltas, ledger amounts). */
 function getIEColors() {
     const cs = getComputedStyle(document.documentElement);
     const v  = (name, fallback) => cs.getPropertyValue(name).trim() || fallback;
     return {
-        income:   v('--accent-positive', '#7C8F4A'),
-        expenses: v('--accent-tertiary',     '#e2585b'),
+        income:   v('--chart-1', '#8fb088'),
+        expenses: v('--chart-4', '#33402d'),
     };
 }
 
@@ -871,7 +879,8 @@ let selectedAccounts = new Set();
 let accountRange = 'year';
 
 function buildColorMap(columns) {
-    return new Map((columns || []).map((c, i) => [c.key, ACCOUNT_COLORS[i % ACCOUNT_COLORS.length]]));
+    const palette = readChartPalette();
+    return new Map((columns || []).map((c, i) => [c.key, palette[i % palette.length]]));
 }
 
 function renderAccountChart() {

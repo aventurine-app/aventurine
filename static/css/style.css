@@ -67,28 +67,28 @@
   */
 
   --color-base-050: #f2f3f2;
-  --color-base-100: #e4e7e5;
-  --color-base-200: #ccd1cd;
-  --color-base-300: #b1b9b3;
-  --color-base-400: #97a29a;
-  --color-base-500: #7b897f;
-  --color-base-600: #636e66;
-  --color-base-700: #4b534d;
-  --color-base-800: #303632;
-  --color-base-900: #181b19;
-  --color-base-950: #0c0d0c;
+  --color-base-100: #e5e6e5;
+  --color-base-200: #cdd0ce;
+  --color-base-300: #b3b7b5;
+  --color-base-400: #9ba09d;
+  --color-base-500: #7f8581;
+  --color-base-600: #666b68;
+  --color-base-700: #4d514f;
+  --color-base-800: #343735;
+  --color-base-900: #191a19;
+  --color-base-950: #0c0d0d;
 
-  --color-accent-050: #f1f5f0;
-  --color-accent-100: #e2ebe0;
-  --color-accent-200: #c8d8c5;
-  --color-accent-300: #abc4a6;
-  --color-accent-400: #8fb088;
-  --color-accent-500: #729b69;
-  --color-accent-600: #5b7e53;
-  --color-accent-700: #455f3f;
-  --color-accent-800: #2c3d29;
-  --color-accent-900: #161f14;
-  --color-accent-950: #0b0f0a;
+  --color-accent-050: #e8fbbd;
+  --color-accent-100: #d7f38b;
+  --color-accent-200: #c0d97c;
+  --color-accent-300: #abc26e;
+  --color-accent-400: #95a95f;
+  --color-accent-500: #7a8a4d;
+  --color-accent-600: #606d3c;
+  --color-accent-700: #47522b;
+  --color-accent-800: #30381c;
+  --color-accent-900: #1b1f0d;
+  --color-accent-950: #111507;
 }
 
 /* ── Semantic tokens — Dark is the default theme ──────────────────────────
@@ -165,6 +165,39 @@
       (mirrors the --accent-secondary light-theme adjustment). See themes.css. */
    --accent-info:      #1d4ed8;
    --accent-info-light: #4177ff;
+
+   /* ── Chart series palette ───────────────────────────────────────────────
+    * Every graph — net-worth, forecast, income/expense, capital-profile pie,
+    * account balances, Trends, the cash-flow Sankey — draws its line/slice/
+    * node colours from these tokens so the charts FOLLOW THE UI ACCENT and
+    * retone whenever the accent is swapped. They are deliberately separate
+    * from the green/red gain-loss tokens (--accent-positive / --accent-tertiary),
+    * which stay reserved for the NUMERIC figures: +/- deltas, ROI, and ledger
+    * amounts. Charts = accent; numbers = green/red.
+    *
+    * Each stop is a mix of the accent with --text-primary (the high-contrast
+    * direction in EITHER theme — dark on light, light on dark) or with
+    * --background (the low-contrast/soft direction). Because those base tokens
+    * flip per theme, one definition here works for light and dark, and tracks
+    * any accent the user picks — no per-theme duplication. Ordered so adjacent
+    * series stay distinguishable within the single-hue family. */
+   --chart-1: var(--accent-primary);
+   --chart-2: color-mix(in srgb, var(--accent-primary) 50%, var(--text-primary));
+   --chart-3: color-mix(in srgb, var(--accent-primary) 72%, var(--background));
+   --chart-4: color-mix(in srgb, var(--accent-primary) 25%, var(--text-primary));
+   --chart-5: color-mix(in srgb, var(--accent-primary) 78%, var(--text-primary));
+   --chart-6: color-mix(in srgb, var(--accent-primary) 52%, var(--background));
+   --chart-7: color-mix(in srgb, var(--accent-primary) 90%, var(--text-primary));
+   --chart-8: color-mix(in srgb, var(--accent-primary) 38%, var(--text-primary));
+
+   /* Muted accent ramp — the Sankey splits inflow vs outflow within the accent
+    * family by SATURATION: income keeps the saturated --chart-* accent, expenses
+    * use these greyed (accent-toward-neutral) variants, so the two sides still
+    * read apart without leaving the accent. */
+   --chart-muted-1: color-mix(in srgb, var(--accent-primary) 55%, var(--text-tertiary));
+   --chart-muted-2: color-mix(in srgb, var(--accent-primary) 40%, var(--text-primary));
+   --chart-muted-3: color-mix(in srgb, var(--accent-primary) 42%, var(--text-tertiary));
+   --chart-muted-4: color-mix(in srgb, var(--accent-primary) 68%, var(--text-tertiary));
 
    /* Neutral charcoal — secondary (outlined) buttons read as a quiet neutral
       sibling of the accent-filled primary instead of carrying the olive accent.
@@ -298,7 +331,7 @@
        app draws from. Theme-independent (palette swaps change --border's colour,
        not its thickness). Thicker, deliberate strokes (2px tab indicators,
        scrollbar spacer tricks) keep their own literal values. */
-    --border-width: 0px;
+    --border-width: 1px;
 
     /* Data-table grid stroke — the dedicated weight for the lines that make up a
        table grid (the Trackers spreadsheet `.db-table` and the Transactions

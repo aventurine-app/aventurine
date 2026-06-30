@@ -19,17 +19,19 @@
     'July', 'August', 'September', 'October', 'November', 'December'];
   const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  // Default palette (matches home.js ACCOUNT_COLORS) — cycled per series.
+  // Fallback palette — mirrors the light-theme accent ramp for the rare first
+  // paint before styles resolve. The live colours are read from the accent-derived
+  // --chart-* tokens (style.css) at colorMap() time, so every series follows the
+  // UI accent and retones on a palette/theme swap.
   const PALETTE = [
-    'rgba(120,185,255,0.9)',
-    'rgba(100,210,140,0.9)',
-    'rgba(255,165,80,0.9)',
-    'rgba(180,130,255,0.9)',
-    'rgba(255,120,170,0.9)',
-    'rgba(255,210,80,0.9)',
-    'rgba(80,210,200,0.9)',
-    'rgba(255,100,100,0.9)',
+    '#8fb088', '#5c7152', '#a9c1a4', '#33402d',
+    '#7c9670', '#b6c8b2', '#647a59', '#5a6f50',
   ];
+
+  function readPalette() {
+    const cs = getComputedStyle(document.documentElement);
+    return PALETTE.map((fb, i) => cs.getPropertyValue(`--chart-${i + 1}`).trim() || fb);
+  }
 
   const CHART_RATIO = 200 / 800;
   const CHART_PAD = { l: 56, r: 20, t: 18, b: 30 };
@@ -206,7 +208,8 @@
   }
 
   function colorMap(keys) {
-    return new Map(keys.map((k, i) => [k, PALETTE[i % PALETTE.length]]));
+    const palette = readPalette();
+    return new Map(keys.map((k, i) => [k, palette[i % palette.length]]));
   }
 
   window.FinanceChart = { render, colorMap, PALETTE };

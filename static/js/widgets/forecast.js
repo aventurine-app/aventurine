@@ -166,8 +166,10 @@ const CHART_PAD = { l: 60, r: 22, t: 20, b: 32 };
 let chartObserver = null;
 
 function readAccent() {
-  const v = getComputedStyle(document.documentElement).getPropertyValue('--accent-secondary').trim();
-  return v || '#6fb1ff';
+  // The forecast line is a neutral projection, so it follows the UI accent and
+  // retones with a palette swap — not the green/red reserved for gain/loss.
+  const v = getComputedStyle(document.documentElement).getPropertyValue('--accent-primary').trim();
+  return v || '#8fb088';
 }
 
 function niceTicks(min, max, target = 4) {
