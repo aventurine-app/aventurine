@@ -63,7 +63,7 @@
     width: 100%;
     height: var(--control-height);
     background: var(--frost-2);
-    border: 1px solid var(--stroke-medium);
+    border: var(--border-width) solid var(--stroke-medium);
     border-radius: 5px;
     outline: none;
     color: var(--text-primary);
@@ -136,7 +136,7 @@
    The portfolio tfoot mirrors a normal entry row's column structure but
    with computed totals instead of editable inputs. */
 .portfolio-total-row {
-    border-top: 1px solid var(--border);
+    border-top: var(--border-width) solid var(--border);
     background-color: var(--frost-2);
 }
 
@@ -161,7 +161,7 @@
 .remove-entry-list {
     max-height: 240px;
     overflow-y: auto;
-    border: 1px solid var(--border);
+    border: var(--border-width) solid var(--border);
     border-radius: 6px;
 }
 
@@ -171,7 +171,7 @@
     align-items: center;
     padding: 9px 14px;
     cursor: pointer;
-    border-bottom: 1px solid var(--border);
+    border-bottom: var(--border-width) solid var(--border);
     transition: background 0.12s ease;
 }
 

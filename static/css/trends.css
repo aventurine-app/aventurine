@@ -27,7 +27,7 @@
 
 .trends-card {
     min-width: 0;
-    border: 1px solid var(--border);
+    border: var(--border-width) solid var(--border);
     border-radius: 8px;
     background: var(--surface1);
     box-shadow: var(--shadow-card);
@@ -93,7 +93,7 @@
     gap: 7px;
     padding: 5px 12px 5px 8px;
     border-radius: 20px;
-    border: 1px solid var(--stroke-soft);
+    border: var(--border-width) solid var(--stroke-soft);
     background: var(--frost-2);
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s, opacity 0.15s;
@@ -148,7 +148,7 @@
     justify-content: space-between;
     gap: 12px;
     padding: 9px 0;
-    border-bottom: 1px solid var(--stroke-divider);
+    border-bottom: var(--border-width) solid var(--stroke-divider);
 }
 .trends-mover:last-child { border-bottom: none; }
 .trends-mover-name {
@@ -186,7 +186,7 @@
     height: 14px;
     margin-left: 6px;
     border-radius: 50%;
-    border: 1px solid var(--text-tertiary);
+    border: var(--border-width) solid var(--text-tertiary);
     color: var(--text-tertiary);
     font-family: var(--font-h3);
     font-size: 9px;
@@ -212,7 +212,7 @@
     max-width: 300px;
     padding: 10px 12px;
     background: var(--background);
-    border: 1px solid var(--border);
+    border: var(--border-width) solid var(--border);
     border-radius: 8px;
     box-shadow: var(--shadow-card);
     color: var(--text-secondary);

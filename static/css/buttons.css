@@ -79,7 +79,7 @@
    6×14 / 8×14 / 6×12 / 9×16, none on the 4px grid; tracking widest vs wider;
    surface1 vs surface2 fill; cat-add even used text-primary on the olive fill).
    Standardized here: radius 6, 8/16 padding (4px grid), widest tracking, and
-   the contrast text colour on accent fills. Per-page LAYOUT (flex sizing) stays
+   the --button-text colour on accent fills. Per-page LAYOUT (flex sizing) stays
    in the page file; only the button SHAPE moved here. */
 .button-primary, .button-secondary,
 .forecast-add-btn, .sync-bulk-btn,
@@ -95,7 +95,7 @@
        it). Keeps these buttons aligned with the 32px chips/inputs. */
     box-sizing: border-box;
     height: var(--control-height);
-    border: 1px solid var(--border);
+    border: var(--border-width) solid var(--border);
     /* 8px — shared with the table wrappers (.tx-wrapper / .db-wrapper) and the
        sidebar nav items (.nav li a) so those three surfaces read the same. */
     border-radius: 8px;
@@ -127,7 +127,7 @@
 .forecast-add-btn:not(:disabled):hover,
 .sync-bulk-btn:not(:disabled):hover {
     background: var(--accent-neutral-fill);
-    color: var(--accent-contrast, #fff);
+    color: var(--button-text);
     border-color: var(--accent-neutral-fill);
 }
 /* Disabled outlined secondary — drop the accent so it reads inert: gray text
@@ -142,11 +142,11 @@
 .button-primary, .cat-add-btn, .col-add-btn {
     background: var(--accent-primary);
     border-color: var(--accent-primary);
-    color: var(--accent-contrast, #fff);
+    color: var(--button-text);
 }
 .button-primary:not(:disabled):hover,
 .cat-add-btn:not(:disabled):hover,
 .col-add-btn:not(:disabled):hover {
-    background: var(--accent400);
-    border-color: var(--accent400);
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
 }

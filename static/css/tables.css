@@ -10,7 +10,11 @@
        --col-first-pad  — left edge of the first column (forehead, header,
                           body cell, footer)
        --cell-pad-y     — vertical padding inside editable cell inputs
-       --border         — divider color (use as `1px solid var(--border)`)
+       --border             — divider color (pair with a width token below)
+       --table-border-width — stroke weight for the table grid lines (frame,
+                              row/header/footer dividers, cell border-left)
+       --border-width       — general chrome stroke weight (dropdowns, dialogs,
+                              the column-manager modal, inputs, buttons here)
 */
 
 /* == Database page layout ==
@@ -102,7 +106,7 @@
     top: calc(var(--page-pad) * -1);
     z-index: 10;
     background-color: var(--surface1);
-    border: 1px solid var(--border);
+    border: var(--table-border-width) solid var(--border);
     border-radius: 8px 8px 0 0;
     cursor: pointer;
     user-select: none;
@@ -128,7 +132,7 @@
 .db-title-row th {
     padding: 0;
     border-left: none;
-    border-bottom: 1px solid var(--border);
+    border-bottom: var(--table-border-width) solid var(--border);
 }
 
 .db-title-inner {
@@ -197,7 +201,7 @@
 .db-wrapper {
     flex: 1;
     min-width: 0;
-    border: 1px solid var(--border);
+    border: var(--table-border-width) solid var(--border);
     /* 8px — shared with the action buttons (buttons.css) and the sidebar nav
        items (.nav li a) so those three surfaces read the same. */
     border-radius: 8px;
@@ -245,11 +249,11 @@
 }
 
 .db-table thead tr {
-    border-bottom: 1px solid var(--border);
+    border-bottom: var(--table-border-width) solid var(--border);
 }
 
 .db-table tbody tr {
-    border-bottom: 1px solid var(--border);
+    border-bottom: var(--table-border-width) solid var(--border);
     transition: background-color 0.15s ease;
 }
 
@@ -269,7 +273,7 @@
     padding: 0;
     padding-left: var(--col-first-pad);
     text-align: right;
-    border-left: 1px solid var(--border);
+    border-left: var(--table-border-width) solid var(--border);
 }
 
 .db-table th:first-child,
@@ -329,7 +333,7 @@
 
 /* == Totals row == */
 .total-row {
-    border-top: 1px solid var(--border);
+    border-top: var(--table-border-width) solid var(--border);
     background-color: var(--frost-2);
 }
 
@@ -520,7 +524,7 @@
     margin: 0;
     border-radius: 50%;
     background: var(--surface1);
-    border: 1px solid var(--border);
+    border: var(--border-width) solid var(--border);
     color: var(--text-secondary);
     font-family: var(--font-menu);
     font-size: var(--size-h3);
@@ -541,7 +545,7 @@
     top: calc(100% + 4px);
     right: 0;
     background: var(--surface2);
-    border: 1px solid var(--border);
+    border: var(--border-width) solid var(--border);
     border-radius: 5px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
     z-index: 500;
@@ -585,7 +589,7 @@
 .confirm-dialog {
     position: relative;
     background: var(--dialog-surface);
-    border: 1px solid var(--dialog-stroke);
+    border: var(--border-width) solid var(--dialog-stroke);
     border-radius: 8px;
     padding: 24px 28px;
     max-width: 340px;
@@ -634,7 +638,7 @@
     box-sizing: border-box;
     height: var(--control-height);
     background: var(--frost-2);
-    border: 1px solid var(--frost-dim);
+    border: var(--border-width) solid var(--frost-dim);
     border-radius: 4px;
     outline: none;
     color: var(--text-primary);
@@ -686,7 +690,7 @@
 .confirm-cancel,
 .confirm-add {
     background: var(--frost-2);
-    border: 1px solid var(--frost-dim);
+    border: var(--border-width) solid var(--frost-dim);
     color: var(--frost-text);
 }
 
@@ -698,7 +702,7 @@
 
 .confirm-delete {
     background: rgba(180, 40, 40, 0.3);
-    border: 1px solid rgba(200, 60, 60, 0.45);
+    border: var(--border-width) solid rgba(200, 60, 60, 0.45);
     color: rgba(255, 140, 140, 1);
 }
 
@@ -733,7 +737,7 @@
 
 .col-manager-footer {
     padding: 16px 22px;
-    border-top: 1px solid var(--border);
+    border-top: var(--border-width) solid var(--border);
     flex-shrink: 0;
 }
 
@@ -786,7 +790,7 @@
     display: flex;
     gap: 8px;
     padding: 14px 22px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
 }
 
@@ -837,7 +841,7 @@
     height: 16px;
     border-radius: 9px;
     background: var(--surface3);
-    border: 1px solid var(--border);
+    border: var(--border-width) solid var(--border);
     transition: background 0.15s ease, border-color 0.15s ease;
 }
 
@@ -895,7 +899,7 @@
 .col-row-input {
     flex: 1;
     background: var(--surface2);
-    border: 1px solid var(--border);
+    border: var(--border-width) solid var(--border);
     border-radius: 6px;
     outline: none;
     color: var(--text-primary);
@@ -993,7 +997,7 @@
     border-radius: 6px;
     cursor: pointer;
     background: var(--surface2);
-    border: 1px solid var(--border);
+    border: var(--border-width) solid var(--border);
     color: var(--text-tertiary);
     transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
     white-space: nowrap;
@@ -1002,7 +1006,7 @@
 .type-toggle-btn.active {
     background: var(--accent-primary);
     border-color: var(--accent-primary);
-    color: var(--accent-contrast, #fff);
+    color: var(--button-text);
 }
 
 .type-toggle-btn:not(.active):hover {
@@ -1016,7 +1020,7 @@
     box-sizing: border-box;
     height: var(--control-height);
     background: var(--surface2);
-    border: 1px solid var(--border);
+    border: var(--border-width) solid var(--border);
     border-radius: 6px;
     outline: none;
     color: var(--text-primary);

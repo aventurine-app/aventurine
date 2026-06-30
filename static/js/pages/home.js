@@ -86,16 +86,17 @@ function fmtValue(n) {
 // magnitude so the slice has visible area; the colour (--accent-tertiary) flags it
 // as a liability rather than an asset.
 
-/** Pull the four accent colours from the theme so a palette swap retones
- *  the pie alongside the rest of the chrome. */
+/** Pull the four chart colours from the theme so a palette swap retones the pie
+ *  alongside the rest of the chrome. Assets use the finance-positive green ramp
+ *  (NOT the pink UI accent); debt flags red. */
 function getAccountsPieColors() {
     const cs = getComputedStyle(document.documentElement);
     const v  = (name, fallback) => cs.getPropertyValue(name).trim() || fallback;
     return {
-        cash:       v('--accent-primary', '#7C8F4A'),
-        investment: v('--accent400', '#94AB5B'),
-        retirement: v('--accent300', '#B1BF7A'),
-        debt:       v('--accent-tertiary',    '#e2585b'),
+        cash:       v('--accent-positive',         '#7C8F4A'),
+        investment: v('--accent-positive-strong',  '#94AB5B'),
+        retirement: v('--accent-positive-lighter', '#B1BF7A'),
+        debt:       v('--accent-tertiary',         '#e2585b'),
     };
 }
 
@@ -683,10 +684,11 @@ function renderNetworthSection(balanceData) {
         return;
     }
 
-    // Read --accent-primary from the theme so the line, gradient, and nodes
-    // retone with the chrome when the palette in style.css changes.
+    // Read the finance-positive green (NOT the pink UI accent) so the net-worth
+    // line, gradient and nodes stay a finance-metric green and retone with the
+    // palette when it changes.
     const accentColor = getComputedStyle(document.documentElement)
-        .getPropertyValue('--accent-primary').trim() || '#7c8f4a';
+        .getPropertyValue('--accent-positive').trim() || '#7c8f4a';
     const series = [{ label: 'Net Worth', color: accentColor, points: filtered }];
 
     observeChart('networth-chart', (W, animate) => buildChartSVG({ series, slots, W, animate }));
@@ -724,14 +726,15 @@ function wireRangePicker(btnId, menuId, onSelect) {
 // ─── Income & Expenses + Account Balances charts ─────────────────────────────
 
 /** Pull income/expense colours from the theme so a palette swap retones the
- *  chart alongside the rest of the chrome. Income tracks the primary accent
- *  (favourable direction); expenses share --accent-tertiary with delta indicators. */
+ *  chart alongside the rest of the chrome. Income uses the finance-positive
+ *  green (favourable direction, NOT the pink UI accent); expenses share
+ *  --accent-tertiary with the delta indicators. */
 function getIEColors() {
     const cs = getComputedStyle(document.documentElement);
     const v  = (name, fallback) => cs.getPropertyValue(name).trim() || fallback;
     return {
-        income:   v('--accent-primary', '#7C8F4A'),
-        expenses: v('--accent-tertiary',    '#e2585b'),
+        income:   v('--accent-positive', '#7C8F4A'),
+        expenses: v('--accent-tertiary',     '#e2585b'),
     };
 }
 

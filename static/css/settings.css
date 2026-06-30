@@ -35,7 +35,7 @@
 
 .settings-card {
   background: var(--surface1);
-  border: 1px solid var(--border);
+  border: var(--border-width) solid var(--border);
   border-radius: 10px;
   backdrop-filter: blur(5px) saturate(100%);
   overflow: hidden;
@@ -50,7 +50,7 @@
 }
 
 .settings-row + .settings-row {
-  border-top: 1px solid var(--border);
+  border-top: var(--border-width) solid var(--border);
 }
 
 .settings-row-label {
@@ -165,7 +165,7 @@
   box-sizing: border-box;
   height: var(--control-height);
   background: var(--frost-3);
-  border: 1px solid var(--border);
+  border: var(--border-width) solid var(--border);
   border-radius: 5px;
   outline: none;
   color: var(--text-primary);
@@ -195,7 +195,7 @@
   box-sizing: border-box;
   height: var(--control-height);
   background: var(--frost-3);
-  border: 1px solid var(--border);
+  border: var(--border-width) solid var(--border);
   border-radius: 5px;
   outline: none;
   color: var(--text-primary);
@@ -225,7 +225,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border);
+  border: var(--border-width) solid var(--border);
   border-radius: 6px;
   background: var(--surface2);
   color: var(--text-secondary);
@@ -252,7 +252,7 @@
 .settings-zoom-reset {
   margin-left: 4px;
   padding: 6px 14px;
-  border: 1px solid var(--border);
+  border: var(--border-width) solid var(--border);
   border-radius: 5px;
   background: transparent;
   color: var(--text-secondary);
@@ -290,7 +290,7 @@
   display: inline-block;
   padding: 6px 16px;
   border-radius: 5px;
-  border: 1px solid var(--border);
+  border: var(--border-width) solid var(--border);
   font-size: var(--size-small);
   font-weight: var(--weight-medium);
   color: var(--text-secondary);
@@ -302,7 +302,7 @@
 .settings-match-option input[type="radio"]:checked + .settings-match-label {
   background: color-mix(in srgb, var(--accent-primary) 20%, transparent);
   border-color: var(--accent-primary);
-  color: var(--accent400);
+  color: var(--accent-primary);
 }
 
 .settings-match-option:hover .settings-match-label {
@@ -423,7 +423,7 @@
     display: flex;
     gap: 4px;
     padding: 0 22px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
 }
 
@@ -445,7 +445,7 @@
 .settings-tab:hover { color: var(--text-primary); }
 
 .settings-tab.active {
-    color: var(--accent400);
+    color: var(--accent-primary);
     border-bottom-color: var(--accent-primary);
 }
 
@@ -467,7 +467,7 @@
     justify-content: flex-end;
     gap: 8px;
     padding: 14px 22px;
-    border-top: 1px solid var(--border);
+    border-top: var(--border-width) solid var(--border);
 }
 
 /* ── Security section ────────────────────────────────────────────────────
@@ -514,7 +514,7 @@
     box-sizing: border-box;
     height: var(--control-height);
     background: var(--frost-3);
-    border: 1px solid var(--border);
+    border: var(--border-width) solid var(--border);
     border-radius: 5px;
     outline: none;
     color: var(--text-primary);

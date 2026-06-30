@@ -3,7 +3,7 @@
 div.menu {
     background-color: var(--surface1);
     box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
-    border-right: 1px solid var(--border);
+    border-right: var(--border-width) solid var(--border);
     margin: 0px;
     padding: var(--space-12);       /* The space between the left and right edges of the menu and the items */
     padding-top: var(--space-20);

@@ -118,7 +118,7 @@
     min-width: 180px;
     z-index: 1200;
     background: var(--surface2);
-    border: 1px solid var(--border);
+    border: var(--border-width) solid var(--border);
     border-top: none;
     border-radius: 6px;
     box-shadow: var(--shadow-card);

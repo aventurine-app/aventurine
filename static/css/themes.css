@@ -18,9 +18,9 @@ html[data-theme="dark"],
        primary   → headings, hero values, anything that must read first.
        secondary → body copy, supporting metadata.
        tertiary  → captions, disabled states, the quietest tier. */
-    --text-primary:   var(--base-100);
-    --text-secondary: var(--base-300);
-    --text-tertiary:  var(--base-400);   /* one step quieter than secondary (was base-200, which read louder) */
+    --text-primary:   var(--color-base-100);
+    --text-secondary: var(--color-base-300);
+    --text-tertiary:  var(--color-base-400);   /* one step quieter than secondary (was base-200, which read louder) */
 
     /* Date-picker glyph with a base-100 stroke so it reads on dark. Same-origin
        SVG file, not a data: URI (blocked by the img-src 'self' CSP). */
@@ -33,22 +33,31 @@ html[data-theme="dark"],
                      than the one below (raised = lighter in dark).
                      1 = card on bg, 2 = control fill, 3 = hover/prominent,
                      4 = top elevation (scrollbar thumbs). */
-    --background: var(--base-950);
-    --surface1:   var(--base-900);
-    --surface2:   var(--base-800);
-    --surface3:   var(--base-800);
-    --surface4:   var(--base-600);
+    --background: var(--color-base-950);
+    --surface1:   var(--color-base-900);
+    --surface2:   var(--color-base-800);
+    --surface3:   var(--color-base-800);
+    --surface4:   var(--color-base-600);
 
     /* Borders / dividers — one neutral grey used across cards, inputs, menus. */
-    --border: var(--base-800);
+    --border: var(--color-base-800);
 
-    /* Accents — primary brand colour in three lightnesses. */
-    --accent-primary: #8b9751;   /* base — primary actions, links, positive deltas */
-    /* Brighter olive for hover/focus, positive deltas, active/selected states and
-       save-action fills. Was var(--color-400) — an undefined palette that silently
-       dropped all 10 consumers app-wide; derived from the primary so it stays on-brand.
-       Lighter here because it sits on dark surfaces. */
-    --accent400: color-mix(in srgb, var(--accent-primary) 70%, #fff);
+    /* Accents — the page/UI accent: primary actions, links, focus,
+       active/selected states. Uses the --color-accent ramp (defined once in
+       style.css), distinct from the olive finance-positive green below so UI
+       chrome recolours independently of the gain/income indicators. */
+    --accent-primary: var(--color-accent-400);   /* base — buttons, links, focus, selection, hover/active fills */
+
+    /* Button text — text/icons on filled accent (or neutral-hover) buttons. */
+    --button-text:    var(--color-base-900);
+
+    /* Finance-positive green (olive) — the gain/income/asset indicators on
+       tables, finance metrics and graphs (mirrors style.css). -strong is
+       lightened on dark surfaces (as the accent itself is) for the status
+       deltas + the asset chart; -lighter is the third asset-chart-ramp stop. */
+    --accent-positive:         #8b9751;
+    --accent-positive-strong:  color-mix(in srgb, var(--accent-positive) 70%, #fff);
+    --accent-positive-lighter: #b1bf7a;
 
     --accent-secondary: #c5ac63;
     --accent-tertiary:  #e2585b;
@@ -59,14 +68,14 @@ html[data-theme="dark"],
        line would vanish on the dark background, so the idle line steps up to a
        light grey; the hover fill is a true charcoal (base-700) carrying white
        text, so it still reads as a charcoal button. */
-    --accent-neutral:      var(--base-300);   /* idle text + border */
-    --accent-neutral-fill: var(--base-700);   /* hover fill */
+    --accent-neutral:      var(--color-base-300);   /* idle text + border */
+    --accent-neutral-fill: var(--color-base-700);   /* hover fill */
 
     /* Status colours — system meaning, not brand. */
     --warning: #f5a524;
     /* Vivid primary blue — attention/notification accent (Uncategorized pill,
        nav uncategorized-count badge). Lightened on dark surfaces (mirrors the
-       --accent400 treatment) so it stays legible against the deep background. */
+       accent's dark-theme treatment) so it stays legible against the deep background. */
     
     --accent-info: var(--accent-info-light);
 
