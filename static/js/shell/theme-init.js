@@ -25,4 +25,13 @@
     if (localStorage.getItem('ui-density') === 'compact') {
         document.documentElement.dataset.density = 'compact';
     }
+
+    // Tag the host OS so the custom title bar (titlebar.css) can match the
+    // platform's native window controls: macOS traffic lights on the left,
+    // square Windows-style controls on the right elsewhere. Set pre-paint so
+    // the bar never flashes the wrong layout. electronWindow comes from the
+    // preload bridge; absent in a plain browser (no chrome there to style).
+    const plat = window.electronWindow && window.electronWindow.platform;
+    document.documentElement.dataset.platform =
+        plat === 'darwin' ? 'mac' : plat === 'win32' ? 'win' : 'linux';
 }());

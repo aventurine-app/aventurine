@@ -11,12 +11,18 @@
              Populated by titlebar.js from /api/db/status; empty (hidden) until
              then and in a plain browser where the chrome is unavailable. -->
         <div class="titlebar-title" data-db-name aria-live="polite"></div>
+        <!-- Window controls. The same three buttons on every OS; titlebar.css
+             dresses them to match the platform (set on <html data-platform> in
+             theme-init.js): macOS traffic lights on the left, square controls on
+             the right elsewhere. The maximize button carries both a square glyph
+             (Windows/Linux) and a "+" glyph (macOS); CSS shows the right one. -->
         <div class="titlebar-controls">
-            <button class="titlebar-btn" data-action="min" aria-label="Minimize" tabindex="-1">
+            <button class="titlebar-btn titlebar-btn-min" data-action="min" aria-label="Minimize" tabindex="-1">
                 <svg viewBox="0 0 12 12" fill="none"><path d="M2 6h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
             </button>
-            <button class="titlebar-btn" data-action="max" aria-label="Maximize" tabindex="-1">
-                <svg viewBox="0 0 12 12" fill="none"><rect x="2.5" y="2.5" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>
+            <button class="titlebar-btn titlebar-btn-max" data-action="max" aria-label="Maximize" tabindex="-1">
+                <svg class="tb-glyph tb-glyph-default" viewBox="0 0 12 12" fill="none"><rect x="2.5" y="2.5" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>
+                <svg class="tb-glyph tb-glyph-mac" viewBox="0 0 12 12" fill="none"><path d="M6 2.5v7M2.5 6h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
             </button>
             <button class="titlebar-btn titlebar-btn-close" data-action="close" aria-label="Close" tabindex="-1">
                 <svg viewBox="0 0 12 12" fill="none"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>

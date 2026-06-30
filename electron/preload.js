@@ -15,6 +15,12 @@ contextBridge.exposeInMainWorld('electronWindow', {
     // Apply a Chromium zoom level. Renderer keeps the canonical value in
     // localStorage and pushes it here whenever the user adjusts.
     setZoom:        (level) => ipcRenderer.send('zoom-set', level),
+    // Host OS, so the custom title bar can dress its window controls to match
+    // the platform (traffic lights on macOS, square controls on Windows/Linux).
+    // 'darwin' | 'win32' | 'linux' — a plain string, read pre-paint in
+    // theme-init.js. `process` is the limited global Electron injects into
+    // sandboxed preloads, which still carries `platform`.
+    platform:       process.platform,
 });
 
 // Native save/open dialogs for the New / Open Database modal. Each returns

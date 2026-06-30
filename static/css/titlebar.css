@@ -4,9 +4,11 @@
    absent, the body layout still works — see the flex-column body rules in
    style.css.
 
-   Visual: a 32px frosted bar matching the existing glass treatment, with
-   the app name on the left and three SVG window controls on the right.
-   The middle (the drag region) is what -webkit-app-region drags by. */
+   Visual: a 40px frosted bar matching the existing glass treatment, with the
+   File/Settings menu and the open database name. The three window controls are
+   platform-adaptive (keyed off <html data-platform>, set in theme-init.js):
+   square Windows/Linux controls on the right, or macOS traffic lights on the
+   left. The middle (the drag region) is what -webkit-app-region drags by. */
 
 .titlebar {
     display: flex;
@@ -146,24 +148,27 @@
     color: var(--text-primary);
 }
 
+/* ── Window controls — platform-adaptive ──────────────────────────────────
+   One set of three buttons, dressed to match the host OS. The DEFAULT here is
+   the Windows/Linux look (square controls flush to the top-right corner); the
+   [data-platform="mac"] block further down re-skins them as macOS traffic
+   lights on the left. The platform tag lands on <html> pre-paint in
+   theme-init.js, so the bar never flashes the wrong layout. */
 .titlebar-controls {
     display: flex;
-    align-items: center;
-    /* Tight grouping so the three controls read as one cluster. */
-    gap: 2px;
-    /* Horizontal padding keeps the circles off the right edge and provides
-       breathing room from the drag region on the left. */
-    padding: 0 8px;
+    /* Stretch so each control fills the full bar height — the native Windows
+       look, where the controls run edge to edge with no surrounding padding. */
+    align-items: stretch;
+    gap: 0;
     -webkit-app-region: no-drag;
 }
 
 .titlebar-btn {
-    /* Equal width + height + 50% radius = perfect circle. Diameter is
-       smaller than the 32px title bar height so the buttons sit inside
-       the bar with margin, never bleeding past the top/bottom edges. */
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
+    /* Wide, full-height, square hit targets that meet the window's top-right
+       corner — mirrors the Windows caption buttons. */
+    width: 46px;
+    height: 100%;
+    border-radius: 0;
     border: none;
     background: transparent;
     color: var(--nav-text);
@@ -185,9 +190,10 @@
     color: var(--text-primary);
 }
 
+/* Native Windows turns the close button red on hover, icon to white. */
 .titlebar-btn-close:hover {
-    background: var(--accent-tertiary);
-    color: var(--text-primary);
+    background: #c42b1c;
+    color: #fff;
 }
 
 .titlebar-btn:focus {
@@ -199,5 +205,54 @@
 }
 
 .titlebar-btn:focus-visible {
-    box-shadow: 0 0 0 1px var(--stroke-strong);
+    box-shadow: inset 0 0 0 1px var(--stroke-strong);
 }
+
+/* Maximize carries two glyphs (square + plus); show only the default one. */
+.tb-glyph-mac { display: none; }
+
+/* ── macOS: traffic lights on the left ────────────────────────────────────
+   Re-skin the same three buttons as macOS stoplights — coloured circles in
+   the top-LEFT corner (close, minimize, zoom), their symbols revealed only
+   when the cluster is hovered, exactly like the system control. order:-1
+   floats the cluster ahead of the menu without touching the markup. */
+[data-platform="mac"] .titlebar-controls {
+    order: -1;
+    align-items: center;
+    gap: 8px;
+    padding: 0 8px 0 12px;
+}
+
+[data-platform="mac"] .titlebar-btn {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    /* A hairline inner ring keeps each light defined against a light bar. */
+    box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.2);
+    color: rgba(0, 0, 0, 0.55);
+}
+
+/* macOS order: close (red) · minimize (yellow) · zoom (green), left to right.
+   The markup order is min · max · close, so reorder with flex `order`. */
+[data-platform="mac"] .titlebar-btn-close { background: #ff5f57; order: 0; }
+[data-platform="mac"] .titlebar-btn-min   { background: #febc2e; order: 1; }
+[data-platform="mac"] .titlebar-btn-max   { background: #28c840; order: 2; }
+
+/* Hover keeps the colour (overriding the Windows grey/red hover) and only
+   then reveals the glyphs — the whole cluster lights up together. */
+[data-platform="mac"] .titlebar-btn:hover { color: rgba(0, 0, 0, 0.55); }
+[data-platform="mac"] .titlebar-btn-close:hover { background: #ff5f57; }
+[data-platform="mac"] .titlebar-btn-min:hover   { background: #febc2e; }
+[data-platform="mac"] .titlebar-btn-max:hover   { background: #28c840; }
+
+[data-platform="mac"] .titlebar-btn svg {
+    width: 7px;
+    height: 7px;
+    opacity: 0;
+    transition: opacity 100ms ease;
+}
+[data-platform="mac"] .titlebar-controls:hover .titlebar-btn svg { opacity: 1; }
+
+/* Swap the maximize glyph for the macOS "+". */
+[data-platform="mac"] .tb-glyph-default { display: none; }
+[data-platform="mac"] .tb-glyph-mac     { display: block; }
