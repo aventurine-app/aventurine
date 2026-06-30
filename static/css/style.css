@@ -9,11 +9,10 @@
      1. Theme — colour tokens
      2. Typography — font families + size/weight/line-height/tracking scale
      3. Component tokens — spacing & filter values used across the app
-     4. Legacy colour aliases — preserved for un-migrated rules
-     5. Page title / subtitle — the two shared page-header heading rules
-     6. Status colours — direction-of-change indicators
-     7. Base layout — body, page shell, scrollbars
-     8. Shared modal primitives — frame/header/close/title/body shared by the
+     4. Page title / subtitle — the two shared page-header heading rules
+     5. Status colours — direction-of-change indicators
+     6. Base layout — body, page shell, scrollbars
+     7. Shared modal primitives — frame/header/close/title/body shared by the
         DB, Preferences and column-manager modals
    ============================================================================ */
 
@@ -381,18 +380,7 @@
 }
 
 
-/* ─── 4. Legacy colour aliases ─────────────────────────────────────────────
- * Existing rules use the names below; defining them as aliases lets those
- * rules flow through the theme without per-rule churn. New code should
- * prefer the theme tokens directly. */
-:root {
-    --nav-text:       var(--text-secondary);  /* idle nav link, body UI text */
-    --nav-text-hover: var(--text-primary);    /* hover / active state */
-    --label-muted:    var(--text-tertiary);   /* subdued labels, section heads */
-}
-
-
-/* ─── 5. Page title / subtitle ─────────────────────────────────────────────
+/* ─── 4. Page title / subtitle ─────────────────────────────────────────────
  * The two heading rules wired into every page template's header. They bundle
  * the typography tokens above directly. (An earlier set of .text-* utility
  * classes lived here too but was removed once nothing consumed them.) */
@@ -417,7 +405,7 @@
 }
 
 
-/* ─── 6. Status colours ────────────────────────────────────────────────────
+/* ─── 5. Status colours ────────────────────────────────────────────────────
  * Direction-of-change colours used wherever a number signals "in your favor"
  * vs. "against you" — home cards / net-worth deltas (.stat-change-*) and
  * portfolio ROI (.roi-*). Both consumers share one palette so a theme swap
@@ -444,7 +432,7 @@
 }
 
 
-/* ─── 7. Base layout ───────────────────────────────────────────────────────
+/* ─── 6. Base layout ───────────────────────────────────────────────────────
  * App shell: body + body_container split, page scroll, custom scrollbar. */
 
 body {
@@ -510,7 +498,7 @@ div.page::-webkit-scrollbar-thumb:hover {
 }
 
 
-/* ─── 8. Shared modal primitives ───────────────────────────────────────────
+/* ─── 7. Shared modal primitives ───────────────────────────────────────────
  * Dialog chrome shared by the app's modals: the DB modal (dbmodal.css), the
  * Preferences / Categories modal (settings.css) and the column manager
  * (tables.css). Each component file used to redeclare the full frame / header /

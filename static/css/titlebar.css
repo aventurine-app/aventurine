@@ -100,7 +100,7 @@
 .titlebar-menu-item:hover,
 .titlebar-menu-item[aria-expanded="true"] {
     background: var(--frost-3);
-    color: var(--nav-text-hover);
+    color: var(--text-primary);
 }
 
 .titlebar-menu-item:focus { outline: none; }
@@ -133,7 +133,7 @@
     background: transparent;
     border: none;
     padding: var(--space-8) var(--space-16);
-    color: var(--nav-text);
+    color: var(--text-secondary);
     font-family: var(--font-menu);
     font-size: var(--size-small);
     text-align: left;
@@ -171,7 +171,7 @@
     border-radius: 0;
     border: none;
     background: transparent;
-    color: var(--nav-text);
+    color: var(--text-secondary);
     cursor: pointer;
     display: flex;
     align-items: center;

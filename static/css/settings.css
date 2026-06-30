@@ -29,7 +29,7 @@
   font-weight: var(--weight-semibold);
   text-transform: uppercase;
   letter-spacing: var(--track-widest);
-  color: var(--label-muted);
+  color: var(--text-tertiary);
   padding-left: 2px;
 }
 
@@ -69,7 +69,7 @@
 .settings-row-desc {
   font-family: var(--font-h3);
   font-size: var(--size-small);
-  color: var(--label-muted);
+  color: var(--text-tertiary);
   line-height: var(--lh-relaxed);
 }
 
@@ -506,7 +506,7 @@
 .enc-label {
     font-family: var(--font-h3);
     font-size: var(--size-small);
-    color: var(--label-muted);
+    color: var(--text-tertiary);
 }
 
 .enc-input {

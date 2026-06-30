@@ -43,7 +43,7 @@
 }
 
 .db-field > span:first-child {
-    color: var(--label-muted);
+    color: var(--text-tertiary);
     font-size: var(--size-micro);
     font-weight: var(--weight-semibold);
     text-transform: uppercase;

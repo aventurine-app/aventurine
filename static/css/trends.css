@@ -123,7 +123,7 @@
 
 /* ─── Biggest movers ─────────────────────────────────────────────────────── */
 .trends-movers-note {
-    color: var(--label-muted);
+    color: var(--text-tertiary);
     font-family: var(--font-h3);
     font-size: var(--size-micro);
     font-weight: var(--weight-semibold);

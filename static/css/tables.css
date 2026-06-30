@@ -742,7 +742,7 @@
 }
 
 .col-type-label {
-    color: var(--label-muted);
+    color: var(--text-tertiary);
     font-size: var(--size-micro);
     font-weight: var(--weight-semibold);
     letter-spacing: var(--track-widest);

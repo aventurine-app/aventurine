@@ -50,7 +50,7 @@ li {
 }
 
 /* Section heading inside the sidebar ("Savings & Investing", "Account").
-   Uses --label-muted from style.css — shared with the home page stat labels
+   Uses --text-tertiary from style.css — shared with the home page stat labels
    so all muted secondary headings across the app stay in lockstep. */
 .nav-section-title {
     font-size: var(--size-small);
@@ -58,13 +58,13 @@ li {
     font-family: var(--font-menu);
     text-transform: uppercase;
     letter-spacing: var(--track-widest);
-    color: var(--label-muted);
+    color: var(--text-tertiary);
     padding: 0 var(--space-12);
     margin-top: var(--space-32);
     margin-bottom: var(--space-4);
 }
 
-/* Color comes from --nav-text (style.css). Each SVG icon in navbar.html uses
+/* Color comes from --text-secondary (style.css). Each SVG icon in navbar.html uses
    currentColor for its stroke/fill, so it inherits this same color
    automatically — one variable controls both the label and the icon. */
 .nav li a {
@@ -75,7 +75,7 @@ li {
     font-family: var(--font-menu);
     font-weight: var(--weight-medium);
     text-decoration: none;
-    color: var(--nav-text);
+    color: var(--text-secondary);
     padding: var(--space-8) var(--space-12);
     /* 8px — shared with the action buttons (buttons.css) and the table wrappers
        (.tx-wrapper / .db-wrapper) so those three surfaces read the same. */
@@ -92,11 +92,11 @@ li {
     flex-shrink: 0;
 }
 
-/* Hover + active states share --nav-text-hover so a hovered link visually
+/* Hover + active states share --text-primary so a hovered link visually
    matches the currently-open page indicator. */
 .nav li a:hover {
     background: var(--frost-3);
-    color: var(--nav-text-hover);
+    color: var(--text-primary);
 }
 
 .nav li a.active {

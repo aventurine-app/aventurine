@@ -204,7 +204,7 @@
 }
 .budget-env-status.pos   { color: var(--accent-secondary); }
 .budget-env-status.neg   { color: var(--accent-tertiary); }
-.budget-env-status.muted { color: var(--label-muted); }
+.budget-env-status.muted { color: var(--text-tertiary); }
 
 /* Remove the budget — a quiet "×" in the corner that reveals on hover/focus, so
    the card stays clean until you reach for it. The category returns to the

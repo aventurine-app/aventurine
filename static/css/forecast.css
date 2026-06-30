@@ -336,7 +336,7 @@
 .forecast-stat-value.neg { color: var(--accent-tertiary); }
 
 .forecast-source {
-    color: var(--label-muted);
+    color: var(--text-tertiary);
     font-family: var(--font-h3);
     font-size: var(--size-micro);
     font-weight: var(--weight-semibold);
@@ -550,7 +550,7 @@
 }
 
 .planned-date {
-    color: var(--label-muted);
+    color: var(--text-tertiary);
     font-family: var(--font-h3);
     font-size: var(--size-micro);
     font-weight: var(--weight-semibold);
