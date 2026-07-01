@@ -20,9 +20,7 @@
     flex-direction: column;
     gap: 24px;
     padding: var(--page-pad);
-    /* Fixed width so the cards don't reflow as figures change length. */
-    width: 1060px;
-    max-width: 100%;
+    width: 100%;
 }
 
 .trends-card {
@@ -121,61 +119,6 @@
     flex-shrink: 0;
 }
 
-/* ─── Biggest movers ─────────────────────────────────────────────────────── */
-.trends-movers-note {
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wide);
-    text-transform: uppercase;
-}
-.trends-movers { display: flex; gap: 40px; }
-.trends-mover-col { flex: 1; min-width: 0; }
-.trends-mover-head {
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wider);
-    text-transform: uppercase;
-    margin-bottom: 10px;
-}
-.trends-mover-list { list-style: none; margin: 0; padding: 0; }
-.trends-mover {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 9px 0;
-    border-bottom: var(--border-width) solid var(--stroke-divider);
-}
-.trends-mover:last-child { border-bottom: none; }
-.trends-mover-name {
-    color: var(--text-primary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.trends-mover-fig { flex-shrink: 0; display: inline-flex; align-items: baseline; gap: 10px; }
-.trends-mover-amt {
-    font-family: var(--font-numeric);
-    font-size: var(--size-small);
-    font-variant-numeric: tabular-nums;
-}
-.trends-mover-per { color: var(--text-tertiary); font-size: var(--size-micro); }
-.trends-mover-pct {
-    font-family: var(--font-h3);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wide);
-    min-width: 46px;
-    text-align: right;
-}
-.trends-mover-up   { color: var(--accent-tertiary); }   /* spending more → alert */
-.trends-mover-down { color: #5ba672; }                  /* spending less → good */
 
 /* ─── Chart frame chrome (consumed by chart.js' .home-chart SVG) ──────────── */
 .home-chart .chart-grid { stroke: var(--border); stroke-width: 1; stroke-dasharray: 3 5; }

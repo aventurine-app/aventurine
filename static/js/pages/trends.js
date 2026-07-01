@@ -2,19 +2,16 @@
 
 // ─── Spending Trends (Reports) ────────────────────────────────────────────────
 // Plots each expense category's monthly spending over a trailing window, with
-// per-category toggles (like the Home charts) and a biggest-movers panel
-// comparing the recent half of the window to the earlier half.
+// per-category toggles (like the Home charts).
 //
 // Data comes from GET /api/trends (monthly per-category expense sums). The chart
-// is the shared FinanceChart (chart.js). Movers are computed here.
+// is the shared FinanceChart (chart.js).
 //
 // Globals: apiFetch (api.js), escapeHtml (escape.js), formatCurrency (currency.js),
 // FinanceChart (chart.js).
 
 const WINDOW_LABELS = { 6: '6 Months', 12: '12 Months', 36: '3 Years', 60: '5 Years' };
 const ALLOWED_WINDOWS = [6, 12, 36, 60];
-const MOVERS_PER_SIDE = 5;
-const EPS = 0.005; // ignore sub-cent "movement" (float noise)
 
 const state = {
   window: 12,
@@ -27,9 +24,6 @@ const state = {
 
 function fmtMoney(n) {
   return formatCurrency(n, true) || (CURRENCY_SYMBOL + '0');
-}
-function fmtSigned(n) {
-  return (n < 0 ? '-' : '+') + fmtMoney(Math.abs(n));
 }
 
 const ymToSlot = (ym) => {
@@ -64,7 +58,6 @@ function render() {
   document.getElementById('trends-range-btn').textContent = WINDOW_LABELS[state.window];
   renderSelector();
   renderChart();
-  renderMovers();
 }
 
 // ─── Category selector chips ─────────────────────────────────────────────────
@@ -135,63 +128,6 @@ function renderChart() {
     return;
   }
   FinanceChart.render('trends-chart', { series, slots });
-}
-
-// ─── Biggest movers (recent half vs earlier half) ────────────────────────────
-
-function computeMovers() {
-  const { months, categories } = state.data;
-  const n = months.length;
-  const half = Math.floor(n / 2);
-  if (half < 1) return [];
-
-  return categories.map((c) => {
-    const val = (i) => c.monthly[months[i]] || 0;
-    let first = 0;
-    let second = 0;
-    for (let i = 0; i < half; i++) first += val(i);
-    for (let i = n - half; i < n; i++) second += val(i);
-    const avgFirst = first / half;
-    const avgSecond = second / half;
-    const change = avgSecond - avgFirst;
-    const pct = avgFirst > EPS ? (change / avgFirst) * 100 : null; // null = grew from ~nothing
-    return { name: c.name, change, pct };
-  });
-}
-
-function moverRow(m, dir) {
-  const arrow = dir === 'up' ? '▲' : '▼';
-  const pct = m.pct === null ? 'new' : `${arrow} ${Math.abs(m.pct).toFixed(0)}%`;
-  return `<li class="trends-mover">
-    <span class="trends-mover-name">${escapeHtml(m.name)}</span>
-    <span class="trends-mover-fig">
-      <span class="trends-mover-amt trends-mover-${dir}">${fmtSigned(m.change)}<span class="trends-mover-per">/mo</span></span>
-      <span class="trends-mover-pct trends-mover-${dir}">${pct}</span>
-    </span>
-  </li>`;
-}
-
-function renderMovers() {
-  const el = document.getElementById('trends-movers');
-  const note = document.getElementById('trends-movers-note');
-  if (!el || !state.data) return;
-
-  const movers = computeMovers();
-  const up = movers.filter((m) => m.change > EPS).sort((a, b) => b.change - a.change).slice(0, MOVERS_PER_SIDE);
-  const down = movers.filter((m) => m.change < -EPS).sort((a, b) => a.change - b.change).slice(0, MOVERS_PER_SIDE);
-
-  if (note) {
-    note.textContent = `recent half vs earlier half · ${WINDOW_LABELS[state.window]}`;
-  }
-
-  const col = (title, items, dir) => `<div class="trends-mover-col">
-    <div class="trends-mover-head">${title}</div>
-    ${items.length
-      ? `<ul class="trends-mover-list">${items.map((m) => moverRow(m, dir)).join('')}</ul>`
-      : `<p class="trends-hint">No notable ${dir === 'up' ? 'increases' : 'decreases'}.</p>`}
-  </div>`;
-
-  el.innerHTML = col('Spending more', up, 'up') + col('Spending less', down, 'down');
 }
 
 // ─── Controls ────────────────────────────────────────────────────────────────
