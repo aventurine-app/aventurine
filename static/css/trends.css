@@ -177,60 +177,6 @@
 .trends-mover-up   { color: var(--accent-tertiary); }   /* spending more → alert */
 .trends-mover-down { color: #5ba672; }                  /* spending less → good */
 
-/* ─── Info tooltip ("i" badge) ───────────────────────────────────────────── */
-.fc-info {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 14px;
-    height: 14px;
-    margin-left: 6px;
-    border-radius: 50%;
-    border: var(--border-width) solid var(--text-tertiary);
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: 9px;
-    font-weight: var(--weight-semibold);
-    font-style: normal;
-    line-height: 1;
-    text-transform: none;
-    letter-spacing: 0;
-    cursor: help;
-    position: relative;
-    vertical-align: middle;
-    top: -1px;
-    transition: color 0.15s, border-color 0.15s;
-}
-.fc-info:hover, .fc-info:focus-visible { color: var(--text-primary); border-color: var(--text-primary); outline: none; }
-.fc-info::after {
-    content: attr(data-tip);
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
-    z-index: 40;
-    width: max-content;
-    max-width: 300px;
-    padding: 10px 12px;
-    background: var(--background);
-    border: var(--border-width) solid var(--border);
-    border-radius: 8px;
-    box-shadow: var(--shadow-card);
-    color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    font-weight: var(--weight-regular);
-    line-height: 1.5;
-    letter-spacing: normal;
-    text-transform: none;
-    text-align: left;
-    white-space: normal;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(-3px);
-    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
-}
-.fc-info:hover::after, .fc-info:focus-visible::after { opacity: 1; visibility: visible; transform: translateY(0); }
-
 /* ─── Chart frame chrome (consumed by chart.js' .home-chart SVG) ──────────── */
 .home-chart .chart-grid { stroke: var(--border); stroke-width: 1; stroke-dasharray: 3 5; }
 .home-chart .chart-zero { stroke: var(--text-tertiary); stroke-width: 1; stroke-dasharray: 5 4; opacity: 0.55; }
@@ -265,5 +211,4 @@
     .home-chart .chart-line { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; }
     .home-chart .chart-area-fill, .home-chart .chart-dot { animation: none; opacity: 1; }
     .home-chart .chart-pulse { display: none; }
-    .fc-info::after { transition: opacity 0.15s ease, visibility 0.15s; transform: none; }
 }

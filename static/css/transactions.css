@@ -183,9 +183,8 @@
     gap: 8px;
     /* The parent .db-page is a flex column with a 16px gap between children, so
        the bottom value is offset against that: -4px nets a 12px chips→table gap
-       (16 − 4), tightening the row against the table it filters while the 24px
-       top keeps it clearly separated from the page header. */
-    margin: 24px 0 -4px;
+       (16 − 4), tightening the row against the table it filters. */
+    margin: 0 0 -4px;
     min-height: 32px;
 }
 

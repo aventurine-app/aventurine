@@ -380,11 +380,11 @@
 }
 
 
-/* ─── 4. Page title / subtitle ─────────────────────────────────────────────
- * The two heading rules wired into every page template's header. They bundle
- * the typography tokens above directly. (An earlier set of .text-* utility
- * classes lived here too but was removed once nothing consumed them.) */
-.page-title    { /* page-level title — h1 treatment */
+/* ─── 4. Page title / info tooltip ─────────────────────────────────────────
+ * The page-level h1 rule shared across every page template, plus the global
+ * "i" badge tooltip chrome (formerly duplicated in home/forecast/trends/
+ * reportcard CSS — consolidated here so it works on all pages). */
+.page-title {
     color: var(--text-primary);
     font-family: var(--font-h1);
     font-size: var(--size-h1);
@@ -394,14 +394,74 @@
     margin: 0;
 }
 
-.page-subtitle { /* caption treatment with a 4px top margin */
-    color: var(--text-secondary);
+/* ─── Info tooltip ("i" badge + CSS hover/focus card) ─────────────────────── */
+.fc-info {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    margin-left: 6px;
+    border-radius: 50%;
+    border: var(--border-width) solid var(--text-tertiary);
+    color: var(--text-tertiary);
     font-family: var(--font-h3);
+    font-size: 9px;
+    font-weight: var(--weight-semibold);
+    font-style: normal;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: 0;
+    cursor: help;
+    position: relative;
+    vertical-align: middle;
+    top: -1px;
+    transition: color 0.15s, border-color 0.15s;
+}
+.fc-info:hover,
+.fc-info:focus-visible {
+    color: var(--text-primary);
+    border-color: var(--text-primary);
+    outline: none;
+}
+.fc-info::after {
+    content: attr(data-tip);
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    z-index: 40;
+    width: max-content;
+    max-width: 280px;
+    padding: 10px 12px;
+    background: var(--background);
+    border: var(--border-width) solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-card);
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
     font-size: var(--size-small);
-    font-weight: var(--weight-medium);
-    line-height: var(--lh-relaxed);
-    letter-spacing: var(--track-wide);
-    margin: 4px 0 0;
+    font-weight: var(--weight-regular);
+    line-height: 1.5;
+    letter-spacing: normal;
+    text-transform: none;
+    text-align: left;
+    white-space: normal;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-3px);
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+}
+.fc-info-right::after { left: auto; right: 0; }
+.fc-info:hover::after,
+.fc-info:focus-visible::after {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+    .fc-info::after { transition: opacity 0.15s ease, visibility 0.15s; transform: none; }
+    .fc-info:hover::after,
+    .fc-info:focus-visible::after { transform: none; }
 }
 
 
