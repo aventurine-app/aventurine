@@ -23,7 +23,9 @@ const routes = [
   ...require('./handlers/appSettings').routes,
   ...require('./handlers/database').routes,
   // Balance Sheet — the one remaining year-table feature (mirrors the
-  // register_year_table_feature call in app.py).
+  // register_year_table_feature call in app.py). Its /data payload is
+  // augmented with ledger-derived balances for empty cells (accounts with
+  // anchors + transactions), reported in a `derived` provenance map.
   ...yearTableRoutes({
     prefix: '/api/balance',
     yearTable: 'balance_active_years',
@@ -31,6 +33,7 @@ const routes = [
     colTable: 'balance_columns',
     typeOrder: ['cash', 'investment', 'retirement', 'debt'],
     columnKeyPrefix: 'bcol',
+    augmentData: require('./services/balances').overlayBalanceData,
   }),
 ];
 

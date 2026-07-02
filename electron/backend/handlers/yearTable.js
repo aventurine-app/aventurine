@@ -17,6 +17,10 @@ function yearTableRoutes({
   colTable,
   typeOrder = null,
   columnKeyPrefix = 'col',
+  // Optional (ctx, payload) => payload hook run on the /data response —
+  // lets a feature overlay computed values without the generic factory
+  // knowing about them (the Balance Sheet's ledger-derived balances).
+  augmentData = null,
 }) {
   const hasTypes = typeOrder !== null;
   const validTypes = hasTypes ? new Set(typeOrder) : null;
@@ -63,7 +67,8 @@ function yearTableRoutes({
       (months[monthName(e.month)] ??= {})[e.category] = e.value;
     }
     const cols = db.prepare(`SELECT * FROM ${colTable} ORDER BY position`).all();
-    return { years, entries, columns: cols.map(columnPayload) };
+    const payload = { years, entries, columns: cols.map(columnPayload) };
+    return augmentData ? augmentData(ctx, payload) : payload;
   }
 
   function apiUpsertEntry(ctx, { body }) {
