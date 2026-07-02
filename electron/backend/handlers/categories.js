@@ -41,6 +41,14 @@ function create(ctx, { body }) {
     // Stable key derived from the new row's id, so renames never orphan
     // Entry rows (mirror of the Flask flush-then-set-key dance).
     db.prepare('UPDATE categories SET "key" = ? WHERE id = ?').run(`cat_${id}`, id);
+    // Sync-by-default: a brand-new category has no opt-out history, so its
+    // Cash Flow cells compute from transactions in every active year — the
+    // same default the bootstrap year and yearAdd give existing categories.
+    // Hand-entry stays one visible, reversible opt-out away; the reverse
+    // default would make new categories silently behave unlike all others.
+    db.prepare(
+      'INSERT OR IGNORE INTO category_sync (year, category) SELECT year, ? FROM active_years'
+    ).run(`cat_${id}`);
     return getCat(db, id);
   })();
   return { ok: true, category: serialiseCategory(cat) };

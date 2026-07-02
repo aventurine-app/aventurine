@@ -39,10 +39,15 @@ test('fresh DB: baseline schema + seed', () => {
   assert.equal(flexOf('investing'), 'goal');
   assert.ok(cats.every((c) => ['fixed', 'flex', 'goal'].includes(c.flex_type)));
 
-  // Clean slate: nothing is synced until the user turns it on per table.
-  assert.equal(db.prepare('SELECT COUNT(*) c FROM category_sync').get().c, 0);
-
   const yr = new Date().getFullYear();
+
+  // The bootstrap year starts fully synced (every category computed from
+  // transactions), mirroring the yearAdd default — a first import populates
+  // Cash Flow without any sync configuration. The user opts cells OUT.
+  const syncRows = db.prepare('SELECT year, category FROM category_sync').all();
+  assert.equal(syncRows.length, cats.length, 'every category synced for the bootstrap year');
+  assert.ok(syncRows.every((r) => r.year === yr));
+
   assert.ok(db.prepare('SELECT 1 FROM active_years WHERE year=?').get(yr));
   assert.ok(db.prepare('SELECT 1 FROM balance_active_years WHERE year=?').get(yr));
   assert.equal(db.prepare('SELECT COUNT(*) c FROM balance_columns').get().c, 5);
@@ -67,6 +72,16 @@ test('seed is idempotent', () => {
   seedDefaults(db);
   assert.equal(db.prepare('SELECT COUNT(*) c FROM categories').get().c, 18);
   assert.equal(db.prepare('SELECT COUNT(*) c FROM portfolio_accounts').get().c, 1);
+
+  // Re-seeding never resurrects sync rows the user opted out of: the sync
+  // seeding is tied to the bootstrap-year INSERT, which only fires once.
+  db.prepare("DELETE FROM category_sync WHERE category = 'groceries'").run();
+  seedDefaults(db);
+  assert.equal(
+    db.prepare("SELECT COUNT(*) c FROM category_sync WHERE category = 'groceries'").get().c,
+    0,
+    'user sync opt-out survives a re-seed'
+  );
   db.close();
 });
 
