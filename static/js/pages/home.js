@@ -1,12 +1,23 @@
 // ─── Home dashboard ──────────────────────────────────────────────────────────
-// Renders five sections on the homepage:
-//   1. Net worth over time (line chart from balance data)
-//   2. Accounts breakdown (donut by account type, current month)
-//   3. Income & Expenses monthly totals (line chart)
-//   4. Per-account balances (line chart, user picks which accounts to compare)
-//   5. Upcoming Expenses (predicted recurring spends from the transactions ledger)
+// Two tab panels (ARIA tablist, same pattern as Cash Flow Reports):
+//
+// "This Month" — the monthly view, defaulting to the current month with a
+// panel-level stepper to look back at earlier months:
+//   1. Monthly Cash Flow (horizontal bars: the month's income / expenses /
+//      savings / investing totals, from /api/spending)
+//   2. Spending (bar chart: the month's expense total per category, same fetch)
+//   3. Upcoming Expenses (predicted recurring spends from the transactions ledger)
+//
+// "Over Time" — the long-run view:
+//   4. Net worth over time (line chart from balance data)
+//   5. Accounts breakdown (donut by account type, current month)
+//   6. Income & Expenses monthly totals (line chart)
+//   7. Per-account balances (line chart, user picks which accounts to compare)
+//
 // All charts are built as inline SVG by hand — no chart library. The
-// ResizeObserver-based observeChart() helper redraws on container resize.
+// ResizeObserver-based observeChart() helper redraws on container resize; for
+// charts in the hidden panel it also performs the first (animated) paint when
+// the panel is revealed and the container gains a width.
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const MONTH_INDEX = new Map(MONTHS.map((m, i) => [m, i]));
@@ -983,6 +994,284 @@ function renderAccountSelector(data) {
     });
 }
 
+// ─── This Month (one month of ledger activity) ───────────────────────────────
+// The panel's two charts share one month of data from GET /api/spending
+// (handlers/trends.js): per-type totals feed the Monthly Cash Flow horizontal
+// bars, per-category totals feed the Spending bars. The panel-level stepper
+// defaults to the current month — month-to-date — and walks back to any
+// earlier month; both charts follow it.
+
+let homeMonth = (() => {
+    const now = new Date();
+    return { year: now.getFullYear(), monthIdx: now.getMonth() };
+})();
+const homeMonthCache = new Map();  // 'YYYY-MM' -> { totals, categories }
+let homeMonthReq = 0;              // fetch token — drops out-of-order responses
+
+function homeMonthKey() {
+    return `${homeMonth.year}-${String(homeMonth.monthIdx + 1).padStart(2, '0')}`;
+}
+
+function isCurrentHomeMonth() {
+    const now = new Date();
+    return homeMonth.year === now.getFullYear() && homeMonth.monthIdx === now.getMonth();
+}
+
+function homeMonthLabel() {
+    return `${MONTHS[homeMonth.monthIdx]} ${homeMonth.year}`;
+}
+
+// Monthly Cash Flow rows, in display order. Income leads on the base accent
+// and expenses take the high-contrast shade — the same pairing as the Income
+// & Expenses line chart (getIEColors) — with savings and investing on the
+// intermediate accent stops.
+const MCF_ROWS = [
+    { key: 'income',    label: 'Income',    token: '--chart-1', fallback: '#8fb088' },
+    { key: 'expense',   label: 'Expenses',  token: '--chart-4', fallback: '#33402d' },
+    { key: 'savings',   label: 'Savings',   token: '--chart-2', fallback: '#5c7152' },
+    { key: 'investing', label: 'Investing', token: '--chart-3', fallback: '#a9c1a4' },
+];
+
+/**
+ * Build one inline SVG horizontal bar chart: one row per flow type, amount on
+ * the X axis. Same frame chrome as the other charts (nice-tick axis, dashed
+ * grid, label typography); each bar is annotated with its exact value at the
+ * end, so the month's statement reads without hovering. Height comes from the
+ * fixed row count, not the width.
+ *
+ *   rows: [{ label, color, value }] — values ≥ 0, fixed label set.
+ */
+function buildHBarChartSVG({ rows, W, animate = true }) {
+    if (rows.length === 0) return null;
+
+    // Left gutter fits the row labels, right gutter the value annotations.
+    const PL = 96, PR = 96, PT = 8, PB = 30;
+    const BAND = 44;                       // vertical space per bar row
+    const BAR  = 16;                       // bar thickness within its band
+    const H  = PT + rows.length * BAND + PB;
+    const CW = W - PL - PR;
+    const f2 = (n) => Math.round(n * 100) / 100;
+
+    const xTicks = niceTicks(0, Math.max(...rows.map(r => r.value)), 4);
+    const maxVal = xTicks[xTicks.length - 1] || 1;
+    const xScale = v => PL + (v / maxVal) * CW;
+    const plotBottom = PT + rows.length * BAND;
+
+    let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" class="home-chart${animate ? '' : ' chart-no-anim'}" style="display:block;">`;
+
+    for (const v of xTicks) {
+        const x = xScale(v);
+        svg += `<line class="chart-grid" x1="${f2(x)}" y1="${PT}" x2="${f2(x)}" y2="${plotBottom}"/>`;
+        svg += `<text class="chart-label" x="${f2(x)}" y="${plotBottom + 18}" text-anchor="middle">${fmtAxis(v)}</text>`;
+    }
+
+    rows.forEach((r, i) => {
+        const yMid = PT + BAND * (i + 0.5);
+        svg += `<text class="chart-label" x="${PL - 10}" y="${f2(yMid)}" text-anchor="end" dominant-baseline="middle">${escapeHtml(r.label)}</text>`;
+
+        const len = xScale(r.value) - PL;
+        if (len > 0) {
+            const y = yMid - BAR / 2;
+            // Rounded right end only — the bar must sit flat on the axis.
+            const rr = Math.min(4, BAR / 2, len);
+            const d  = `M ${PL} ${f2(y)} L ${f2(PL + len - rr)} ${f2(y)}`
+                     + ` Q ${f2(PL + len)} ${f2(y)} ${f2(PL + len)} ${f2(y + rr)}`
+                     + ` L ${f2(PL + len)} ${f2(y + BAR - rr)}`
+                     + ` Q ${f2(PL + len)} ${f2(y + BAR)} ${f2(PL + len - rr)} ${f2(y + BAR)}`
+                     + ` L ${PL} ${f2(y + BAR)} Z`;
+            svg += `<path class="chart-hbar" d="${d}" fill="${r.color}" style="animation-delay:${i * 80}ms">
+                <title>${escapeHtml(r.label)}: ${fmtTooltip(r.value)}</title>
+            </path>`;
+        }
+
+        svg += `<text class="chart-bar-value" x="${f2(PL + Math.max(len, 0) + 8)}" y="${f2(yMid)}" dominant-baseline="middle" style="animation-delay:${i * 80 + 350}ms">${fmtValue(r.value)}</text>`;
+    });
+
+    svg += '</svg>';
+    return svg;
+}
+
+/** Render the Monthly Cash Flow card from the month's per-type totals. */
+function renderMonthlyCashflow(totals) {
+    const container = document.getElementById('mcf-chart');
+    if (!container) return;
+
+    const cs = getComputedStyle(document.documentElement);
+    const rows = MCF_ROWS.map(r => ({
+        label: r.label,
+        color: cs.getPropertyValue(r.token).trim() || r.fallback,
+        value: (totals && totals[r.key]) || 0,
+    }));
+
+    if (!rows.some(r => r.value > 0)) {
+        chartObservers.get('mcf-chart')?.disconnect();
+        // Compact here — the Spending card below carries the tab's one CTA.
+        container.innerHTML = UI.emptyState({
+            icon: 'chart', compact: true,
+            title: isCurrentHomeMonth() ? 'No activity this month yet' : `Nothing in ${homeMonthLabel()}`,
+            desc: 'Transactions you add or import show up here as income, expenses, savings, and investing.',
+        });
+        return;
+    }
+
+    observeChart('mcf-chart', (W, animate) => buildHBarChartSVG({ rows, W, animate }));
+}
+
+/**
+ * Build one inline SVG bar chart: one bar per category, value on the Y axis.
+ * Shares the line charts' frame (same pad, grid, nice-tick axis, label
+ * typography) so the Spending card lines up with everything else; the bars'
+ * grow-in entrance lives in home.css §11.
+ *
+ *   bars: [{ label, color, value }] — pre-sorted, values > 0.
+ *
+ * SECURITY: bar labels are user-controlled category names — escaped both in
+ * the axis label and the <title> tooltip.
+ */
+function buildBarChartSVG({ bars, W, animate = true }) {
+    if (bars.length === 0) return null;
+
+    const H = Math.max(Math.round(W * CHART_RATIO), 170);
+    const { l: PL, r: PR, t: PT, b: PB } = CHART_PAD;
+    const CW = W - PL - PR;
+    const CH = H - PT - PB;
+    const f2 = (n) => Math.round(n * 100) / 100;
+
+    // Spending is always ≥ 0, so the axis is anchored at zero and snapped to
+    // nice ticks above the tallest bar.
+    const yTicks = niceTicks(0, Math.max(...bars.map(b => b.value)), 4);
+    const maxVal = yTicks[yTicks.length - 1] || 1;
+    const yScale = v => PT + CH - (v / maxVal) * CH;
+    const baseY  = PT + CH;
+
+    let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" class="home-chart${animate ? '' : ' chart-no-anim'}" style="display:block;">`;
+
+    for (const v of yTicks) {
+        const y = yScale(v);
+        svg += `<line class="chart-grid" x1="${PL}" y1="${y}" x2="${W - PR}" y2="${y}"/>`;
+        svg += `<text class="chart-label" x="${PL - 10}" y="${y}" text-anchor="end" dominant-baseline="middle">${fmtAxis(v)}</text>`;
+    }
+
+    const slotW = CW / bars.length;
+    const barW  = Math.min(slotW * 0.6, 64);
+
+    bars.forEach((b, i) => {
+        const cx = PL + slotW * (i + 0.5);
+        const x  = cx - barW / 2;
+        const y  = yScale(b.value);
+        const h  = baseY - y;
+        // Rounded top corners only — the bar must sit flat on the baseline.
+        const r  = Math.min(4, barW / 2, h);
+        const d  = `M ${f2(x)} ${f2(baseY)} L ${f2(x)} ${f2(y + r)}`
+                 + ` Q ${f2(x)} ${f2(y)} ${f2(x + r)} ${f2(y)}`
+                 + ` L ${f2(x + barW - r)} ${f2(y)}`
+                 + ` Q ${f2(x + barW)} ${f2(y)} ${f2(x + barW)} ${f2(y + r)}`
+                 + ` L ${f2(x + barW)} ${f2(baseY)} Z`;
+        svg += `<path class="chart-bar" d="${d}" fill="${b.color}" style="animation-delay:${i * 60}ms">
+            <title>${escapeHtml(b.label)}: ${fmtTooltip(b.value)}</title>
+        </path>`;
+
+        // Category name under the bar, truncated to its band (the tooltip
+        // carries the full name). ~6.5px per character at the 11px label size.
+        const maxChars = Math.max(4, Math.floor(slotW / 6.5));
+        const label = b.label.length > maxChars
+            ? b.label.slice(0, maxChars - 1).trimEnd() + '…'
+            : b.label;
+        svg += `<text class="chart-label" x="${f2(cx)}" y="${H - PB + 18}" text-anchor="middle">${escapeHtml(label)}</text>`;
+    });
+
+    svg += '</svg>';
+    return svg;
+}
+
+/** Render the Spending card from the month's per-category totals. */
+function renderSpendingChart(cats) {
+    const container = document.getElementById('spending-chart');
+    if (!container) return;
+
+    if (cats.length === 0) {
+        chartObservers.get('spending-chart')?.disconnect();
+        container.innerHTML = isCurrentHomeMonth()
+            ? UI.emptyState({
+                icon: 'wallet',
+                title: 'No spending this month yet',
+                desc: 'Import or add transactions and Oliv will break your month\'s spending down by category.',
+                action: { label: 'Add transactions', href: '/transactions', icon: 'plus', primary: true },
+            })
+            : UI.emptyState({
+                icon: 'search', compact: true,
+                title: `Nothing in ${homeMonthLabel()}`,
+                desc: 'No expenses were recorded in this month.',
+            });
+        return;
+    }
+
+    const palette = readChartPalette();
+    const bars = cats.map((c, i) => ({
+        label: c.name,
+        color: palette[i % palette.length],
+        value: c.total,
+    }));
+    observeChart('spending-chart', (W, animate) => buildBarChartSVG({ bars, W, animate }));
+}
+
+/** Update the stepper label/buttons, fetch the month (cached per page load),
+ *  and (re)render both monthly charts. */
+async function renderMonthSection() {
+    const labelEl = document.getElementById('home-month-label');
+    const nextBtn = document.getElementById('home-month-next');
+    if (labelEl) labelEl.textContent = homeMonthLabel();
+    if (nextBtn) nextBtn.disabled = isCurrentHomeMonth();
+
+    const ym = homeMonthKey();
+    const token = ++homeMonthReq;
+
+    let data = homeMonthCache.get(ym);
+    if (!data) {
+        const cancelSkeleton = UI.skeletonGuard(() => {
+            for (const id of ['mcf-chart', 'spending-chart']) {
+                chartObservers.get(id)?.disconnect();
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = UI.skChart(id === 'mcf-chart' ? 180 : 220);
+            }
+        });
+        try {
+            const res = await apiFetch(`/api/spending?month=${ym}`);
+            if (res.ok) {
+                const body = await res.json();
+                data = { totals: body.totals || {}, categories: body.categories || [] };
+                homeMonthCache.set(ym, data);
+            }
+        } catch (e) {
+            // Network hiccup — fall through to the empty states.
+        }
+        cancelSkeleton();
+        // A newer month was requested while this one was in flight — drop it.
+        if (token !== homeMonthReq) return;
+        data = data || { totals: {}, categories: [] };
+    }
+
+    renderMonthlyCashflow(data.totals);
+    renderSpendingChart(data.categories);
+}
+
+/** Step the monthly view back/forward. Forward stops at the current month
+ *  (the next button is disabled there too — this is the belt to its braces). */
+function shiftHomeMonth(delta) {
+    const now = new Date();
+    const target = homeMonth.year * 12 + homeMonth.monthIdx + delta;
+    if (target > now.getFullYear() * 12 + now.getMonth()) return;
+    homeMonth = { year: Math.floor(target / 12), monthIdx: ((target % 12) + 12) % 12 };
+    renderMonthSection();
+}
+
+function wireMonthStepper() {
+    const prev = document.getElementById('home-month-prev');
+    const next = document.getElementById('home-month-next');
+    if (prev) prev.addEventListener('click', () => shiftHomeMonth(-1));
+    if (next) next.addEventListener('click', () => shiftHomeMonth(1));
+}
+
 // ─── Upcoming expenses (recurring-spend predictions) ─────────────────────────
 // The detection itself is in the backend (electron/backend/services/predictions.js): the ledger
 // is scanned for regular charges and the next one per merchant is projected.
@@ -1053,6 +1342,56 @@ async function renderUpcomingExpenses() {
     }).join('');
 }
 
+// ─── Tabs ────────────────────────────────────────────────────────────────────
+
+/**
+ * "This Month" / "Over Time" tab bar — standard ARIA tablist, same controller
+ * as Cash Flow Reports (cashflow.js): click or arrow/Home/End to switch
+ * panels, with roving tabindex so only the active tab is in the tab order.
+ * Charts inside the hidden panel paint (animated) on first reveal: their
+ * ResizeObserver fires when the container gains a width.
+ */
+function wireTabs() {
+    const tablist = document.querySelector('.home-tabs');
+    if (!tablist) return;
+
+    const tabs = Array.from(tablist.querySelectorAll('.home-tab'));
+    const panels = Array.from(document.querySelectorAll('.home-panel'));
+    if (!tabs.length) return;
+
+    function select(tab, focus) {
+        const id = tab.dataset.tab;
+        tabs.forEach((t) => {
+            const on = t === tab;
+            t.classList.toggle('active', on);
+            t.setAttribute('aria-selected', on ? 'true' : 'false');
+            t.tabIndex = on ? 0 : -1;
+        });
+        panels.forEach((p) => { p.hidden = p.dataset.panel !== id; });
+        if (focus) tab.focus();
+    }
+
+    tablist.addEventListener('click', (e) => {
+        const tab = e.target.closest('.home-tab');
+        if (tab) select(tab);
+    });
+
+    tablist.addEventListener('keydown', (e) => {
+        const i = tabs.indexOf(document.activeElement);
+        if (i < 0) return;
+        let j = -1;
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') j = (i + 1) % tabs.length;
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') j = (i - 1 + tabs.length) % tabs.length;
+        else if (e.key === 'Home') j = 0;
+        else if (e.key === 'End') j = tabs.length - 1;
+        if (j >= 0) { e.preventDefault(); select(tabs[j], true); }
+    });
+
+    // Sync initial state (roving tabindex + panel visibility) to the markup's
+    // pre-selected tab.
+    select(tabs.find((t) => t.getAttribute('aria-selected') === 'true') || tabs[0]);
+}
+
 // ─── Bootstrap ───────────────────────────────────────────────────────────────
 
 /** Inject loading skeletons into the dashboard's chart and list slots. Shown
@@ -1069,7 +1408,11 @@ function showHomeSkeletons() {
 
 /** Fetch both datasets in parallel and render all dashboard sections. */
 async function init() {
-    // Independent fetch — kick it off first so it loads alongside the charts.
+    wireTabs();
+    wireMonthStepper();
+    // Independent fetches — kick them off first so the "This Month" panel
+    // loads alongside the Over Time charts.
+    renderMonthSection();
     renderUpcomingExpenses();
     const cancelSkeletons = UI.skeletonGuard(showHomeSkeletons);
     const [balanceData, ieDataFetched] = await Promise.all([fetchBalanceData(), fetchIEData()]);
