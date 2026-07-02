@@ -8,7 +8,16 @@
 //                                     re-stamp. Each migration is additive and
 //                                     idempotent so a re-run is harmless.
 
-const { SCHEMA_VERSION, createBaselineSchema } = require('./schema');
+const {
+  SCHEMA_VERSION,
+  createBaselineSchema,
+  transactionsTableDdl,
+  TRANSACTIONS_INDEXES,
+  ACCOUNTS_DDL,
+  ANCHORS_DDL,
+  ANCHORS_INDEX_DDL,
+  V_TRANSACTIONS_DDL,
+} = require('./schema');
 
 function tableExists(db, name) {
   return !!db
@@ -95,6 +104,39 @@ const MIGRATIONS = [
       db.exec('DROP TABLE budget_targets');
     }
     db.exec('DROP TABLE IF EXISTS budget_income');
+  }],
+  // v7 — Accounts join the ledger to the Balance Sheet: an accounts table,
+  // point-in-time balance anchors, and per-transaction account membership +
+  // transfer pairing (transfer_in / transfer_out tx_types). SQLite cannot
+  // ALTER a CHECK constraint, so gaining the transfer types rebuilds the
+  // transactions table in place: copy into a new-shape table, drop, rename,
+  // recreate indexes and the view. All DDL comes from the shared builders in
+  // schema.js so the rebuilt shape is byte-identical to a fresh baseline.
+  // The whole step runs inside one transaction — the ledger is either fully
+  // migrated or untouched. (FKs are OFF engine-wide, so drop/rename is safe.)
+  [7, (db) => {
+    db.transaction(() => {
+      if (!tableExists(db, 'accounts')) db.exec(ACCOUNTS_DDL);
+      if (!tableExists(db, 'account_balance_anchors')) {
+        db.exec(ANCHORS_DDL);
+        db.exec(ANCHORS_INDEX_DDL);
+      }
+      const hasAccountCol = db
+        .pragma('table_info(transactions)')
+        .some((c) => c.name === 'account_id');
+      if (!hasAccountCol) {
+        db.exec('DROP VIEW IF EXISTS v_transactions');
+        db.exec(transactionsTableDdl('transactions_v7'));
+        db.exec(`INSERT INTO transactions_v7
+                   (id, date, description, category_id, amount, notes, tx_type)
+                 SELECT id, date, description, category_id, amount, notes, tx_type
+                 FROM transactions`);
+        db.exec('DROP TABLE transactions'); // drops its indexes with it
+        db.exec('ALTER TABLE transactions_v7 RENAME TO transactions');
+        for (const ix of TRANSACTIONS_INDEXES) db.exec(ix);
+        db.exec(V_TRANSACTIONS_DDL);
+      }
+    })();
   }],
 ];
 

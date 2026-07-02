@@ -17,7 +17,7 @@
 //   - the v_* views pre-join the normalized tables into human-readable,
 //     chronologically-sortable shapes for ad-hoc querying.
 
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 // Months persist as 1-12 integers so `ORDER BY year, month` sorts
 // chronologically (the app translates to/from English names at its API
@@ -35,6 +35,118 @@ function monthNameCase(col) {
   const arms = MONTH_NAMES.map((m, i) => `          WHEN ${i + 1} THEN '${m}'`).join('\n');
   return `CASE ${col}\n${arms}\n        END`;
 }
+
+// ── Shared DDL builders ──────────────────────────────────────────────────────
+// The transactions table, its indexes and its convenience view are created in
+// two places — the fresh-DB baseline below and the v7 in-place rebuild in
+// migrate.js (SQLite cannot ALTER a CHECK, so gaining the transfer tx_types
+// meant rebuilding the table). They share these builders so the two copies
+// cannot drift.
+
+/** The transactions table DDL, parameterised so the v7 rebuild can create it
+ *  under a temporary name before swapping it in. */
+function transactionsTableDdl(name) {
+  return `CREATE TABLE ${name} (
+     -- The transaction ledger. category_id NULL means uncategorized. amount is a
+     -- positive magnitude in dollars (rounded to cents at write); direction is
+     -- tx_type, which for a categorized row mirrors the category's cat_type.
+     -- account_id NULL means the row is not assigned to a money account (rows
+     -- predating accounts, or an import where the user skipped the picker).
+     -- A transfer between accounts is a PAIR of rows — 'transfer_out' in the
+     -- source account, 'transfer_in' in the target — linked to each other via
+     -- transfer_peer_id. Transfers move money between accounts rather than in
+     -- or out of the household, so income/spend analytics exclude them.
+     id INTEGER NOT NULL,
+     date DATE NOT NULL,                                    -- ISO 'YYYY-MM-DD'
+     description VARCHAR(200) DEFAULT '' NOT NULL,
+     category_id INTEGER,
+     amount FLOAT DEFAULT 0 NOT NULL CHECK (amount >= 0),
+     notes VARCHAR(500) DEFAULT '' NOT NULL,
+     tx_type VARCHAR(20) DEFAULT 'expense' NOT NULL
+       CHECK (tx_type IN ('income', 'expense', 'savings', 'investing',
+                          'transfer_in', 'transfer_out')),
+     account_id INTEGER,
+     transfer_peer_id INTEGER,
+     PRIMARY KEY (id),
+     FOREIGN KEY (category_id) REFERENCES categories (id),
+     FOREIGN KEY (account_id) REFERENCES accounts (id),
+     FOREIGN KEY (transfer_peer_id) REFERENCES transactions (id)
+   )`;
+}
+
+const TRANSACTIONS_INDEXES = [
+  'CREATE INDEX ix_transactions_category_id ON transactions (category_id)',
+  'CREATE INDEX ix_transactions_date ON transactions (date)',
+  'CREATE INDEX ix_transactions_account_id ON transactions (account_id)',
+];
+
+const ACCOUNTS_DDL = `CREATE TABLE accounts (
+     -- Real-world money accounts (a checking account, a credit card, a 401k)
+     -- that transactions and balance anchors belong to. kind groups accounts
+     -- in the UI; balance_column optionally links the account to the Balance
+     -- Sheet column (balance_columns."key") its derived balances feed, so the
+     -- ledger and the Balance Sheet stay joinable without duplicating labels.
+     id INTEGER NOT NULL,
+     name VARCHAR(100) NOT NULL,
+     kind VARCHAR(20) NOT NULL
+       CHECK (kind IN ('checking', 'savings', 'credit', 'investment',
+                       'retirement', 'other')),
+     balance_column VARCHAR(50),
+     PRIMARY KEY (id),
+     UNIQUE (name),
+     FOREIGN KEY (balance_column) REFERENCES balance_columns ("key")
+   )`;
+
+const ANCHORS_DDL = `CREATE TABLE account_balance_anchors (
+     -- Point-in-time balance observations for an account. source 'file' rows
+     -- are statement balances carried inside an imported export (an OFX
+     -- <LEDGERBAL>, a CSV Balance column); 'manual' rows are user-entered
+     -- ("what's this account's balance today?"). The balance service derives
+     -- month-end balances by rolling anchors through the account's
+     -- transactions — an anchor is evidence about one moment in time, never a
+     -- hand-maintained tracker value. balance is signed (credit/debt accounts
+     -- run negative), so it carries no sign CHECK.
+     id INTEGER NOT NULL,
+     account_id INTEGER NOT NULL,
+     date DATE NOT NULL,                                    -- ISO 'YYYY-MM-DD'
+     balance FLOAT NOT NULL,
+     source VARCHAR(10) NOT NULL CHECK (source IN ('manual', 'file')),
+     PRIMARY KEY (id),
+     CONSTRAINT uq_balance_anchor UNIQUE (account_id, date, source),
+     FOREIGN KEY (account_id) REFERENCES accounts (id)
+   )`;
+
+const ANCHORS_INDEX_DDL =
+  'CREATE INDEX ix_account_balance_anchors_account_id ON account_balance_anchors (account_id)';
+
+const V_TRANSACTIONS_DDL = `CREATE VIEW v_transactions AS
+     -- Every transaction with its category resolved to a name and an effective
+     -- direction: a categorized row takes tx_type from the category (so it is
+     -- correct even if the stored tx_type predates a category re-type); an
+     -- uncategorized row keeps its stored tx_type — including the transfer
+     -- pair types, which never carry a category. signed_amount is the row's
+     -- effect on its own account's balance: inflows (income, transfer_in)
+     -- positive, every outflow negative. A transfer moves money BETWEEN
+     -- accounts, not in or out of the household — exclude the transfer types
+     -- when analysing income or spending.
+     SELECT
+       t.id,
+       t.date,
+       t.description,
+       t.amount,
+       COALESCE(c.cat_type, t.tx_type) AS tx_type,
+       CASE WHEN COALESCE(c.cat_type, t.tx_type) IN ('income', 'transfer_in')
+            THEN t.amount ELSE -t.amount END AS signed_amount,
+       t.category_id,
+       c."key" AS category_key,
+       c.name  AS category_name,
+       t.account_id,
+       a.name  AS account_name,
+       t.transfer_peer_id,
+       t.notes
+     FROM transactions t
+     LEFT JOIN categories c ON c.id = t.category_id
+     LEFT JOIN accounts a ON a.id = t.account_id`;
 
 const DDL = [
   `CREATE TABLE active_years (
@@ -160,21 +272,9 @@ const DDL = [
      PRIMARY KEY (id),
      FOREIGN KEY (account_id) REFERENCES portfolio_accounts (id)
    )`,
-  `CREATE TABLE transactions (
-     -- The transaction ledger. category_id NULL means uncategorized. amount is a
-     -- positive magnitude in dollars (rounded to cents at write); direction is
-     -- tx_type, which for a categorized row mirrors the category's cat_type.
-     id INTEGER NOT NULL,
-     date DATE NOT NULL,                                    -- ISO 'YYYY-MM-DD'
-     description VARCHAR(200) DEFAULT '' NOT NULL,
-     category_id INTEGER,
-     amount FLOAT DEFAULT 0 NOT NULL CHECK (amount >= 0),
-     notes VARCHAR(500) DEFAULT '' NOT NULL,
-     tx_type VARCHAR(10) DEFAULT 'expense' NOT NULL
-       CHECK (tx_type IN ('income', 'expense', 'savings', 'investing')),
-     PRIMARY KEY (id),
-     FOREIGN KEY (category_id) REFERENCES categories (id)
-   )`,
+  ACCOUNTS_DDL,
+  ANCHORS_DDL,
+  transactionsTableDdl('transactions'),
   `CREATE TABLE forecast_planned (
      -- Planned one-off future income/expenses for the Cash Flow Forecast.
      -- amount is a positive magnitude; flow decides its sign in the projection.
@@ -202,8 +302,8 @@ const DDL = [
   `CREATE INDEX ix_match_rules_category_id ON match_rules (category_id)`,
   `CREATE UNIQUE INDEX ix_match_rules_pattern ON match_rules (pattern)`,
   `CREATE INDEX ix_portfolio_entries_account_id ON portfolio_entries (account_id)`,
-  `CREATE INDEX ix_transactions_category_id ON transactions (category_id)`,
-  `CREATE INDEX ix_transactions_date ON transactions (date)`,
+  ...TRANSACTIONS_INDEXES,
+  ANCHORS_INDEX_DDL,
   `CREATE INDEX ix_forecast_planned_date ON forecast_planned (date)`,
 
   // ── Convenience views ──────────────────────────────────────────────────────
@@ -211,27 +311,7 @@ const DDL = [
   // category/account names, a sortable month_num, an effective direction, and
   // derived valuations — none of which is stored. Safe to drop/recreate.
 
-  `CREATE VIEW v_transactions AS
-     -- Every transaction with its category resolved to a name and an effective
-     -- direction: a categorized row takes tx_type from the category (so it is
-     -- correct even if the stored tx_type predates a category re-type); an
-     -- uncategorized row keeps its stored tx_type. signed_amount is a cash-flow
-     -- convention — income positive, every outflow (expense/savings/investing)
-     -- negative.
-     SELECT
-       t.id,
-       t.date,
-       t.description,
-       t.amount,
-       COALESCE(c.cat_type, t.tx_type) AS tx_type,
-       CASE WHEN COALESCE(c.cat_type, t.tx_type) = 'income'
-            THEN t.amount ELSE -t.amount END AS signed_amount,
-       t.category_id,
-       c."key" AS category_key,
-       c.name  AS category_name,
-       t.notes
-     FROM transactions t
-     LEFT JOIN categories c ON c.id = t.category_id`,
+  V_TRANSACTIONS_DDL,
 
   `CREATE VIEW v_cash_flow AS
      -- Cash Flow manual entries with the category resolved to a name/type.
@@ -298,4 +378,14 @@ function createBaselineSchema(db) {
   for (const stmt of DDL) db.exec(stmt);
 }
 
-module.exports = { SCHEMA_VERSION, createBaselineSchema };
+module.exports = {
+  SCHEMA_VERSION,
+  createBaselineSchema,
+  // Shared with the v7 in-place migration (see migrate.js).
+  transactionsTableDdl,
+  TRANSACTIONS_INDEXES,
+  ACCOUNTS_DDL,
+  ANCHORS_DDL,
+  ANCHORS_INDEX_DDL,
+  V_TRANSACTIONS_DDL,
+};
