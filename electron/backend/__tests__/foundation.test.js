@@ -39,10 +39,15 @@ test('fresh DB: baseline schema + seed', () => {
   assert.equal(flexOf('investing'), 'goal');
   assert.ok(cats.every((c) => ['fixed', 'flex', 'goal'].includes(c.flex_type)));
 
-  // Clean slate: nothing is synced until the user turns it on per table.
-  assert.equal(db.prepare('SELECT COUNT(*) c FROM category_sync').get().c, 0);
-
   const yr = new Date().getFullYear();
+
+  // The bootstrap year starts fully synced (every category computed from
+  // transactions), mirroring the yearAdd default — a first import populates
+  // Cash Flow without any sync configuration. The user opts cells OUT.
+  const syncRows = db.prepare('SELECT year, category FROM category_sync').all();
+  assert.equal(syncRows.length, cats.length, 'every category synced for the bootstrap year');
+  assert.ok(syncRows.every((r) => r.year === yr));
+
   assert.ok(db.prepare('SELECT 1 FROM active_years WHERE year=?').get(yr));
   assert.ok(db.prepare('SELECT 1 FROM balance_active_years WHERE year=?').get(yr));
   assert.equal(db.prepare('SELECT COUNT(*) c FROM balance_columns').get().c, 5);
@@ -54,7 +59,8 @@ test('fresh DB: baseline schema + seed', () => {
 
   for (const t of ['active_years', 'app_settings', 'balance_entries', 'categories',
     'category_sync', 'credit_cards', 'entries', 'match_rules', 'portfolio_accounts',
-    'portfolio_entries', 'transactions', 'forecast_planned', 'budget_amounts']) {
+    'portfolio_entries', 'transactions', 'forecast_planned', 'budget_amounts',
+    'accounts', 'account_balance_anchors', 'balance_sync']) {
     assert.ok(tableExists(db, t), `table ${t} present`);
   }
   db.close();
@@ -67,6 +73,16 @@ test('seed is idempotent', () => {
   seedDefaults(db);
   assert.equal(db.prepare('SELECT COUNT(*) c FROM categories').get().c, 18);
   assert.equal(db.prepare('SELECT COUNT(*) c FROM portfolio_accounts').get().c, 1);
+
+  // Re-seeding never resurrects sync rows the user opted out of: the sync
+  // seeding is tied to the bootstrap-year INSERT, which only fires once.
+  db.prepare("DELETE FROM category_sync WHERE category = 'groceries'").run();
+  seedDefaults(db);
+  assert.equal(
+    db.prepare("SELECT COUNT(*) c FROM category_sync WHERE category = 'groceries'").get().c,
+    0,
+    'user sync opt-out survives a re-seed'
+  );
   db.close();
 });
 
@@ -112,6 +128,95 @@ test('migration v5: a pre-flex_type categories table gains the column + seeded v
   assert.equal(flex.rent, 'fixed', 'a contractual bill becomes fixed');
   assert.equal(flex.savings, 'goal', 'a savings category becomes a goal');
   assert.equal(flex.groceries, 'flex', 'everything else defaults to flex');
+  db.close();
+});
+
+test('migration v7: a pre-accounts DB gains accounts, anchors, and a rebuilt ledger', () => {
+  const db = connect(tmpFile());
+  bootstrapSchema(db);
+  seedDefaults(db);
+
+  // Rebuild transactions in its pre-v7 shape (no account_id/transfer_peer_id,
+  // no transfer tx_types in the CHECK), drop the v7 tables and view, and lower
+  // the stored version so bootstrapSchema takes the migration path.
+  db.exec('DROP VIEW v_transactions');
+  db.exec('DROP TABLE transactions');
+  db.exec(`CREATE TABLE transactions (
+     id INTEGER NOT NULL, date DATE NOT NULL,
+     description VARCHAR(200) DEFAULT '' NOT NULL, category_id INTEGER,
+     amount FLOAT DEFAULT 0 NOT NULL CHECK (amount >= 0),
+     notes VARCHAR(500) DEFAULT '' NOT NULL,
+     tx_type VARCHAR(10) DEFAULT 'expense' NOT NULL
+       CHECK (tx_type IN ('income', 'expense', 'savings', 'investing')),
+     PRIMARY KEY (id))`);
+  db.exec('DROP TABLE accounts');
+  db.exec('DROP TABLE account_balance_anchors');
+  const groceriesId = db.prepare("SELECT id FROM categories WHERE \"key\"='groceries'").get().id;
+  db.prepare(
+    "INSERT INTO transactions (date, description, category_id, amount, tx_type) VALUES (?, ?, ?, ?, ?)"
+  ).run('2026-03-05', 'SAFEWAY #1842', groceriesId, 88.12, 'expense');
+  db.pragma('user_version = 6');
+
+  bootstrapSchema(db); // climbs 6 -> SCHEMA_VERSION, running migration v7
+  assert.equal(Number(db.pragma('user_version', { simple: true })), SCHEMA_VERSION);
+
+  // The ledger survived the rebuild, byte-for-byte where it matters.
+  const t = db.prepare('SELECT * FROM transactions').get();
+  assert.equal(t.description, 'SAFEWAY #1842');
+  assert.equal(t.amount, 88.12);
+  assert.equal(t.category_id, groceriesId);
+  assert.equal(t.account_id, null, 'pre-accounts rows are unassigned');
+  assert.equal(t.transfer_peer_id, null);
+
+  // The rebuilt CHECK admits the transfer pair types...
+  db.prepare(
+    "INSERT INTO transactions (date, description, amount, tx_type) VALUES (?, ?, ?, ?)"
+  ).run('2026-03-06', 'to savings', 500, 'transfer_out');
+  // ...and still rejects garbage.
+  assert.throws(() =>
+    db.prepare(
+      "INSERT INTO transactions (date, description, amount, tx_type) VALUES (?, ?, ?, ?)"
+    ).run('2026-03-07', 'x', 1, 'nonsense')
+  );
+
+  // New tables and the account-aware view are in place.
+  assert.ok(tableExists(db, 'accounts'));
+  assert.ok(tableExists(db, 'account_balance_anchors'));
+  const viewRow = db
+    .prepare("SELECT account_name, signed_amount FROM v_transactions WHERE tx_type = 'transfer_out'")
+    .get();
+  assert.equal(viewRow.account_name, null);
+  assert.equal(viewRow.signed_amount, -500, 'transfer_out is an outflow of its account');
+  db.close();
+});
+
+test('migration v8: balance_sync arrives seeded for already-linked columns', () => {
+  const db = connect(tmpFile());
+  bootstrapSchema(db);
+  seedDefaults(db);
+
+  // Reshape to pre-v8: no balance_sync, one account already linked to the
+  // checking column (the founder-style DB that was showing derived values).
+  db.exec('DROP TABLE balance_sync');
+  db.prepare(
+    "INSERT INTO accounts (name, kind, balance_column) VALUES ('My Checking', 'checking', 'checking')"
+  ).run();
+  db.pragma('user_version = 7');
+
+  bootstrapSchema(db); // climbs 7 -> SCHEMA_VERSION, running migration v8
+  assert.equal(Number(db.pragma('user_version', { simple: true })), SCHEMA_VERSION);
+  assert.ok(tableExists(db, 'balance_sync'));
+
+  const yr = new Date().getFullYear();
+  assert.ok(
+    db.prepare('SELECT 1 FROM balance_sync WHERE year = ? AND category = ?').get(yr, 'checking'),
+    'linked column seeded as synced, so derived values keep showing'
+  );
+  assert.equal(
+    db.prepare("SELECT COUNT(*) c FROM balance_sync WHERE category != 'checking'").get().c,
+    0,
+    'unlinked columns stay manual'
+  );
   db.close();
 });
 

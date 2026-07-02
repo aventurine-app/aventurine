@@ -412,10 +412,12 @@ async function reloadYearTables(ctx) {
     ctx.columns   = data.columns;
     ctx.years     = data.years;
     ctx.entries   = data.entries;
-    // Per-year synced-category map { yearStr: [catKey,…] }. Only the Cash Flow
-    // page ships it; other year-table pages leave ctx.sync undefined (all cells
-    // editable).
+    // Per-year synced-category map { yearStr: [catKey,…] }. Cash Flow and the
+    // Balance Sheet both ship one; pages without it leave every cell editable.
     ctx.sync      = data.sync || {};
+    // Which columns CAN sync (Balance Sheet: columns with a linked account).
+    // undefined (Cash Flow) means every column is eligible.
+    ctx.syncable  = data.syncable;
     renderYearTables(ctx);
 }
 
@@ -537,12 +539,13 @@ function createYearTable(year, ctx) {
  *   • Editable column      — editable <input>. The input carries the currency
  *                            symbol as a prefix once content is present (e.g.
  *                            "$1,234"); see currency.js for the editing model.
- *   • Synced cell (isSynced) — read-only <span>. Its text is the computed sum of
- *                            matching transactions for the month, populated by
- *                            initYearTable from the entries payload. No event
- *                            wiring on these cells. Sync is per-table, so the
- *                            same column may be synced in one year and editable
- *                            in another.
+ *   • Synced cell (isSynced) — read-only <span>. Its text is computed — a Cash
+ *                            Flow category's transaction sum, or a Balance
+ *                            Sheet column's ledger-derived balance — populated
+ *                            by initYearTable from the entries payload. No
+ *                            event wiring on these cells. Sync is per-table,
+ *                            so the same column may be synced in one year and
+ *                            editable in another.
  */
 function _buildDataCell(month, col, isSynced) {
     const td = document.createElement('td');
@@ -1132,9 +1135,9 @@ function showColumnManager(ctx) {
 
 // A small switch toggle reused for every category row. Shape mirrors the
 // Settings categories switch so the affordance reads consistently.
-const _SYNC_SWITCH = (key, on) =>
+const _SYNC_SWITCH = (key, on, disabled = false) =>
     `<label class="sync-switch">
-        <input type="checkbox" data-key="${escapeHtml(key)}" ${on ? 'checked' : ''}>
+        <input type="checkbox" data-key="${escapeHtml(key)}" ${on ? 'checked' : ''}${disabled ? ' disabled' : ''}>
         <span class="sync-switch-track"><span class="sync-switch-knob"></span></span>
     </label>`;
 
@@ -1166,17 +1169,25 @@ function showSyncSettings(year, ctx) {
 
     const render = () => {
         const syncedKeys = new Set(ctx.sync?.[String(year)] || []);
+        // When the page ships a `syncable` list (Balance Sheet), only those
+        // columns can be switched ON — the rest have no linked account to
+        // derive from. An absent list (Cash Flow) means everything's eligible.
+        const canSync = (key) => !Array.isArray(ctx.syncable) || ctx.syncable.includes(key);
 
         const sectionsHtml = types.map(t => {
             const cols = ctx.types
                 ? ctx.columns.filter(c => c.type === t.key)
                 : ctx.columns;
             if (!cols.length) return '';
-            const rows = cols.map(c => `
-                <div class="sync-row" data-key="${escapeHtml(c.key)}">
+            const rows = cols.map(c => {
+                const eligible = canSync(c.key) || syncedKeys.has(c.key);
+                return `
+                <div class="sync-row${eligible ? '' : ' sync-row-ineligible'}" data-key="${escapeHtml(c.key)}"${
+                    eligible ? '' : ' title="No account is linked to this column yet — assign one when importing a statement to enable sync."'}>
                     <span class="sync-row-label">${escapeHtml(c.label)}</span>
-                    ${_SYNC_SWITCH(c.key, syncedKeys.has(c.key))}
-                </div>`).join('');
+                    ${_SYNC_SWITCH(c.key, syncedKeys.has(c.key), !eligible)}
+                </div>`;
+            }).join('');
             const heading = ctx.types
                 ? `<div class="col-type-label">${escapeHtml(t.label)}</div>` : '';
             return `<div class="col-manager-section">${heading}<div class="sync-list">${rows}</div></div>`;

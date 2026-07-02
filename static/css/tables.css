@@ -813,6 +813,17 @@
 
 .sync-row:hover { background: var(--surface2); }
 
+/* Balance Sheet: a column with no linked account cannot sync — there is no
+   data source to derive from. The row stays visible (so the feature is
+   discoverable) but reads muted, and its switch is disabled; the row's
+   title explains how to make it eligible. */
+.sync-row-ineligible .sync-row-label { color: var(--text-tertiary); }
+.sync-row-ineligible { cursor: not-allowed; }
+.sync-switch input:disabled + .sync-switch-track {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
 .sync-row-label {
     color: var(--text-primary);
     font-size: var(--size-body);

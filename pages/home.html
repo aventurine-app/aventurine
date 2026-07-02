@@ -13,8 +13,76 @@
         <!-- @include sidebar -->
 
         <div class="page">
-             
+
 <div class="home-page">
+
+    <!-- Dashboard view tabs. Same ARIA tablist pattern as Cash Flow Reports
+         (cash-flow.html): a .home-tab button here + a matching
+         .home-panel[data-panel] below. Controller: wireTabs() in home.js. -->
+    <div class="home-tabs" role="tablist" aria-label="Home dashboard views">
+        <button type="button" class="home-tab active" id="home-tab-month" role="tab"
+            data-tab="month" aria-controls="home-panel-month" aria-selected="true">This Month</button>
+        <button type="button" class="home-tab" id="home-tab-overtime" role="tab"
+            data-tab="overtime" aria-controls="home-panel-overtime" aria-selected="false" tabindex="-1">Over Time</button>
+    </div>
+
+    <div class="home-panel" id="home-panel-month" role="tabpanel"
+        data-panel="month" aria-labelledby="home-tab-month" tabindex="0">
+
+    <!-- The stepper scopes every monthly card below: current month by
+         default, arrows walk back to any earlier month. -->
+    <div class="home-month-bar">
+        <div class="month-stepper" id="home-month">
+            <button class="month-stepper-btn" id="home-month-prev" type="button" aria-label="Previous month">&#8249;</button>
+            <span class="month-stepper-label" id="home-month-label" aria-live="polite">&nbsp;</span>
+            <button class="month-stepper-btn" id="home-month-next" type="button" aria-label="Next month" disabled>&#8250;</button>
+        </div>
+    </div>
+
+    <div class="home-grid">
+
+        <div class="home-col home-col-main">
+            <div class="home-card">
+                <div class="home-card-header">
+                    <span class="home-card-title">Monthly Cash Flow<span class="fc-info" tabindex="0" role="note"
+                        aria-label="Where the shown month's money went: total income, expenses, savings, and investing from your transactions ledger. Transfers between your own accounts count as none of these."
+                        data-tip="Where the shown month's money went: total income, expenses, savings, and investing from your transactions ledger. Transfers between your own accounts count as none of these.">i</span></span>
+                </div>
+                <div class="chart-area">
+                    <div id="mcf-chart"></div>
+                </div>
+            </div>
+
+            <div class="home-card">
+                <div class="home-card-header">
+                    <span class="home-card-title">Spending<span class="fc-info" tabindex="0" role="note"
+                        aria-label="What you've spent in each category in the shown month, from your transactions ledger."
+                        data-tip="What you've spent in each category in the shown month, from your transactions ledger.">i</span></span>
+                </div>
+                <div class="chart-area">
+                    <div id="spending-chart"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="home-col home-col-aside">
+            <div class="home-card">
+                <div class="home-card-header">
+                    <span class="home-card-title">Upcoming Expenses</span>
+                </div>
+                <!-- Populated by renderUpcomingExpenses() in home.js from
+                     /api/predictions/upcoming (recurring-spend detection). -->
+                <div id="upcoming-list" class="upcoming-list"></div>
+            </div>
+        </div>
+
+    </div>
+
+    </div><!-- /.home-panel -->
+
+    <div class="home-panel" id="home-panel-overtime" role="tabpanel"
+        data-panel="overtime" aria-labelledby="home-tab-overtime" tabindex="0" hidden>
+
     <div class="home-grid">
 
         <div class="home-col home-col-main">
@@ -76,7 +144,7 @@
                 </div>
                 <div id="account-selector" class="account-selector"></div>
                 <div class="chart-area">
-                    <div id="account-chart"></div>      
+                    <div id="account-chart"></div>
                 </div>
             </div>
         </div>
@@ -91,18 +159,12 @@
                     <div id="accounts-legend" class="accounts-legend"></div>
                 </div>
             </div>
-
-            <div class="home-card">
-                <div class="home-card-header">
-                    <span class="home-card-title">Upcoming Expenses</span>
-                </div>
-                <!-- Populated by renderUpcomingExpenses() in home.js from
-                     /api/predictions/upcoming (recurring-spend detection). -->
-                <div id="upcoming-list" class="upcoming-list"></div>
-            </div>
         </div>
 
     </div>
+
+    </div><!-- /.home-panel -->
+
 </div>
         </div>
     </div>

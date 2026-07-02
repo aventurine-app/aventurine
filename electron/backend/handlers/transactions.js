@@ -25,6 +25,8 @@ const {
   getFuzzyThreshold,
 } = require('../services/matchRules');
 const { applyBuiltinCategorize } = require('../services/categorize');
+const { ensureSyncedYear } = require('./incomeExpenses');
+const { ensureBalanceYear } = require('../services/balances');
 
 function list(ctx) {
   const db = ctx.db();
@@ -43,11 +45,15 @@ function list(ctx) {
 
 // Lightweight count of still-uncategorized rows, for the sidebar badge. Kept
 // separate from list() so every page can poll it without pulling the whole
-// ledger across IPC.
+// ledger across IPC. Transfers are excluded: they never take a category, so
+// counting them would show the user "work" that cannot be done.
 function uncategorizedCount(ctx) {
   const db = ctx.db();
   const { n } = db
-    .prepare('SELECT COUNT(*) AS n FROM transactions WHERE category_id IS NULL')
+    .prepare(
+      `SELECT COUNT(*) AS n FROM transactions
+        WHERE category_id IS NULL AND tx_type NOT IN ('transfer_in', 'transfer_out')`
+    )
     .get();
   return { count: n };
 }
@@ -114,13 +120,18 @@ function similar(ctx, { query }) {
   // bar. (The unattended auto-match bar stays fixed — see services/matchRules.js.)
   const threshold = getFuzzyThreshold(db);
   const needle = rawDesc.toLowerCase();
+  // Transfer rows are excluded in both branches: they cannot take a category,
+  // so offering them as bulk-categorization candidates would only produce
+  // skipped rows at commit time.
   let rows;
   if (threshold < 1) {
     // Pull all uncategorized rows and filter in JS — same as the Python
     // difflib pass; the uncategorized set is usually small.
     rows = db
       .prepare(
-        'SELECT * FROM transactions WHERE category_id IS NULL ORDER BY date DESC, id DESC'
+        `SELECT * FROM transactions
+          WHERE category_id IS NULL AND tx_type NOT IN ('transfer_in', 'transfer_out')
+          ORDER BY date DESC, id DESC`
       )
       .all()
       .filter(
@@ -130,7 +141,8 @@ function similar(ctx, { query }) {
     rows = db
       .prepare(
         `SELECT * FROM transactions
-          WHERE category_id IS NULL AND lower(description) = ?
+          WHERE category_id IS NULL AND tx_type NOT IN ('transfer_in', 'transfer_out')
+            AND lower(description) = ?
           ORDER BY date DESC, id DESC`
       )
       .all(needle);
@@ -155,13 +167,16 @@ function categorizeSimilar(ctx, { body }) {
   if (!cat) bad('unknown category_id');
 
   // Only rows that are still uncategorized at commit time; tx_type derives
-  // from the category — direction is owned by Category.cat_type.
+  // from the category — direction is owned by Category.cat_type. Transfer
+  // rows are skipped for the same reason similar() never offers them: a
+  // transfer can never take a category.
   const placeholders = ids.map(() => '?').join(',');
   const updated = db.transaction(() => {
     const rows = db
       .prepare(
         `SELECT * FROM transactions
-          WHERE id IN (${placeholders}) AND category_id IS NULL`
+          WHERE id IN (${placeholders}) AND category_id IS NULL
+            AND tx_type NOT IN ('transfer_in', 'transfer_out')`
       )
       .all(...ids);
     const upd = db.prepare(
@@ -197,8 +212,20 @@ function hashes(ctx, { query }) {
 
 function importRows(ctx, { body }) {
   const db = ctx.db();
-  const rows = (body || {}).rows;
+  const data = body || {};
+  const rows = data.rows;
   if (!Array.isArray(rows) || !rows.length) bad('rows must be a non-empty array');
+
+  // One import = one file = one account: an optional account_id applies to
+  // every row (validated once here, not per row). Omitted/null keeps the rows
+  // unassigned — imports predating accounts, or a user who skipped the picker.
+  const accountId = data.account_id ?? null;
+  if (accountId !== null) {
+    if (!Number.isInteger(accountId)) bad('account_id must be an integer');
+    if (!db.prepare('SELECT 1 FROM accounts WHERE id = ?').get(accountId)) {
+      bad('unknown account_id');
+    }
+  }
 
   const inserted = [];
   const skipped = [];
@@ -215,6 +242,7 @@ function importRows(ctx, { body }) {
       skipped.push({ row: i, reason: err });
       continue;
     }
+    t.account_id = accountId;
     inserted.push(t);
   }
 
@@ -226,8 +254,18 @@ function importRows(ctx, { body }) {
   const autoCategorized =
     applyAutoMatch(db, inserted) + applyBuiltinCategorize(db, inserted);
   if (inserted.length) {
+    // The imported file IS the coverage: every year it touches gets its Cash
+    // Flow year-table (fully synced when newly created — ensureSyncedYear's
+    // guard keeps existing years' opt-outs intact) and its Balance Sheet year
+    // tab, so the rows and any derived balances are visible immediately
+    // instead of hiding behind a manual "add year" step.
+    const years = new Set(inserted.map((t) => Number(t.date.slice(0, 4))));
     db.transaction(() => {
       for (const t of inserted) insertTx(db, t);
+      for (const year of years) {
+        ensureSyncedYear(db, year);
+        ensureBalanceYear(db, year);
+      }
     })();
   }
 

@@ -88,6 +88,75 @@ function trendsGet(ctx, { query }) {
   return { ok: true, window, months, categories };
 }
 
-const routes = [['GET', '/api/trends', trendsGet]];
+// One month of ledger activity for the Home "This Month" tab: per-type totals
+// (income / expense / savings / investing — the Monthly Cash Flow card) plus
+// per-expense-category totals (the Spending card). Unlike /api/trends this
+// includes the current (partial) month — Home shows month-to-date.
+function spendingGet(ctx, { query }) {
+  const db = ctx.db();
+
+  const month = typeof query.month === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(query.month)
+    ? query.month
+    : currentMonthKey();
+
+  // v_transactions resolves each row's effective direction (a categorized row
+  // takes the category's cat_type); restricting to the four flow types
+  // excludes the transfer pair, which moves money between accounts, not in or
+  // out of the household.
+  const totals = { income: 0, expense: 0, savings: 0, investing: 0 };
+  const typeRows = db
+    .prepare(
+      `SELECT tx_type, SUM(amount) AS s
+         FROM v_transactions
+        WHERE substr(date, 1, 7) = ?
+          AND tx_type IN ('income', 'expense', 'savings', 'investing')
+        GROUP BY tx_type`
+    )
+    .all(month);
+  for (const r of typeRows) totals[r.tx_type] = r.s;
+
+  const rows = db
+    .prepare(
+      `SELECT t.category_id AS cid, SUM(t.amount) AS s
+         FROM transactions t
+         JOIN categories c ON c.id = t.category_id
+        WHERE c.cat_type = 'expense'
+          AND substr(t.date, 1, 7) = ?
+        GROUP BY t.category_id`
+    )
+    .all(month);
+
+  const uncatRow = db
+    .prepare(
+      `SELECT SUM(t.amount) AS s
+         FROM transactions t
+        WHERE t.category_id IS NULL AND t.tx_type = 'expense'
+          AND substr(t.date, 1, 7) = ?`
+    )
+    .get(month);
+
+  const cats = db
+    .prepare("SELECT id, \"key\", name FROM categories WHERE cat_type = 'expense' AND \"key\" != 'uncat_expense'")
+    .all();
+  const metaById = new Map(cats.map((c) => [c.id, c]));
+
+  const categories = [];
+  for (const r of rows) {
+    const meta = metaById.get(r.cid);
+    if (!meta || !(r.s > 0)) continue; // uncat_expense bucket / non-expense / zero
+    categories.push({ key: meta.key, name: meta.name, total: r.s });
+  }
+  if (uncatRow && uncatRow.s > 0) {
+    categories.push({ key: UNCAT_KEY, name: 'Uncategorized', total: uncatRow.s });
+  }
+  categories.sort((a, b) => b.total - a.total);
+
+  return { ok: true, month, totals, categories };
+}
+
+const routes = [
+  ['GET', '/api/trends', trendsGet],
+  ['GET', '/api/spending', spendingGet],
+];
 
 module.exports = { routes };

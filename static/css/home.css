@@ -7,7 +7,7 @@
    hard-coded rem values in this file.
 
    Section layout:
-     1. Page layout (two-column flex, 70/30, responsive collapse)
+     1. Page layout (view tabs + two-column flex, 70/30, responsive collapse)
      2. Card shell
      3. Card header — eyebrow title + optional right-side widget
      4. Shared chart container + empty state
@@ -17,6 +17,7 @@
      8. Range-selector dropdown
      9. Upcoming Expenses card (predicted recurring spends)
     10. Charts: unified frame chrome + entrance animation
+    11. This Month panel (month stepper, cash-flow + spending bar charts)
    ============================================================================ */
 
 
@@ -33,6 +34,55 @@
     gap: 16px;
     width: 100%;
 }
+
+/* Dashboard view tabs — underline style, deliberately distinct from the
+   pill-shaped in-card controls (range selector, month stepper, toggles)
+   below them. Mirrors .cf-tabs (forecast.css); the slice is re-stated here
+   because home.css and forecast.css are page-scoped stylesheets. */
+.home-tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+    border-bottom: var(--border-width) solid var(--border);
+}
+
+.home-tab {
+    appearance: none;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;            /* sit the underline on the bar's border */
+    border-radius: 6px 6px 0 0;
+    color: var(--text-secondary);
+    font-family: var(--font-h3);
+    font-size: var(--size-h3);
+    font-weight: var(--weight-medium);
+    line-height: var(--lh-tight);
+    letter-spacing: var(--track-tight);
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.home-tab:hover {
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+}
+
+.home-tab.active,
+.home-tab[aria-selected="true"] {
+    color: var(--text-primary);
+    font-weight: var(--weight-semibold);
+    border-bottom-color: var(--accent-primary);
+}
+
+.home-tab:focus-visible {
+    outline: 2px solid var(--color-accent-400);
+    outline-offset: -2px;
+}
+
+.home-panel[hidden] { display: none; }
+.home-panel:focus { outline: none; }
 
 .home-grid {
     display: flex;
@@ -486,4 +536,142 @@
     }
     .home-chart .chart-pulse { display: none; }
     .accounts-pie-svg .donut-arc { transition: none !important; }
+}
+
+
+/* ─── 11. This Month panel (stepper, cash-flow + spending bar charts) ────── */
+
+/* The stepper sits in its own right-aligned row above the panel's cards —
+   it scopes every monthly chart below it, not one card. */
+.home-month-bar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 16px;
+}
+
+/* Prev/label/next month picker. Same chrome family as the range-selector
+   button (ui.css) so the two control widgets read as one kit. */
+.month-stepper {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.month-stepper-btn {
+    background: var(--surface2);
+    border: var(--border-width) solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-body);
+    line-height: 1;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.month-stepper-btn:hover:not(:disabled) {
+    background-color: var(--surface3);
+    color: var(--text-primary);
+    border-color: var(--text-tertiary);
+}
+
+.month-stepper-btn:focus-visible {
+    outline: 2px solid var(--color-accent-400);
+    outline-offset: 1px;
+}
+
+.month-stepper-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* The label matches the range-selector button's type treatment and gets a
+   fixed minimum so "May 2026" ↔ "September 2026" doesn't shift the arrows. */
+.month-stepper-label {
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+    text-align: center;
+    min-width: 118px;
+    font-variant-numeric: tabular-nums;
+    user-select: none;
+}
+
+/* Bars grow up from the baseline on entrance; per-bar delays are set inline
+   by the renderer (home.js), same pattern as the line charts' draw-in. */
+.home-chart .chart-bar {
+    transform-box: fill-box;
+    transform-origin: center bottom;
+    transform: scaleY(0);
+    animation: chart-bar-grow 0.6s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+    transition: opacity 0.15s ease;
+}
+
+/* Horizontal variant (Monthly Cash Flow): bars grow rightward from the axis. */
+.home-chart .chart-hbar {
+    transform-box: fill-box;
+    transform-origin: left center;
+    transform: scaleX(0);
+    animation: chart-hbar-grow 0.6s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+    transition: opacity 0.15s ease;
+}
+
+/* Exact value annotated at the end of each horizontal bar — one size up from
+   the axis labels, primary ink, so the figures read as data, not chrome. */
+.home-chart .chart-bar-value {
+    fill: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: 12px;
+    font-weight: var(--weight-regular);
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+    opacity: 0;
+    animation: chart-fade 0.5s ease forwards;
+}
+
+/* Hovering a bar spotlights it by dimming the rest — the same affordance as
+   the Capital Profile donut. :has() scopes the dim to actual bar hovers, so
+   sweeping the empty plot area doesn't grey the whole chart. */
+.home-chart:has(.chart-bar:hover) .chart-bar { opacity: 0.55; }
+.home-chart .chart-bar:hover { opacity: 1; }
+.home-chart:has(.chart-hbar:hover) .chart-hbar { opacity: 0.55; }
+.home-chart .chart-hbar:hover { opacity: 1; }
+
+@keyframes chart-bar-grow  { to { transform: scaleY(1); } }
+@keyframes chart-hbar-grow { to { transform: scaleX(1); } }
+
+.chart-no-anim .chart-bar {
+    animation: none;
+    transform: scaleY(1);
+}
+.chart-no-anim .chart-hbar {
+    animation: none;
+    transform: scaleX(1);
+}
+.chart-no-anim .chart-bar-value {
+    animation: none;
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .home-chart .chart-bar {
+        animation: none;
+        transform: scaleY(1);
+    }
+    .home-chart .chart-hbar {
+        animation: none;
+        transform: scaleX(1);
+    }
+    .home-chart .chart-bar-value {
+        animation: none;
+        opacity: 1;
+    }
 }
