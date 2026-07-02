@@ -17,10 +17,19 @@ function yearTableRoutes({
   colTable,
   typeOrder = null,
   columnKeyPrefix = 'col',
-  // Optional (ctx, payload) => payload hook run on the /data response —
-  // lets a feature overlay computed values without the generic factory
-  // knowing about them (the Balance Sheet's ledger-derived balances).
+  // Optional feature hooks — how a concrete feature (today: the Balance
+  // Sheet's ledger-derived sync, handlers/balanceSheet.js) attaches behavior
+  // without the generic factory knowing about its tables:
+  //   augmentData(ctx, payload)  — reshape the /data response
+  //   guardEntryWrite(db, parsed) — throw to refuse an entry upsert/delete
+  //   onYearAdded(db, year)       — after a year INSERT actually created it
+  //   onYearDuplicated(db, s, t)  — inside the duplicate transaction
+  //   onYearDeleted(db, year)     — inside the delete transaction
   augmentData = null,
+  guardEntryWrite = null,
+  onYearAdded = null,
+  onYearDuplicated = null,
+  onYearDeleted = null,
 }) {
   const hasTypes = typeOrder !== null;
   const validTypes = hasTypes ? new Set(typeOrder) : null;
@@ -74,6 +83,7 @@ function yearTableRoutes({
   function apiUpsertEntry(ctx, { body }) {
     const db = ctx.db();
     const parsed = parseEntry(body);
+    if (guardEntryWrite) guardEntryWrite(db, parsed);
     db.prepare(
       `INSERT INTO ${entryTable} (year, month, category, value) VALUES (?, ?, ?, ?)
        ON CONFLICT(year, month, category) DO UPDATE SET value = excluded.value`
@@ -84,6 +94,7 @@ function yearTableRoutes({
   function apiDeleteEntry(ctx, { body }) {
     const db = ctx.db();
     const parsed = parseEntry(body, { requireValue: false });
+    if (guardEntryWrite) guardEntryWrite(db, parsed);
     db.prepare(`DELETE FROM ${entryTable} WHERE year = ? AND month = ? AND category = ?`).run(
       parsed.year,
       monthNumber(parsed.month),
@@ -97,7 +108,12 @@ function yearTableRoutes({
     if (!body) bad('invalid request');
     const year = body.year;
     if (!validateYear(year)) bad('invalid year');
-    db.prepare(`INSERT OR IGNORE INTO ${yearTable} (year) VALUES (?)`).run(year);
+    db.transaction(() => {
+      const info = db.prepare(`INSERT OR IGNORE INTO ${yearTable} (year) VALUES (?)`).run(year);
+      // Fire only when this call actually created the year, so re-posting an
+      // existing one never re-runs the hook's defaults over user choices.
+      if (info.changes > 0 && onYearAdded) onYearAdded(db, year);
+    })();
     return { ok: true, year };
   }
 
@@ -106,6 +122,7 @@ function yearTableRoutes({
     db.transaction(() => {
       db.prepare(`DELETE FROM ${yearTable} WHERE year = ?`).run(params.year);
       db.prepare(`DELETE FROM ${entryTable} WHERE year = ?`).run(params.year);
+      if (onYearDeleted) onYearDeleted(db, params.year);
     })();
     return { ok: true };
   }
@@ -123,6 +140,7 @@ function yearTableRoutes({
         `INSERT INTO ${entryTable} (year, month, category, value)
          SELECT ?, month, category, value FROM ${entryTable} WHERE year = ?`
       ).run(target, params.year);
+      if (onYearDuplicated) onYearDuplicated(db, params.year, target);
     })();
     return { ok: true, year: target };
   }

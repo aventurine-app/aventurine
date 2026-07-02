@@ -412,15 +412,12 @@ async function reloadYearTables(ctx) {
     ctx.columns   = data.columns;
     ctx.years     = data.years;
     ctx.entries   = data.entries;
-    // Per-year synced-category map { yearStr: [catKey,…] }. Only the Cash Flow
-    // page ships it; other year-table pages leave ctx.sync undefined (all cells
-    // editable).
+    // Per-year synced-category map { yearStr: [catKey,…] }. Cash Flow and the
+    // Balance Sheet both ship one; pages without it leave every cell editable.
     ctx.sync      = data.sync || {};
-    // Per-cell derived-value map { yearStr: { MonthName: [colKey,…] } }. Only
-    // the Balance Sheet ships it: cells whose value was computed from the
-    // ledger + balance anchors rather than typed. Derived cells stay editable
-    // (typing overrides the computation); the map only drives their styling.
-    ctx.derived   = data.derived || {};
+    // Which columns CAN sync (Balance Sheet: columns with a linked account).
+    // undefined (Cash Flow) means every column is eligible.
+    ctx.syncable  = data.syncable;
     renderYearTables(ctx);
 }
 
@@ -447,9 +444,6 @@ function createYearTable(year, ctx) {
     // Which categories are sync-computed for THIS year (per-table sync). Empty
     // on pages that don't ship a sync map (everything stays editable).
     const syncedKeys = new Set(ctx.sync?.[String(year)] || []);
-    // Which (month, column) cells hold derived values for THIS year. Empty on
-    // pages that don't ship a derived map.
-    const derivedMonths = ctx.derived?.[String(year)] || {};
 
     const wrapper = document.createElement('div');
     wrapper.className = 'db-wrapper';
@@ -510,8 +504,7 @@ function createYearTable(year, ctx) {
         monthTd.textContent = month;
         tr.appendChild(monthTd);
         ctx.columns.forEach(col => {
-            const isDerived = (derivedMonths[month] || []).includes(col.key);
-            tr.appendChild(_buildDataCell(month, col, syncedKeys.has(col.key), isDerived));
+            tr.appendChild(_buildDataCell(month, col, syncedKeys.has(col.key)));
         });
         tbody.appendChild(tr);
     });
@@ -542,23 +535,19 @@ function createYearTable(year, ctx) {
 }
 
 /**
- * Build one body cell. Three shapes:
+ * Build one body cell. Two shapes:
  *   • Editable column      — editable <input>. The input carries the currency
  *                            symbol as a prefix once content is present (e.g.
  *                            "$1,234"); see currency.js for the editing model.
- *   • Synced cell (isSynced) — read-only <span>. Its text is the computed sum of
- *                            matching transactions for the month, populated by
- *                            initYearTable from the entries payload. No event
- *                            wiring on these cells. Sync is per-table, so the
- *                            same column may be synced in one year and editable
- *                            in another.
- *   • Derived cell (isDerived) — an editable <input> like the first shape, but
- *                            styled as computed (Balance Sheet values rolled
- *                            from imports + balance anchors). Typing into it
- *                            saves a manual entry that overrides the
- *                            computation; the styling clears on next reload.
+ *   • Synced cell (isSynced) — read-only <span>. Its text is computed — a Cash
+ *                            Flow category's transaction sum, or a Balance
+ *                            Sheet column's ledger-derived balance — populated
+ *                            by initYearTable from the entries payload. No
+ *                            event wiring on these cells. Sync is per-table,
+ *                            so the same column may be synced in one year and
+ *                            editable in another.
  */
-function _buildDataCell(month, col, isSynced, isDerived = false) {
+function _buildDataCell(month, col, isSynced) {
     const td = document.createElement('td');
     td.className = 'data-cell';
 
@@ -580,11 +569,6 @@ function _buildDataCell(month, col, isSynced, isDerived = false) {
     input.dataset.month = month;
     input.dataset.col   = col.key;
     input.placeholder   = '—';
-    if (isDerived) {
-        td.classList.add('db-col-derived');
-        input.classList.add('db-derived-value');
-        input.title = 'Computed from your imported transactions and account balances — type a value to override it.';
-    }
     td.appendChild(input);
     return td;
 }
@@ -1151,9 +1135,9 @@ function showColumnManager(ctx) {
 
 // A small switch toggle reused for every category row. Shape mirrors the
 // Settings categories switch so the affordance reads consistently.
-const _SYNC_SWITCH = (key, on) =>
+const _SYNC_SWITCH = (key, on, disabled = false) =>
     `<label class="sync-switch">
-        <input type="checkbox" data-key="${escapeHtml(key)}" ${on ? 'checked' : ''}>
+        <input type="checkbox" data-key="${escapeHtml(key)}" ${on ? 'checked' : ''}${disabled ? ' disabled' : ''}>
         <span class="sync-switch-track"><span class="sync-switch-knob"></span></span>
     </label>`;
 
@@ -1185,17 +1169,25 @@ function showSyncSettings(year, ctx) {
 
     const render = () => {
         const syncedKeys = new Set(ctx.sync?.[String(year)] || []);
+        // When the page ships a `syncable` list (Balance Sheet), only those
+        // columns can be switched ON — the rest have no linked account to
+        // derive from. An absent list (Cash Flow) means everything's eligible.
+        const canSync = (key) => !Array.isArray(ctx.syncable) || ctx.syncable.includes(key);
 
         const sectionsHtml = types.map(t => {
             const cols = ctx.types
                 ? ctx.columns.filter(c => c.type === t.key)
                 : ctx.columns;
             if (!cols.length) return '';
-            const rows = cols.map(c => `
-                <div class="sync-row" data-key="${escapeHtml(c.key)}">
+            const rows = cols.map(c => {
+                const eligible = canSync(c.key) || syncedKeys.has(c.key);
+                return `
+                <div class="sync-row${eligible ? '' : ' sync-row-ineligible'}" data-key="${escapeHtml(c.key)}"${
+                    eligible ? '' : ' title="No account is linked to this column yet — assign one when importing a statement to enable sync."'}>
                     <span class="sync-row-label">${escapeHtml(c.label)}</span>
-                    ${_SYNC_SWITCH(c.key, syncedKeys.has(c.key))}
-                </div>`).join('');
+                    ${_SYNC_SWITCH(c.key, syncedKeys.has(c.key), !eligible)}
+                </div>`;
+            }).join('');
             const heading = ctx.types
                 ? `<div class="col-type-label">${escapeHtml(t.label)}</div>` : '';
             return `<div class="col-manager-section">${heading}<div class="sync-list">${rows}</div></div>`;

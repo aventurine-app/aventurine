@@ -60,7 +60,7 @@ test('fresh DB: baseline schema + seed', () => {
   for (const t of ['active_years', 'app_settings', 'balance_entries', 'categories',
     'category_sync', 'credit_cards', 'entries', 'match_rules', 'portfolio_accounts',
     'portfolio_entries', 'transactions', 'forecast_planned', 'budget_amounts',
-    'accounts', 'account_balance_anchors']) {
+    'accounts', 'account_balance_anchors', 'balance_sync']) {
     assert.ok(tableExists(db, t), `table ${t} present`);
   }
   db.close();
@@ -187,6 +187,36 @@ test('migration v7: a pre-accounts DB gains accounts, anchors, and a rebuilt led
     .get();
   assert.equal(viewRow.account_name, null);
   assert.equal(viewRow.signed_amount, -500, 'transfer_out is an outflow of its account');
+  db.close();
+});
+
+test('migration v8: balance_sync arrives seeded for already-linked columns', () => {
+  const db = connect(tmpFile());
+  bootstrapSchema(db);
+  seedDefaults(db);
+
+  // Reshape to pre-v8: no balance_sync, one account already linked to the
+  // checking column (the founder-style DB that was showing derived values).
+  db.exec('DROP TABLE balance_sync');
+  db.prepare(
+    "INSERT INTO accounts (name, kind, balance_column) VALUES ('My Checking', 'checking', 'checking')"
+  ).run();
+  db.pragma('user_version = 7');
+
+  bootstrapSchema(db); // climbs 7 -> SCHEMA_VERSION, running migration v8
+  assert.equal(Number(db.pragma('user_version', { simple: true })), SCHEMA_VERSION);
+  assert.ok(tableExists(db, 'balance_sync'));
+
+  const yr = new Date().getFullYear();
+  assert.ok(
+    db.prepare('SELECT 1 FROM balance_sync WHERE year = ? AND category = ?').get(yr, 'checking'),
+    'linked column seeded as synced, so derived values keep showing'
+  );
+  assert.equal(
+    db.prepare("SELECT COUNT(*) c FROM balance_sync WHERE category != 'checking'").get().c,
+    0,
+    'unlinked columns stay manual'
+  );
   db.close();
 });
 

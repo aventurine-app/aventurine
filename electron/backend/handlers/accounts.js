@@ -11,6 +11,7 @@
 // lives in routes.js. Multi-statement mutations are wrapped in transactions.
 
 const { bad, cleanLabel, isFiniteNumber, parseIsoDate, round2 } = require('../validate');
+const { seedNewlyLinkedColumn } = require('../services/balances');
 
 // Mirrors the accounts.kind CHECK in schema.js.
 const ACCOUNT_KINDS = ['checking', 'savings', 'credit', 'investment', 'retirement', 'other'];
@@ -118,9 +119,18 @@ function create(ctx, { body }) {
   }
 
   const created = db.transaction(() => {
+    // First link wins the default: if this account is the first to feed its
+    // Balance Sheet column, the column defaults into sync for every existing
+    // year (checked BEFORE the insert so the new row doesn't count itself).
+    const firstLink =
+      a.balance_column !== null &&
+      !db
+        .prepare('SELECT 1 FROM accounts WHERE balance_column = ? LIMIT 1')
+        .get(a.balance_column);
     const info = db
       .prepare('INSERT INTO accounts (name, kind, balance_column) VALUES (?, ?, ?)')
       .run(a.name, a.kind, a.balance_column);
+    if (firstLink) seedNewlyLinkedColumn(db, a.balance_column);
     if (opening) {
       db.prepare(
         `INSERT INTO account_balance_anchors (account_id, date, balance, source)
@@ -141,12 +151,22 @@ function update(ctx, { params, body }) {
   if (err) bad(err);
   const dup = db.prepare('SELECT id FROM accounts WHERE name = ?').get(a.name);
   if (dup && dup.id !== a.id) bad('account already exists', 409);
-  db.prepare('UPDATE accounts SET name = ?, kind = ?, balance_column = ? WHERE id = ?').run(
-    a.name,
-    a.kind,
-    a.balance_column,
-    a.id
-  );
+  db.transaction(() => {
+    // Same first-link default as create(): re-pointing this account at a
+    // column no other account feeds yet defaults that column into sync.
+    const firstLink =
+      a.balance_column !== null &&
+      !db
+        .prepare('SELECT 1 FROM accounts WHERE balance_column = ? AND id != ? LIMIT 1')
+        .get(a.balance_column, a.id);
+    db.prepare('UPDATE accounts SET name = ?, kind = ?, balance_column = ? WHERE id = ?').run(
+      a.name,
+      a.kind,
+      a.balance_column,
+      a.id
+    );
+    if ('balance_column' in data && firstLink) seedNewlyLinkedColumn(db, a.balance_column);
+  })();
   return { ok: true, account: serialiseAccount(a, latestAnchors(db).get(a.id)) };
 }
 

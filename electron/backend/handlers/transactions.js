@@ -26,6 +26,7 @@ const {
 } = require('../services/matchRules');
 const { applyBuiltinCategorize } = require('../services/categorize');
 const { ensureSyncedYear } = require('./incomeExpenses');
+const { ensureBalanceYear } = require('../services/balances');
 
 function list(ctx) {
   const db = ctx.db();
@@ -263,7 +264,7 @@ function importRows(ctx, { body }) {
       for (const t of inserted) insertTx(db, t);
       for (const year of years) {
         ensureSyncedYear(db, year);
-        db.prepare('INSERT OR IGNORE INTO balance_active_years (year) VALUES (?)').run(year);
+        ensureBalanceYear(db, year);
       }
     })();
   }

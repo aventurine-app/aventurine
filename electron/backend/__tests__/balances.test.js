@@ -167,9 +167,15 @@ const balanceData = (c) => {
   return r.body;
 };
 
-test('balance overlay: import + anchor light up empty Balance Sheet cells', (t) => {
+test('balance sync: linking an account defaults its column into sync; import + anchor fill it', (t) => {
   const c = makeClient(t);
   const a = setupLedgerAccount(c);
+
+  // The first link seeded sync for the bootstrap year, and the column is
+  // reported as syncable.
+  let d = balanceData(c);
+  assert.ok(d.sync['2026'].includes('checking'), 'linked column synced by default');
+  assert.deepStrictEqual(d.syncable, ['checking']);
 
   const imp = c.post('/api/transactions/import', {
     account_id: a.id,
@@ -186,15 +192,13 @@ test('balance overlay: import + anchor light up empty Balance Sheet cells', (t) 
     200
   );
 
-  const d = balanceData(c);
+  d = balanceData(c);
   assert.equal(d.entries['2026'].June.checking, 4500);
   // May month-end = 4500 − June's net (+3000 − 500) = 2000.
   assert.equal(d.entries['2026'].May.checking, 2000);
-  assert.deepStrictEqual(d.derived['2026'].June, ['checking']);
-  assert.deepStrictEqual(d.derived['2026'].May, ['checking']);
 });
 
-test('balance overlay: a hand-entered cell wins over the derived value', (t) => {
+test('balance sync: synced cells refuse manual writes; unsync restores them', (t) => {
   const c = makeClient(t);
   const a = setupLedgerAccount(c);
   c.post('/api/transactions/import', {
@@ -203,17 +207,38 @@ test('balance overlay: a hand-entered cell wins over the derived value', (t) => 
   });
   c.post(`/api/accounts/${a.id}/anchors`, { date: '2026-06-04', balance: 5000 });
 
-  // The user types their own June value — it must survive the overlay.
+  // Synced → hand-editing is refused, exactly like a synced Cash Flow cell.
+  const write = { year: 2026, month: 'June', category: 'checking', value: 1234 };
+  assert.equal(c.post('/api/balance/entry', write).status, 409);
+  assert.equal(c.del('/api/balance/entry', write).status, 409);
+
+  // Opt the column out for this year → manual entry works and shows; the
+  // derived value no longer appears anywhere in the column.
   assert.equal(
-    c.post('/api/balance/entry', { year: 2026, month: 'June', category: 'checking', value: 1234 }).status,
+    c.post('/api/balance/year/2026/sync', { category: 'checking', sync: false }).status,
     200
   );
-  const d = balanceData(c);
+  assert.equal(c.post('/api/balance/entry', write).status, 200);
+  let d = balanceData(c);
   assert.equal(d.entries['2026'].June.checking, 1234);
-  assert.ok(!d.derived['2026']?.June?.includes('checking'), 'user cell not marked derived');
+  assert.ok(!d.sync['2026']?.includes('checking'));
+
+  // Opt back in → the computed value returns; the manual 1234 is ignored but
+  // preserved underneath for the next opt-out.
+  assert.equal(
+    c.post('/api/balance/year/2026/sync', { category: 'checking', sync: true }).status,
+    200
+  );
+  d = balanceData(c);
+  assert.equal(d.entries['2026'].June.checking, 5000);
+  assert.equal(
+    c.post('/api/balance/year/2026/sync', { category: 'checking', sync: false }).status,
+    200
+  );
+  assert.equal(balanceData(c).entries['2026'].June.checking, 1234, 'manual value survived');
 });
 
-test('balance overlay: no anchor, no overlay — and no derived map noise', (t) => {
+test('balance sync: a synced column with no anchor shows nothing (not zeros)', (t) => {
   const c = makeClient(t);
   const a = setupLedgerAccount(c);
   c.post('/api/transactions/import', {
@@ -221,11 +246,61 @@ test('balance overlay: no anchor, no overlay — and no derived map noise', (t) 
     rows: [{ date: '2026-06-04', description: 'PAY', tx_type: 'income', amount: 3000 }],
   });
   const d = balanceData(c);
-  assert.equal(d.entries['2026']?.June?.checking, undefined);
-  assert.deepStrictEqual(d.derived, {});
+  assert.ok(d.sync['2026'].includes('checking'), 'synced, but…');
+  assert.equal(d.entries['2026']?.June?.checking, undefined, '…no observation, no value');
 });
 
-test('balance overlay: two accounts on one column sum only where both cover', (t) => {
+test('balance sync: an unlinked column cannot be switched ON; OFF always works', (t) => {
+  const c = makeClient(t);
+  setupLedgerAccount(c); // links 'checking' only
+  assert.equal(
+    c.post('/api/balance/year/2026/sync', { category: 'savings', sync: true }).status,
+    400
+  );
+  assert.equal(
+    c.post('/api/balance/year/2026/sync', { category: 'savings', sync: false }).status,
+    200
+  );
+  assert.equal(
+    c.post('/api/balance/year/2026/sync', { category: 'nope', sync: true }).status,
+    400
+  );
+  // "Sync all" only grabs eligible columns.
+  assert.equal(c.post('/api/balance/year/2026/sync', { all: true, sync: true }).status, 200);
+  assert.deepStrictEqual(balanceData(c).sync['2026'], ['checking']);
+});
+
+test('balance sync: year add seeds linked columns; duplicate copies; delete clears', (t) => {
+  const c = makeClient(t);
+  setupLedgerAccount(c);
+
+  assert.equal(c.post('/api/balance/year', { year: 2025 }).status, 200);
+  let d = balanceData(c);
+  assert.ok(d.sync['2025'].includes('checking'), 'new year defaults linked columns into sync');
+
+  // Customize 2025 (opt out), then duplicate — the copy carries the opt-out.
+  c.post('/api/balance/year/2025/sync', { category: 'checking', sync: false });
+  assert.equal(c.post('/api/balance/year/2025/duplicate', { target_year: 2024 }).status, 200);
+  d = balanceData(c);
+  assert.ok(!d.sync['2024']?.includes('checking'), 'duplicate is a faithful copy');
+
+  assert.equal(c.del('/api/balance/year/2024').status, 200);
+  assert.equal(balanceData(c).sync['2024'], undefined);
+});
+
+test('balance sync: an import-created year arrives with linked columns synced', (t) => {
+  const c = makeClient(t);
+  const a = setupLedgerAccount(c);
+  c.post('/api/transactions/import', {
+    account_id: a.id,
+    rows: [{ date: '2025-03-05', description: 'PAY', tx_type: 'income', amount: 3000 }],
+  });
+  const d = balanceData(c);
+  assert.ok(d.years.includes(2025));
+  assert.ok(d.sync['2025'].includes('checking'));
+});
+
+test('balance sync: two accounts on one column sum only where both cover', (t) => {
   const c = makeClient(t);
   const a1 = setupLedgerAccount(c);
   const r2 = c.post('/api/accounts', {

@@ -16,6 +16,7 @@ const {
   ACCOUNTS_DDL,
   ANCHORS_DDL,
   ANCHORS_INDEX_DDL,
+  BALANCE_SYNC_DDL,
   V_TRANSACTIONS_DDL,
 } = require('./schema');
 
@@ -137,6 +138,22 @@ const MIGRATIONS = [
         db.exec(V_TRANSACTIONS_DDL);
       }
     })();
+  }],
+  // v8 — Balance Sheet sync: per-(year, column) membership deciding whether a
+  // column's values derive from its linked accounts' ledger + anchors or stay
+  // hand-entered (the twin of category_sync). Columns that already have a
+  // linked account are seeded as synced for every existing Balance Sheet
+  // year, so a DB that was showing derived values before this model change
+  // keeps showing them after it.
+  [8, (db) => {
+    if (!tableExists(db, 'balance_sync')) {
+      db.exec(BALANCE_SYNC_DDL);
+      db.exec(`INSERT OR IGNORE INTO balance_sync (year, category)
+               SELECT y.year, a.balance_column
+                 FROM balance_active_years y
+                 JOIN (SELECT DISTINCT balance_column FROM accounts
+                        WHERE balance_column IS NOT NULL) a`);
+    }
   }],
 ];
 

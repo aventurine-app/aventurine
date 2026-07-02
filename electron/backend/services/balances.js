@@ -14,11 +14,16 @@
 //     every rolled LEVEL by one unknown constant (the gap's net flow) but
 //     never bends the SHAPE of change over time — see
 //     deriveAccountMonthEnds for the full reasoning.
-//   - A hand-entered Balance Sheet cell always wins over a derived value
-//     (the overlay only fills cells the user left empty), and the response
-//     marks which cells are derived so the renderer can say so.
+//   - The USER decides which columns derive. Per-(year, column) sync
+//     (balance_sync, the twin of Cash Flow's category_sync) controls whether
+//     a column's cells are computed from its linked accounts or hand-
+//     entered: synced cells are read-only and ignore stored values (which
+//     survive for when the user opts back out); unsynced columns never show
+//     derived data. Linked columns default into sync; opt-out is per year.
 //
-// Pure logic + read-only queries; no writes ever happen here.
+// Mostly pure logic + read-only queries; the two seeding helpers
+// (ensureBalanceYear, seedNewlyLinkedColumn) write sync-membership rows and
+// run inside their callers' transactions.
 
 const { round2, VALID_MONTHS } = require('../validate');
 
@@ -181,31 +186,98 @@ function deriveColumnMonthEnds(db) {
   return byColumn;
 }
 
+// ─── Per-(year, column) sync — the Balance Sheet twin of category_sync ──────
+// A row in balance_sync means that column's cells for that year are computed
+// from its linked accounts' ledger + anchors (read-only in the UI, manual
+// writes 409) instead of hand-entered. Columns default INTO sync when they
+// first gain a linked account and when new years appear, mirroring Cash
+// Flow's sync-by-default; the user opts cells OUT per year from the table's
+// ⋮ → Sync Settings modal.
+
+/** All synced cells as { yearStr: Set<colKey> }. */
+function syncedBalanceMap(db) {
+  const map = {};
+  for (const r of db.prepare('SELECT year, category FROM balance_sync').all()) {
+    (map[String(r.year)] ??= new Set()).add(r.category);
+  }
+  return map;
+}
+
+/** Column keys that have at least one linked account — the only columns that
+ *  can meaningfully sync (an unlinked column has no data source). */
+function linkedColumnKeys(db) {
+  return new Set(
+    db
+      .prepare(
+        'SELECT DISTINCT balance_column AS k FROM accounts WHERE balance_column IS NOT NULL'
+      )
+      .all()
+      .map((r) => r.k)
+  );
+}
+
+/** Ensure a Balance Sheet year tab exists; a NEWLY created one starts with
+ *  every linked column synced (sync-by-default, opt-outs preserved because
+ *  the seeding only fires on the year INSERT). Safe inside a transaction. */
+function ensureBalanceYear(db, year) {
+  const info = db
+    .prepare('INSERT OR IGNORE INTO balance_active_years (year) VALUES (?)')
+    .run(year);
+  if (info.changes > 0) {
+    db.prepare(
+      `INSERT OR IGNORE INTO balance_sync (year, category)
+       SELECT ?, balance_column FROM accounts WHERE balance_column IS NOT NULL`
+    ).run(year);
+  }
+}
+
+/** When a column gains its FIRST linked account, default it into sync for
+ *  every existing year. Later links never re-seed, so a user's opt-outs are
+ *  not resurrected by adding a second account to the same column. */
+function seedNewlyLinkedColumn(db, colKey) {
+  db.prepare(
+    `INSERT OR IGNORE INTO balance_sync (year, category)
+     SELECT year, ? FROM balance_active_years`
+  ).run(colKey);
+}
+
 /**
- * The Balance Sheet data-payload hook (yearTableRoutes' augmentData): fills
- * empty cells of active years with derived values and reports them in a
- * `derived` map (same shape the Cash Flow payload uses for `sync`), so the
- * renderer can distinguish computed cells from typed ones. Hand-entered cells
- * are never touched, and no year tab is invented for derived-only years.
+ * The Balance Sheet data-payload hook (yearTableRoutes' augmentData). Synced
+ * cells IGNORE stored manual values and carry the derived value for every
+ * month the derivation knows (others stay empty → read-only "—"); unsynced
+ * columns are purely hand-entered. Ships the per-year `sync` map (same shape
+ * as Cash Flow's) plus `syncable` — the linked columns the Sync Settings
+ * modal may offer to turn on.
  */
 function overlayBalanceData(ctx, payload) {
   const db = ctx.db();
-  const byColumn = deriveColumnMonthEnds(db);
+  const synced = syncedBalanceMap(db);
   const activeYears = new Set(payload.years.map(String));
 
-  const derivedMap = {};
+  // Stored manual values in synced cells are ignored, not shown. (They stay
+  // in balance_entries, so opting back out of sync restores them.)
+  for (const [yearStr, months] of Object.entries(payload.entries)) {
+    const set = synced[yearStr];
+    if (!set) continue;
+    for (const cells of Object.values(months)) {
+      for (const key of set) delete cells[key];
+    }
+  }
+
+  const byColumn = deriveColumnMonthEnds(db);
   for (const [colKey, months] of Object.entries(byColumn)) {
     for (const [monthKey, value] of Object.entries(months)) {
       const year = monthKey.slice(0, 4);
-      if (!activeYears.has(year)) continue;
+      if (!activeYears.has(year) || !synced[year]?.has(colKey)) continue;
       const month = VALID_MONTHS[Number(monthKey.slice(5, 7)) - 1];
-      const cells = ((payload.entries[year] ??= {})[month] ??= {});
-      if (colKey in cells) continue; // the user's own value wins
-      cells[colKey] = value;
-      ((derivedMap[year] ??= {})[month] ??= []).push(colKey);
+      ((payload.entries[year] ??= {})[month] ??= {})[colKey] = value;
     }
   }
-  payload.derived = derivedMap;
+
+  const syncPayload = {};
+  for (const [yearStr, set] of Object.entries(synced)) syncPayload[yearStr] = [...set];
+  payload.sync = syncPayload;
+  payload.syncable = [...linkedColumnKeys(db)];
   return payload;
 }
 
@@ -213,4 +285,8 @@ module.exports = {
   deriveAccountMonthEnds,
   deriveColumnMonthEnds,
   overlayBalanceData,
+  syncedBalanceMap,
+  linkedColumnKeys,
+  ensureBalanceYear,
+  seedNewlyLinkedColumn,
 };

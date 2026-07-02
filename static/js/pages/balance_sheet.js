@@ -15,6 +15,11 @@
 //   - addLayout is 'stacked' because four type-toggle buttons don't fit
 //     inline next to the name input.
 //   - 'cash' is the default for the Add toggle (most-common account type).
+//   - syncEnabled: like Cash Flow, each year's ⋮ menu carries Sync Settings.
+//     A synced column derives its values from the ledger + balance anchors
+//     of the accounts linked to it (accounts.balance_column); only linked
+//     columns are offered (the payload's `syncable` list) — an unlinked
+//     column has no data source and stays hand-entered.
 
 bootstrapYearTablePage({
     apiPrefix: '/api/balance',
@@ -29,4 +34,5 @@ bootstrapYearTablePage({
     defaultAddType:      'cash',
     addLayout:           'stacked',
     addInputPlaceholder: 'Account name',
+    syncEnabled:         true,
 });

@@ -17,7 +17,7 @@
 //   - the v_* views pre-join the normalized tables into human-readable,
 //     chronologically-sortable shapes for ad-hoc querying.
 
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 
 // Months persist as 1-12 integers so `ORDER BY year, month` sorts
 // chronologically (the app translates to/from English names at its API
@@ -118,6 +118,18 @@ const ANCHORS_DDL = `CREATE TABLE account_balance_anchors (
 
 const ANCHORS_INDEX_DDL =
   'CREATE INDEX ix_account_balance_anchors_account_id ON account_balance_anchors (account_id)';
+
+const BALANCE_SYNC_DDL = `CREATE TABLE balance_sync (
+     -- Per-(year, account-column) membership: a row means that column's
+     -- Balance Sheet values for that year are computed from the ledger +
+     -- balance anchors of its linked accounts (accounts.balance_column)
+     -- instead of hand-entered — the Balance Sheet twin of category_sync.
+     -- category is a balance_columns."key", so it survives renames.
+     year INTEGER NOT NULL CHECK (year BETWEEN 1000 AND 9999),
+     category VARCHAR(50) NOT NULL,
+     PRIMARY KEY (year, category),
+     FOREIGN KEY (category) REFERENCES balance_columns ("key")
+   )`;
 
 const V_TRANSACTIONS_DDL = `CREATE VIEW v_transactions AS
      -- Every transaction with its category resolved to a name and an effective
@@ -274,6 +286,7 @@ const DDL = [
    )`,
   ACCOUNTS_DDL,
   ANCHORS_DDL,
+  BALANCE_SYNC_DDL,
   transactionsTableDdl('transactions'),
   `CREATE TABLE forecast_planned (
      -- Planned one-off future income/expenses for the Cash Flow Forecast.
@@ -381,11 +394,12 @@ function createBaselineSchema(db) {
 module.exports = {
   SCHEMA_VERSION,
   createBaselineSchema,
-  // Shared with the v7 in-place migration (see migrate.js).
+  // Shared with the v7/v8 in-place migrations (see migrate.js).
   transactionsTableDdl,
   TRANSACTIONS_INDEXES,
   ACCOUNTS_DDL,
   ANCHORS_DDL,
   ANCHORS_INDEX_DDL,
+  BALANCE_SYNC_DDL,
   V_TRANSACTIONS_DDL,
 };
