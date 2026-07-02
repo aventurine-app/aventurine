@@ -604,7 +604,7 @@ const TxFileImport = (() => {
         checking: 'cash', savings: 'cash', credit: 'debt',
         investment: 'investment', retirement: 'retirement',
     };
-    async function createAccount(name, kind) {
+    async function createAccount(name, kind, openingBalance = null) {
         let balanceColumn = null;
         const wanted = KIND_TO_COL_TYPE[kind];
         if (wanted) {
@@ -618,26 +618,39 @@ const TxFileImport = (() => {
                 balanceColumn = (named || ofType[0])?.key ?? null;
             } catch { /* unlinked account — derivation just stays off */ }
         }
+        const payload = { name, kind, balance_column: balanceColumn };
+        // "What's this account's balance today?" — becomes the account's first
+        // manual anchor (dated today by the server), so net worth can derive
+        // even when the file itself carries no statement balance.
+        if (openingBalance !== null) payload.opening_balance = openingBalance;
         const r = await apiFetch('/api/accounts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, kind, balance_column: balanceColumn }),
+            body: JSON.stringify(payload),
         });
         const data = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(data.error || 'could not create the account');
         return data.account;
     }
 
-    // Record a file-carried balance observation ('file' anchor); best-effort —
-    // a failure must never undo or block a committed import.
-    async function saveFileAnchor(accountId, balance) {
+    // Record a balance observation for an account; best-effort — a failure
+    // must never undo or block a committed import. `date` may be null for
+    // manual anchors: the server dates them today.
+    async function saveAnchor(accountId, date, balance, source) {
         try {
-            await apiFetch(`/api/accounts/${accountId}/anchors`, {
+            const payload = { balance, source };
+            if (date) payload.date = date;
+            else {
+                const d = new Date();
+                const p = (n) => String(n).padStart(2, '0');
+                payload.date = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+            }
+            const r = await apiFetch(`/api/accounts/${accountId}/anchors`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ date: balance.date, balance: balance.amount, source: 'file' }),
+                body: JSON.stringify(payload),
             });
-            return true;
+            return r.ok;
         } catch {
             return false;
         }
@@ -866,12 +879,15 @@ const TxFileImport = (() => {
         const nameGuess  = `${kindGuess[0].toUpperCase()}${kindGuess.slice(1)}${acctTail ? ' …' + acctTail : ''}`;
         const KINDS = ['checking', 'savings', 'credit', 'investment', 'retirement', 'other'];
         accountForm.innerHTML = `
-            <div class="tx-import-section-label">Import into</div>
+            <div class="tx-import-section-label">Which account is this file from?</div>
+            <p class="tx-import-hint">Assigning an account lets Oliv fill in your Balance
+               Sheet and net worth from your imports. You can skip this and the
+               transactions still import normally.</p>
             <div class="tx-import-map-form">
                 <div class="tx-import-map-row">
                     <span class="tx-import-map-label">Account</span>
                     <select class="tx-select tx-import-account-select">
-                        <option value=""${!rememberedOk && !suggestNew ? ' selected' : ''}>— don't assign —</option>
+                        <option value=""${!rememberedOk && !suggestNew ? ' selected' : ''}>— skip for now —</option>
                         ${target.accounts.map(a =>
                             `<option value="${a.id}"${a.id === remembered ? ' selected' : ''}>${esc(a.name)}</option>`
                         ).join('')}
@@ -890,6 +906,11 @@ const TxFileImport = (() => {
                         ).join('')}
                     </select>
                 </div>
+                <div class="tx-import-map-row tx-import-openbal-row" hidden>
+                    <span class="tx-import-map-label">Balance today</span>
+                    <input type="text" class="tx-input tx-import-openbal" inputmode="decimal"
+                           placeholder="optional — lights up your net worth">
+                </div>
                 <p class="tx-import-hint tx-import-balance-note" hidden>
                     Statement balance ${esc(fmtAmt(target.balance?.amount ?? 0))}${(target.balance?.amount ?? 0) < 0 ? ' (negative)' : ''}
                     as of ${esc(target.balance?.date ?? '')} will be recorded for this account —
@@ -899,10 +920,18 @@ const TxFileImport = (() => {
         `;
         const acctSelect = accountForm.querySelector('.tx-import-account-select');
         const syncAccountForm = () => {
-            const isNew = acctSelect.value === '__new__';
+            const isNew   = acctSelect.value === '__new__';
+            const chosen  = target.accounts.find(a => String(a.id) === acctSelect.value);
             accountForm.querySelectorAll('.tx-import-newacct-row').forEach(r => { r.hidden = !isNew; });
+            // File carries a balance → say so. No file balance → offer the one
+            // onboarding question ("balance today?") whenever the target has
+            // no observation yet: a brand-new account, or an existing one
+            // that has never had an anchor recorded.
             const note = accountForm.querySelector('.tx-import-balance-note');
             note.hidden = !target.balance || acctSelect.value === '';
+            const needsBalance = !target.balance
+                && (isNew || (chosen && !chosen.latest_anchor));
+            accountForm.querySelector('.tx-import-openbal-row').hidden = !needsBalance;
         };
         acctSelect.addEventListener('change', syncAccountForm);
 
@@ -972,6 +1001,13 @@ const TxFileImport = (() => {
 
             doBtn.disabled = true; // no double-submits while the commit runs
             try {
+                // The user's "balance today" answer, when the row is visible
+                // and filled: NaN means empty/unparseable → simply skipped.
+                const openbalRow = accountForm.querySelector('.tx-import-openbal-row');
+                const typedBalance = openbalRow.hidden
+                    ? NaN
+                    : parseAmount(accountForm.querySelector('.tx-import-openbal').value);
+
                 // Resolve the import target first: an existing account, a new
                 // one created now, or none. Only then commit the rows.
                 let accountId = null;
@@ -979,18 +1015,28 @@ const TxFileImport = (() => {
                     const name = accountForm.querySelector('.tx-import-newacct-name').value.trim();
                     const kind = accountForm.querySelector('.tx-import-newacct-kind').value;
                     if (!name) { alert('Please name the new account.'); doBtn.disabled = false; return; }
-                    accountId = (await createAccount(name, kind)).id;
+                    accountId = (await createAccount(
+                        name, kind, Number.isNaN(typedBalance) ? null : typedBalance
+                    )).id;
                 } else if (acctSelect.value !== '') {
                     accountId = parseInt(acctSelect.value, 10);
                 }
 
                 const result = await commitRows(toSend, accountId);
 
-                // The statement balance is recorded after the rows so the
-                // anchor never exists without the ledger it rolls through.
+                // Balance observations are recorded after the rows so an
+                // anchor never exists without the ledger it rolls through:
+                // the file's statement balance when it has one, else the
+                // typed "balance today" for an existing anchor-less account
+                // (a new account already got it as its opening anchor).
                 let anchorSaved = false;
                 if (accountId && target.balance) {
-                    anchorSaved = await saveFileAnchor(accountId, target.balance);
+                    anchorSaved = await saveAnchor(
+                        accountId, target.balance.date, target.balance.amount, 'file');
+                } else if (accountId && acctSelect.value !== '__new__' && !Number.isNaN(typedBalance)) {
+                    anchorSaved = await saveAnchor(accountId, null, typedBalance, 'manual');
+                } else if (accountId && acctSelect.value === '__new__' && !Number.isNaN(typedBalance)) {
+                    anchorSaved = true; // recorded as the opening anchor at creation
                 }
                 if (accountId && target.fpKey) rememberAccount(target.fpKey, accountId);
 
