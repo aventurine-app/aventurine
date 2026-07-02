@@ -416,6 +416,11 @@ async function reloadYearTables(ctx) {
     // page ships it; other year-table pages leave ctx.sync undefined (all cells
     // editable).
     ctx.sync      = data.sync || {};
+    // Per-cell derived-value map { yearStr: { MonthName: [colKey,…] } }. Only
+    // the Balance Sheet ships it: cells whose value was computed from the
+    // ledger + balance anchors rather than typed. Derived cells stay editable
+    // (typing overrides the computation); the map only drives their styling.
+    ctx.derived   = data.derived || {};
     renderYearTables(ctx);
 }
 
@@ -442,6 +447,9 @@ function createYearTable(year, ctx) {
     // Which categories are sync-computed for THIS year (per-table sync). Empty
     // on pages that don't ship a sync map (everything stays editable).
     const syncedKeys = new Set(ctx.sync?.[String(year)] || []);
+    // Which (month, column) cells hold derived values for THIS year. Empty on
+    // pages that don't ship a derived map.
+    const derivedMonths = ctx.derived?.[String(year)] || {};
 
     const wrapper = document.createElement('div');
     wrapper.className = 'db-wrapper';
@@ -502,7 +510,8 @@ function createYearTable(year, ctx) {
         monthTd.textContent = month;
         tr.appendChild(monthTd);
         ctx.columns.forEach(col => {
-            tr.appendChild(_buildDataCell(month, col, syncedKeys.has(col.key)));
+            const isDerived = (derivedMonths[month] || []).includes(col.key);
+            tr.appendChild(_buildDataCell(month, col, syncedKeys.has(col.key), isDerived));
         });
         tbody.appendChild(tr);
     });
@@ -533,7 +542,7 @@ function createYearTable(year, ctx) {
 }
 
 /**
- * Build one body cell. Two shapes:
+ * Build one body cell. Three shapes:
  *   • Editable column      — editable <input>. The input carries the currency
  *                            symbol as a prefix once content is present (e.g.
  *                            "$1,234"); see currency.js for the editing model.
@@ -543,8 +552,13 @@ function createYearTable(year, ctx) {
  *                            wiring on these cells. Sync is per-table, so the
  *                            same column may be synced in one year and editable
  *                            in another.
+ *   • Derived cell (isDerived) — an editable <input> like the first shape, but
+ *                            styled as computed (Balance Sheet values rolled
+ *                            from imports + balance anchors). Typing into it
+ *                            saves a manual entry that overrides the
+ *                            computation; the styling clears on next reload.
  */
-function _buildDataCell(month, col, isSynced) {
+function _buildDataCell(month, col, isSynced, isDerived = false) {
     const td = document.createElement('td');
     td.className = 'data-cell';
 
@@ -566,6 +580,11 @@ function _buildDataCell(month, col, isSynced) {
     input.dataset.month = month;
     input.dataset.col   = col.key;
     input.placeholder   = '—';
+    if (isDerived) {
+        td.classList.add('db-col-derived');
+        input.classList.add('db-derived-value');
+        input.title = 'Computed from your imported transactions and account balances — type a value to override it.';
+    }
     td.appendChild(input);
     return td;
 }

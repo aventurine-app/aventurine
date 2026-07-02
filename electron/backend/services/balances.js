@@ -8,9 +8,11 @@
 // file drop lights up net worth without hand-entering history.
 //
 // The guiding rule is the import categorizer's: NEVER confidently wrong.
-//   - Balances are derived only inside the account's transaction coverage
-//     window (first to last transaction date, with a small grace margin for
-//     the anchor itself). A stale anchor with a months-long gap back to the
+//   - An anchor is always a fact about its own month (the latest observed
+//     balance), so it always shows up there — but months are ROLLED through
+//     the ledger only inside the account's transaction coverage window
+//     (first to last transaction date, with a small grace margin for the
+//     anchor itself). A stale anchor with a months-long gap back to the
 //     ledger proves nothing about the months in between — those cells stay
 //     empty rather than guessing "no activity".
 //   - A hand-entered Balance Sheet cell always wins over a derived value
@@ -68,19 +70,41 @@ function signedFor(t, catTypes) {
 }
 
 /**
- * Month-end balances for one account, or null when nothing can be derived.
+ * Month values for one account, or null when it has no observations at all.
  * `txs` must be this account's rows sorted by date ascending; `anchors` its
- * balance observations. Derivation picks the LATEST usable anchor (one
- * coherent reference, no per-month jumps between disagreeing statements) and
- * computes balance(E) = anchorBalance + Σ signed(tx in (anchorDate, E]) —
- * algebraically the same rolling forward or backward. Each month's value is
- * its balance at the last covered day: true month-end for past months, the
- * latest known balance for the month coverage ends in. Coverage is the
- * ledger window, extended to a file anchor's own date when the statement
- * runs quiet past the last row (see GRACE_DAYS for the manual/file split).
+ * balance observations. Two layers, weakest first:
+ *
+ *   1. POINT months — every anchor is a plain fact about its own month
+ *      regardless of ledger coverage: "the latest observed balance in that
+ *      month". A typed "balance today" therefore always shows up in the
+ *      current month, and an anchors-only account (a 401k the user updates
+ *      monthly, with no transaction files) populates month by month.
+ *   2. ROLLED months — where the ledger justifies it, the LATEST usable
+ *      anchor (one coherent reference, no per-month jumps between
+ *      disagreeing statements) is rolled through the transactions:
+ *      balance(E) = anchorBalance + Σ signed(tx in (anchorDate, E]) —
+ *      algebraically the same forward or backward. Each covered month gets
+ *      its balance at its last covered day: true month-end for past months,
+ *      the latest known balance for the month coverage ends in. Coverage is
+ *      the ledger window, extended to a file anchor's own date when the
+ *      statement runs quiet past the last row (see GRACE_DAYS). Rolled
+ *      values overwrite point values — a justified month-end beats a
+ *      mid-month observation. Months in a refused gap stay empty.
  */
 function deriveAccountMonthEnds(txs, anchors, catTypes) {
-  if (!txs.length || !anchors.length) return null;
+  if (!anchors.length) return null;
+
+  // Layer 1 — point months. Ascending order so the newest observation in a
+  // month wins; a same-date file (statement) balance beats a manual one.
+  const bySourceThenDate = (a, b) =>
+    a.date === b.date
+      ? (a.source === 'file' ? 1 : 0) - (b.source === 'file' ? 1 : 0)
+      : a.date < b.date ? -1 : 1;
+  const points = {};
+  for (const a of [...anchors].sort(bySourceThenDate)) {
+    points[a.date.slice(0, 7)] = round2(a.balance);
+  }
+  if (!txs.length) return points;
 
   const windowStart = txs[0].date;
   const windowEnd = txs[txs.length - 1].date;
@@ -93,12 +117,8 @@ function deriveAccountMonthEnds(txs, anchors, catTypes) {
       a.date >= addDays(windowStart, -GRACE_DAYS) &&
       (a.source === 'file' || a.date <= addDays(windowEnd, GRACE_DAYS))
   );
-  if (!usable.length) return null;
-  // Latest wins; on a same-date tie prefer the file (statement) balance —
-  // it is the bank's own number.
-  usable.sort((a, b) =>
-    a.date === b.date ? (a.source === 'file' ? 1 : 0) - (b.source === 'file' ? 1 : 0) : a.date < b.date ? -1 : 1
-  );
+  if (!usable.length) return points; // no rolling justified — points stand alone
+  usable.sort(bySourceThenDate);
   const anchor = usable[usable.length - 1];
 
   // Coverage runs to the last transaction, or further when a file anchor
@@ -125,12 +145,12 @@ function deriveAccountMonthEnds(txs, anchors, catTypes) {
   };
 
   const atAnchor = cumAt(anchor.date);
-  const values = {};
+  const rolled = {};
   for (const monthKey of monthKeysBetween(windowStart, coverageEnd)) {
     const lastCoveredDay = monthEnd(monthKey) < coverageEnd ? monthEnd(monthKey) : coverageEnd;
-    values[monthKey] = round2(anchor.balance + cumAt(lastCoveredDay) - atAnchor);
+    rolled[monthKey] = round2(anchor.balance + cumAt(lastCoveredDay) - atAnchor);
   }
-  return values;
+  return { ...points, ...rolled };
 }
 
 /**
@@ -155,8 +175,9 @@ function deriveColumnMonthEnds(db) {
     'SELECT date, balance, source FROM account_balance_anchors WHERE account_id = ?'
   );
 
-  // Group per-account results by column; null means "this account cannot
-  // derive", which vetoes its whole column (see the all-accounts rule above).
+  // Group per-account results by column; null means "this account has no
+  // observations at all", which vetoes its whole column (see the
+  // all-accounts rule above).
   const perColumn = new Map();
   for (const account of linked) {
     const derived = deriveAccountMonthEnds(txStmt.all(account.id), anchorStmt.all(account.id), catTypes);

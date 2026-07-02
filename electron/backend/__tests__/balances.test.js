@@ -52,15 +52,34 @@ test('derive: transfers move the account balance like any flow', () => {
   assert.equal(months['2026-06'], 700);
 });
 
-test('derive: a MANUAL anchor months past the ledger derives nothing', () => {
-  // Transactions end March 31; the user types a balance in July — the gap
-  // proves nothing about April–June, so refusing beats guessing.
+test('derive: a MANUAL anchor months past the ledger states only its own month', () => {
+  // Transactions end March 31; the user types a balance in July. The gap
+  // proves nothing about April–June (refusing beats guessing), but the
+  // typed balance is still a fact about July itself.
   const months = deriveAccountMonthEnds(
     [tx('2026-03-05', 100), tx('2026-03-31', 50)],
     [anchor('2026-07-01', 4000, 'manual')],
     CAT_TYPES
   );
-  assert.equal(months, null);
+  assert.equal(months['2026-07'], 4000, 'the anchor month shows the observation');
+  assert.equal(months['2026-04'], undefined, 'the gap months stay empty');
+  assert.equal(months['2026-05'], undefined);
+  assert.equal(months['2026-06'], undefined);
+  assert.equal(months['2026-03'], undefined, 'no rolling without a usable anchor');
+});
+
+test('derive: an anchors-only account (no transactions) populates its months', () => {
+  // The 401k pattern: the user records a balance now and then; no files.
+  const months = deriveAccountMonthEnds(
+    [],
+    [
+      anchor('2026-04-15', 93000, 'manual'),
+      anchor('2026-06-20', 95500, 'manual'),
+      anchor('2026-06-02', 94800, 'manual'), // older observation, same month
+    ],
+    CAT_TYPES
+  );
+  assert.deepStrictEqual(months, { '2026-04': 93000, '2026-06': 95500 });
 });
 
 test('derive: a FILE anchor past the ledger extends coverage — the bank vouches', () => {
@@ -76,13 +95,14 @@ test('derive: a FILE anchor past the ledger extends coverage — the bank vouche
   assert.equal(months['2026-07'], 4000);
 });
 
-test('derive: no anchor may pre-date the ledger window', () => {
+test('derive: an anchor pre-dating the ledger window never rolls into it', () => {
   const months = deriveAccountMonthEnds(
     [tx('2026-06-05', 100)],
     [anchor('2026-01-15', 4000, 'file')],
     CAT_TYPES
   );
-  assert.equal(months, null);
+  // The January observation stands as a point; nothing bridges Feb–Jun.
+  assert.deepStrictEqual(months, { '2026-01': 4000 });
 });
 
 test('derive: grace window admits a statement anchor dated just past the last row', () => {

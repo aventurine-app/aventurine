@@ -472,6 +472,23 @@
     font-variant-numeric: tabular-nums;
 }
 
+/* ── Derived cell (Balance Sheet) ──────────────────────────────────────────
+   A cell whose value was computed from imported transactions + balance
+   anchors (services/balances.js) rather than typed. Same italic "computed"
+   voice as synced cells, but it KEEPS the editable input — typing saves a
+   manual entry that overrides the computation — so unlike --accent-info
+   synced values it uses the quiet text tier: automation in the background,
+   not a locked range. The style clears on reload once a cell holds a manual
+   value. */
+.db-derived-value {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+.db-derived-value:focus {
+    font-style: normal;       /* editing: back to the normal input voice */
+    color: var(--text-primary);
+}
+
 /* ── Multi-cell selection (cellselect.js) ──────────────────────────────────
    Spreadsheet-style range selection. Selected cells get a clearly visible
    accent fill; the active/anchor cell is brighter still so the "current cell"
