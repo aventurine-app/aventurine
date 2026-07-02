@@ -7,14 +7,13 @@
 // typed) through its transactions to produce month-end balances — so a single
 // file drop lights up net worth without hand-entering history.
 //
-// The guiding rule is the import categorizer's: NEVER confidently wrong.
-//   - An anchor is always a fact about its own month (the latest observed
-//     balance), so it always shows up there — but months are ROLLED through
-//     the ledger only inside the account's transaction coverage window
-//     (first to last transaction date, with a small grace margin for the
-//     anchor itself). A stale anchor with a months-long gap back to the
-//     ledger proves nothing about the months in between — those cells stay
-//     empty rather than guessing "no activity".
+// The guiding rules:
+//   - The TREND is the product. The latest anchor rolls through the whole
+//     ledger, so five years of imported transactions become five years of
+//     month-end history. A gap between the anchor and the ledger offsets
+//     every rolled LEVEL by one unknown constant (the gap's net flow) but
+//     never bends the SHAPE of change over time — see
+//     deriveAccountMonthEnds for the full reasoning.
 //   - A hand-entered Balance Sheet cell always wins over a derived value
 //     (the overlay only fills cells the user left empty), and the response
 //     marks which cells are derived so the renderer can say so.
@@ -22,23 +21,6 @@
 // Pure logic + read-only queries; no writes ever happen here.
 
 const { round2, VALID_MONTHS } = require('../validate');
-
-// How far outside the transaction window a MANUAL anchor may sit and still be
-// trusted to connect to it. A user's "balance today" typed months after the
-// last imported row proves nothing about the months in between — that gap is
-// refused. File anchors are different: a statement's closing balance (OFX
-// <LEDGERBAL>) is the bank vouching for the quiet stretch between the file's
-// last row and the statement end, however long, so a 'file' anchor EXTENDS
-// coverage forward to its own date instead of being range-checked against it.
-const GRACE_DAYS = 7;
-
-/** ISO date ± days → ISO date (local-time arithmetic, like the rest of the app). */
-function addDays(iso, days) {
-  const [y, m, d] = iso.split('-').map(Number);
-  const dt = new Date(y, m - 1, d + days);
-  const p = (n) => String(n).padStart(2, '0');
-  return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}`;
-}
 
 /** Last day of a 'YYYY-MM' month as an ISO date. */
 function monthEnd(monthKey) {
@@ -74,22 +56,30 @@ function signedFor(t, catTypes) {
  * `txs` must be this account's rows sorted by date ascending; `anchors` its
  * balance observations. Two layers, weakest first:
  *
- *   1. POINT months — every anchor is a plain fact about its own month
- *      regardless of ledger coverage: "the latest observed balance in that
- *      month". A typed "balance today" therefore always shows up in the
- *      current month, and an anchors-only account (a 401k the user updates
- *      monthly, with no transaction files) populates month by month.
- *   2. ROLLED months — where the ledger justifies it, the LATEST usable
- *      anchor (one coherent reference, no per-month jumps between
- *      disagreeing statements) is rolled through the transactions:
- *      balance(E) = anchorBalance + Σ signed(tx in (anchorDate, E]) —
- *      algebraically the same forward or backward. Each covered month gets
- *      its balance at its last covered day: true month-end for past months,
- *      the latest known balance for the month coverage ends in. Coverage is
- *      the ledger window, extended to a file anchor's own date when the
- *      statement runs quiet past the last row (see GRACE_DAYS). Rolled
- *      values overwrite point values — a justified month-end beats a
- *      mid-month observation. Months in a refused gap stay empty.
+ *   1. POINT months — every anchor is a plain fact about its own month:
+ *      "the latest observed balance in that month". An anchors-only account
+ *      (a 401k the user updates monthly, with no transaction files)
+ *      populates month by month from these alone.
+ *   2. ROLLED months — the LATEST anchor (one coherent reference, no
+ *      per-month jumps between disagreeing statements) is rolled through the
+ *      transactions: balance(E) = anchorBalance + Σ signed(tx in
+ *      (anchorDate, E]) — algebraically the same forward or backward. Every
+ *      month from the earlier of (first transaction, anchor) to the later of
+ *      (last transaction, anchor) gets its balance at its last covered day:
+ *      true month-end for past months, the latest known balance in the final
+ *      month. Rolled values overwrite point values — a month-end beats a
+ *      mid-month observation.
+ *
+ * A gap between the anchor and the ledger (a "balance today" typed weeks
+ * after the newest imported row, or an old statement balance) is treated as
+ * quiet. That can offset the LEVEL of every rolled month by one unknown
+ * constant — the gap's net flow — but it never distorts the SHAPE of change
+ * over time, and the trend is what the Balance Sheet and the net-worth chart
+ * exist to show. (An earlier version refused to bridge such gaps; five years
+ * of imported history then produced a single dot, which protected the level
+ * by destroying the graph.) File anchors are the bank's own statement
+ * numbers and carry no such approximation; importing a fresher statement
+ * closes a manual gap and snaps levels exact.
  */
 function deriveAccountMonthEnds(txs, anchors, catTypes) {
   if (!anchors.length) return null;
@@ -100,31 +90,20 @@ function deriveAccountMonthEnds(txs, anchors, catTypes) {
     a.date === b.date
       ? (a.source === 'file' ? 1 : 0) - (b.source === 'file' ? 1 : 0)
       : a.date < b.date ? -1 : 1;
+  const ordered = [...anchors].sort(bySourceThenDate);
   const points = {};
-  for (const a of [...anchors].sort(bySourceThenDate)) {
+  for (const a of ordered) {
     points[a.date.slice(0, 7)] = round2(a.balance);
   }
   if (!txs.length) return points;
 
+  // Layer 2 — roll the latest anchor through the ledger across the full
+  // span of what we know about: all transactions plus the anchor itself.
+  const anchor = ordered[ordered.length - 1];
   const windowStart = txs[0].date;
   const windowEnd = txs[txs.length - 1].date;
-  // No anchor may pre-date the ledger window (nothing vouches for the gap
-  // back to it). Past the window's end, a file anchor is good to its own
-  // date — the statement covers its quiet tail — while a manual anchor only
-  // gets the small grace margin.
-  const usable = anchors.filter(
-    (a) =>
-      a.date >= addDays(windowStart, -GRACE_DAYS) &&
-      (a.source === 'file' || a.date <= addDays(windowEnd, GRACE_DAYS))
-  );
-  if (!usable.length) return points; // no rolling justified — points stand alone
-  usable.sort(bySourceThenDate);
-  const anchor = usable[usable.length - 1];
-
-  // Coverage runs to the last transaction, or further when a file anchor
-  // vouches for the quiet stretch beyond it.
-  const coverageEnd =
-    anchor.source === 'file' && anchor.date > windowEnd ? anchor.date : windowEnd;
+  const spanStart = anchor.date < windowStart ? anchor.date : windowStart;
+  const coverageEnd = anchor.date > windowEnd ? anchor.date : windowEnd;
 
   // cumulative[i] = Σ signed(txs[0..i]); cumAt(E) = Σ for date ≤ E.
   const cumulative = [];
@@ -146,7 +125,7 @@ function deriveAccountMonthEnds(txs, anchors, catTypes) {
 
   const atAnchor = cumAt(anchor.date);
   const rolled = {};
-  for (const monthKey of monthKeysBetween(windowStart, coverageEnd)) {
+  for (const monthKey of monthKeysBetween(spanStart, coverageEnd)) {
     const lastCoveredDay = monthEnd(monthKey) < coverageEnd ? monthEnd(monthKey) : coverageEnd;
     rolled[monthKey] = round2(anchor.balance + cumAt(lastCoveredDay) - atAnchor);
   }
@@ -231,7 +210,6 @@ function overlayBalanceData(ctx, payload) {
 }
 
 module.exports = {
-  GRACE_DAYS,
   deriveAccountMonthEnds,
   deriveColumnMonthEnds,
   overlayBalanceData,

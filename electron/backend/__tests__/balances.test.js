@@ -8,7 +8,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 
-const { deriveAccountMonthEnds, GRACE_DAYS } = require('../services/balances');
+const { deriveAccountMonthEnds } = require('../services/balances');
 const { makeClient } = require('./helpers');
 
 // Uncategorized rows only — direction from tx_type; no catTypes lookups needed.
@@ -52,20 +52,22 @@ test('derive: transfers move the account balance like any flow', () => {
   assert.equal(months['2026-06'], 700);
 });
 
-test('derive: a MANUAL anchor months past the ledger states only its own month', () => {
-  // Transactions end March 31; the user types a balance in July. The gap
-  // proves nothing about April–June (refusing beats guessing), but the
-  // typed balance is still a fact about July itself.
+test('derive: a MANUAL anchor months past the ledger still rolls the trend', () => {
+  // Transactions end in April; the user types a balance in July. The gap is
+  // treated as quiet: the levels may be offset by the gap's unknown net
+  // flow, but every month gets a value and the SHAPE of change is exact —
+  // that's what the net-worth graph needs.
   const months = deriveAccountMonthEnds(
-    [tx('2026-03-05', 100), tx('2026-03-31', 50)],
+    [tx('2026-03-05', 100), tx('2026-04-10', 50, 'income')],
     [anchor('2026-07-01', 4000, 'manual')],
     CAT_TYPES
   );
-  assert.equal(months['2026-07'], 4000, 'the anchor month shows the observation');
-  assert.equal(months['2026-04'], undefined, 'the gap months stay empty');
-  assert.equal(months['2026-05'], undefined);
-  assert.equal(months['2026-06'], undefined);
-  assert.equal(months['2026-03'], undefined, 'no rolling without a usable anchor');
+  assert.equal(months['2026-07'], 4000, 'anchor month');
+  assert.equal(months['2026-06'], 4000, 'quiet gap months carry the balance flat');
+  assert.equal(months['2026-05'], 4000);
+  assert.equal(months['2026-04'], 4000, 'all activity already before April month-end');
+  assert.equal(months['2026-03'], 3950, 'March month-end excludes April income');
+  assert.equal(months['2026-02'], undefined, 'nothing before the span');
 });
 
 test('derive: an anchors-only account (no transactions) populates its months', () => {
@@ -95,25 +97,36 @@ test('derive: a FILE anchor past the ledger extends coverage — the bank vouche
   assert.equal(months['2026-07'], 4000);
 });
 
-test('derive: an anchor pre-dating the ledger window never rolls into it', () => {
+test('derive: an anchor pre-dating the ledger rolls forward across the gap', () => {
   const months = deriveAccountMonthEnds(
     [tx('2026-06-05', 100)],
     [anchor('2026-01-15', 4000, 'file')],
     CAT_TYPES
   );
-  // The January observation stands as a point; nothing bridges Feb–Jun.
-  assert.deepStrictEqual(months, { '2026-01': 4000 });
+  assert.equal(months['2026-01'], 4000);
+  assert.equal(months['2026-03'], 4000, 'quiet gap carries flat');
+  assert.equal(months['2026-06'], 3900, 'June expense lands');
 });
 
-test('derive: grace window admits a statement anchor dated just past the last row', () => {
-  const lastTx = '2026-06-28';
-  const months = deriveAccountMonthEnds(
-    [tx('2026-06-10', 100), tx(lastTx, 50)],
-    [anchor('2026-06-30', 850)], // 2 days past the last row, well under GRACE_DAYS
-    CAT_TYPES
-  );
-  assert.ok(GRACE_DAYS >= 2);
-  assert.equal(months['2026-06'], 850);
+test('derive: years of history + one balance-today = a full monthly trend', () => {
+  // The founder scenario: a multi-year export and a single typed balance.
+  // Every month across the span derives — a net-worth graph, not one dot.
+  const txs = [];
+  for (let year = 2022; year <= 2026; year++) {
+    for (let m = 1; m <= (year === 2026 ? 6 : 12); m++) {
+      const mm = String(m).padStart(2, '0');
+      txs.push(tx(`${year}-${mm}-01`, 3000, 'income'));
+      txs.push(tx(`${year}-${mm}-15`, 2500));
+    }
+  }
+  const months = deriveAccountMonthEnds(txs, [anchor('2026-07-02', 10000, 'manual')], CAT_TYPES);
+  const keys = Object.keys(months);
+  assert.equal(keys.length, 55, 'Jan 2022 through Jul 2026, every month');
+  // Net +500/month walking backward from the anchor.
+  assert.equal(months['2026-07'], 10000);
+  assert.equal(months['2026-06'], 10000);        // gap month, carried flat
+  assert.equal(months['2026-05'], 9500);
+  assert.equal(months['2022-01'], 10000 - 500 * 53);
 });
 
 test('derive: months before the first transaction stay empty', () => {
