@@ -25,6 +25,7 @@ const {
   getFuzzyThreshold,
 } = require('../services/matchRules');
 const { applyBuiltinCategorize } = require('../services/categorize');
+const { ensureSyncedYear } = require('./incomeExpenses');
 
 function list(ctx) {
   const db = ctx.db();
@@ -252,8 +253,18 @@ function importRows(ctx, { body }) {
   const autoCategorized =
     applyAutoMatch(db, inserted) + applyBuiltinCategorize(db, inserted);
   if (inserted.length) {
+    // The imported file IS the coverage: every year it touches gets its Cash
+    // Flow year-table (fully synced when newly created — ensureSyncedYear's
+    // guard keeps existing years' opt-outs intact) and its Balance Sheet year
+    // tab, so the rows and any derived balances are visible immediately
+    // instead of hiding behind a manual "add year" step.
+    const years = new Set(inserted.map((t) => Number(t.date.slice(0, 4))));
     db.transaction(() => {
       for (const t of inserted) insertTx(db, t);
+      for (const year of years) {
+        ensureSyncedYear(db, year);
+        db.prepare('INSERT OR IGNORE INTO balance_active_years (year) VALUES (?)').run(year);
+      }
     })();
   }
 

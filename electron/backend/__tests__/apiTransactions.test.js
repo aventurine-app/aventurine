@@ -653,6 +653,31 @@ test('sync: a fresh DB computes Cash Flow from the first import, zero configurat
   assert.equal(cells.uncat_expense, 30.0);    // uncategorized row feeds the bucket
 });
 
+test('sync: importing a file creates its year-tables, fully synced', (t) => {
+  const c = makeClient(t);
+  const groceries = categoryByKey(c, 'groceries');
+  // A fresh DB only has the current year; this statement is from 2025.
+  const r = c.post('/api/transactions/import', {
+    rows: [
+      { date: '2025-03-05', description: 'SAFEWAY', tx_type: 'expense', amount: 50, category_id: groceries.id },
+    ],
+  });
+  assert.equal(r.status, 200);
+  const d = getData(c);
+  assert.ok(d.years.includes(2025), 'Cash Flow year created from the file');
+  assert.equal(d.entries['2025'].March.groceries, 50, 'rows visible immediately');
+  assert.ok(d.sync['2025'].includes('groceries'), 'the new year is fully synced');
+  // The Balance Sheet year tab exists too, so derived balances can show.
+  assert.ok(c.get('/api/balance/data').body.years.includes(2025));
+
+  // Importing MORE data into a now-existing year never resurrects opt-outs.
+  setSync(c, 2025, { category: 'groceries', sync: false });
+  c.post('/api/transactions/import', {
+    rows: [{ date: '2025-04-01', description: 'X', tx_type: 'expense', amount: 5 }],
+  });
+  assert.ok(!getData(c).sync['2025'].includes('groceries'));
+});
+
 test('sync: a synced cell computes from transactions and ignores manual entry', (t) => {
   const c = makeClient(t);
   const groceries = categoryByKey(c, 'groceries');

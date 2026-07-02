@@ -122,23 +122,30 @@ function entryDelete(ctx, { body }) {
   return { ok: true };
 }
 
+/**
+ * Ensure a Cash Flow year-table exists. A NEWLY created one defaults to fully
+ * synced — every category computed from transactions, the user opts cells OUT
+ * rather than in. The category_sync seeding is guarded on the year INSERT
+ * actually happening, so calling this for an existing year is a no-op and
+ * never resurrects sync rows the user turned off. Safe inside a caller's
+ * transaction (used by yearAdd here and by the transaction import, which
+ * creates the year-tables for whatever years an imported file covers).
+ */
+function ensureSyncedYear(db, year) {
+  const info = db.prepare('INSERT OR IGNORE INTO active_years (year) VALUES (?)').run(year);
+  if (info.changes > 0) {
+    db.prepare(
+      'INSERT OR IGNORE INTO category_sync (year, category) SELECT ?, "key" FROM categories'
+    ).run(year);
+  }
+}
+
 function yearAdd(ctx, { body }) {
   const db = ctx.db();
   if (!body) bad('invalid request');
   const year = body.year;
   if (!validateYear(year)) bad('invalid year');
-  db.transaction(() => {
-    const info = db.prepare('INSERT OR IGNORE INTO active_years (year) VALUES (?)').run(year);
-    // A newly created year-table defaults to fully synced: every category is
-    // computed from transactions, so the user opts cells OUT rather than IN.
-    // Guard on `info.changes` so re-posting an existing year is a no-op and
-    // never silently re-syncs categories the user had already turned off.
-    if (info.changes > 0) {
-      db.prepare(
-        'INSERT OR IGNORE INTO category_sync (year, category) SELECT ?, "key" FROM categories'
-      ).run(year);
-    }
-  })();
+  db.transaction(() => ensureSyncedYear(db, year))();
   return { ok: true, year };
 }
 
@@ -217,4 +224,4 @@ const routes = [
   ['POST', '/api/year/<int:year>/sync', syncSet],
 ];
 
-module.exports = { routes, syncSums };
+module.exports = { routes, syncSums, ensureSyncedYear };
