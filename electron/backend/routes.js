@@ -12,6 +12,7 @@ const routes = [
   ...require('./handlers/incomeExpenses').routes,
   ...require('./handlers/categories').routes,
   ...require('./handlers/transactions').routes,
+  ...require('./handlers/accounts').routes,
   ...require('./handlers/portfolio').routes,
   ...require('./handlers/creditCards').routes,
   ...require('./handlers/predictions').routes,

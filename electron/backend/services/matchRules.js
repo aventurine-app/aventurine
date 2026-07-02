@@ -178,6 +178,10 @@ function applyAutoMatch(db, transactions) {
   let n = 0;
   for (const t of transactions) {
     if (t.category_id != null || !t.description) continue;
+    // A transfer never takes a category — matching one by description (e.g. a
+    // learned rule for "ZELLE TO SAVINGS") would flip its direction to the
+    // category's cat_type and break its pairing.
+    if (t.tx_type === 'transfer_in' || t.tx_type === 'transfer_out') continue;
     const catId = autoMatchCategory(t.description, rules, fuzzy);
     if (catId == null || !catTypes.has(catId)) continue;
     t.category_id = catId;

@@ -9,6 +9,7 @@
 
 const { bad, parseEntry, validateYear, VALID_MONTHS, monthNumber, monthName } = require('../validate');
 const { syncedMap, isSynced } = require('../categorySync');
+const { TRANSFER_TYPES } = require('../services/transactions');
 
 const NULL_SYNC_KEYS = { income: 'uncat_income', expense: 'uncat_expense' };
 
@@ -20,8 +21,12 @@ function columnsPayload(db) {
 }
 
 /** The category key a transaction feeds: its category's key, or one of the two
- *  uncategorized buckets (by tx_type) for NULL-category rows. */
+ *  uncategorized buckets (by tx_type) for NULL-category rows. Transfers feed
+ *  nothing — money moving between the user's own accounts is neither income
+ *  nor spending, so counting it in the uncat_expense bucket would inflate the
+ *  Cash Flow statement. */
 function txKey(t, keyById) {
+  if (TRANSFER_TYPES.includes(t.tx_type)) return null;
   if (t.category_id == null) {
     return NULL_SYNC_KEYS[(t.tx_type ?? 'expense') === 'income' ? 'income' : 'expense'];
   }

@@ -21,7 +21,11 @@ const EXPORT_FORMATS = ['csv', 'ofx', 'qfx', 'qif'];
 const CRLF = '\r\n';
 
 function signedAmount(t) {
-  const amt = t.tx_type === 'income' ? t.amount : -t.amount;
+  // Inflows positive, outflows negative. transfer_in counts as an inflow of
+  // its own account — the sign convention is per-account, exactly how a bank
+  // statement for that account would show it.
+  const inflow = t.tx_type === 'income' || t.tx_type === 'transfer_in';
+  const amt = inflow ? t.amount : -t.amount;
   return amt.toFixed(2);
 }
 
@@ -135,9 +139,13 @@ function ofxVariant(intuBid) {
       ].join(CRLF);
     },
     row: (t) => {
+      // OFX has a first-class transfer type; both pair halves use it, with
+      // TRNAMT's sign (via signedAmount) carrying the direction.
+      const isTransfer = t.tx_type === 'transfer_in' || t.tx_type === 'transfer_out';
+      const trnType = isTransfer ? 'XFER' : t.tx_type === 'income' ? 'CREDIT' : 'DEBIT';
       const lines = [
         '<STMTTRN>',
-        `<TRNTYPE>${t.tx_type === 'income' ? 'CREDIT' : 'DEBIT'}`,
+        `<TRNTYPE>${trnType}`,
         `<DTPOSTED>${compactDate(t.date)}`,
         `<TRNAMT>${signedAmount(t)}`,
         // FITID must be unique within the account; the row id is exactly that.

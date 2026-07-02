@@ -85,7 +85,9 @@ function resolveStart(accounts, accountKey) {
  *  `includeSavings`, savings- and investing-typed rows are folded into the
  *  expense (outflow) bucket — money moved out of the cash account on its way to
  *  savings/investments; with it off they're dropped, so the projection shows the
- *  balance as if that money had stayed put. */
+ *  balance as if that money had stayed put. Transfer rows (transfer_in/_out)
+ *  match no branch and drop out deliberately: a between-accounts move is not
+ *  part of the household's typical monthly net. */
 function directionSplit(db, includeSavings) {
   const catTypes = new Map(
     db.prepare('SELECT id, cat_type FROM categories').all().map((c) => [c.id, c.cat_type])
