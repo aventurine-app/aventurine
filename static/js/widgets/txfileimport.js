@@ -17,20 +17,12 @@
 // Flow:
 //   1. File picker  — format identified by magic bytes + content sniffing,
 //                     so a misnamed file (OFX saved as .txt) still imports
-//   2. Parse        — format-specific parser → uniform {headers, rows, fixed},
-//                     plus `meta` (account identity + statement balance) for
-//                     formats that carry it (OFX <ACCTID>/<LEDGERBAL>)
+//   2. Parse        — format-specific parser → uniform {headers, rows, fixed}
 //   3. Map columns  — auto-detect then confirm in a modal; skipped when the
-//                     format's schema is fixed (OFX/QIF define their fields).
-//                     An optional Balance mapping captures a CSV's running
-//                     balance (newest row) as the file's balance observation
-//   4. Preview      — show all parsed rows; flag likely duplicates; pick the
-//                     account this file belongs to (remembered per file
-//                     shape; "New account…" creates one inline)
-//   5. Commit       — POST confirmed rows (+ account_id) to
-//                     /api/transactions/import; a file-carried balance is
-//                     then recorded as a 'file' anchor, which the Balance
-//                     Sheet derives net-worth history from
+//                     format's schema is fixed (OFX/QIF define their fields)
+//   4. Preview      — show all parsed rows; flag likely duplicates; user
+//                     checks/unchecks before committing
+//   5. Commit       — POST confirmed rows to /api/transactions/import
 //   6. Reload       — fire 'transactions:reload' so the ledger refreshes
 //
 // All parsing is client-side. The server only receives clean row objects.
@@ -147,19 +139,10 @@ const TxFileImport = (() => {
     // of line) and XML (v2, closed tags). Matching "<TAG>value-up-to-<-or-EOL"
     // handles both. Each transaction is a <STMTTRN> block; the closing tag is
     // optional in SGML, so chunks are cut at whichever boundary comes first.
-    //
-    // Beyond the rows, the file carries account identity and the statement's
-    // closing balance — both are returned as `meta` so the import can target
-    // an account and record the balance as a 'file' anchor (the raw material
-    // Balance Sheet derivation rolls through the ledger).
     function parseOFX(text) {
         const field = (chunk, tag) => {
             const m = chunk.match(new RegExp(`<${tag}>([^<\\r\\n]*)`, 'i'));
             return m ? unescapeXml(m[1].trim()) : '';
-        };
-        const compactToIso = (s) => {
-            const m = String(s).match(/\d{8}/);
-            return m ? `${m[0].slice(0, 4)}-${m[0].slice(4, 6)}-${m[0].slice(6, 8)}` : null;
         };
 
         const rows = [];
@@ -177,36 +160,7 @@ const TxFileImport = (() => {
             // MEMO is promoted to the description instead of duplicating.
             rows.push([date, name || memo, field(chunk, 'TRNAMT'), name ? memo : '']);
         }
-
-        // Account identity: ACCTID (+ ACCTTYPE for banks; a CCACCTFROM block
-        // means a credit card, which carries no ACCTTYPE).
-        const acctId = field(text, 'ACCTID');
-        const isCard = /<CCACCTFROM>/i.test(text);
-        const OFX_KIND = {
-            CHECKING: 'checking', SAVINGS: 'savings', MONEYMRKT: 'savings',
-            CREDITLINE: 'credit', CD: 'savings',
-        };
-        const kind = isCard ? 'credit' : OFX_KIND[field(text, 'ACCTTYPE').toUpperCase()] || null;
-
-        // Statement closing balance: <LEDGERBAL> holds BALAMT + DTASOF. (The
-        // similarly-shaped AVAILBAL is available credit/funds — not wanted.)
-        let balance = null;
-        const ledger = text.match(/<LEDGERBAL>([\s\S]*?)(?:<\/LEDGERBAL>|<AVAILBAL|<\/STMTRS|<\/CCSTMTRS|$)/i);
-        if (ledger) {
-            const amount = parseFloat(field(ledger[1], 'BALAMT'));
-            const asOf   = compactToIso(field(ledger[1], 'DTASOF'));
-            if (Number.isFinite(amount) && asOf) balance = { date: asOf, amount };
-        }
-
-        return {
-            headers: ['Date', 'Description', 'Amount', 'Notes'],
-            rows,
-            fixed: true,
-            meta: {
-                balance,
-                account: acctId ? { id: acctId, kind } : (kind ? { id: null, kind } : null),
-            },
-        };
+        return { headers: ['Date', 'Description', 'Amount', 'Notes'], rows, fixed: true };
     }
 
     // ── QIF parser ───────────────────────────────────────────────────────────
@@ -442,31 +396,24 @@ const TxFileImport = (() => {
 
     // ── Column detection ─────────────────────────────────────────────────────
     // Fuzzy-match header names first; fall back to data-shape heuristics.
-    const RX_DATE    = /date|posted|trans(?:action)?|when/i;
-    const RX_AMOUNT  = /amount|debit|credit|sum|total/i;
-    const RX_DESC    = /desc(?:ription)?|merchant|payee|memo|narrative|detail|name/i;
-    const RX_NOTES   = /notes?|comment|remark|reference|ref/i;
-    // Running-balance column (many checking exports carry one). Matched before
-    // amount below so "Balance" never gets claimed as the Amount column.
-    const RX_BALANCE = /balance/i;
+    const RX_DATE   = /date|posted|trans(?:action)?|when/i;
+    const RX_AMOUNT = /amount|debit|credit|sum|total/i;
+    const RX_DESC   = /desc(?:ription)?|merchant|payee|memo|narrative|detail|name/i;
+    const RX_NOTES  = /notes?|comment|remark|reference|ref/i;
 
     function detectColumns(headers, rows) {
-        const d = { date: null, description: null, amount: null, notes: null, balance: null };
+        const d = { date: null, description: null, amount: null, notes: null };
 
         headers.forEach((h, i) => {
-            if (d.balance     === null && RX_BALANCE.test(h)) { d.balance = i; return; }
             if (d.date        === null && RX_DATE.test(h))   d.date        = i;
             if (d.amount      === null && RX_AMOUNT.test(h)) d.amount      = i;
             if (d.description === null && RX_DESC.test(h))   d.description = i;
             if (d.notes       === null && RX_NOTES.test(h))  d.notes       = i;
         });
 
-        // Data-shape fallbacks for unmatched required fields. A recognised
-        // balance column is excluded — it is numeric like an amount, and
-        // claiming it would import running balances as transaction amounts.
+        // Data-shape fallbacks for unmatched required fields.
         if (rows.length > 0) {
             headers.forEach((h, i) => {
-                if (i === d.balance) return;
                 const vals = rows.map(r => (r[i] || '')).filter(Boolean);
                 if (!vals.length) return;
                 if (d.date === null) {
@@ -483,7 +430,7 @@ const TxFileImport = (() => {
             if (d.description === null) {
                 let best = null, bestAvg = 0;
                 headers.forEach((h, i) => {
-                    if (i === d.date || i === d.amount || i === d.notes || i === d.balance) return;
+                    if (i === d.date || i === d.amount || i === d.notes) return;
                     const avg = rows.reduce((s, r) => s + (r[i] || '').length, 0) / rows.length;
                     if (avg > bestAvg) { bestAvg = avg; best = i; }
                 });
@@ -575,104 +522,15 @@ const TxFileImport = (() => {
         }
     }
 
-    async function commitRows(rows, accountId = null) {
+    async function commitRows(rows) {
         const r = await apiFetch('/api/transactions/import', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ rows, account_id: accountId }),
+            body: JSON.stringify({ rows }),
         });
         const data = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(data.error || 'import failed');
-        return data; // { ok, inserted, skipped, auto_categorized }
-    }
-
-    async function fetchAccounts() {
-        try {
-            const r = await apiFetch('/api/accounts');
-            const data = await r.json().catch(() => ({}));
-            return data.accounts || [];
-        } catch {
-            return []; // picker degrades to "don't assign"; import still works
-        }
-    }
-
-    // Create an account for a new import target. The Balance Sheet column it
-    // feeds is guessed from its kind (checking/savings → a cash column,
-    // credit → debt, …), preferring a column named like the kind; no match
-    // leaves the account unlinked, which only skips balance derivation.
-    const KIND_TO_COL_TYPE = {
-        checking: 'cash', savings: 'cash', credit: 'debt',
-        investment: 'investment', retirement: 'retirement',
-    };
-    async function createAccount(name, kind, openingBalance = null) {
-        let balanceColumn = null;
-        const wanted = KIND_TO_COL_TYPE[kind];
-        if (wanted) {
-            try {
-                const r = await apiFetch('/api/balance/columns');
-                // The endpoint returns the bare column array: [{key,label,type}].
-                const cols = await r.json().catch(() => []);
-                const ofType = (Array.isArray(cols) ? cols : []).filter(c => c.type === wanted);
-                const named  = ofType.find(c =>
-                    c.key === kind || new RegExp(kind, 'i').test(c.label || ''));
-                balanceColumn = (named || ofType[0])?.key ?? null;
-            } catch { /* unlinked account — derivation just stays off */ }
-        }
-        const payload = { name, kind, balance_column: balanceColumn };
-        // "What's this account's balance today?" — becomes the account's first
-        // manual anchor (dated today by the server), so net worth can derive
-        // even when the file itself carries no statement balance.
-        if (openingBalance !== null) payload.opening_balance = openingBalance;
-        const r = await apiFetch('/api/accounts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
-        const data = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(data.error || 'could not create the account');
-        return data.account;
-    }
-
-    // Record a balance observation for an account; best-effort — a failure
-    // must never undo or block a committed import. `date` may be null for
-    // manual anchors: the server dates them today.
-    async function saveAnchor(accountId, date, balance, source) {
-        try {
-            const payload = { balance, source };
-            if (date) payload.date = date;
-            else {
-                const d = new Date();
-                const p = (n) => String(n).padStart(2, '0');
-                payload.date = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-            }
-            const r = await apiFetch(`/api/accounts/${accountId}/anchors`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
-            return r.ok;
-        } catch {
-            return false;
-        }
-    }
-
-    // ── Import-target memory ─────────────────────────────────────────────────
-    // Remembers which account a file shape was imported into, so the picker is
-    // pre-selected on every later statement from the same source. Keyed by the
-    // OFX ACCTID when the file carries one, else by the header signature.
-    const ACCOUNT_MEMORY_KEY = 'tx-import-account-memory';
-    function recallAccount(fpKey) {
-        try {
-            return JSON.parse(localStorage.getItem(ACCOUNT_MEMORY_KEY) || '{}')[fpKey] ?? null;
-        } catch { return null; }
-    }
-    function rememberAccount(fpKey, accountId) {
-        if (!fpKey || !accountId) return;
-        try {
-            const map = JSON.parse(localStorage.getItem(ACCOUNT_MEMORY_KEY) || '{}');
-            map[fpKey] = accountId;
-            localStorage.setItem(ACCOUNT_MEMORY_KEY, JSON.stringify(map));
-        } catch { /* memory is a convenience, never a blocker */ }
+        return data; // { ok, inserted, skipped }
     }
 
     // ── Modal shell ───────────────────────────────────────────────────────────
@@ -747,7 +605,6 @@ const TxFileImport = (() => {
                 ${mapSelect('Description *', 'description', true)}
                 ${mapSelect('Amount *',      'amount',      true)}
                 ${mapSelect('Notes',         'notes',       false)}
-                ${mapSelect('Balance',       'balance',     false)}
             </div>
             <div class="tx-import-footer">
                 <span class="tx-import-row-count">${rows.length} row${rows.length !== 1 ? 's' : ''} in file</span>
@@ -765,7 +622,6 @@ const TxFileImport = (() => {
                 description: get('description'),
                 amount:      get('amount'),
                 notes:       get('notes'),
-                balance:     get('balance'),
             };
             if (mapping.date        === null) { alert('Please select the Date column.');        return; }
             if (mapping.description === null) { alert('Please select the Description column.'); return; }
@@ -778,14 +634,8 @@ const TxFileImport = (() => {
     // ── Step 2: Apply mapping → parsed rows ──────────────────────────────────
     // firstRowNum is what "row N" means in error messages: 2 for tabular
     // files (row 1 is the header line), 1 for record formats like OFX/QIF.
-    // When a Balance column is mapped, the newest row's balance is returned as
-    // `balance` ({date, amount}) — the file-carried observation the Balance
-    // Sheet derivation anchors on. Ties on the newest date keep the value from
-    // whichever row the file lists first, matching how banks emit newest-first
-    // running balances.
     function applyMapping(rawRows, mapping, firstRowNum = 2) {
         const parsed = [], errors = [];
-        let balance = null;
         rawRows.forEach((row, i) => {
             const dateRaw  = row[mapping.date]        ?? '';
             const descRaw  = (row[mapping.description] ?? '').trim();
@@ -807,27 +657,14 @@ const TxFileImport = (() => {
                 errors.push({ row: i + firstRowNum, reason: 'empty description' });
                 return;
             }
-
-            if (mapping.balance != null) {
-                const bal = parseAmount(row[mapping.balance] ?? '');
-                if (!Number.isNaN(bal) && (balance === null || date > balance.date)) {
-                    balance = { date, amount: bal };
-                }
-            }
-
             const tx_type = amount >= 0 ? 'income' : 'expense';
             parsed.push({ date, description: descRaw, tx_type, amount: Math.abs(amount), notes: notesRaw });
         });
-        return { parsed, errors, balance };
+        return { parsed, errors };
     }
 
     // ── Step 3: Preview modal ─────────────────────────────────────────────────
-    // `target` carries everything the import needs beyond the rows:
-    //   accounts — the existing accounts (for the picker)
-    //   meta     — file-carried account identity/kind (OFX), or null
-    //   balance  — file-carried balance observation {date, amount}, or null
-    //   fpKey    — the import-target memory key for this file shape
-    function showPreviewModal(parsed, errors, dupeSet, target) {
+    function showPreviewModal(parsed, errors, dupeSet) {
         const { body, close } = buildModal('Review Import');
 
         // Augment each row with a stable index, fingerprint, and dup flag.
@@ -862,89 +699,9 @@ const TxFileImport = (() => {
             btn.disabled    = n === 0;
         }
 
-        // ── Account picker ────────────────────────────────────────────────────
-        // One import = one account. The section is rendered ONCE (outside
-        // renderTable's re-render churn) so the user's choice survives
-        // checkbox toggles. Remembered targets are pre-selected; '__new__'
-        // reveals the inline name/kind fields.
-        const accountForm = document.createElement('div');
-        accountForm.className = 'tx-import-account-form';
-        const remembered = target.fpKey ? recallAccount(target.fpKey) : null;
-        const rememberedOk = target.accounts.some(a => a.id === remembered);
-        // Nudge first-time users toward the unified flow: with no accounts yet
-        // and a file that clearly identifies one, default to creating it.
-        const suggestNew = !target.accounts.length && !!(target.meta || target.balance);
-        const kindGuess  = target.meta?.kind || 'checking';
-        const acctTail   = target.meta?.id ? String(target.meta.id).slice(-4) : '';
-        const nameGuess  = `${kindGuess[0].toUpperCase()}${kindGuess.slice(1)}${acctTail ? ' …' + acctTail : ''}`;
-        const KINDS = ['checking', 'savings', 'credit', 'investment', 'retirement', 'other'];
-        accountForm.innerHTML = `
-            <div class="tx-import-section-label">Which account is this file from?</div>
-            <p class="tx-import-hint">Assigning an account lets Oliv fill in your Balance
-               Sheet and net worth from your imports. You can skip this and the
-               transactions still import normally.</p>
-            <div class="tx-import-map-form">
-                <div class="tx-import-map-row">
-                    <span class="tx-import-map-label">Account</span>
-                    <select class="tx-select tx-import-account-select">
-                        <option value=""${!rememberedOk && !suggestNew ? ' selected' : ''}>— skip for now —</option>
-                        ${target.accounts.map(a =>
-                            `<option value="${a.id}"${a.id === remembered ? ' selected' : ''}>${esc(a.name)}</option>`
-                        ).join('')}
-                        <option value="__new__"${suggestNew ? ' selected' : ''}>＋ New account…</option>
-                    </select>
-                </div>
-                <div class="tx-import-map-row tx-import-newacct-row" hidden>
-                    <span class="tx-import-map-label">Name</span>
-                    <input type="text" class="tx-input tx-import-newacct-name" value="${esc(nameGuess)}" maxlength="100">
-                </div>
-                <div class="tx-import-map-row tx-import-newacct-row" hidden>
-                    <span class="tx-import-map-label">Type</span>
-                    <select class="tx-select tx-import-newacct-kind">
-                        ${KINDS.map(k =>
-                            `<option value="${k}"${k === kindGuess ? ' selected' : ''}>${k[0].toUpperCase()}${k.slice(1)}</option>`
-                        ).join('')}
-                    </select>
-                </div>
-                <div class="tx-import-map-row tx-import-openbal-row" hidden>
-                    <span class="tx-import-map-label">Balance today</span>
-                    <input type="text" class="tx-input tx-import-openbal" inputmode="decimal"
-                           placeholder="optional — lights up your net worth">
-                </div>
-                <p class="tx-import-hint tx-import-balance-note" hidden>
-                    Statement balance ${esc(fmtAmt(target.balance?.amount ?? 0))}${(target.balance?.amount ?? 0) < 0 ? ' (negative)' : ''}
-                    as of ${esc(target.balance?.date ?? '')} will be recorded for this account —
-                    it's what fills in your Balance Sheet and net worth.
-                </p>
-            </div>
-        `;
-        const acctSelect = accountForm.querySelector('.tx-import-account-select');
-        const syncAccountForm = () => {
-            const isNew   = acctSelect.value === '__new__';
-            const chosen  = target.accounts.find(a => String(a.id) === acctSelect.value);
-            accountForm.querySelectorAll('.tx-import-newacct-row').forEach(r => { r.hidden = !isNew; });
-            // File carries a balance → say so. No file balance → offer the one
-            // onboarding question ("balance today?") whenever the target has
-            // no observation yet: a brand-new account, or an existing one
-            // that has never had an anchor recorded.
-            const note = accountForm.querySelector('.tx-import-balance-note');
-            note.hidden = !target.balance || acctSelect.value === '';
-            const needsBalance = !target.balance
-                && (isNew || (chosen && !chosen.latest_anchor));
-            accountForm.querySelector('.tx-import-openbal-row').hidden = !needsBalance;
-        };
-        acctSelect.addEventListener('change', syncAccountForm);
-
-        // The table renders into its own holder so the account form (and the
-        // user's in-progress choice) is never wiped by a re-render.
-        const tableHolder = document.createElement('div');
-        body.innerHTML = errBanner;
-        body.append(accountForm, tableHolder);
-        syncAccountForm();
-
         function renderTable() {
             const allChecked = rows.length > 0 && rows.every(r => checked.has(r._idx));
-            tableHolder.innerHTML = `
+            body.innerHTML = errBanner + `
                 <div class="tx-import-preview-wrap">
                     <table class="tx-import-preview-table tx-import-preview-full">
                         <thead>
@@ -971,19 +728,19 @@ const TxFileImport = (() => {
                 </div>
             `;
 
-            tableHolder.querySelector('.tx-import-check-all')?.addEventListener('change', (e) => {
+            body.querySelector('.tx-import-check-all')?.addEventListener('change', (e) => {
                 if (e.target.checked) rows.forEach(r => checked.add(r._idx));
                 else checked.clear();
                 renderTable();
                 updateFooter();
             });
 
-            tableHolder.querySelectorAll('.tx-import-row-check').forEach(cb => {
+            body.querySelectorAll('.tx-import-row-check').forEach(cb => {
                 cb.addEventListener('change', (e) => {
                     const idx = parseInt(e.target.dataset.idx, 10);
                     e.target.checked ? checked.add(idx) : checked.delete(idx);
                     // Update check-all state without re-rendering the whole table.
-                    tableHolder.querySelector('.tx-import-check-all').checked =
+                    body.querySelector('.tx-import-check-all').checked =
                         rows.every(r => checked.has(r._idx));
                     updateFooter();
                 });
@@ -993,71 +750,19 @@ const TxFileImport = (() => {
         renderTable();
         updateFooter();
 
-        const doBtn = footer.querySelector('.tx-import-do-btn');
-        doBtn.addEventListener('click', async () => {
+        footer.querySelector('.tx-import-do-btn').addEventListener('click', async () => {
             const toSend = rows
                 .filter(r => checked.has(r._idx))
                 .map(({ date, description, tx_type, amount, notes }) => ({ date, description, tx_type, amount, notes }));
-
-            doBtn.disabled = true; // no double-submits while the commit runs
             try {
-                // The user's "balance today" answer, when the row is visible
-                // and filled: NaN means empty/unparseable → simply skipped.
-                const openbalRow = accountForm.querySelector('.tx-import-openbal-row');
-                const typedBalance = openbalRow.hidden
-                    ? NaN
-                    : parseAmount(accountForm.querySelector('.tx-import-openbal').value);
-
-                // Resolve the import target first: an existing account, a new
-                // one created now, or none. Only then commit the rows.
-                let accountId = null;
-                if (acctSelect.value === '__new__') {
-                    const name = accountForm.querySelector('.tx-import-newacct-name').value.trim();
-                    const kind = accountForm.querySelector('.tx-import-newacct-kind').value;
-                    if (!name) { alert('Please name the new account.'); doBtn.disabled = false; return; }
-                    accountId = (await createAccount(
-                        name, kind, Number.isNaN(typedBalance) ? null : typedBalance
-                    )).id;
-                } else if (acctSelect.value !== '') {
-                    accountId = parseInt(acctSelect.value, 10);
-                }
-
-                const result = await commitRows(toSend, accountId);
-
-                // Balance observations are recorded after the rows so an
-                // anchor never exists without the ledger it rolls through:
-                // the file's statement balance when it has one, else the
-                // typed "balance today" for an existing anchor-less account
-                // (a new account already got it as its opening anchor).
-                let anchorSaved = false;
-                if (accountId && target.balance) {
-                    anchorSaved = await saveAnchor(
-                        accountId, target.balance.date, target.balance.amount, 'file');
-                } else if (accountId && acctSelect.value !== '__new__' && !Number.isNaN(typedBalance)) {
-                    anchorSaved = await saveAnchor(accountId, null, typedBalance, 'manual');
-                } else if (accountId && acctSelect.value === '__new__' && !Number.isNaN(typedBalance)) {
-                    anchorSaved = true; // recorded as the opening anchor at creation
-                }
-                if (accountId && target.fpKey) rememberAccount(target.fpKey, accountId);
-
-                // An import changes every derived dataset: synced Cash Flow
-                // cells sum the new rows, and a recorded anchor reshapes the
-                // derived Balance Sheet. Drop both caches so aggregator pages
-                // (Home, Report Card) pull fresh data on their next read.
-                if (window.Store) {
-                    Store.invalidate('ie');
-                    Store.invalidate('balance');
-                }
-
+                const result = await commitRows(toSend);
                 close();
                 const msg = `Imported ${result.inserted} transaction${result.inserted !== 1 ? 's' : ''}.`
                     + (result.auto_categorized ? ` ${result.auto_categorized} categorized automatically.` : '')
-                    + (anchorSaved ? ' Account balance recorded.' : '')
                     + (result.skipped?.length ? ` ${result.skipped.length} skipped.` : '');
                 alert(msg);
                 window.dispatchEvent(new Event('transactions:reload'));
             } catch (err) {
-                doBtn.disabled = false;
                 alert('Import failed: ' + err.message);
             }
         });
@@ -1094,9 +799,9 @@ const TxFileImport = (() => {
             }
 
             // Shared continuation for both paths: validate rows, fetch
-            // duplicate fingerprints and accounts, open the preview.
+            // duplicate fingerprints, open the preview.
             const proceed = async (mapping, firstRowNum) => {
-                const { parsed, errors, balance } = applyMapping(table.rows, mapping, firstRowNum);
+                const { parsed, errors } = applyMapping(table.rows, mapping, firstRowNum);
                 if (!parsed.length) {
                     const sample = errors.slice(0, 3).map(e => `  Row ${e.row}: ${e.reason}`).join('\n');
                     alert(`No valid rows could be parsed (${errors.length} error${errors.length > 1 ? 's' : ''}).\n\nFirst errors:\n${sample}`);
@@ -1108,20 +813,7 @@ const TxFileImport = (() => {
                 const minDate = parsed.reduce((min, r) => (r.date < min ? r.date : min), parsed[0].date);
                 const dupeSet = await fetchHashes(minDate);
 
-                // The import target: file-carried meta (OFX account identity +
-                // statement balance) beats a mapped CSV Balance column; the
-                // memory key is the ACCTID when present, else the file's
-                // header signature.
-                const meta  = table.meta ?? null;
-                const fpKey = meta?.account?.id
-                    ? `ofx:${meta.account.id}`
-                    : `cols:${table.headers.join('|').toLowerCase()}`;
-                showPreviewModal(parsed, errors, dupeSet, {
-                    accounts: await fetchAccounts(),
-                    meta: meta?.account ?? null,
-                    balance: meta?.balance ?? balance ?? null,
-                    fpKey,
-                });
+                showPreviewModal(parsed, errors, dupeSet);
             };
 
             if (table.fixed) {

@@ -39,18 +39,13 @@ Packaged downloads are available for **Linux (`.deb`)** and **Windows (installer
 2. **Create a database.** On first run, use the database modal (sidebar) to create a new
    database file at a location you choose. To keep your data encrypted at rest, set a
    passphrase here — you'll be prompted to unlock it on future launches.
-3. **Drop in a bank export.** Head to **Transactions** and import a statement file
-   (CSV/OFX/QFX/QIF/Excel) from your bank. Tell Oliv which account the file belongs to
-   (it remembers for next time — or creates the account on the spot), and it
-   auto-categorizes what it confidently can. When the file carries a statement balance,
-   that fills in your **Balance Sheet** and net worth automatically. You can also enter
-   activity by hand.
-4. **Categorize the rest.** Assign categories to whatever was left blank — Oliv learns
-   from your choices and gets better at categorizing every future import.
-5. **Track your flow.** **Cash Flow**, the **Home** dashboard, and the **Report Card**
-   are computed straight from your transactions out of the box; any category/year cell
-   can be switched to hand-entered values if you prefer (your own numbers always win
-   over computed ones).
+3. **Add or import transactions.** Head to **Transactions** to enter activity manually,
+   or import a statement file (CSV/OFX/QFX/QIF) from your bank.
+4. **Categorize.** Assign categories to transactions — Oliv learns from your choices and
+   starts categorizing future activity automatically.
+5. **Track your flow.** Use **Cash Flow** to see income and expenses by category and
+   month. Turn on **sync** for any category/year to have it computed straight from your
+   transactions.
 6. **Look ahead and zoom out.** Check the **Cash Flow Forecast**, **Balance Sheet**, and
    **Portfolio** to project ahead and watch your net worth grow.
 

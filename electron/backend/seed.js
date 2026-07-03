@@ -56,10 +56,7 @@ const DEFAULT_APP_SETTINGS = { tx_fuzzy_threshold: '1' };
 function seedDefaults(db) {
   const year = new Date().getFullYear();
 
-  // Remember whether THIS run created the bootstrap year: only then is it ours
-  // to configure (below). An existing DB keeps its sync choices untouched.
-  const bootstrapYearCreated = !db.prepare('SELECT 1 FROM active_years LIMIT 1').get();
-  if (bootstrapYearCreated) {
+  if (!db.prepare('SELECT 1 FROM active_years LIMIT 1').get()) {
     db.prepare('INSERT INTO active_years (year) VALUES (?)').run(year);
   }
 
@@ -73,18 +70,6 @@ function seedDefaults(db) {
     if (!existingKeys.has(key)) {
       insCat.run(key, name, catType, pos, flexType);
     }
-  }
-
-  // The bootstrap year starts fully synced — every category's Cash Flow cells
-  // are computed from transactions, matching the default a user-added year gets
-  // (incomeExpenses.yearAdd). This is what lets a brand-new user's first import
-  // light up Cash Flow / Home / Report Card with zero configuration; cells are
-  // opted OUT of sync rather than in. Runs after category seeding because the
-  // SELECT needs the category rows to exist on a fresh DB.
-  if (bootstrapYearCreated) {
-    db.prepare(
-      'INSERT OR IGNORE INTO category_sync (year, category) SELECT ?, "key" FROM categories'
-    ).run(year);
   }
 
   if (!db.prepare('SELECT 1 FROM balance_active_years LIMIT 1').get()) {
