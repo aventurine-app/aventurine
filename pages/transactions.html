@@ -27,7 +27,8 @@
     <!-- Chip row above the table — no container background. The left group is
          one filter chip per search field (Date / Name / Amount / Type /
          Category) plus a Clear all; the right group holds the action chips
-         (Edit / Delete / Import / Export / Add). Inactive filter chips read as a
+         (icon chips for Edit / Delete / Add, labeled primary buttons for
+         Import / Export). Inactive filter chips read as a
          dotted outline with just the field name; clicking one drops a popover of
          options, and once a value is picked the chip fills with the primary
          accent and reads "Field : value" with a leading × to clear it. The
@@ -90,23 +91,13 @@
                     <path d="M4 6h12M8 6V4h4v2M6 6l1 10h6l1-10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
             </button>
-            <button class="tx-chip tx-chip-icon tx-import-btn" type="button" aria-label="Import transactions" title="Import">
-                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                    <path d="M10 14V4M6 8l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M4 17h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                </svg>
-            </button>
-            <button class="tx-chip tx-chip-icon tx-export-btn" type="button" aria-label="Export transactions" title="Export">
-                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                    <path d="M10 4v10M6 10l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M4 17h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                </svg>
-            </button>
             <button class="tx-chip tx-chip-icon tx-add-btn" type="button" aria-label="Add transaction" title="Add transaction">
                 <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
                     <path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                 </svg>
             </button>
+            <button class="button-primary tx-import-btn" type="button">Import</button>
+            <button class="button-primary tx-export-btn" type="button">Export</button>
         </div>
     </div>
 
