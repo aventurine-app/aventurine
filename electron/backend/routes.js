@@ -12,7 +12,6 @@ const routes = [
   ...require('./handlers/incomeExpenses').routes,
   ...require('./handlers/categories').routes,
   ...require('./handlers/transactions').routes,
-  ...require('./handlers/accounts').routes,
   ...require('./handlers/portfolio').routes,
   ...require('./handlers/creditCards').routes,
   ...require('./handlers/predictions').routes,
@@ -23,11 +22,7 @@ const routes = [
   ...require('./handlers/appSettings').routes,
   ...require('./handlers/database').routes,
   // Balance Sheet — the one remaining year-table feature (mirrors the
-  // register_year_table_feature call in app.py), plus its sync layer
-  // (handlers/balanceSheet.js): per-(year, column) membership deciding
-  // whether a column derives from its linked accounts' ledger + anchors or
-  // stays hand-entered, with the same defaults and 409 write guard as Cash
-  // Flow's category sync.
+  // register_year_table_feature call in app.py).
   ...yearTableRoutes({
     prefix: '/api/balance',
     yearTable: 'balance_active_years',
@@ -35,9 +30,7 @@ const routes = [
     colTable: 'balance_columns',
     typeOrder: ['cash', 'investment', 'retirement', 'debt'],
     columnKeyPrefix: 'bcol',
-    ...require('./handlers/balanceSheet').factoryHooks,
   }),
-  ...require('./handlers/balanceSheet').routes,
 ];
 
 const router = buildRouter(routes);

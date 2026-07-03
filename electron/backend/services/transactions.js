@@ -6,12 +6,7 @@
 
 const { isFiniteNumber, parseIsoDate, round2 } = require('../validate');
 
-// The transfer pair types mark money moving BETWEEN the user's own accounts
-// ('transfer_out' of the source, 'transfer_in' to the target, linked via
-// transfer_peer_id). They never carry a category, and every income/spend
-// aggregation excludes them — a transfer is not earning or spending.
-const TRANSFER_TYPES = ['transfer_in', 'transfer_out'];
-const TX_TYPES = ['income', 'expense', 'savings', 'investing', ...TRANSFER_TYPES];
+const TX_TYPES = ['income', 'expense', 'savings', 'investing'];
 
 /**
  * Shape a transaction row for JSON output (mirror of _serialise_tx).
@@ -32,8 +27,6 @@ function serialiseTx(t, catTypeById = null) {
     tx_type: txType,
     amount: t.amount,
     notes: t.notes,
-    account_id: t.account_id ?? null,
-    transfer_peer_id: t.transfer_peer_id ?? null,
   };
 }
 
@@ -63,13 +56,6 @@ function applyTxFields(db, t, data, { requireAll }) {
     if (val !== null && (typeof val !== 'number' || !Number.isInteger(val))) {
       return 'invalid category_id';
     }
-    // A transfer is not earning or spending, so it can never take a category;
-    // the row must be converted back to a plain type first. Without this
-    // guard, categorizing would silently flip the row's direction to the
-    // category's cat_type and orphan its transfer_peer_id pairing.
-    if (val !== null && TRANSFER_TYPES.includes(t.tx_type)) {
-      return 'a transfer cannot be categorized';
-    }
     let cat = null;
     if (val !== null) {
       cat = db.prepare('SELECT id, cat_type FROM categories WHERE id = ?').get(val);
@@ -77,16 +63,6 @@ function applyTxFields(db, t, data, { requireAll }) {
     }
     t.category_id = val;
     if (cat) t.tx_type = cat.cat_type;
-  }
-  if ('account_id' in data) {
-    const val = data.account_id;
-    if (val !== null && (typeof val !== 'number' || !Number.isInteger(val))) {
-      return 'invalid account_id';
-    }
-    if (val !== null && !db.prepare('SELECT 1 FROM accounts WHERE id = ?').get(val)) {
-      return 'unknown account_id';
-    }
-    t.account_id = val;
   }
   if ('tx_type' in data || requireAll) {
     const val = 'tx_type' in data ? data.tx_type : 'expense';
@@ -111,9 +87,8 @@ function applyTxFields(db, t, data, { requireAll }) {
 function insertTx(db, t) {
   const info = db
     .prepare(
-      `INSERT INTO transactions
-         (date, description, category_id, tx_type, amount, notes, account_id, transfer_peer_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO transactions (date, description, category_id, tx_type, amount, notes)
+       VALUES (?, ?, ?, ?, ?, ?)`
     )
     .run(
       t.date,
@@ -121,9 +96,7 @@ function insertTx(db, t) {
       t.category_id ?? null,
       t.tx_type ?? 'expense',
       t.amount ?? 0,
-      t.notes ?? '',
-      t.account_id ?? null,
-      t.transfer_peer_id ?? null
+      t.notes ?? ''
     );
   t.id = info.lastInsertRowid;
   return t;
@@ -133,20 +106,9 @@ function insertTx(db, t) {
 function updateTx(db, t) {
   db.prepare(
     `UPDATE transactions
-        SET date = ?, description = ?, category_id = ?, tx_type = ?, amount = ?, notes = ?,
-            account_id = ?, transfer_peer_id = ?
+        SET date = ?, description = ?, category_id = ?, tx_type = ?, amount = ?, notes = ?
       WHERE id = ?`
-  ).run(
-    t.date,
-    t.description,
-    t.category_id,
-    t.tx_type,
-    t.amount,
-    t.notes,
-    t.account_id ?? null,
-    t.transfer_peer_id ?? null,
-    t.id
-  );
+  ).run(t.date, t.description, t.category_id, t.tx_type, t.amount, t.notes, t.id);
 }
 
 /** Fresh tx object with the model's column defaults (mirror of Transaction()). */
@@ -159,17 +121,7 @@ function newTx() {
     tx_type: 'expense',
     amount: 0,
     notes: '',
-    account_id: null,
-    transfer_peer_id: null,
   };
 }
 
-module.exports = {
-  TX_TYPES,
-  TRANSFER_TYPES,
-  serialiseTx,
-  applyTxFields,
-  insertTx,
-  updateTx,
-  newTx,
-};
+module.exports = { TX_TYPES, serialiseTx, applyTxFields, insertTx, updateTx, newTx };

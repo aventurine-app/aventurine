@@ -100,9 +100,7 @@ function spendingGet(ctx, { query }) {
     : currentMonthKey();
 
   // v_transactions resolves each row's effective direction (a categorized row
-  // takes the category's cat_type); restricting to the four flow types
-  // excludes the transfer pair, which moves money between accounts, not in or
-  // out of the household.
+  // takes the category's cat_type).
   const totals = { income: 0, expense: 0, savings: 0, investing: 0 };
   const typeRows = db
     .prepare(

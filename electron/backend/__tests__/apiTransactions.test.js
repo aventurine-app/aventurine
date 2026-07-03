@@ -586,8 +586,6 @@ test('cards: category delete unlinks card', (t) => {
 test('cards: manual category averages entries', (t) => {
   const c = makeClient(t);
   const groceries = categoryByKey(c, 'groceries');
-  // The bootstrap year is synced by default — opt out to hand-enter.
-  setSync(c, 2026, { category: 'groceries', sync: false });
   addEntry(c, 2026, 'January', 'groceries', 300);
   addEntry(c, 2026, 'February', 'groceries', 100);
   addEntry(c, 2026, 'March', 'groceries', 0); // no spend -> skipped
@@ -597,8 +595,6 @@ test('cards: manual category averages entries', (t) => {
 test('cards: synced category sums transactions, ignores stale entries', (t) => {
   const c = makeClient(t);
   const groceries = categoryByKey(c, 'groceries');
-  // Plant a stale manual value while opted out, then re-sync over it.
-  setSync(c, 2026, { category: 'groceries', sync: false });
   addEntry(c, 2026, 'January', 'groceries', 9999);
   setSync(c, 2026, { category: 'groceries', sync: true });
 
@@ -628,64 +624,20 @@ const getData = (c) => {
   return r.body;
 };
 
-test('sync: the bootstrap year ships fully synced; columns carry no sync flag', (t) => {
+test('sync: /api/data ships an (empty by default) per-year sync map; columns carry no sync flag', (t) => {
   const c = makeClient(t);
   const d = getData(c);
-  // Sync-by-default: every category of the bootstrap year is in the map, so a
-  // new user's first import computes Cash Flow with zero configuration.
-  const catKeys = c.get('/api/categories').body.categories.map((x) => x.key);
-  assert.deepStrictEqual([...d.sync['2026']].sort(), [...catKeys].sort());
+  assert.deepStrictEqual(d.sync, {});
   assert.ok(d.columns.length > 0 && d.columns.every((col) => !('sync' in col)));
-});
-
-test('sync: a fresh DB computes Cash Flow from the first import, zero configuration', (t) => {
-  const c = makeClient(t);
-  const groceries = categoryByKey(c, 'groceries');
-  const r = c.post('/api/transactions/import', {
-    rows: [
-      { date: '2026-03-05', description: 'SAFEWAY #1842', tx_type: 'expense', amount: 88.12, category_id: groceries.id },
-      { date: '2026-03-09', description: 'POS DEBIT 4829 XKT LLC', tx_type: 'expense', amount: 30.0 },
-    ],
-  });
-  assert.equal(r.status, 200);
-  const cells = getData(c).entries['2026'].March;
-  assert.equal(cells.groceries, 88.12);       // categorized row feeds its category
-  assert.equal(cells.uncat_expense, 30.0);    // uncategorized row feeds the bucket
-});
-
-test('sync: importing a file creates its year-tables, fully synced', (t) => {
-  const c = makeClient(t);
-  const groceries = categoryByKey(c, 'groceries');
-  // A fresh DB only has the current year; this statement is from 2025.
-  const r = c.post('/api/transactions/import', {
-    rows: [
-      { date: '2025-03-05', description: 'SAFEWAY', tx_type: 'expense', amount: 50, category_id: groceries.id },
-    ],
-  });
-  assert.equal(r.status, 200);
-  const d = getData(c);
-  assert.ok(d.years.includes(2025), 'Cash Flow year created from the file');
-  assert.equal(d.entries['2025'].March.groceries, 50, 'rows visible immediately');
-  assert.ok(d.sync['2025'].includes('groceries'), 'the new year is fully synced');
-  // The Balance Sheet year tab exists too, so derived balances can show.
-  assert.ok(c.get('/api/balance/data').body.years.includes(2025));
-
-  // Importing MORE data into a now-existing year never resurrects opt-outs.
-  setSync(c, 2025, { category: 'groceries', sync: false });
-  c.post('/api/transactions/import', {
-    rows: [{ date: '2025-04-01', description: 'X', tx_type: 'expense', amount: 5 }],
-  });
-  assert.ok(!getData(c).sync['2025'].includes('groceries'));
 });
 
 test('sync: a synced cell computes from transactions and ignores manual entry', (t) => {
   const c = makeClient(t);
   const groceries = categoryByKey(c, 'groceries');
-  // Plant a manual value while opted out, then re-sync (the default state).
-  setSync(c, 2026, { category: 'groceries', sync: false });
-  addEntry(c, 2026, 'January', 'groceries', 9999);
+  addEntry(c, 2026, 'January', 'groceries', 9999); // manual value, pre-sync
+
   setSync(c, 2026, { category: 'groceries', sync: true });
-  assert.ok(getData(c).sync['2026'].includes('groceries'));
+  assert.deepStrictEqual(getData(c).sync['2026'], ['groceries']);
 
   addTx(c, '2026-01-05', 100, { catId: groceries.id });
   addTx(c, '2026-01-20', 50, { catId: groceries.id });
@@ -716,14 +668,15 @@ test('sync is independent per year', (t) => {
   const c = makeClient(t);
   const groceries = categoryByKey(c, 'groceries');
   c.post('/api/year', { year: 2025 });
-  // Both years default to fully synced; hand-enter groceries in 2025 only.
+  // New years default to fully synced; hand-enter groceries in 2025 only.
   setSync(c, 2025, { category: 'groceries', sync: false });
   addEntry(c, 2025, 'January', 'groceries', 42); // manual in 2025
+  setSync(c, 2026, { category: 'groceries', sync: true });
   addTx(c, '2026-01-10', 70, { catId: groceries.id });
 
   const d = getData(c);
-  // groceries is synced in 2026 (the bootstrap default) but hand-entered in 2025.
-  assert.ok(d.sync['2026'].includes('groceries'));
+  // groceries is synced in 2026 (the bootstrap year) but hand-entered in 2025.
+  assert.deepStrictEqual(d.sync['2026'], ['groceries']);
   assert.ok(!d.sync['2025'].includes('groceries'));
   assert.equal(d.entries['2025'].January.groceries, 42); // manual preserved
   assert.equal(d.entries['2026'].January.groceries, 70); // computed
@@ -746,24 +699,20 @@ test('sync: deleting a year clears its sync rows', (t) => {
   assert.equal(getData(c).sync['2030'], undefined);
 });
 
-test('sync: duplicating a year copies its sync config, opt-outs included', (t) => {
+test('sync: duplicating a year copies its sync config', (t) => {
   const c = makeClient(t);
-  // Customize the source year so the copy is provably a copy, not a default.
-  setSync(c, 2026, { category: 'groceries', sync: false });
+  setSync(c, 2026, { category: 'groceries', sync: true });
   assert.equal(c.post('/api/year/2026/duplicate', { target_year: 2027 }).status, 200);
-  const d = getData(c);
-  assert.ok(!d.sync['2027'].includes('groceries'), 'opt-out carried to the duplicate');
-  assert.deepStrictEqual([...d.sync['2027']].sort(), [...d.sync['2026']].sort());
+  assert.deepStrictEqual(getData(c).sync['2027'], ['groceries']);
 });
 
 test('sync: deleting a category clears its sync rows', (t) => {
   const c = makeClient(t);
   const id = makeCategory(c, 'Hobbies', 'expense');
   const key = c.get('/api/categories').body.categories.find((x) => x.id === id).key;
-  // A new category is synced into active years on creation (sync-by-default).
-  assert.ok(getData(c).sync['2026'].includes(key));
+  setSync(c, 2026, { category: key, sync: true });
   assert.equal(c.del(`/api/categories/${id}`).status, 200);
-  assert.ok(!getData(c).sync['2026'].includes(key));
+  assert.equal(getData(c).sync['2026'], undefined);
 });
 
 test('sync: endpoint validation', (t) => {

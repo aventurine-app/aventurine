@@ -104,14 +104,12 @@ test('spending: per-type + per-expense-category totals for one month, current mo
   insertTx(c, { date: now, amount: 5000, category_id: income }); // income → not a spending category
   insertTx(c, { date: now, amount: 400, category_id: savings });
   insertTx(c, { date: now, amount: 150, category_id: null, tx_type: 'investing' });
-  insertTx(c, { date: now, amount: 777, category_id: null, tx_type: 'transfer_out' }); // between accounts → excluded
   insertTx(c, { date: m1.date, amount: 999, category_id: groceries }); // other month → excluded
 
   // Default month = current month (month-to-date).
   const r = c.get('/api/spending');
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.equal(r.body.month, now.slice(0, 7));
-  // Per-type totals; the transfer contributes to none of them.
   assert.deepEqual(r.body.totals, { income: 5000, expense: 590, savings: 400, investing: 150 });
   // Sorted by total desc: dining 300, groceries 250, uncategorized 40.
   assert.deepEqual(
