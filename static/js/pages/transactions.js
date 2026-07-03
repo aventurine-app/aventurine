@@ -246,8 +246,8 @@ function txEmptyRow(filtered) {
         : UI.emptyState({
             icon: 'receipt',
             title: 'No transactions yet',
-            desc: 'Add a transaction by hand, or import a statement from your bank to get started.',
-            action: { label: 'Add transaction', name: 'tx-add', icon: 'plus', primary: true },
+            desc: 'Import a statement from your bank, or add a transaction by hand to get started.',
+            action: { label: 'Import transactions', name: 'tx-import', icon: 'import', primary: true },
         });
     return `<tr class="tx-empty-row"><td colspan="7">${inner}</td></tr>`;
 }
@@ -1042,10 +1042,10 @@ function txSortRows() {
 // ─── Event wiring ────────────────────────────────────────────────────────────
 
 function txOnTableClick(e) {
-    // CTAs rendered inside the empty state (Add transaction / Clear filters).
+    // CTAs rendered inside the empty state (Import transactions / Clear filters).
     const emptyBtn = e.target.closest('button[data-empty-action]');
     if (emptyBtn) {
-        if (emptyBtn.dataset.emptyAction === 'tx-add')               txOnAddClick();
+        if (emptyBtn.dataset.emptyAction === 'tx-import')            TxFileImport.run();
         else if (emptyBtn.dataset.emptyAction === 'tx-clear-filters') txClearFilters();
         return;
     }
