@@ -558,61 +558,8 @@
     margin-bottom: 16px;
 }
 
-/* Prev/label/next month picker. Same chrome family as the range-selector
-   button (ui.css) so the two control widgets read as one kit. */
-.month-stepper {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.month-stepper-btn {
-    background: var(--surface2);
-    border: var(--border-width) solid var(--border);
-    border-radius: 6px;
-    color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-body);
-    line-height: 1;
-    width: 26px;
-    height: 26px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-
-.month-stepper-btn:hover:not(:disabled) {
-    background-color: var(--surface3);
-    color: var(--text-primary);
-    border-color: var(--text-tertiary);
-}
-
-.month-stepper-btn:focus-visible {
-    outline: 2px solid var(--color-accent-400);
-    outline-offset: 1px;
-}
-
-.month-stepper-btn:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-}
-
-/* The label matches the range-selector button's type treatment and gets a
-   fixed minimum so "May 2026" ↔ "September 2026" doesn't shift the arrows. */
-.month-stepper-label {
-    color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wider);
-    text-transform: uppercase;
-    text-align: center;
-    min-width: 118px;
-    font-variant-numeric: tabular-nums;
-    user-select: none;
-}
+/* The prev/label/next month picker itself is the shared .stepper component
+   (ui.css) — Statements' year stepper uses the same one. */
 
 /* Bars grow up from the baseline on entrance; per-bar delays are set inline
    by the renderer (home.js), same pattern as the line charts' draw-in. */

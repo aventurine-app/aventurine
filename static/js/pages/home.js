@@ -132,7 +132,7 @@ function renderAccountsPie(data) {
             icon: 'donut', compact: true,
             title: 'No capital to show yet',
             desc: 'Add your account balances and Oliv will chart how your assets and debts split.',
-            action: { label: 'Add balances', href: '/balance-sheet', icon: 'plus', primary: true },
+            action: { label: 'Add balances', href: '/statements#balance-sheet', icon: 'plus', primary: true },
         });
         return;
     }
@@ -690,7 +690,7 @@ function renderNetworthSection(balanceData) {
                 icon: 'chart',
                 title: 'No net worth to chart yet',
                 desc: 'Track your account balances and Oliv will plot your net worth over time.',
-                action: { label: 'Add balances', href: '/balance-sheet', icon: 'plus', primary: true },
+                action: { label: 'Add balances', href: '/statements#balance-sheet', icon: 'plus', primary: true },
             })
             : UI.emptyState({
                 icon: 'search', compact: true,
@@ -846,7 +846,7 @@ function renderIEChart(data) {
             icon: 'wallet',
             title: 'No income or expenses yet',
             desc: 'Add your monthly income and expense figures to chart your cash flow.',
-            action: { label: 'Open Cash Flow', href: '/income-expenses', icon: 'plus', primary: true },
+            action: { label: 'Open Cash Flow', href: '/statements#cash-flow', icon: 'plus', primary: true },
         });
         const selEl = document.getElementById('ie-selector');
         if (selEl) selEl.innerHTML = '';
@@ -1266,10 +1266,28 @@ function shiftHomeMonth(delta) {
 }
 
 function wireMonthStepper() {
-    const prev = document.getElementById('home-month-prev');
-    const next = document.getElementById('home-month-next');
+    const prev  = document.getElementById('home-month-prev');
+    const next  = document.getElementById('home-month-next');
+    const label = document.getElementById('home-month-label');
     if (prev) prev.addEventListener('click', () => shiftHomeMonth(-1));
     if (next) next.addEventListener('click', () => shiftHomeMonth(1));
+    // The label opens a picker of the last 12 months (the arrows still reach
+    // further back); the displayed month is marked as current.
+    if (label) label.addEventListener('click', e => {
+        e.stopPropagation();
+        const now = new Date();
+        const items = [];
+        for (let i = 0; i < 12; i++) {
+            const t = now.getFullYear() * 12 + now.getMonth() - i;
+            const year = Math.floor(t / 12), monthIdx = ((t % 12) + 12) % 12;
+            items.push({
+                label: `${MONTHS[monthIdx]} ${year}`,
+                selected: year === homeMonth.year && monthIdx === homeMonth.monthIdx,
+                action: () => { homeMonth = { year, monthIdx }; renderMonthSection(); },
+            });
+        }
+        UI.openMenu(label, items);
+    });
 }
 
 // ─── Upcoming expenses (recurring-spend predictions) ─────────────────────────

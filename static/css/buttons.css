@@ -25,6 +25,7 @@
 .db-btn:focus-visible,
 .button-primary:focus-visible,
 .button-secondary:focus-visible,
+.stmt-tab:focus-visible,
 .tx-add-btn:focus-visible,
 .cat-add-btn:focus-visible,
 .forecast-add-btn:focus-visible,
@@ -45,6 +46,7 @@
    A 1px nudge on active press. Skipped for disabled buttons. */
 .button-primary:not(:disabled):active,
 .button-secondary:not(:disabled):active,
+.stmt-tab:not(:disabled):active,
 .cat-add-btn:not(:disabled):active,
 .forecast-add-btn:not(:disabled):active,
 .sync-bulk-btn:not(:disabled):active,
@@ -83,7 +85,8 @@
    in the page file; only the button SHAPE moved here. */
 .button-primary, .button-secondary,
 .forecast-add-btn, .sync-bulk-btn,
-.cat-add-btn, .col-add-btn {
+.cat-add-btn, .col-add-btn,
+.stmt-tab {
     display: inline-flex;
     align-items: center;
     justify-content: center;

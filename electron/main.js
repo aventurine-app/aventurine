@@ -29,8 +29,7 @@ const STATIC_DIR = path.join(PROJECT_ROOT, 'static');
 // navbar's absolute hrefs keep working unchanged.
 const PAGE_ROUTES = {
     '/':                'home.html',
-    '/income-expenses': 'income-expenses.html',
-    '/balance-sheet':   'balance-sheet.html',
+    '/statements':      'statements.html',
     '/portfolio':       'portfolio.html',
     '/categories':      'categories.html',
     '/transactions':    'transactions.html',

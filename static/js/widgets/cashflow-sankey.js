@@ -290,7 +290,7 @@
         icon: 'chart',
         title: state.year === null ? 'No data yet' : 'Nothing to chart for this year',
         desc: 'Add income and expenses on the Cash Flow page and the diagram will map how your money moves.',
-        action: { label: 'Open Cash Flow', href: '/income-expenses', icon: 'plus', primary: true },
+        action: { label: 'Open Cash Flow', href: '/statements#cash-flow', icon: 'plus', primary: true },
       });
       chart.innerHTML = '';
     } else {
