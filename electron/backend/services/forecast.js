@@ -50,9 +50,8 @@ const MIN_REGULARITY = 0.7;
 const DAYS_PER_MONTH = 365.25 / 12;
 
 // ── Month-key helpers (keys are 'YYYY-MM', dates are 'YYYY-MM-DD'; both sort
-//    lexicographically in chronological order). Kept for the trailing-average
-//    baseline below, which is also imported by handlers/budget.js and
-//    handlers/trends.js — change with care. ────────────────────────────────────
+//    lexicographically in chronological order). addMonthKey is also imported
+//    by handlers/trends.js — change with care. ────────────────────────────────
 
 const monthKey = (iso) => iso.slice(0, 7);
 
@@ -90,7 +89,7 @@ function monthlyTotals(income, expense) {
  * months; interior months with no transactions count as real zeros. Returns
  * { avgIncome, avgExpense, monthsUsed } (monthsUsed 0 ⇒ no usable history).
  *
- * Used here for the forecast summary and externally by budget.js — keep stable.
+ * Used for the forecast summary.
  */
 function trailingAverage(totals, { today, window }) {
   const current = monthKey(today);

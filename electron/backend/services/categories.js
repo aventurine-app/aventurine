@@ -5,7 +5,9 @@
 const VALID_CAT_TYPES = ['income', 'expense', 'savings', 'investing'];
 
 // The spend character bound to a category: a fixed cost, a flexible cost, or a
-// savings/investing goal. Consumed by budgeting features; 'flex' is the default.
+// savings/investing goal. Surfaced as the Fixed/Flex/Goal toggle in category
+// settings; 'flex' is the default. Stored and round-tripped only — no
+// computation consumes it since the budgeting feature was removed.
 const VALID_FLEX_TYPES = ['fixed', 'flex', 'goal'];
 
 function serialiseCategory(c) {

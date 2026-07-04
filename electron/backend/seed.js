@@ -16,7 +16,8 @@
 // uncat_* buckets are system buckets (NULL-category sums) — see
 // handlers/incomeExpenses.js NULL_SYNC_KEYS — and must not be removed.
 //
-// flex_type seeds the spend character used by budgeting features: the two
+// flex_type seeds the spend character (the Fixed/Flex/Goal toggle in category
+// settings): the two
 // contractual bills (rent, insurance) are 'fixed', every savings/investing
 // bucket is a 'goal', and the rest default to 'flex'. The user can change any of
 // these per category. (Income has no cost character; it carries the neutral

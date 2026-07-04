@@ -101,16 +101,12 @@ app.whenReady().then(async () => {
       '/balance-sheet':   'Balance Sheet',
       '/portfolio':       'Portfolio',
       '/credit-cards':    'Credit Cards',
-      '/budget':          'Budget',
       '/cash-flow':       'Cash Flow Reports',
       '/spending-trends': 'Spending Trends',
       '/report-card':     'Report Card',
     };
-    // Routes still served but with their sidebar link commented out (Budget —
-    // feature rollback, 9b919bd): the chrome must land, but no link is active.
-    const unlinked = new Set(['/budget']);
     for (const [route, name] of Object.entries(routes)) {
-      const activeHref = unlinked.has(route) ? null : route;
+      const activeHref = route;
       await win.loadURL(`app://oliv${route}`);
       const ok = await evalJs(`document.title.includes(${JSON.stringify(name)})
         && !!document.querySelector(".titlebar")

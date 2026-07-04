@@ -175,21 +175,6 @@
         { key: '__uncategorized__', name: 'Uncategorized', monthly: trendSeries(90, 2) },
       ],
     },
-    '/api/budget': {
-      ok: true, year, month: 'March',
-      categories: [
-        // Budgeted envelopes (target > 0) show on the dashboard; the unbudgeted
-        // ones (target 0, with or without spend) live behind "Add a budget".
-        { key: 'rent',      name: 'Rent / Mortgage',    cat_type: 'expense',   target: 1500, spent: 1500, remaining: 0 },
-        { key: 'food',      name: 'Food',               cat_type: 'expense',   target: 500,  spent: 420,  remaining: 80 },
-        { key: 'utilities', name: 'Utilities',          cat_type: 'expense',   target: 150,  spent: 182,  remaining: -32 },
-        { key: 'general',   name: 'General',            cat_type: 'expense',   target: 0,    spent: 60,   remaining: -60 },
-        { key: 'travel',    name: 'Travel',             cat_type: 'expense',   target: 0,    spent: 0,    remaining: 0 },
-        { key: 'savings',   name: 'Primary Savings',    cat_type: 'savings',   target: 400,  spent: 400,  remaining: 0 },
-        { key: 'investing', name: 'Investment Account', cat_type: 'investing', target: 0,    spent: 0,    remaining: 0 },
-      ],
-      summary: { received: 4200 },
-    },
     '/api/forecast': forecastFixture,
     '/api/report-card': {
       ok: true,

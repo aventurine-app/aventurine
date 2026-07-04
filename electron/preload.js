@@ -35,7 +35,7 @@ contextBridge.exposeInMainWorld('electronFile', {
 });
 
 // The data plane. Every /api/* call the page makes goes through here
-// (static/js/api.js wraps it in a fetch-shaped interface) straight to the
+// (static/js/core/api.js wraps it in a fetch-shaped interface) straight to the
 // in-process backend — no HTTP server, no socket, no port. The renderer can
 // only pass (method, url, body); routing and validation live in the main
 // process (electron/backend/), so this bridge stays a dumb pipe.
