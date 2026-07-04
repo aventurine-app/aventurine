@@ -77,17 +77,17 @@
   --color-base-900: #191a19;
   --color-base-950: #0c0d0d;
 
-  --color-accent-050: #e8fbbd;
-  --color-accent-100: #d7f38b;
-  --color-accent-200: #c0d97c;
-  --color-accent-300: #abc26e;
-  --color-accent-400: #95a95f;
-  --color-accent-500: #7a8a4d;
-  --color-accent-600: #606d3c;
-  --color-accent-700: #47522b;
-  --color-accent-800: #30381c;
-  --color-accent-900: #1b1f0d;
-  --color-accent-950: #111507;
+  --color-accent-050: #eff6f4;
+  --color-accent-100: #dfecea;
+  --color-accent-200: #bbd8d2;
+  --color-accent-300: #9bc5bd;
+  --color-accent-400: #79b2a7;
+  --color-accent-500: #5b9f92;
+  --color-accent-600: #497e74;
+  --color-accent-700: #365e56;
+  --color-accent-800: #25413b;
+  --color-accent-900: #13201e;
+  --color-accent-950: #09100f;
 }
 
 /* ── Semantic tokens — Dark is the default theme ──────────────────────────
@@ -137,7 +137,7 @@
       active tabs, links. Uses the --color-accent ramp, distinct from the olive
       finance-positive green below so UI chrome recolours independently of the
       gain/income indicators. */
-   --accent-primary:   var(--color-accent-400);
+   --accent-primary:   var(--color-accent-600);
 
    /* Button text — the colour of text/icons sitting on a filled accent (or
       neutral-hover) button. White on the current accents; its own token so it
