@@ -80,11 +80,11 @@ const DDL = [
    )`,
   `CREATE TABLE categories (
      -- Cash Flow / transaction categories. "key" is a stable slug referenced by
-     -- entries.category, category_sync.category and budget_targets.category (so
+     -- entries.category, category_sync.category and budget_amounts.category (so
      -- those survive renames). cat_type is the category's direction and owns the
      -- tx_type of every transaction linked to it. flex_type is the spend
      -- character — a fixed cost, a flexible cost, or a savings/investing goal —
-     -- carried on the category for budgeting features to key off.
+     -- carried on the category (the Fixed/Flex/Goal toggle in category settings).
      id INTEGER NOT NULL,
      "key" VARCHAR(50) NOT NULL,
      name VARCHAR(100) NOT NULL,

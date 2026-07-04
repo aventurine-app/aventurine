@@ -70,7 +70,7 @@ test('trends: monthly per-expense-category sums over the trailing window', (t) =
   // Income + savings categories are not expense → excluded entirely.
   assert.ok(!r.body.categories.some((x) => x.key === 'income'));
   assert.ok(!r.body.categories.some((x) => x.key === 'savings'));
-  // A budgetable expense category with no spend is omitted.
+  // An expense category with no spend is omitted.
   assert.ok(!r.body.categories.some((x) => x.key === 'rent'));
   // Null-category expense surfaces as a synthetic "Uncategorized" series.
   const uncat = r.body.categories.find((x) => x.key === '__uncategorized__');

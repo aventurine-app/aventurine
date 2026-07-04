@@ -3,7 +3,8 @@
 The desktop app. Electron with an **in-process Node backend** (`backend/`):
 the renderer talks to it over a single IPC channel — there is no HTTP server,
 no socket, and no port. (The former Python/Flask backend was ported to Node
-in June 2026; see `../MIGRATION.md` for the port map.)
+in June 2026; the port map lived in `MIGRATION.md`, since deleted — see git
+history.)
 
 ## First-time setup
 
@@ -69,5 +70,3 @@ First launch creates this directory and seeds a fresh DB.
 - Electron is pinned to a major with upstream `better-sqlite3-multiple-ciphers`
   prebuilds (no C toolchain on this machine); when bumping Electron, confirm a
   matching `electron-v<ABI>` release asset exists first.
-</content>
-</invoke>

@@ -22,8 +22,9 @@ my method of money management to improve their financial situation.
   creation time; encrypted files start locked and require your passphrase to open. The
   passphrase is never written to disk.
 - **Buy it once.** No subscriptions, no recurring fees.
-- **Beyond budgeting.** Oliv is built for budgeting *and* wealth management — from
-  monthly cash flow all the way to tracking and optimizing capital over the years.
+- **The whole picture.** Oliv is built for day-to-day money *and* wealth
+  management — from monthly cash flow all the way to tracking and optimizing
+  capital over the years.
 
 
 ## Install

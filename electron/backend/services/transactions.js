@@ -83,14 +83,21 @@ function applyTxFields(db, t, data, { requireAll }) {
   return null;
 }
 
-/** Insert a tx object built by applyTxFields; fills defaults, returns with id. */
+/** Insert a tx object built by applyTxFields; fills defaults, returns with id.
+ *  The INSERT is prepared once per DB handle (WeakMap, so a reopened DB gets a
+ *  fresh statement): imports call this once per row, and preparing costs ~3x
+ *  what running the statement does. */
+const insertStmts = new WeakMap();
 function insertTx(db, t) {
-  const info = db
-    .prepare(
+  let stmt = insertStmts.get(db);
+  if (!stmt) {
+    stmt = db.prepare(
       `INSERT INTO transactions (date, description, category_id, tx_type, amount, notes)
        VALUES (?, ?, ?, ?, ?, ?)`
-    )
-    .run(
+    );
+    insertStmts.set(db, stmt);
+  }
+  const info = stmt.run(
       t.date,
       t.description ?? '',
       t.category_id ?? null,

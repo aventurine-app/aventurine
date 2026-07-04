@@ -148,8 +148,12 @@ function autoMatchCategory(description, rules, fuzzy) {
     if (r.pattern === pattern) return r.category_id; // exact — certain
   }
   if (!fuzzy) return null;
+  return fuzzyMatchCategory(pattern, rules);
+}
 
-  // Fuzzy: every rule clearing the bar must name one category, else ambiguous.
+/** Fuzzy half of the rule match: every rule clearing the bar must name one
+ *  category, else the match is ambiguous and nothing is applied. */
+function fuzzyMatchCategory(pattern, rules) {
   const candidates = new Set();
   for (const r of rules) {
     if (sequenceRatio(pattern, r.pattern) >= AUTO_FUZZY_THRESHOLD) {
@@ -174,11 +178,18 @@ function applyAutoMatch(db, transactions) {
   const catTypes = new Map(
     db.prepare('SELECT id, cat_type FROM categories').all().map((c) => [c.id, c.cat_type])
   );
+  // Exact matches resolve via one Map instead of a per-row scan of every rule
+  // (patterns are unique — recordMatch upserts by pattern), so a big import
+  // against a big rule set stays O(rows + rules) unless fuzzy is on.
+  const byPattern = new Map(rules.map((r) => [r.pattern, r.category_id]));
 
   let n = 0;
   for (const t of transactions) {
     if (t.category_id != null || !t.description) continue;
-    const catId = autoMatchCategory(t.description, rules, fuzzy);
+    const pattern = normalise(t.description);
+    if (!pattern) continue;
+    let catId = byPattern.get(pattern);
+    if (catId === undefined) catId = fuzzy ? fuzzyMatchCategory(pattern, rules) : null;
     if (catId == null || !catTypes.has(catId)) continue;
     t.category_id = catId;
     t.tx_type = catTypes.get(catId);
