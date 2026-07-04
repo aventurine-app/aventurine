@@ -16,12 +16,13 @@
 //         - the ⋮ table-options dropdown (openTableMenu)
 //         - sortTables for DOM-level newest-first sort
 //
-//   (2) A full "year-table" controller used by Income & Expenses, Balance
-//       Sheet, and Savings & Investing. Those three pages now each reduce to
-//       a single bootstrapYearTablePage(opts) call with a config object
-//       describing the page's API prefix, column types, and minor UI
-//       variations. See bootstrapYearTablePage() at the bottom for the full
-//       option list.
+//   (2) A full "year-table" controller used by the Statements page (Cash Flow
+//       + Balance Sheet tabs). Each tab reduces to a single
+//       bootstrapYearTablePage(opts) call with a config object describing its
+//       API prefix, column types, and minor UI variations — the Statements
+//       page runs two controllers side by side, scoped apart via the
+//       *Selector options. See bootstrapYearTablePage() at the bottom for the
+//       full option list.
 //
 // Portfolio uses layer (1) but has its own controller (portfolio.js) because
 // it operates on accounts rather than calendar years and has no column manager.
@@ -143,39 +144,11 @@ function debounce(fn, delay) {
 /**
  * Open a ⋮ dropdown menu anchored to `menuBtn`. `items` is an array of
  * { label, action, danger? } objects — danger styles the entry red (used
- * for "Delete Table"). Closes automatically when the user clicks outside.
- *
- * The dropdown is positioned absolute and inserted into menuBtn.parentElement,
- * which is forced to position: relative so the dropdown anchors correctly.
+ * for "Delete Table"). Thin alias for the shared UI.openMenu (ui.js), kept
+ * for the existing table call sites.
  */
 function openTableMenu(menuBtn, items) {
-    document.querySelector('.p-table-dropdown')?.remove();
-    const menu = document.createElement('div');
-    menu.className = 'p-table-dropdown';
-    items.forEach(({ label, action, danger }) => {
-        const item = document.createElement('button');
-        item.className = 'p-dropdown-item' + (danger ? ' p-dropdown-item-danger' : '');
-        item.textContent = label;
-        item.addEventListener('click', () => { menu.remove(); action(); });
-        menu.appendChild(item);
-    });
-    const anchor = menuBtn.parentElement;
-    // We need a positioned ancestor so the .p-table-dropdown (position:
-    // absolute) anchors correctly. .p-forehead-btns already has position:
-    // sticky in tables.css — overriding that here with inline `relative`
-    // would permanently clobber the sticky (inline styles win over class
-    // rules, and we don't unset this on close). So only set position when
-    // the anchor is otherwise unpositioned.
-    if (getComputedStyle(anchor).position === 'static') {
-        anchor.style.position = 'relative';
-    }
-    anchor.appendChild(menu);
-    // Defer attaching the outside-click handler so the current click event
-    // (which opened the menu) doesn't immediately close it.
-    const close = e => {
-        if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close, true); }
-    };
-    setTimeout(() => document.addEventListener('click', close, true), 0);
+    UI.openMenu(menuBtn, items);
 }
 
 /**
@@ -205,21 +178,26 @@ function confirmDelete(year, onConfirm) {
 }
 
 /**
- * Modal prompt for adding a new year. Validates client-side (4-digit number
- * in [1000, 9999], not already present in `existingYears`). The backend
+ * Modal prompt for a year. Validates client-side (4-digit number in
+ * [1000, 9999], not already present in `existingYears`). The backend
  * re-validates with _validate_year so a tampered request still gets rejected.
+ *
+ * `opts` customizes the copy for reuse beyond "add": { message?, confirmLabel? }.
+ * `message` is trusted HTML — pass literals only, never user input.
  */
-function promptAddYear(existingYears, onConfirm) {
+function promptAddYear(existingYears, onConfirm, opts = {}) {
+    const message      = opts.message || 'Enter a <strong>4-digit year</strong> to add:';
+    const confirmLabel = opts.confirmLabel || 'Add';
     const overlay = document.createElement('div');
     overlay.className = 'confirm-overlay';
     overlay.innerHTML = `
         <div class="confirm-dialog">
             <button class="dialog-close-btn" aria-label="Close">×</button>
-            <p>Enter a <strong>4-digit year</strong> to add:</p>
+            <p>${message}</p>
             <input type="number" class="year-prompt-input" min="1000" max="9999" placeholder="e.g. 2024">
             <div class="confirm-actions">
                 <button class="confirm-cancel">Cancel</button>
-                <button class="confirm-add">Add</button>
+                <button class="confirm-add">${escapeHtml(confirmLabel)}</button>
             </div>
         </div>`;
     document.body.appendChild(overlay);
@@ -292,11 +270,12 @@ function sortTables(container) {
 }
 
 // ============================================================================
-// Year-table controller — shared by Income & Expenses, Balance Sheet, Savings
+// Year-table controller — shared by the Statements tabs (Cash Flow, Balance
+// Sheet)
 // ============================================================================
 //
-// Each year-table page calls bootstrapYearTablePage(opts) once at the bottom
-// of its tiny config script. Everything below this point implements that
+// Each year-table config calls bootstrapYearTablePage(opts) once at the top
+// of the page's script (statements.js). Everything below this point implements that
 // controller and is parameterized by a `ctx` object passed around between
 // functions. `ctx` holds:
 //
@@ -376,29 +355,15 @@ function makeYearTableApi(prefix) {
 
 /**
  * Rebuild every year-table from scratch from ctx.years/ctx.entries/ctx.columns.
- *
- * Preserves which years are collapsed across re-renders by snapshotting their
- * collapsed state into a Set before clearing the container, then re-applying
- * it after rebuild. On the very first render (when no tables exist yet),
- * everything except the newest year starts collapsed so the page isn't a wall
- * of tables on first load.
+ * Tables render newest-first; which year is visible is decided by the page
+ * (the Statements year stepper toggles [hidden] on the .db-outer cards).
  */
 function renderYearTables(ctx) {
-    const tableEls       = ctx.container.querySelectorAll('.db-outer[data-year]');
-    const isFirstRender  = tableEls.length === 0;
-    const collapsedYears = new Set(
-        Array.from(tableEls)
-            .filter(el => el.classList.contains('collapsed'))
-            .map(el => parseInt(el.dataset.year))
-    );
-
     ctx.container.innerHTML = '';
-    [...ctx.years].sort((a, b) => b - a).forEach((year, i) => {
+    [...ctx.years].sort((a, b) => b - a).forEach(year => {
         const outerEl = createYearTable(year, ctx);
         ctx.container.appendChild(outerEl);
         initYearTable(outerEl, ctx.entries[String(year)] || {}, ctx);
-        const shouldCollapse = isFirstRender ? i > 0 : collapsedYears.has(year);
-        if (shouldCollapse) outerEl.classList.add('collapsed');
     });
 }
 
@@ -423,12 +388,14 @@ async function reloadYearTables(ctx) {
 
 /**
  * Build the DOM for one year's table:
- *   - .db-forehead: year title + ⋮ menu button — a sibling div ABOVE the
- *                   scrolling wrapper, so it can pin to the page top (the
- *                   wrapper's overflow-x would trap a sticky thead). See CSS.
  *   - thead:        column labels (Month | col1 | col2 | …)
  *   - tbody:        twelve month rows of editable currency inputs
  *   - tfoot:        optional totals row (when ctx.includeTotals is true)
+ *
+ * No per-table chrome: the year caption and the ⋮ menu live on the Statements
+ * sheet (statements.js), which shows one year at a time and acts on the year
+ * across BOTH datasets. The card's visual top is the page's tab bar, styled
+ * to join the .db-wrapper below it (see statements.css).
  *
  * Uses createElement + textContent rather than innerHTML for any
  * user-controlled label (column names, year), avoiding any HTML-injection
@@ -448,30 +415,6 @@ function createYearTable(year, ctx) {
 
     const table = document.createElement('table');
     table.className = 'db-table';
-
-    // ── Forehead bar (year + ⋮ menu) ────────────────────────────────────────
-    // A sibling div ABOVE the scrolling .db-wrapper (not a thead row) so it can
-    // pin to the page top with position: sticky — the wrapper's overflow-x
-    // would otherwise trap it. See .db-forehead in tables.css.
-    const forehead = document.createElement('div');
-    forehead.className = 'db-forehead';
-    const titleInner = document.createElement('div');
-    titleInner.className = 'db-title-inner';
-    const titleLabel = document.createElement('span');
-    titleLabel.className = 'db-title-label';
-    titleLabel.textContent = year;
-    const menuBtn = document.createElement('button');
-    menuBtn.className = 'p-menu-btn';
-    menuBtn.textContent = '⋮';
-    menuBtn.title = 'Table options';
-    // Same .p-forehead-btns wrapper portfolio.js uses; it anchors the ⋮
-    // dropdown (openTableMenu positions the menu against it).
-    const actions = document.createElement('div');
-    actions.className = 'p-forehead-btns';
-    actions.appendChild(menuBtn);
-    titleInner.appendChild(titleLabel);
-    titleInner.appendChild(actions);
-    forehead.appendChild(titleInner);
 
     // ── thead: column headers ───────────────────────────────────────────────
     const thead = document.createElement('thead');
@@ -527,7 +470,6 @@ function createYearTable(year, ctx) {
     }
 
     wrapper.appendChild(table);
-    outer.appendChild(forehead);
     outer.appendChild(wrapper);
     return outer;
 }
@@ -619,20 +561,16 @@ window.addEventListener('pagehide', () => {
  * handlers:
  *   - input:    live comma formatting + debounced save + (if includeTotals) totals refresh
  *   - keydown:  spreadsheet-style arrow-key navigation (Enter == ArrowDown)
- *   - title click: toggle collapsed state
  *
  * Multi-cell selection (drag / Shift+arrow → copy / paste / delete) is layered
  * on by cellselect.js once the table is built — see the enableCellSelection
  * call below.
- *   - ⋮ click:  open the per-table options dropdown (Duplicate / Delete)
  *
  * Saves are debounced so we don't fire one API call per keystroke. Deletes
  * are issued when a value is cleared so blank cells aren't persisted as 0.
  */
 function initYearTable(outerEl, yearEntries, ctx) {
     const table       = outerEl.querySelector('.db-table');
-    const forehead    = outerEl.querySelector('.db-forehead');
-    const menuBtn     = outerEl.querySelector('.p-menu-btn');
     const currentYear = parseInt(outerEl.dataset.year);
 
     // Saves are debounced per input via the module-level _pendingCellSaves
@@ -742,60 +680,6 @@ function initYearTable(outerEl, yearEntries, ctx) {
     }
 
     if (ctx.includeTotals) updateYearTotals(outerEl, ctx);
-
-    // Click anywhere on the forehead (except the ⋮ button) to toggle collapse.
-    // The flag lives on .db-outer now (the forehead is its sibling, not a row
-    // inside .db-table), so collapse can hide the whole wrapper.
-    forehead.addEventListener('click', e => {
-        if (e.target.closest('.p-menu-btn')) return;
-        outerEl.classList.toggle('collapsed');
-    });
-
-    // ⋮ menu: Duplicate / Delete. Year tables don't support Rename because
-    // the year IS the identifier; to "rename" a year, the user duplicates
-    // into the new year and deletes the old one.
-    menuBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        const items = [];
-        // Sync Settings — Cash Flow only (ctx.syncEnabled). Lets the user pick,
-        // per table, which categories are computed from transactions.
-        if (ctx.syncEnabled) {
-            items.push({
-                label: 'Sync Settings',
-                action: () => showSyncSettings(currentYear, ctx),
-            });
-        }
-        items.push(
-            {
-                label: 'Duplicate Table',
-                action: () => _duplicateYearTable(currentYear, ctx),
-            },
-            {
-                label: 'Delete Table',
-                action: () => confirmDelete(currentYear, async () => {
-                    await ctx.api.deleteYear(currentYear);
-                    ctx.years = ctx.years.filter(y => y !== currentYear);
-                    delete ctx.entries[String(currentYear)];
-                    outerEl.remove();
-                }),
-                danger: true,
-            }
-        );
-        openTableMenu(menuBtn, items);
-    });
-}
-
-/**
- * Duplicate one year's data into a new year. Prompts the user for the
- * target year (must be 4-digit and not already present), POSTs to the
- * backend, then reloads the whole page state so the new table appears
- * sorted correctly with its data populated.
- */
-function _duplicateYearTable(sourceYear, ctx) {
-    promptAddYear(ctx.years, async targetYear => {
-        await ctx.api.duplicateYear(sourceYear, targetYear);
-        await reloadYearTables(ctx);
-    });
 }
 
 /**
@@ -1128,7 +1012,7 @@ function showColumnManager(ctx) {
     buildManager();
 }
 
-// ─── Sync Settings modal (Cash Flow) ─────────────────────────────────────────
+// ─── Cash Flow Sync modal ────────────────────────────────────────────────────
 
 // A small switch toggle reused for every category row. Shape mirrors the
 // Settings categories switch so the affordance reads consistently.
@@ -1139,10 +1023,12 @@ const _SYNC_SWITCH = (key, on) =>
     </label>`;
 
 /**
- * Open (or toggle closed) the per-table "Sync Settings" modal for one year.
- * Lists every category grouped by type with a switch that controls whether that
- * category's monthly value for THIS year is computed from transactions
- * (synced) or hand-entered. A toolbar offers Sync all / Unsync all.
+ * Open (or toggle closed) the per-year category sync modal for one dataset.
+ * Reached via the Statements sheet ⋮ → "Cash Flow Sync" (the syncSettings
+ * handle bootstrapYearTablePage returns). Lists every category grouped by
+ * type with a switch that controls whether that category's monthly value for
+ * THIS year is computed from transactions (synced) or hand-entered. A toolbar
+ * offers Sync all / Unsync all.
  *
  * Every change round-trips through ctx.api.setSync, then reloadYearTables()
  * re-fetches so synced cells pick up their computed values, then the modal
@@ -1185,7 +1071,7 @@ function showSyncSettings(year, ctx) {
         overlay.innerHTML = `
             <div class="col-manager sync-manager">
                 <div class="col-manager-header">
-                    <span>Sync — ${year}</span>
+                    <span>Cash Flow Sync — ${year}</span>
                     <button class="col-manager-close" aria-label="Close">×</button>
                 </div>
                 <div class="sync-manager-toolbar">
@@ -1243,10 +1129,25 @@ function showSyncSettings(year, ctx) {
  *                                 Used by Income & Expenses, whose columns
  *                                 live in the unified Settings → Categories
  *                                 editor and aren't editable per-page.
- *   syncEnabled         bool    — when true, each table's ⋮ menu gets a "Sync
- *                                 Settings" item (per-table category sync) and
- *                                 the backend ships a per-year sync map in
- *                                 /data. Cash Flow only.
+ *   containerSelector     string? — where tables render (default
+ *                                   '.db-tables-container'). The Statements
+ *                                   page runs TWO controllers side by side, so
+ *                                   each needs its own container + buttons.
+ *   addYearBtnSelector    string? — the "Add New Year" button (default
+ *                                   '.db-actions .button-primary'); pass null
+ *                                   when the page wires add-year itself via
+ *                                   the handle's addYear
+ *   manageColsBtnSelector string? — the "Manage Columns" button (default
+ *                                   '.db-actions .button-secondary')
+ *
+ * Returns a small handle the page controller can drive year-level operations
+ * through (the Statements ⋮ menu acts on a year across BOTH datasets):
+ *   api          — the makeYearTableApi wrapper for this dataset
+ *   reload       — re-fetch /data and re-render every table
+ *   hasYear      — whether this dataset currently has the given year
+ *   addYear      — create a year in this dataset and render its table
+ *   syncSettings — open the per-year category sync modal for this dataset
+ *                  (Statements ⋮ → "Cash Flow Sync")
  */
 function bootstrapYearTablePage(opts) {
     const ctx = {
@@ -1258,9 +1159,6 @@ function bootstrapYearTablePage(opts) {
         addLayout:           opts.addLayout || 'flat',
         addInputPlaceholder: opts.addInputPlaceholder || 'Column name',
         hideColumnManager:   !!opts.hideColumnManager,
-        // When true, each table's ⋮ menu gets a "Sync Settings" item and the
-        // backend ships a per-year sync map. Cash Flow only.
-        syncEnabled:         !!opts.syncEnabled,
         // Mutable state — populated by reloadYearTables() in init below.
         columns:   [],
         years:     [],
@@ -1269,33 +1167,43 @@ function bootstrapYearTablePage(opts) {
         container: null,
     };
 
+    // Create the year on the backend, append a fresh table, then re-sort so
+    // it slots into the correct visual position. Used by the button handler
+    // below and exposed on the handle for page controllers that create a
+    // year across several datasets at once (Statements).
+    const addYear = async (newYear) => {
+        await ctx.api.addYear(newYear);
+        ctx.years.push(newYear);
+        ctx.entries[String(newYear)] = {};
+        const outer = createYearTable(newYear, ctx);
+        ctx.container.appendChild(outer);
+        initYearTable(outer, {}, ctx);
+        sortTables(ctx.container);
+    };
+
     const init = async () => {
-        ctx.container = document.querySelector('.db-tables-container');
+        ctx.container = document.querySelector(opts.containerSelector || '.db-tables-container');
         await reloadYearTables(ctx);
 
         // "Add New Year" button — opens the year-prompt modal; on confirm
-        // creates the year on the backend, appends a fresh table, then
-        // re-sorts so it slots into the correct visual position.
-        document.querySelector('.db-actions .button-primary').addEventListener('click', () => {
-            const existing = Array.from(ctx.container.querySelectorAll('.db-outer[data-year]'))
-                .map(el => parseInt(el.dataset.year))
-                .filter(y => !isNaN(y));
-            promptAddYear(existing, async newYear => {
-                await ctx.api.addYear(newYear);
-                ctx.years.push(newYear);
-                ctx.entries[String(newYear)] = {};
-                const outer = createYearTable(newYear, ctx);
-                ctx.container.appendChild(outer);
-                initYearTable(outer, {}, ctx);
-                sortTables(ctx.container);
+        // creates the year in this dataset. Pages that own the button
+        // themselves (Statements adds the year to BOTH datasets) pass
+        // addYearBtnSelector: null and call the handle's addYear instead.
+        if (opts.addYearBtnSelector !== null) {
+            const addYearBtn = document.querySelector(opts.addYearBtnSelector || '.db-actions .button-primary');
+            addYearBtn.addEventListener('click', () => {
+                const existing = Array.from(ctx.container.querySelectorAll('.db-outer[data-year]'))
+                    .map(el => parseInt(el.dataset.year))
+                    .filter(y => !isNaN(y));
+                promptAddYear(existing, addYear);
             });
-        });
+        }
 
         // "Manage Columns" button — opens the (toggleable) column manager.
-        // Skipped when the page opts out (I&E manages categories in Settings).
-        // querySelector returns null when the button isn't in the template,
-        // so an early return covers the I&E case without any explicit flag.
-        const manageBtn = document.querySelector('.db-actions .button-secondary');
+        // Skipped when the page opts out (Cash Flow manages categories in
+        // Settings). querySelector returns null when the button isn't in the
+        // template, so the guard covers that case without any explicit flag.
+        const manageBtn = document.querySelector(opts.manageColsBtnSelector || '.db-actions .button-secondary');
         if (manageBtn && !ctx.hideColumnManager) {
             manageBtn.addEventListener('click', () => showColumnManager(ctx));
         }
@@ -1304,4 +1212,12 @@ function bootstrapYearTablePage(opts) {
     // Script tags live at the end of <body>, so the DOM is already parsed
     // when this runs. No DOMContentLoaded wait needed.
     init();
+
+    return {
+        api:          ctx.api,
+        reload:       () => reloadYearTables(ctx),
+        hasYear:      (year) => ctx.years.includes(year),
+        addYear,
+        syncSettings: (year) => showSyncSettings(year, ctx),
+    };
 }

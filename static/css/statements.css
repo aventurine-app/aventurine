@@ -1,0 +1,108 @@
+/* ============================================================================
+   statements.css — Statements page (Cash Flow + Balance Sheet behind tabs,
+   with a compact ‹ year › stepper in the toolbar).
+
+   The tables themselves are styled by tables.css; the page scroll shell is the
+   standard `.page:has(.db-page)` one. This file owns only the toolbar row:
+   the two statement tabs (action-button shape via buttons.css, accent fill on
+   the active one) and the year stepper + ⋮ menu on the right.
+   Loads AFTER tables.css (see statements.html).
+   ============================================================================ */
+
+/* Tighten the header stack: the page title row and the toolbar read as one
+   header, so halve tables.css's 16px section gap here. */
+.stmt-page {
+    gap: 8px;
+}
+
+.stmt-sheet {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.p-menu-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ─── Toolbar — tabs left, year stepper centered, ⋮ menu right ──────────────
+   The two side zones share flex: 1 so the stepper sits on the true center of
+   the row regardless of how wide the tabs are. The stepper itself is the
+   shared .stepper component (ui.css) — the same control as Home's month
+   stepper; only the label minimum shrinks to fit a bare year. */
+.stmt-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.stmt-tabs {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.stmt-year-stepper {
+    --stepper-label-min: 56px;
+}
+
+.stmt-toolbar-right {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+/* The ⋮ dropdown (.p-table-dropdown, position: absolute) anchors here. */
+.stmt-menu-wrap {
+    position: relative;
+}
+
+/* ─── Statement tabs ────────────────────────────────────────────────────────
+   Shape comes from buttons.css (the eyebrow action-button rule lists
+   .stmt-tab). Fills here: the active tab wears the primary accent fill, the
+   inactive one the outlined-secondary look, so the pair reads as a segmented
+   pair of the page's own button language. */
+.stmt-tab {
+    background: none;
+    color: var(--accent-neutral);
+    border-color: var(--accent-neutral);
+}
+
+.stmt-tab:not(.active):hover {
+    background: var(--accent-neutral-fill);
+    color: var(--button-text);
+    border-color: var(--accent-neutral-fill);
+}
+
+.stmt-tab.active,
+.stmt-tab[aria-selected="true"] {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--button-text);
+}
+
+.stmt-panel[hidden] { display: none; }
+
+/* The header action groups and the year cards are display:flex, which beats
+   the UA's [hidden] { display: none } — restate it at author level. */
+.db-actions[hidden] { display: none; }
+.db-outer[hidden]   { display: none; }
+
+/* Shown when the selected year has no table in this tab (or no years exist). */
+.stmt-empty {
+    margin: 0;
+    padding: 8px 0;
+    color: var(--text-tertiary);
+    font-size: var(--size-small);
+    font-style: italic;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .stmt-tab {
+        transition: none;
+    }
+}

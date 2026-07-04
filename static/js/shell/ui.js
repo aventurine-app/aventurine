@@ -24,6 +24,11 @@
 //       Show a skeleton only if the load outlasts `delay`, so fast (warm)
 //       loads never flash one. Call the returned cancel() once data lands.
 //
+//   UI.openMenu(anchorBtn, items)
+//       Dropdown menu anchored to a button (the ⋮ table menus, the stepper
+//       month/year pickers). items: [{ label, action, danger?, selected? }].
+//       Styling: .p-table-dropdown / .p-dropdown-item in ui.css.
+//
 // SECURITY: title/desc/label run through escapeHtml (global, from escape.js).
 // ============================================================================
 
@@ -89,7 +94,40 @@ const UI = (() => {
         return () => clearTimeout(t);
     }
 
-    return { emptyState, ICONS, skLine, skLines, skBlock, skChart, skRows, skeletonGuard };
+    // ── Dropdown menu ──────────────────────────────────────────────────────
+    // Anchored to `anchorBtn`: absolute-positioned into its parent, which is
+    // forced to position: relative only when otherwise unpositioned (an
+    // inline `relative` on a sticky/absolute parent would clobber it — see
+    // .p-forehead-btns in tables.css). Closes on outside click. `selected`
+    // marks the current choice in picker-style menus (stepper month/year).
+    function openMenu(anchorBtn, items) {
+        document.querySelector('.p-table-dropdown')?.remove();
+        const menu = document.createElement('div');
+        menu.className = 'p-table-dropdown';
+        items.forEach(({ label, action, danger, selected }) => {
+            const item = document.createElement('button');
+            item.className = 'p-dropdown-item'
+                + (danger ? ' p-dropdown-item-danger' : '')
+                + (selected ? ' p-dropdown-item-selected' : '');
+            item.textContent = label;
+            if (selected) item.setAttribute('aria-current', 'true');
+            item.addEventListener('click', () => { menu.remove(); action(); });
+            menu.appendChild(item);
+        });
+        const anchor = anchorBtn.parentElement;
+        if (getComputedStyle(anchor).position === 'static') {
+            anchor.style.position = 'relative';
+        }
+        anchor.appendChild(menu);
+        // Defer attaching the outside-click handler so the click that opened
+        // the menu doesn't immediately close it.
+        const close = e => {
+            if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close, true); }
+        };
+        setTimeout(() => document.addEventListener('click', close, true), 0);
+    }
+
+    return { emptyState, ICONS, skLine, skLines, skBlock, skChart, skRows, skeletonGuard, openMenu };
 })();
 
 window.UI = UI;

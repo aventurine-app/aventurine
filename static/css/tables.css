@@ -77,48 +77,7 @@
     box-sizing: border-box;
 }
 
-/* Year-table cards (Cash Flow, Balance Sheet) lift their forehead out of the
-   horizontally-scrolling .db-wrapper into a sibling .db-forehead so it can pin
-   to the page top as the user scrolls (the wrapper's overflow-x would otherwise
-   trap position: sticky). That makes .db-outer a vertical stack rather than the
-   default row. Scoped to :has(.db-forehead) so Portfolio — which keeps its
-   forehead inside the table — is unaffected. */
-.db-outer:has(.db-forehead) {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0;
-}
-
-/* == Forehead bar (year + ⋮), lifted out of the wrapper ==
-   position: sticky pins it to the top of the .page scroll viewport so the year
-   stays visible while its table scrolls past. It's opaque (--surface1) so the
-   table rows scroll up cleanly behind it, and forms the rounded TOP of the card
-   — the .db-wrapper below drops its top border + top radius to meet it. The
-   hover tint mirrors the old in-table title row. z-index sits above the wrapper
-   contents the bar overlaps while stuck. */
-.db-forehead {
-    position: sticky;
-    /* The .page scroll container carries --page-pad of top padding; a plain
-       top: 0 would pin the bar BELOW that padding, leaving a gap where the
-       scrolling rows (clipped at the padding box) bleed through above it.
-       Offsetting the stick point up by the padding pins the bar flush to the
-       visible top instead. */
-    top: calc(var(--page-pad) * -1);
-    z-index: 10;
-    background-color: var(--surface1);
-    border: var(--table-border-width) solid var(--border);
-    border-radius: 8px 8px 0 0;
-    cursor: pointer;
-    user-select: none;
-}
-
-.db-forehead:hover {
-    /* --frost-2 is translucent; layer it over the opaque --surface1 as a
-       background-image so the hover reads like a normal frosted surface. */
-    background-image: linear-gradient(var(--frost-2), var(--frost-2));
-}
-
-/* == Title "forehead" row — year / account name + options menu == */
+/* == Title "forehead" row — account name + options menu (Portfolio) == */
 /* Left padding uses --col-first-pad so the title aligns with the first data column below */
 .db-title-row {
     cursor: pointer;
@@ -152,9 +111,9 @@
 }
 
 /* == Forehead button group (right-aligned action buttons inside the title row) ==
-   Used by every table forehead:
-     - Year tables (tables.js): wraps just the ⋮ menu button.
+   Used by:
      - Portfolio (portfolio.js): wraps [+ Add Asset] / [− Remove Asset] / [⋮].
+     - The Statements sheet head (statements.html): wraps the year ⋮ menu.
    position: sticky pins the group to the right edge of the visible scroll
    viewport so the buttons stay accessible even when the table is wider than
    its .db-wrapper and the user has scrolled horizontally. The right offset
@@ -175,27 +134,6 @@
     z-index: 1;
 }
 
-/* Collapsed: hide the whole table, leaving just the forehead as a fully
-   rounded standalone card. It picks up the wrapper's drop shadow (otherwise
-   hidden with the wrapper) so the collapsed card still reads as raised. */
-.db-outer.collapsed .db-wrapper {
-    display: none;
-}
-
-.db-outer.collapsed .db-forehead {
-    border-radius: 8px;
-    box-shadow: var(--shadow-card);
-}
-
-/* The ⋮ options menu acts on the table's contents, which are hidden while
-   collapsed — so hide the button too. visibility (not display:none) keeps it
-   occupying its --control-height footprint, so the forehead stays the SAME
-   height collapsed as expanded (the button is the tallest thing in the bar;
-   removing it from layout would shrink the bar to the year label's height). */
-.db-outer.collapsed .p-menu-btn {
-    visibility: hidden;
-}
-
 /* == Table wrapper == */
 /* Uses --surface1, --border */
 .db-wrapper {
@@ -208,14 +146,6 @@
     background-color: var(--surface1);
     box-shadow: var(--shadow-card);
     overflow-x: auto;
-}
-
-/* In a year-table card the forehead sits above and owns the top border + top
-   rounded corners, so the wrapper only rounds its bottom and drops its top
-   edge — otherwise the two would stack into a doubled divider. */
-.db-outer:has(.db-forehead) .db-wrapper {
-    border-top: none;
-    border-radius: 0 0 8px 8px;
 }
 
 .db-wrapper::-webkit-scrollbar {
@@ -539,44 +469,8 @@
     border-color: var(--text-tertiary);
 }
 
-/* == ⋮ dropdown == */
-.p-table-dropdown {
-    position: absolute;
-    top: calc(100% + 4px);
-    right: 0;
-    background: var(--surface2);
-    border: var(--border-width) solid var(--border);
-    border-radius: 5px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-    z-index: 500;
-    min-width: 160px;
-    overflow: hidden;
-    padding: 4px 0;
-}
-
-.p-dropdown-item {
-    display: block;
-    width: 100%;
-    background: none;
-    border: none;
-    text-align: left;
-    padding: 9px 16px;
-    color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    font-weight: var(--weight-medium);
-    cursor: pointer;
-    transition: background 0.1s ease, color 0.1s ease;
-    white-space: nowrap;
-}
-
-.p-dropdown-item:hover {
-    background: var(--frost-2);
-    color: var(--text-primary);
-}
-
-.p-dropdown-item-danger { color: rgba(255, 90, 90, 0.8); }
-.p-dropdown-item-danger:hover { background: rgba(255, 60, 60, 0.1); color: rgba(255, 90, 90, 1); }
+/* The ⋮ dropdown (.p-table-dropdown / .p-dropdown-item) moved to ui.css —
+   it's shared with the stepper month/year pickers via UI.openMenu (ui.js). */
 
 /* == Confirmation dialog == */
 /* Positioning + centering come from the shared overlay rule in style.css §8;
@@ -782,7 +676,7 @@
     padding: 4px 0;
 }
 
-/* ── Sync Settings modal (Cash Flow ⋮ → Sync Settings) ──────────────────────
+/* ── Cash Flow Sync modal (Statements ⋮ → Cash Flow Sync) ───────────────────
    Reuses the column-manager frame (.col-manager) + overlay blur. Adds a
    Sync-all / Unsync-all toolbar and a per-category row with an iOS-style
    switch (ported from the old Settings category sync switch). */
@@ -794,7 +688,7 @@
     flex-shrink: 0;
 }
 
-/* .sync-bulk-btn (neutral eyebrow action button) now lives in buttons.css. */
+/* .sync-bulk-btn (neutral eyebrow action button) lives in buttons.css. */
 
 .sync-list {
     display: flex;

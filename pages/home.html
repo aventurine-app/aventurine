@@ -30,12 +30,14 @@
         data-panel="month" aria-labelledby="home-tab-month" tabindex="0">
 
     <!-- The stepper scopes every monthly card below: current month by
-         default, arrows walk back to any earlier month. -->
+         default, arrows walk back to any earlier month; clicking the label
+         opens a recent-months picker. -->
     <div class="home-month-bar">
-        <div class="month-stepper" id="home-month">
-            <button class="month-stepper-btn" id="home-month-prev" type="button" aria-label="Previous month">&#8249;</button>
-            <span class="month-stepper-label" id="home-month-label" aria-live="polite">&nbsp;</span>
-            <button class="month-stepper-btn" id="home-month-next" type="button" aria-label="Next month" disabled>&#8250;</button>
+        <div class="stepper" id="home-month">
+            <button class="stepper-btn" id="home-month-prev" type="button" aria-label="Previous month">&#8249;</button>
+            <button class="stepper-label" id="home-month-label" type="button" aria-live="polite"
+                aria-haspopup="menu" title="Choose month">&nbsp;</button>
+            <button class="stepper-btn" id="home-month-next" type="button" aria-label="Next month" disabled>&#8250;</button>
         </div>
     </div>
 
