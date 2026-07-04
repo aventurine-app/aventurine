@@ -83,9 +83,8 @@
     <div class="home-panel" id="home-panel-overtime" role="tabpanel"
         data-panel="overtime" aria-labelledby="home-tab-overtime" tabindex="0" hidden>
 
-    <div class="home-grid">
+    <div class="home-grid home-grid-quad">
 
-        <div class="home-col home-col-main">
             <div class="home-card networth-card">
                 <div class="home-card-header">
                     <span class="home-card-title">Net Worth<span class="fc-info" tabindex="0" role="note"
@@ -110,22 +109,13 @@
                 </div>
             </div>
 
-            <div class="home-card">
+            <div class="home-card accounts-card">
                 <div class="home-card-header">
-                    <span class="home-card-title">Income & Expenses</span>
-                    <div class="range-selector" id="ie-range">
-                        <button class="range-selector-btn" id="ie-range-btn" type="button">This Year</button>
-                        <div class="range-selector-menu" id="ie-range-menu" hidden>
-                            <button data-range="year"   type="button">This Year</button>
-                            <button data-range="12mo"   type="button">Last 12 Months</button>
-                            <button data-range="24mo"   type="button">Last 24 Months</button>
-                            <button data-range="5yr"    type="button">Last 5 Years</button>
-                        </div>
-                    </div>
+                    <span class="home-card-title">Capital Profile</span>
                 </div>
-                <div id="ie-selector" class="account-selector"></div>
-                <div class="chart-area">
-                    <div id="ie-chart"></div>
+                <div class="accounts-body">
+                    <div id="accounts-pie" class="accounts-pie"></div>
+                    <div id="accounts-legend" class="accounts-legend"></div>
                 </div>
             </div>
 
@@ -147,19 +137,25 @@
                     <div id="account-chart"></div>
                 </div>
             </div>
-        </div>
 
-        <div class="home-col home-col-aside">
-            <div class="home-card accounts-card">
+            <div class="home-card">
                 <div class="home-card-header">
-                    <span class="home-card-title">Capital Profile</span>
+                    <span class="home-card-title">Income & Expenses</span>
+                    <div class="range-selector" id="ie-range">
+                        <button class="range-selector-btn" id="ie-range-btn" type="button">This Year</button>
+                        <div class="range-selector-menu" id="ie-range-menu" hidden>
+                            <button data-range="year"   type="button">This Year</button>
+                            <button data-range="12mo"   type="button">Last 12 Months</button>
+                            <button data-range="24mo"   type="button">Last 24 Months</button>
+                            <button data-range="5yr"    type="button">Last 5 Years</button>
+                        </div>
+                    </div>
                 </div>
-                <div class="accounts-body">
-                    <div id="accounts-pie" class="accounts-pie"></div>
-                    <div id="accounts-legend" class="accounts-legend"></div>
+                <div id="ie-selector" class="account-selector"></div>
+                <div class="chart-area">
+                    <div id="ie-chart"></div>
                 </div>
             </div>
-        </div>
 
     </div>
 

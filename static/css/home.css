@@ -100,8 +100,17 @@
 .home-col-main  { flex: 0 0 calc(70% - 8px); }
 .home-col-aside { flex: 1; }
 
+/* Year to Year panel: four cards in a 2×2 grid of equal-width columns.
+   Cards are direct grid children (no .home-col wrappers). */
+.home-grid-quad {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
+}
+
 @media (max-width: 1200px) {
     .home-grid { flex-direction: column; }
+    .home-grid-quad { grid-template-columns: 1fr; }
     .home-col-main,
     .home-col-aside { flex: none; width: 100%; }
 }
