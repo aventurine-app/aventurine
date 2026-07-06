@@ -96,6 +96,15 @@ const MIGRATIONS = [
     }
     db.exec('DROP TABLE IF EXISTS budget_income');
   }],
+  // v7 — Remove flex_type (Fixed/Flex/Goal) from categories. The column was
+  // stored and round-tripped but consumed no computation (budgeting was removed).
+  // SQLite 3.35+ supports ALTER TABLE ... DROP COLUMN.
+  [7, (db) => {
+    const hasCol = db.pragma('table_info(categories)').some((c) => c.name === 'flex_type');
+    if (hasCol) {
+      db.exec('ALTER TABLE categories DROP COLUMN flex_type');
+    }
+  }],
 ];
 
 function bootstrapSchema(db) {

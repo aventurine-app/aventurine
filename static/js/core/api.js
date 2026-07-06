@@ -141,14 +141,14 @@
     },
     '/api/categories': {
       categories: [
-        { id: 1, key: 'income',     name: 'Primary Income',    cat_type: 'income',    flex_type: 'flex',  position: 0 },
-        { id: 2, key: 'side',       name: 'Side Income',       cat_type: 'income',    flex_type: 'flex',  position: 1 },
-        { id: 4, key: 'rent',       name: 'Rent / Mortgage',   cat_type: 'expense',   flex_type: 'fixed', position: 0 },
-        { id: 5, key: 'food',       name: 'Food',              cat_type: 'expense',   flex_type: 'flex',  position: 1 },
-        { id: 6, key: 'utilities',  name: 'Utilities',         cat_type: 'expense',   flex_type: 'flex',  position: 2 },
-        { id: 7, key: 'savings',    name: 'Emergency Fund',    cat_type: 'savings',   flex_type: 'goal',  position: 0 },
-        { id: 8, key: 'investing',  name: 'Brokerage',         cat_type: 'investing', flex_type: 'goal',  position: 0 },
-        { id: 9, key: 'retirement', name: 'Retirement',        cat_type: 'investing', flex_type: 'goal',  position: 1 },
+        { id: 1, key: 'income',     name: 'Primary Income',    cat_type: 'income',    position: 0 },
+        { id: 2, key: 'side',       name: 'Side Income',       cat_type: 'income',    position: 1 },
+        { id: 4, key: 'rent',       name: 'Rent / Mortgage',   cat_type: 'expense',   position: 0 },
+        { id: 5, key: 'food',       name: 'Food',              cat_type: 'expense',   position: 1 },
+        { id: 6, key: 'utilities',  name: 'Utilities',         cat_type: 'expense',   position: 2 },
+        { id: 7, key: 'savings',    name: 'Emergency Fund',    cat_type: 'savings',   position: 0 },
+        { id: 8, key: 'investing',  name: 'Brokerage',         cat_type: 'investing', position: 0 },
+        { id: 9, key: 'retirement', name: 'Retirement',        cat_type: 'investing', position: 1 },
       ],
     },
     '/api/portfolio/data': {

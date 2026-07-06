@@ -5,18 +5,16 @@
 //
 // Layout: a search field above a stack of collapsible group cards — one per
 // category type (Income · Expense · Savings · Investing). Each card header
-// carries the type's colour dot, a count summary ("8 categories · 5 fixed ·
-// 3 flex") and a chevron; expanding it reveals the category rows and a quiet
-// "Add category" row at the bottom. Typing in the search filters rows by name
-// across every group: groups with no matches disappear, matching groups are
-// forced open, and adding/dragging pause until the query is cleared (a
-// filtered list has no meaningful insertion order).
+// carries the type's colour dot, a count summary and a chevron; expanding it
+// reveals the category rows and a quiet "Add category" row at the bottom.
+// Typing in the search filters rows by name across every group: groups with no
+// matches disappear, matching groups are forced open, and adding/dragging pause
+// until the query is cleared (a filtered list has no meaningful insertion order).
 //
 // Rows keep the established interactions: inline rename (borderless input),
-// a Fixed/Flex/Goal segmented toggle, an always-visible quiet delete ×, and
-// the grip-handle drag-and-drop from the Cash Flow column manager (tables.js)
-// — drag within a group to reorder (the order sets Cash Flow row order), drag
-// into another open group to recategorize.
+// an always-visible quiet delete ×, and the grip-handle drag-and-drop from the
+// Cash Flow column manager (tables.js) — drag within a group to reorder (the
+// order sets Cash Flow row order), drag into another open group to recategorize.
 //
 // One source of truth for the category vocabulary used across:
 //   • Transactions ledger dropdown
@@ -25,9 +23,7 @@
 // All state changes round-trip through the /api/categories endpoints, then
 // re-render from scratch on success — same approach as the year-table
 // column manager. Cheaper to rebuild than to surgically patch individual
-// rows, and avoids bookkeeping drift between the DOM and the data. (The one
-// exception is the flex-type toggle, patched in place so focus stays on the
-// segment the user just clicked.)
+// rows, and avoids bookkeeping drift between the DOM and the data.
 
 (function () {
 
@@ -104,14 +100,6 @@
     // across the app.
     const ICON_GRIP = '<svg viewBox="0 0 10 16" fill="currentColor" aria-hidden="true"><circle cx="2.5" cy="3" r="1.4"/><circle cx="7.5" cy="3" r="1.4"/><circle cx="2.5" cy="8" r="1.4"/><circle cx="7.5" cy="8" r="1.4"/><circle cx="2.5" cy="13" r="1.4"/><circle cx="7.5" cy="13" r="1.4"/></svg>';
 
-    // The spend character bound to a category (see services/categories.js
-    // VALID_FLEX_TYPES). Mirror its order/values exactly; the backend rejects
-    // anything else. 'flex' is the default for a fresh category.
-    const FLEX_TYPES = [
-        ['fixed', 'Fixed'],
-        ['flex',  'Flex'],
-        ['goal',  'Goal'],
-    ];
     const ICON_X       = '<svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
     const ICON_PLUS    = '<svg viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
     const ICON_SEARCH  = '<svg class="cat-search-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
@@ -130,46 +118,20 @@
         return `${DEFAULT_NAME} ${n}`;
     }
 
-    // The flex-type segmented toggle for a row — three buttons in a pill, the
-    // stored value carrying the checked tint (same idiom as the Exact/Fuzzy
-    // toggle in Settings). Clicking a segment PUTs flex_type (see the click
-    // handler in attach()).
-    function segHtml(c) {
-        const btns = FLEX_TYPES.map(([val, label]) => {
-            const active = c.flex_type === val;
-            return `<button type="button" class="cat-seg-btn${active ? ' is-active' : ''}"
-                            data-action="flextype" data-value="${val}"
-                            aria-pressed="${active}">${label}</button>`;
-        }).join('');
-        return `<div class="cat-seg" role="group" aria-label="Cost type for ${esc(c.name)}">${btns}</div>`;
-    }
-
     function rowHtml(c) {
-        // A clean line: [grip] [name] [flex-type segments] [delete]. Only the
-        // grip is draggable, so the rename input and the toggle keep their
-        // pointer events. Every category — including the seeded defaults — can
-        // be renamed, retyped and deleted; nothing is locked.
         return `
             <div class="cat-row" data-id="${c.id}">
                 <span class="cat-grip" draggable="true" aria-label="Drag ${esc(c.name)} to reorder or recategorize">${ICON_GRIP}</span>
                 <input type="text" class="cat-name" value="${esc(c.name)}" maxlength="100"
                        data-action="rename" aria-label="Category name">
-                ${segHtml(c)}
                 <button class="cat-icon-btn cat-delete" data-action="delete" title="Delete category" aria-label="Delete ${esc(c.name)}">${ICON_X}</button>
             </div>
         `;
     }
 
-    // Header count summary: total plus a count per spend character, zeroes
-    // omitted ("8 categories · 5 fixed · 3 flex").
     function metaText(rows) {
         const n = rows.length;
-        const parts = [`${n} ${n === 1 ? 'category' : 'categories'}`];
-        for (const [val, label] of FLEX_TYPES) {
-            const k = rows.filter(c => c.flex_type === val).length;
-            if (k) parts.push(`${k} ${label.toLowerCase()}`);
-        }
-        return parts.join(' · ');
+        return `${n} ${n === 1 ? 'category' : 'categories'}`;
     }
 
     function groupHtml(type, rows, isOpen) {
@@ -313,35 +275,6 @@
                 return;
             }
 
-            // Flex-type segment. Patched in place (segment classes + the group
-            // header counts) instead of re-rendering, so focus stays on the
-            // button the user just clicked.
-            if (action === 'flextype') {
-                const btn = e.target.closest('[data-action="flextype"]');
-                const row = btn.closest('.cat-row');
-                const id  = row && parseInt(row.dataset.id, 10);
-                const value = btn.dataset.value;
-                if (!id || btn.classList.contains('is-active')) return;
-                try {
-                    await apiUpdate(id, { flex_type: value });
-                    const snap = (stateByRoot.get(rootEl) || []).find(c => c.id === id);
-                    if (snap) snap.flex_type = value;
-                    row.querySelectorAll('.cat-seg-btn').forEach(b => {
-                        const active = b.dataset.value === value;
-                        b.classList.toggle('is-active', active);
-                        b.setAttribute('aria-pressed', String(active));
-                    });
-                    const section = row.closest('.cat-group');
-                    const groups = groupByType(stateByRoot.get(rootEl) || []);
-                    section.querySelector('.cat-group-meta').textContent =
-                        metaText(groups[section.dataset.type]);
-                } catch (err) {
-                    alert(err.message);
-                    await refresh(rootEl);
-                }
-                return;
-            }
-
             if (action === 'delete') {
                 const row = e.target.closest('.cat-row');
                 const id  = row && parseInt(row.dataset.id, 10);
@@ -381,6 +314,13 @@
             if (!e.target.matches('.cat-search-input')) return;
             ui(rootEl).query = e.target.value;
             applyFilter(rootEl);
+        });
+
+        // ── Rename on Enter ─────────────────────────────────────────────────
+        rootEl.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter') return;
+            if (!e.target.matches('.cat-name[data-action="rename"]')) return;
+            e.target.blur();
         });
 
         // ── Rename on blur ───────────────────────────────────────────────────
