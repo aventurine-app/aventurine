@@ -17,7 +17,7 @@
 //   - the v_* views pre-join the normalized tables into human-readable,
 //     chronologically-sortable shapes for ad-hoc querying.
 
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 // Months persist as 1-12 integers so `ORDER BY year, month` sorts
 // chronologically (the app translates to/from English names at its API
@@ -82,17 +82,13 @@ const DDL = [
      -- Cash Flow / transaction categories. "key" is a stable slug referenced by
      -- entries.category, category_sync.category and budget_amounts.category (so
      -- those survive renames). cat_type is the category's direction and owns the
-     -- tx_type of every transaction linked to it. flex_type is the spend
-     -- character — a fixed cost, a flexible cost, or a savings/investing goal —
-     -- carried on the category (the Fixed/Flex/Goal toggle in category settings).
+     -- tx_type of every transaction linked to it.
      id INTEGER NOT NULL,
      "key" VARCHAR(50) NOT NULL,
      name VARCHAR(100) NOT NULL,
      cat_type VARCHAR(20) NOT NULL
        CHECK (cat_type IN ('income', 'expense', 'savings', 'investing')),
      position INTEGER DEFAULT 0 NOT NULL,
-     flex_type VARCHAR(20) DEFAULT 'flex' NOT NULL
-       CHECK (flex_type IN ('fixed', 'flex', 'goal')),
      PRIMARY KEY (id),
      UNIQUE ("key")
    )`,

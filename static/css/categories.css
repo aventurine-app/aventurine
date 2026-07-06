@@ -248,51 +248,6 @@
 .cat-name:focus,
 .cat-row:hover .cat-name:focus { border-color: var(--accent-primary); background: var(--surface1); }
 
-/* ─── Flex-type segmented toggle ─────────────────────────────────────────────
-   The per-row Fixed / Flex / Goal control — three segments in a pill, the
-   stored value carrying the checked accent tint (same colour-on-tint idiom as
-   the Exact/Fuzzy toggle in Settings). Quiet at rest: the container is a
-   control-fill pill, inactive segments are tertiary text. */
-.cat-seg {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 2px;
-  background: var(--surface2);
-  border: var(--border-width) solid var(--border);
-  border-radius: 6px;
-}
-
-.cat-seg-btn {
-  border: none;
-  background: transparent;
-  border-radius: 4px;
-  padding: 3px 10px;
-  color: var(--text-tertiary);
-  font-family: var(--font-menu);
-  font-size: var(--size-micro);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--track-normal);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.cat-seg-btn:hover:not(.is-active) {
-  background: var(--frost-2);
-  color: var(--text-primary);
-}
-
-.cat-seg-btn:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 1px;
-}
-
-.cat-seg-btn.is-active {
-  background: color-mix(in srgb, var(--accent-primary) 20%, transparent);
-  color: var(--accent-primary);
-}
-
 /* ─── Delete × ───────────────────────────────────────────────────────────────
    Always visible but quiet — tertiary glyph at rest, wearing the expense
    colours (dark-red glyph on a light-red tint) on hover so the destructive
@@ -382,7 +337,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cat-row, .cat-name, .cat-seg-btn, .cat-icon-btn, .cat-grip,
+  .cat-row, .cat-name, .cat-icon-btn, .cat-grip,
   .cat-add-row, .cat-group-head, .cat-group-chevron, .cat-search-input {
     transition: none;
   }
