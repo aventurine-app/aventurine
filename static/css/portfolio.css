@@ -15,6 +15,13 @@
      --track-wide / wider              — letter-spacing tracking scale
 */
 
+.db-page .db-title-row {
+    cursor: default;
+}
+.db-page .db-title-row:hover th {
+    background-color: unset;
+}
+
 /* == Table sizing == */
 /* The 7-column asset table needs a wider minimum than the 12-month year
    tables. Below 720px the page-level scroll kicks in (overflow-x on .page). */

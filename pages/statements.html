@@ -16,11 +16,13 @@
         <div class="page">
 
 <div class="db-page stmt-page">
+    <!-- Year stepper takes the place of the page title; action buttons stay right. -->
     <div class="db-page-header">
-        <div>
-            <h1 class="page-title">Statements<span class="fc-info" tabindex="0" role="note"
-                aria-label="Your yearly statements: monthly cash flow and balance-sheet snapshots, one year at a time. Use the arrows to switch years."
-                data-tip="Your yearly statements: monthly cash flow and balance-sheet snapshots, one year at a time. Use the arrows to switch years.">i</span></h1>
+        <div class="stepper stmt-year-stepper" aria-label="Statement year">
+            <button type="button" class="stepper-btn" id="stmt-year-prev" aria-label="Previous year" disabled>&#8249;</button>
+            <button type="button" class="stepper-label" id="stmt-year-label" aria-live="polite"
+                aria-haspopup="menu" title="Choose year">&nbsp;</button>
+            <button type="button" class="stepper-btn" id="stmt-year-next" aria-label="Next year" disabled>&#8250;</button>
         </div>
         <!-- One action group per tab; statements.js shows the active tab's. -->
         <div class="db-actions" id="stmt-actions-cashflow">
@@ -32,12 +34,8 @@
         </div>
     </div>
 
-    <!-- The statement sheet shows one SELECTED year at a time. Toolbar: the
-         two statement tabs on the left, the shared ‹ year › stepper (ui.css;
-         same control as Home's month stepper — its label opens a year picker)
-         centered, and the year ⋮ menu (Edit Year / Delete Year — acts on the
-         selected year across both datasets) on the right.
-         Controller: statements.js. -->
+    <!-- Toolbar: tabs left, ⋮ menu right. The stepper has moved to the page
+         header above. Controller: statements.js. -->
     <section class="stmt-sheet" id="stmt-sheet" aria-label="Statement">
         <div class="stmt-toolbar">
             <div class="stmt-tabs" role="tablist" aria-label="Statements">
@@ -45,12 +43,6 @@
                     data-tab="cashflow" aria-controls="stmt-panel-cashflow" aria-selected="true">Cash Flow</button>
                 <button type="button" class="stmt-tab" id="stmt-tab-balance" role="tab"
                     data-tab="balance" aria-controls="stmt-panel-balance" aria-selected="false" tabindex="-1">Balance Sheet</button>
-            </div>
-            <div class="stepper stmt-year-stepper" aria-label="Statement year">
-                <button type="button" class="stepper-btn" id="stmt-year-prev" aria-label="Previous year" disabled>&#8249;</button>
-                <button type="button" class="stepper-label" id="stmt-year-label" aria-live="polite"
-                    aria-haspopup="menu" title="Choose year">&nbsp;</button>
-                <button type="button" class="stepper-btn" id="stmt-year-next" aria-label="Next year" disabled>&#8250;</button>
             </div>
             <div class="stmt-toolbar-right">
                 <!-- The wrapper is the positioned anchor the ⋮ dropdown

@@ -77,13 +77,14 @@
     margin-top: var(--space-4);
     padding: var(--space-8) var(--space-16);
     border-radius: 8px;
-    border: var(--border-width) solid var(--border);
-    background: var(--surface2);
-    color: var(--text-secondary);
+    border: 1px solid var(--color-base-200);
+    background: none;
+    color: var(--accent-neutral);
     font-family: var(--font-menu);
-    font-size: var(--size-small);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wide);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-superbold);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
     text-decoration: none;
     cursor: pointer;
     transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
@@ -91,27 +92,23 @@
 .empty-state-action svg { width: 16px; height: 16px; flex-shrink: 0; }
 
 .empty-state-action:hover {
-    background: var(--surface3);
-    color: var(--text-primary);
-    border-color: var(--text-tertiary);
+    background: var(--color-base-200);
 }
 .empty-state-action:focus-visible {
     outline: none;
     box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--accent-primary);
 }
 
-/* Primary-accent variant — for the single most useful action in an empty card.
-   Matches .db-btn-primary so the accent treatment stays consistent app-wide. */
+/* Primary-accent variant — matches .button-primary exactly. */
 .empty-state-action-primary {
     background: var(--accent-primary);
-    border-color: var(--accent-primary);
+    border: 0px solid var(--accent-color-400);
     color: var(--button-text);
 }
 .empty-state-action-primary:hover {
-    filter: brightness(1.08);
-    background: var(--accent-primary);
-    color: var(--button-text);
+    background: var(--color-accent-300);
     border-color: var(--accent-primary);
+    color: var(--button-text);
 }
 
 
@@ -287,6 +284,61 @@
 .p-dropdown-item-danger { color: rgba(255, 90, 90, 0.8); }
 .p-dropdown-item-danger:hover { background: rgba(255, 60, 60, 0.1); color: rgba(255, 90, 90, 1); }
 
+/* ─── Page-level tab bar (underline style) ──────────────────────────────────
+ * Shared by Home (.home-tab), Cash Flow Reports (.cf-tab), and Statements
+ * (.stmt-tab). All three were identical; centralized here. Per-page container
+ * layout (.home-tabs, .cf-tabs) also shared; the Statements toolbar owns its
+ * own border-bottom so the line spans the full toolbar width. */
+.home-tabs, .cf-tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+    border-bottom: var(--border-width) solid var(--border);
+}
+
+.home-tab, .cf-tab, .stmt-tab {
+    appearance: none;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    border-radius: 6px 6px 0 0;
+    color: var(--text-secondary);
+    font-family: var(--font-h3);
+    font-size: var(--size-h3);
+    font-weight: var(--weight-medium);
+    line-height: var(--lh-tight);
+    letter-spacing: var(--track-tight);
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.home-tab:hover, .cf-tab:hover, .stmt-tab:hover {
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+}
+
+.home-tab.active, .home-tab[aria-selected="true"],
+.cf-tab.active, .cf-tab[aria-selected="true"],
+.stmt-tab.active, .stmt-tab[aria-selected="true"] {
+    color: var(--text-primary);
+    font-weight: var(--weight-semibold);
+    border-bottom-color: var(--accent-primary);
+}
+
+.home-tab:focus-visible, .cf-tab:focus-visible, .stmt-tab:focus-visible {
+    outline: 2px solid var(--color-accent-400);
+    outline-offset: -2px;
+}
+
+.home-panel[hidden], .cf-panel[hidden], .stmt-panel[hidden] { display: none; }
+.home-panel:focus, .cf-panel:focus, .stmt-panel:focus { outline: none; }
+
+@media (prefers-reduced-motion: reduce) {
+    .home-tab, .cf-tab, .stmt-tab { transition: none; }
+}
+
 /* The current choice in picker-style menus (stepper month/year). */
 .p-dropdown-item-selected {
     color: var(--text-primary);
@@ -305,15 +357,15 @@
 }
 
 .stepper-btn {
-    background: var(--surface2);
-    border: var(--border-width) solid var(--border);
+    background: var(--accent-primary);
+    border: 0px solid var(--accent-color-400);
     border-radius: 6px;
-    color: var(--text-secondary);
+    color: var(--button-text);
     font-family: var(--font-menu);
     font-size: var(--size-body);
     line-height: 1;
-    width: 26px;
-    height: 26px;
+    width: var(--control-height);
+    height: var(--control-height);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -322,18 +374,17 @@
 }
 
 .stepper-btn:hover:not(:disabled) {
-    background-color: var(--surface3);
-    color: var(--text-primary);
-    border-color: var(--text-tertiary);
+    background: var(--color-accent-300);
+    border-color: var(--accent-primary);
 }
 
 .stepper-btn:focus-visible {
-    outline: 2px solid var(--color-accent-400);
-    outline-offset: 1px;
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
 }
 
 .stepper-btn:disabled {
-    opacity: 0.35;
+    opacity: 0.6;
     cursor: not-allowed;
 }
 
@@ -342,19 +393,20 @@
  * lets narrower content like a bare year tighten it). It's a real <button>
  * now — hover/focus affordances signal the picker behind it. */
 .stepper-label {
-    background: none;
-    border: none;
+    background: var(--color-base-200);
+    border: 0px solid transparent;
     border-radius: 6px;
-    padding: 4px 8px;
-    color: var(--text-secondary);
+    padding: 0 var(--space-16);
+    height: var(--control-height);
+    box-sizing: border-box;
+    color: var(--text-primary);
     font-family: var(--font-menu);
     font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wider);
+    font-weight: var(--weight-superbold);
+    letter-spacing: var(--track-widest);
     text-transform: uppercase;
     text-align: center;
     min-width: var(--stepper-label-min, 118px);
-    box-sizing: content-box;
     font-variant-numeric: tabular-nums;
     user-select: none;
     cursor: pointer;
@@ -362,11 +414,11 @@
 }
 
 .stepper-label:hover {
-    background: var(--frost-2);
+    background: var(--surface3);
     color: var(--text-primary);
 }
 
 .stepper-label:focus-visible {
-    outline: 2px solid var(--color-accent-400);
-    outline-offset: 1px;
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
 }

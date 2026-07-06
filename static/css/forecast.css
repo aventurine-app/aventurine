@@ -29,56 +29,7 @@
     width: 100%;
 }
 
-/* Page-level report tabs — underline style, deliberately distinct from the
-   pill-shaped in-card controls (range selector, toggles) below them. */
-.cf-tabs {
-    display: flex;
-    align-items: stretch;
-    gap: 4px;
-    border-bottom: var(--border-width) solid var(--border);
-}
-
-.cf-tab {
-    appearance: none;
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;            /* sit the underline on the bar's border */
-    border-radius: 6px 6px 0 0;
-    color: var(--text-secondary);
-    font-family: var(--font-h3);
-    font-size: var(--size-h3);
-    font-weight: var(--weight-medium);
-    line-height: var(--lh-tight);
-    letter-spacing: var(--track-tight);
-    padding: 12px 16px;
-    cursor: pointer;
-    transition: color 0.15s, border-color 0.15s, background 0.15s;
-}
-
-.cf-tab:hover {
-    color: var(--text-primary);
-    background: color-mix(in srgb, var(--text-primary) 6%, transparent);
-}
-
-.cf-tab.active,
-.cf-tab[aria-selected="true"] {
-    color: var(--text-primary);
-    font-weight: var(--weight-semibold);
-    border-bottom-color: var(--accent-primary);
-}
-
-.cf-tab:focus-visible {
-    outline: 2px solid var(--color-accent-400);
-    outline-offset: -2px;
-}
-
-.cf-panel[hidden] { display: none; }
-.cf-panel:focus { outline: none; }
-
-@media (prefers-reduced-motion: reduce) {
-    .cf-tab { transition: none; }
-}
+/* Tab styles live in ui.css — shared with .home-tab and .stmt-tab. */
 
 .forecast-page {
     display: flex;
