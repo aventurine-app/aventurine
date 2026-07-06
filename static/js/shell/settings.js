@@ -62,10 +62,7 @@
             delete document.documentElement.dataset.theme;
         }
         localStorage.setItem('color-theme', theme);
-        // Sync active state on every instance of the theme buttons.
-        document.querySelectorAll('.settings-theme-btn').forEach(btn => {
-            btn.classList.toggle('active', (btn.dataset.theme ?? '') === (theme ?? ''));
-        });
+        location.reload();
     }
 
     function wireThemeButtons() {
