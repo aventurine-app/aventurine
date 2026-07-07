@@ -13,7 +13,8 @@
 // bar and only when the category's direction matches the row's, so a built-in
 // guess never silently flips an expense into income or miscategorizes a refund.
 
-const { NOISE_PATTERNS, MERCHANTS, KEYWORDS } = require('./merchantCategories');
+const { MERCHANTS, KEYWORDS } = require('./merchantCategories');
+const { normaliseMerchant } = require('./textFeatures');
 const { autoMatchEnabled } = require('./matchRules');
 
 // Confidence scores per source, and the bar an import must clear to auto-apply.
@@ -24,15 +25,6 @@ const AUTO_APPLY_CONFIDENCE = 0.8;
 // Longest needle first so a specific merchant ("uber eats") wins over a prefix
 // of it ("uber"); computed once at load.
 const MERCHANTS_BY_LEN = [...MERCHANTS].sort((a, b) => b[0].length - a[0].length);
-
-/** Reduce a raw bank description to the bare merchant token: lowercased, with
- *  payment-network prefixes, POS/ACH markers, card masks, store/phone/ref
- *  numbers and trailing state codes stripped. Pure. */
-function normaliseMerchant(description) {
-  let s = String(description == null ? '' : description).toLowerCase();
-  for (const re of NOISE_PATTERNS) s = s.replace(re, ' ');
-  return s.replace(/\s+/g, ' ').trim();
-}
 
 /** Best built-in category for a description, or null when nothing clears the
  *  bar. Returns {categoryKey, confidence, source}. Pure — no DB, no per-user
