@@ -122,5 +122,12 @@
   { "desc": "ZELLE TO JOHN", "expected": null },
   { "desc": "APPLE.COM/BILL", "expected": null },
   { "desc": "USAA TRANSFER", "expected": null },
-  { "desc": "SQUARE INC DEPOSIT", "expected": null }
+  { "desc": "SQUARE INC DEPOSIT", "expected": null },
+  { "desc": "SHELL SERVICE STATION 4412", "expected": "automobile" },
+  { "desc": "SHELL GAS #7514 HOUSTON TX", "expected": "automobile" },
+  { "desc": "FL TURNPIKE TOLLS 0423", "expected": "automobile" },
+  { "desc": "THE TOLL ROADS OF CALIFORNIA", "expected": "automobile" },
+  { "desc": "MOBILE DEPOSIT", "expected": null },
+  { "desc": "NESTLE TOLL HOUSE", "expected": null },
+  { "desc": "SPRINTER VAN RENTAL LLC", "expected": null }
 ]

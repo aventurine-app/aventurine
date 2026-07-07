@@ -77,7 +77,9 @@ const MERCHANTS = [
   ['in-n-out', 'dining'], ['in n out', 'dining'], ['five guys', 'dining'],
   ['shake shack', 'dining'], ['whataburger', 'dining'], ['culvers', 'dining'],
   ["culver's", 'dining'], ['raising cane', 'dining'], ['panda express', 'dining'],
-  ['qdoba', 'dining'], ['noodles & co', 'dining'], ['olive garden', 'dining'],
+  // No 'noodles & co' — the normalizer strips a trailing " co" as a state
+  // abbreviation, so it can never match; the 'noodle' keyword covers it.
+  ['qdoba', 'dining'], ['olive garden', 'dining'],
   ['applebee', 'dining'], ['chilis', 'dining'], ["chili's", 'dining'],
   ['outback steak', 'dining'], ['red lobster', 'dining'], ['ihop', 'dining'],
   ['denny', 'dining'], ['waffle house', 'dining'], ['cracker barrel', 'dining'],
@@ -92,7 +94,11 @@ const MERCHANTS = [
   ['philz coffee', 'dining'], ['la colombe', 'dining'],
 
   // ── Auto & Transport — fuel, rideshare, parts, service ──
-  ['shell', 'automobile'], ['chevron', 'automobile'], ['exxon', 'automobile'],
+  // 'shell' bare hides in "shelly"/"seashell" (see lexicon-hazards.json), so
+  // only qualified station forms; 'exxon' alone covers "exxonmobil" ('mobil'
+  // bare would eat "mobile deposit").
+  ['shell oil', 'automobile'], ['shell service', 'automobile'], ['shell gas', 'automobile'],
+  ['chevron', 'automobile'], ['exxon', 'automobile'],
   ['texaco', 'automobile'], ['valero', 'automobile'], ['marathon petro', 'automobile'],
   ['circle k', 'automobile'], ['arco ampm', 'automobile'], ['sunoco', 'automobile'],
   ['speedway', 'automobile'], ['phillips 66', 'automobile'], ['conoco', 'automobile'],
@@ -102,9 +108,6 @@ const MERCHANTS = [
   ['discount tire', 'automobile'], ['les schwab', 'automobile'], ['jiffy lube', 'automobile'],
   ['valvoline', 'automobile'], ['firestone', 'automobile'], ['midas', 'automobile'],
   ['meineke', 'automobile'], ['maaco', 'automobile'], ['spothero', 'automobile'],
-  // 'mobil' is shorter than 't mobile'/'boost mobile' (utilities) below; longest-
-  // needle-first means the carrier wins over the gas station.
-  ['mobil', 'automobile'],
 
   // ── Entertainment — streaming, gaming, media ──
   ['netflix', 'entertainment'], ['spotify', 'entertainment'], ['hulu', 'entertainment'],
@@ -140,7 +143,8 @@ const MERCHANTS = [
   ['at&t', 'utilities'], ['t mobile', 'utilities'], ['t-mobile', 'utilities'],
   ['tmobile', 'utilities'], ['boost mobile', 'utilities'], ['metro pcs', 'utilities'],
   ['metropcs', 'utilities'], ['cricket wireless', 'utilities'], ['us cellular', 'utilities'],
-  ['google fi', 'utilities'], ['sprint', 'utilities'], ['spectrum', 'utilities'],
+  // No 'sprint' — the brand is retired into T-Mobile and it hides in "sprinter".
+  ['google fi', 'utilities'], ['spectrum', 'utilities'],
   ['centurylink', 'utilities'], ['cox comm', 'utilities'], ['optimum', 'utilities'],
   ['mediacom', 'utilities'], ['frontier comm', 'utilities'], ['windstream', 'utilities'],
   ['earthlink', 'utilities'], ['dish network', 'utilities'], ['directv', 'utilities'],
@@ -214,7 +218,10 @@ const KEYWORDS = [
   // Groceries
   ['farmers market', 'groceries'], ['food mart', 'groceries'],
   // Auto & Transport
-  ['parking', 'automobile'], ['toll', 'automobile'], ['fuel', 'automobile'],
+  // Bare 'toll' hides in "toll house"/"tolleson"; only road-shaped forms.
+  ['parking', 'automobile'], ['toll road', 'automobile'], ['toll plaza', 'automobile'],
+  ['tollway', 'automobile'], ['turnpike', 'automobile'], ['bridge toll', 'automobile'],
+  ['toll bridge', 'automobile'], ['tolls', 'automobile'], ['fuel', 'automobile'],
   ['gasoline', 'automobile'], ['gas station', 'automobile'], ['car wash', 'automobile'],
   ['auto parts', 'automobile'], ['auto repair', 'automobile'], ['transit', 'automobile'],
   ['dmv', 'automobile'],
