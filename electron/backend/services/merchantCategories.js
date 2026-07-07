@@ -404,6 +404,9 @@ const MERCHANTS = [
   ['sixt rent', 'travel'], ['fox rent a car', 'travel'], ['payless car rental', 'travel'],
   // Trusted-traveler / airport programs.
   ['global entry', 'travel'], ['tsa precheck', 'travel'],
+  // 'hospitality' (hotel/restaurant groups) contains the 'hospital' health
+  // keyword; as a merchant it's matched first, so it wins and lands in travel.
+  ['hospitality', 'travel'],
 
   // ── Insurance — carriers (a dedicated bucket makes the "insurance" keyword safe) ──
   ['geico', 'insurance'], ['state farm', 'insurance'], ['progressive ins', 'insurance'],

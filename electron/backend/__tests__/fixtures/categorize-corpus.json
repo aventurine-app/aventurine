@@ -117,7 +117,7 @@
   { "desc": "PARENT PORTAL FEE", "expected": null },
   { "desc": "CURRENT ACCOUNT FEE", "expected": null },
   { "desc": "TACOMA MALL", "expected": null },
-  { "desc": "WATER PARK ADVENTURE", "expected": null },
+  { "desc": "WATER PARK ADVENTURE", "expected": "entertainment" },
   { "desc": "VENMO PAYMENT", "expected": null },
   { "desc": "ZELLE TO JOHN", "expected": null },
   { "desc": "APPLE.COM/BILL", "expected": null },
