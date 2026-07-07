@@ -194,6 +194,34 @@ const MERCHANTS = [
   ['cinemark', 'entertainment'], ['audible', 'entertainment'], ['kindle', 'entertainment'],
   ['espn', 'entertainment'], ['starz', 'entertainment'], ['showtime', 'entertainment'],
   ['sling tv', 'entertainment'], ['fubo', 'entertainment'], ['dazn', 'entertainment'],
+  // More streaming / VOD.
+  ['tubi', 'entertainment'], ['pluto tv', 'entertainment'], ['roku channel', 'entertainment'],
+  ['britbox', 'entertainment'], ['acorn tv', 'entertainment'], ['mubi', 'entertainment'],
+  ['discovery+', 'entertainment'], ['discovery plus', 'entertainment'], ['amc plus', 'entertainment'],
+  ['masterclass', 'entertainment'], ['curiositystream', 'entertainment'], ['funimation', 'entertainment'],
+  // More music.
+  ['amazon music', 'entertainment'], ['soundcloud', 'entertainment'], ['iheartradio', 'entertainment'],
+  ['deezer', 'entertainment'], ['qobuz', 'entertainment'],
+  // More gaming (qualified: rockstar→energy drink, blizzard→weather/DQ).
+  ['rockstar games', 'entertainment'], ['battle.net', 'entertainment'], ['blizzard entertainment', 'entertainment'],
+  ['activision', 'entertainment'], ['square enix', 'entertainment'], ['humble bundle', 'entertainment'],
+  ['gog.com', 'entertainment'], ['minecraft', 'entertainment'], ['bandai namco', 'entertainment'],
+  ['game pass', 'entertainment'],
+  // Tickets / live events.
+  ['seatgeek', 'entertainment'], ['vivid seats', 'entertainment'], ['eventbrite', 'entertainment'],
+  ['gametime', 'entertainment'],
+  // Movie theaters (alamo drafthouse beats the 'alamo rent' car needle).
+  ['alamo drafthouse', 'entertainment'], ['harkins theatres', 'entertainment'], ['marcus theatres', 'entertainment'],
+  ['cinepolis', 'entertainment'], ['studio movie grill', 'entertainment'], ['landmark theatres', 'entertainment'],
+  // Attractions / family fun / venues.
+  ['topgolf', 'entertainment'], ['dave & buster', 'entertainment'], ["dave and buster", 'entertainment'],
+  ['chuck e cheese', 'entertainment'], ['chuck e. cheese', 'entertainment'], ['bowlero', 'entertainment'],
+  ['six flags', 'entertainment'], ['cedar point', 'entertainment'], ['universal studios', 'entertainment'],
+  ['seaworld', 'entertainment'], ['legoland', 'entertainment'], ['knotts berry', 'entertainment'],
+  ['busch gardens', 'entertainment'],
+  // Digital media / creators / news subscriptions.
+  ['onlyfans', 'entertainment'], ['substack', 'entertainment'], ['new york times', 'entertainment'],
+  ['nytimes', 'entertainment'], ['wall street journal', 'entertainment'],
 
   // ── Health — pharmacies, fitness, care, vision ──
   ['cvs', 'health'], ['walgreen', 'health'], ['rite aid', 'health'],
@@ -206,6 +234,23 @@ const MERCHANTS = [
   ['kaiser', 'health'], ['one medical', 'health'], ['minuteclinic', 'health'],
   ['teladoc', 'health'], ['goodrx', 'health'], ['warby parker', 'health'],
   ['lenscrafters', 'health'], ['pearle vision', 'health'], ['aspen dental', 'health'],
+  // Boutique fitness / gyms.
+  ['crossfit', 'health'], ['soulcycle', 'health'], ['solidcore', 'health'],
+  ['pure barre', 'health'], ['club pilates', 'health'], ['cyclebar', 'health'],
+  ["barry's bootcamp", 'health'], ['barrys bootcamp', 'health'], ['blink fitness', 'health'],
+  ['eos fitness', 'health'], ['esporta fitness', 'health'], ['vasa fitness', 'health'],
+  ['chuze fitness', 'health'], ['snap fitness', 'health'], ['retro fitness', 'health'],
+  ['new york sports club', 'health'], ['youfit', 'health'],
+  // Supplements / wellness / telehealth.
+  ['vitamin shoppe', 'health'], ['vitamin world', 'health'], ['bodybuilding.com', 'health'],
+  ['betterhelp', 'health'], ['talkspace', 'health'], ['headspace', 'health'],
+  ['calm app', 'health'], ['noom', 'health'], ['weight watchers', 'health'],
+  ['curology', 'health'], ['cerebral health', 'health'], ['davita', 'health'],
+  ['concentra', 'health'],
+  // Vision / dental chains.
+  ['eyemed', 'health'], ['visionworks', 'health'], ['myeyedr', 'health'],
+  ['america best contacts', 'health'], ["america's best contacts", 'health'], ['smiledirect', 'health'],
+  ['smile direct club', 'health'], ['western dental', 'health'], ['clearchoice dental', 'health'],
 
   // ── Utilities — telecom, internet, power, water, TV service ──
   ['comcast', 'utilities'], ['xfinity', 'utilities'], ['verizon', 'utilities'],
@@ -266,6 +311,48 @@ const MERCHANTS = [
   ['gamestop', 'shopping'], ['barnes & noble', 'shopping'], ['nike', 'shopping'],
   ['adidas', 'shopping'], ['lululemon', 'shopping'], ['foot locker', 'shopping'],
   ['zappos', 'shopping'], ['uniqlo', 'shopping'], ['h&m', 'shopping'],
+  // Apparel & footwear (qualified where bare is a word/surname/statement line:
+  // gap→"singapore", levi→"levine", vans→"caravans", ugg→"luggage",
+  // "new balance"→a statement field, american eagle→airline, hollister→city).
+  ['gap.com', 'shopping'], ['gap outlet', 'shopping'], ['gap factory', 'shopping'],
+  ['athleta', 'shopping'], ['j crew', 'shopping'], ['jcrew', 'shopping'], ['j.crew', 'shopping'],
+  ['american eagle outfit', 'shopping'], ['aerie', 'shopping'], ['abercrombie', 'shopping'],
+  ['forever 21', 'shopping'], ['urban outfitters', 'shopping'],
+  ['anthropologie', 'shopping'], ['free people', 'shopping'], ['madewell', 'shopping'],
+  ['everlane', 'shopping'], ['gymshark', 'shopping'], ['vuori', 'shopping'],
+  ['north face', 'shopping'], ['patagonia', 'shopping'], ['columbia sportswear', 'shopping'],
+  ['rei co-op', 'shopping'], ['rei.com', 'shopping'], ['dsw', 'shopping'],
+  ['famous footwear', 'shopping'], ['journeys', 'shopping'], ['vans store', 'shopping'],
+  ['vans.com', 'shopping'], ['converse.com', 'shopping'], ['crocs', 'shopping'],
+  ['skechers', 'shopping'], ['reebok', 'shopping'], ['puma store', 'shopping'], ['puma.com', 'shopping'],
+  ['under armour', 'shopping'], ['newbalance.com', 'shopping'], ['new balance store', 'shopping'],
+  ['ralph lauren', 'shopping'], ['tommy hilfiger', 'shopping'], ['calvin klein', 'shopping'],
+  ['carhartt', 'shopping'], ['dickies', 'shopping'], ['ugg.com', 'shopping'],
+  ['ugg australia', 'shopping'], ['levi strauss', 'shopping'], ["levi's", 'shopping'],
+  ["victoria's secret", 'shopping'], ['victorias secret', 'shopping'], ['bath & body works', 'shopping'],
+  ['bath and body works', 'shopping'], ['lush cosmetics', 'shopping'], ['sally beauty', 'shopping'],
+  ['mac cosmetics', 'shopping'],
+  // Home / furniture / decor.
+  ['west elm', 'shopping'], ['pottery barn', 'shopping'], ['crate & barrel', 'shopping'],
+  ['crate and barrel', 'shopping'], ['restoration hardware', 'shopping'], ['ashley furniture', 'shopping'],
+  ['ashley homestore', 'shopping'], ['la-z-boy', 'shopping'], ['world market', 'shopping'],
+  ['homegoods', 'shopping'], ['home goods', 'shopping'], ['at home store', 'shopping'],
+  ['container store', 'shopping'], ['bob discount furniture', 'shopping'], ["bob's discount furniture", 'shopping'],
+  // Home improvement / hardware.
+  ['menards', 'shopping'], ['ace hardware', 'shopping'], ['harbor freight', 'shopping'],
+  ['tractor supply', 'shopping'], ['true value hardware', 'shopping'], ['sherwin williams', 'shopping'],
+  ['sherwin-williams', 'shopping'], ['benjamin moore', 'shopping'], ['floor & decor', 'shopping'],
+  // Electronics / office.
+  ['apple store', 'shopping'], ['microsoft store', 'shopping'], ['dell.com', 'shopping'],
+  ['dell technologies', 'shopping'], ['newegg', 'shopping'], ['b&h photo', 'shopping'],
+  ['micro center', 'shopping'],
+  // Marketplaces / resale / deals.
+  ['mercari', 'shopping'], ['poshmark', 'shopping'], ['depop', 'shopping'],
+  ['thredup', 'shopping'], ['stockx', 'shopping'], ['grailed', 'shopping'],
+  ['rakuten', 'shopping'], ['groupon', 'shopping'], ['wish.com', 'shopping'],
+  // Craft / books / pets.
+  ['joann fabric', 'shopping'], ['jo-ann', 'shopping'], ['blick art', 'shopping'],
+  ['books a million', 'shopping'], ['half price books', 'shopping'], ['pet supplies plus', 'shopping'],
 
   // ── Travel — airlines, hotels, booking, car rental ──
   ['united airlines', 'travel'], ['delta air', 'travel'], ['american airlines', 'travel'],

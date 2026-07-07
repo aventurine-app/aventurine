@@ -35,7 +35,7 @@ const ALL_ENTRIES = [
 // Three-letter needles individually vetted as safe substrings (brand initials
 // that don't occur inside English words or names we could find). Anything new
 // this short must be argued onto this list, not silently added.
-const VETTED_SHORT_NEEDLES = new Set(['cvs', 'kfc', 'gnc', 'fpl', 'bbq', 'dmv', 'h&m', 'qfc']);
+const VETTED_SHORT_NEEDLES = new Set(['cvs', 'kfc', 'gnc', 'fpl', 'bbq', 'dmv', 'h&m', 'qfc', 'dsw']);
 
 test('lexicon: every needle survives its own normalizer', () => {
   // A needle containing noise the normalizer strips ("visa", "payment", a long

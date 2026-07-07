@@ -163,5 +163,17 @@
   { "desc": "ROOT INSURANCE CO", "expected": "insurance" },
   { "desc": "PAYCHEX DEP 0423", "expected": "income" },
   { "desc": "SSA TREAS 310 XXSOC SEC", "expected": "other_income" },
-  { "desc": "TASTING ROOM WINERY", "expected": null }
+  { "desc": "TASTING ROOM WINERY", "expected": null },
+  { "desc": "LULULEMON 8842 SEATTLE WA", "expected": "shopping" },
+  { "desc": "SQ *ASHLEY FURNITURE", "expected": "shopping" },
+  { "desc": "TJ MAXX #221", "expected": "shopping" },
+  { "desc": "REI CO-OP #14 DENVER", "expected": "shopping" },
+  { "desc": "AMAZON MUSIC*RT4X2", "expected": "entertainment" },
+  { "desc": "TOPGOLF LAS VEGAS", "expected": "entertainment" },
+  { "desc": "SEATGEEK EVENT TICKETS", "expected": "entertainment" },
+  { "desc": "PLANET FITNESS CLUB FEE", "expected": "health" },
+  { "desc": "SOULCYCLE UWS", "expected": "health" },
+  { "desc": "BETTERHELP.COM COUNSELING", "expected": "health" },
+  { "desc": "ZELLE TO DAVID LEVINE", "expected": null },
+  { "desc": "CARAVANS RV DEALERSHIP", "expected": null }
 ]
