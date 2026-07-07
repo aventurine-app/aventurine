@@ -26,9 +26,9 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
-     inkscape:zoom="0.5512684"
-     inkscape:cx="-208.60982"
-     inkscape:cy="197.72583"
+     inkscape:zoom="1.1025368"
+     inkscape:cx="221.30781"
+     inkscape:cy="279.35575"
      inkscape:window-width="2560"
      inkscape:window-height="1371"
      inkscape:window-x="0"
@@ -76,13 +76,51 @@
          in2="comp1"
          id="feComposite2" />
     </filter>
+    <filter
+       style="color-interpolation-filters:sRGB;"
+       inkscape:label="Drop Shadow"
+       id="filter25"
+       x="-0.024479505"
+       y="-0.026994558"
+       width="1.048959"
+       height="1.0539891">
+      <feFlood
+         result="flood"
+         in="SourceGraphic"
+         flood-opacity="0.831373"
+         flood-color="rgb(11,11,11)"
+         id="feFlood24" />
+      <feGaussianBlur
+         result="blur"
+         in="SourceGraphic"
+         stdDeviation="0.600000"
+         id="feGaussianBlur24" />
+      <feOffset
+         result="offset"
+         in="blur"
+         dx="-0.000000"
+         dy="0.000000"
+         id="feOffset24" />
+      <feComposite
+         result="comp1"
+         operator="in"
+         in="flood"
+         in2="offset"
+         id="feComposite24" />
+      <feComposite
+         result="comp2"
+         operator="over"
+         in="SourceGraphic"
+         in2="comp1"
+         id="feComposite25" />
+    </filter>
   </defs>
   <g
      inkscape:label="Layer 1"
      inkscape:groupmode="layer"
      id="layer1">
     <rect
-       style="display:none;fill:#e6e6e6;fill-opacity:1;stroke-width:0.75184;stroke-linejoin:round;filter:url(#filter2)"
+       style="display:inline;fill:#e6e6e6;fill-opacity:1;stroke-width:0.75184;stroke-linejoin:round;filter:url(#filter2)"
        id="rect1"
        width="129.57913"
        height="129.57913"
@@ -91,7 +129,7 @@
        rx="14.348083" />
     <path
        sodipodi:type="star"
-       style="fill:#217867;fill-opacity:1;stroke:none;stroke-width:8.56332;stroke-linejoin:miter;stroke-dasharray:none;stroke-opacity:1"
+       style="fill:#217867;fill-opacity:1;stroke:none;stroke-width:8.56332;stroke-linejoin:miter;stroke-dasharray:none;stroke-opacity:1;filter:url(#filter25)"
        id="path2"
        inkscape:flatsided="true"
        sodipodi:sides="5"
