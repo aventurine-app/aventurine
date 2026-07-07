@@ -140,5 +140,19 @@
   { "desc": "DICKEY'S BARBECUE PIT", "expected": "dining" },
   { "desc": "RUBIO'S COASTAL GRILL", "expected": "dining" },
   { "desc": "ZELLE TO JAMES DICKEY", "expected": null },
-  { "desc": "CAPTAIN DAVIDSON MARINE SUPPLY", "expected": null }
+  { "desc": "CAPTAIN DAVIDSON MARINE SUPPLY", "expected": null },
+  { "desc": "WAWA 8821 PHILADELPHIA PA", "expected": "automobile" },
+  { "desc": "SHEETZ #0442", "expected": "automobile" },
+  { "desc": "LOVE'S TRAVEL STOP 332", "expected": "automobile" },
+  { "desc": "EZPASS NY REPLENISH", "expected": "automobile" },
+  { "desc": "CHARGEPOINT INC 4X21", "expected": "automobile" },
+  { "desc": "CARVANA LLC", "expected": "automobile" },
+  { "desc": "SEPTA TVM PHILADELPHIA", "expected": "automobile" },
+  { "desc": "ALLEGIANT AIR 0442", "expected": "travel" },
+  { "desc": "MARRIOTT RESIDENCE INN", "expected": "travel" },
+  { "desc": "HOTELS.COM 8551234567", "expected": "travel" },
+  { "desc": "ROYAL CARIBBEAN CRUISE", "expected": "travel" },
+  { "desc": "THE WESTIN HOTEL SAN DIEGO", "expected": "travel" },
+  { "desc": "WESTINGHOUSE APPLIANCE REPAIR", "expected": null },
+  { "desc": "ZELLE TO PATRICK MURPHY", "expected": null }
 ]

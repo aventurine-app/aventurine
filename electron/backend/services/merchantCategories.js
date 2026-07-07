@@ -149,6 +149,34 @@ const MERCHANTS = [
   ['discount tire', 'automobile'], ['les schwab', 'automobile'], ['jiffy lube', 'automobile'],
   ['valvoline', 'automobile'], ['firestone', 'automobile'], ['midas', 'automobile'],
   ['meineke', 'automobile'], ['maaco', 'automobile'], ['spothero', 'automobile'],
+  // More fuel / travel-center brands. Qualified where the bare word is a
+  // surname, city, or common substring (love's→"gloves", murphy, gulf→
+  // "gulfport", holiday, casey, sinclair broadcast, bp→everything).
+  ["casey's general", 'automobile'], ['caseys general', 'automobile'], ['wawa', 'automobile'],
+  ['sheetz', 'automobile'], ['quiktrip', 'automobile'], ['quik trip', 'automobile'],
+  ['kwik trip', 'automobile'], ['kwik star', 'automobile'], ['racetrac', 'automobile'],
+  ['buc-ee', 'automobile'], ['bucees', 'automobile'], ["love's travel", 'automobile'],
+  ['loves travel stop', 'automobile'], ['pilot flying j', 'automobile'], ['flying j', 'automobile'],
+  ['kum & go', 'automobile'], ['cumberland farms', 'automobile'], ['getgo', 'automobile'],
+  ['murphy usa', 'automobile'], ['murphy express', 'automobile'], ['citgo', 'automobile'],
+  ['sinclair oil', 'automobile'], ['gulf oil', 'automobile'], ['holiday stationstore', 'automobile'],
+  ['maverik', 'automobile'], ['bp products', 'automobile'], ['stewarts shops', 'automobile'],
+  // Rideshare / micromobility / car-share.
+  ['zipcar', 'automobile'], ['turo', 'automobile'], ['getaround', 'automobile'],
+  ['lime scooter', 'automobile'], ['bird scooter', 'automobile'],
+  // EV charging.
+  ['chargepoint', 'automobile'], ['evgo', 'automobile'], ['electrify america', 'automobile'],
+  ['tesla supercharger', 'automobile'], ['blink charging', 'automobile'],
+  // Tolls / transponders (a charge to an account, not intercity travel).
+  ['ez pass', 'automobile'], ['ezpass', 'automobile'], ['e-zpass', 'automobile'],
+  ['sunpass', 'automobile'], ['fastrak', 'automobile'], ['ipass', 'automobile'],
+  ['txtag', 'automobile'], ['pikepass', 'automobile'], ['good to go toll', 'automobile'],
+  // Commuter transit agencies (distinctive names only — no bare 3-letter codes).
+  ['njtransit', 'automobile'], ['nj transit', 'automobile'], ['caltrain', 'automobile'],
+  ['septa', 'automobile'], ['wmata', 'automobile'], ['metra rail', 'automobile'],
+  ['mbta', 'automobile'], ['sound transit', 'automobile'], ['clipper card', 'automobile'],
+  // Dealers / used-car retail.
+  ['carmax', 'automobile'], ['carvana', 'automobile'],
 
   // ── Entertainment — streaming, gaming, media ──
   ['netflix', 'entertainment'], ['spotify', 'entertainment'], ['hulu', 'entertainment'],
@@ -228,6 +256,44 @@ const MERCHANTS = [
   ['travelocity', 'travel'], ['orbitz', 'travel'], ['kayak', 'travel'],
   ['hertz', 'travel'], ['enterprise rent', 'travel'], ['avis car', 'travel'],
   ['avis rent', 'travel'], ['budget rent', 'travel'], ['national car', 'travel'],
+  // More domestic + major international airlines.
+  ['allegiant air', 'travel'], ['sun country air', 'travel'], ['virgin atlantic', 'travel'],
+  ['british airways', 'travel'], ['air canada', 'travel'], ['lufthansa', 'travel'],
+  ['air france', 'travel'], ['klm royal', 'travel'], ['aer lingus', 'travel'],
+  ['aeromexico', 'travel'], ['emirates air', 'travel'], ['qatar airways', 'travel'],
+  ['etihad', 'travel'], ['turkish airlines', 'travel'], ['japan airlines', 'travel'],
+  ['korean air', 'travel'], ['cathay pacific', 'travel'], ['singapore airlines', 'travel'],
+  ['copa airlines', 'travel'], ['avianca', 'travel'], ['ryanair', 'travel'], ['easyjet', 'travel'],
+  // Hotel brands (qualified where the bare word is a city/surname/appliance:
+  // westin→"westinghouse", conrad, fairmont, omni→"omnicom", loews→"lowes").
+  ['wyndham', 'travel'], ['ramada', 'travel'], ['days inn', 'travel'],
+  ['travelodge', 'travel'], ['howard johnson', 'travel'], ['doubletree', 'travel'],
+  ['embassy suites', 'travel'], ['homewood suites', 'travel'], ['home2 suites', 'travel'],
+  ['residence inn', 'travel'], ['fairfield inn', 'travel'], ['springhill suites', 'travel'],
+  ['towneplace', 'travel'], ['ac hotel', 'travel'], ['aloft hotel', 'travel'],
+  ['westin hotel', 'travel'], ['sheraton', 'travel'], ['le meridien', 'travel'],
+  ['four points', 'travel'], ['renaissance hotel', 'travel'], ['ritz-carlton', 'travel'],
+  ['ritz carlton', 'travel'], ['st regis', 'travel'], ['waldorf astoria', 'travel'],
+  ['conrad hotel', 'travel'], ['kimpton', 'travel'], ['intercontinental', 'travel'],
+  ['crowne plaza', 'travel'], ['staybridge', 'travel'], ['candlewood suites', 'travel'],
+  ['extended stay america', 'travel'], ['red roof inn', 'travel'], ['econo lodge', 'travel'],
+  ['quality inn', 'travel'], ['comfort inn', 'travel'], ['comfort suites', 'travel'],
+  ['sleep inn', 'travel'], ['country inn', 'travel'], ['sonesta', 'travel'],
+  ['omni hotel', 'travel'], ['loews hotel', 'travel'], ['fairmont hotel', 'travel'],
+  ['radisson', 'travel'], ['sofitel', 'travel'], ['novotel', 'travel'],
+  // Booking / OTA (dots survive the normalizer, so keep them for precision).
+  ['hotels.com', 'travel'], ['hotwire', 'travel'], ['agoda', 'travel'],
+  ['trip.com', 'travel'], ['hopper travel', 'travel'], ['cheapoair', 'travel'],
+  ['tripadvisor', 'travel'], ['viator', 'travel'], ['getyourguide', 'travel'],
+  // Cruise lines (bare 'carnival'/'princess'/'celebrity' are too generic).
+  ['carnival cruise', 'travel'], ['royal caribbean', 'travel'], ['norwegian cruise', 'travel'],
+  ['princess cruise', 'travel'], ['holland america', 'travel'], ['celebrity cruise', 'travel'],
+  ['msc cruise', 'travel'], ['disney cruise', 'travel'],
+  // More car rental (qualified: alamo→city, thrifty/dollar/sixt→common words).
+  ['alamo rent', 'travel'], ['thrifty car', 'travel'], ['dollar rent a car', 'travel'],
+  ['sixt rent', 'travel'], ['fox rent a car', 'travel'], ['payless car rental', 'travel'],
+  // Trusted-traveler / airport programs.
+  ['global entry', 'travel'], ['tsa precheck', 'travel'],
 
   // ── Insurance — carriers (a dedicated bucket makes the "insurance" keyword safe) ──
   ['geico', 'insurance'], ['state farm', 'insurance'], ['progressive ins', 'insurance'],
