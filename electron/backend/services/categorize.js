@@ -2,8 +2,12 @@
 
 // On-device cold-start categorization — the bundled-knowledge layer of the
 // import moat. Where matchRules.js categorizes from what THIS user has taught
-// the app, this module categorizes a description with no prior history at all,
-// using the shipped merchant lexicon + keyword rules (merchantCategories.js).
+// the app, this module categorizes a description with no prior history at all.
+// It has three tiers, tried in order of decreasing precision:
+//   1. merchant lexicon  — named brands, substring match  (merchantCategories)
+//   2. keyword rules      — generic descriptive terms       (merchantCategories)
+//   3. classifier         — statistical fallback for unseen  (classifier.js)
+//      merchants the first two miss; abstains unless confident.
 //
 // It is pure logic + one read-only category lookup; no network, ever (the
 // whole point — categorization stays on the user's machine). Blend order at the
@@ -15,6 +19,7 @@
 
 const { MERCHANTS, KEYWORDS } = require('./merchantCategories');
 const { normaliseMerchant } = require('./textFeatures');
+const { classify } = require('./classifier');
 const { autoMatchEnabled } = require('./matchRules');
 
 // Confidence scores per source, and the bar an import must clear to auto-apply.
@@ -43,7 +48,10 @@ function categorize(description) {
       return { categoryKey: key, confidence: KEYWORD_CONFIDENCE, source: 'keyword' };
     }
   }
-  return null;
+  // Tier 3: statistical fallback for merchants the lexicon doesn't name. Returns
+  // null (abstain) unless it clears its own calibrated margin gate, so it only
+  // ever fills in blanks the precision-first tiers left — never overrides them.
+  return classify(description);
 }
 
 /**
