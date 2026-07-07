@@ -154,5 +154,14 @@
   { "desc": "ROYAL CARIBBEAN CRUISE", "expected": "travel" },
   { "desc": "THE WESTIN HOTEL SAN DIEGO", "expected": "travel" },
   { "desc": "WESTINGHOUSE APPLIANCE REPAIR", "expected": null },
-  { "desc": "ZELLE TO PATRICK MURPHY", "expected": null }
+  { "desc": "ZELLE TO PATRICK MURPHY", "expected": null },
+  { "desc": "MINT MOBILE 8551234567", "expected": "utilities" },
+  { "desc": "ENTERGY ARKANSAS BILL PAY", "expected": "utilities" },
+  { "desc": "STARLINK INTERNET", "expected": "utilities" },
+  { "desc": "SOCALGAS PAYMENT", "expected": "utilities" },
+  { "desc": "THE HARTFORD INS PREM", "expected": "insurance" },
+  { "desc": "ROOT INSURANCE CO", "expected": "insurance" },
+  { "desc": "PAYCHEX DEP 0423", "expected": "income" },
+  { "desc": "SSA TREAS 310 XXSOC SEC", "expected": "other_income" },
+  { "desc": "TASTING ROOM WINERY", "expected": null }
 ]

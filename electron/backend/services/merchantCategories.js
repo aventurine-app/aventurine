@@ -223,6 +223,29 @@ const MERCHANTS = [
   ['peco energy', 'utilities'], ['pseg', 'utilities'], ['national grid', 'utilities'],
   ['con edison', 'utilities'], ['coned', 'utilities'], ['socal edison', 'utilities'],
   ['austin energy', 'utilities'],
+  // More wireless carriers / MVNOs (qualified where bare is a word:
+  // visible, ting→"meeting", straight talk).
+  ['mint mobile', 'utilities'], ['visible wireless', 'utilities'], ['straight talk', 'utilities'],
+  ['tracfone', 'utilities'], ['simple mobile', 'utilities'], ['xfinity mobile', 'utilities'],
+  ['spectrum mobile', 'utilities'], ['total wireless', 'utilities'], ['consumer cellular', 'utilities'],
+  ['ting mobile', 'utilities'], ['red pocket', 'utilities'], ['h2o wireless', 'utilities'],
+  ['page plus', 'utilities'],
+  // More ISPs / broadband / satellite internet.
+  ['suddenlink', 'utilities'], ['wow internet', 'utilities'], ['astound broadband', 'utilities'],
+  ['ziply fiber', 'utilities'], ['brightspeed', 'utilities'], ['metronet', 'utilities'],
+  ['google fiber', 'utilities'], ['starlink', 'utilities'], ['hughesnet', 'utilities'],
+  ['viasat', 'utilities'], ['kinetic by windstream', 'utilities'],
+  // More electric / gas / energy utilities (regional; qualified where bare is a
+  // city/word: spire→"aspire", oncor→"concord", entergy fine).
+  ['entergy', 'utilities'], ['eversource', 'utilities'], ['first energy', 'utilities'],
+  ['firstenergy', 'utilities'], ['american electric power', 'utilities'], ['ppl electric', 'utilities'],
+  ['appalachian power', 'utilities'], ['oncor electric', 'utilities'], ['centerpoint energy', 'utilities'],
+  ['salt river project', 'utilities'], ['nv energy', 'utilities'], ['puget sound energy', 'utilities'],
+  ['portland general electric', 'utilities'], ['seattle city light', 'utilities'], ['ladwp', 'utilities'],
+  ['san diego gas', 'utilities'], ['sdge', 'utilities'], ['socalgas', 'utilities'],
+  ['socal gas', 'utilities'], ['nicor gas', 'utilities'], ['columbia gas', 'utilities'],
+  ['washington gas', 'utilities'], ['spire energy', 'utilities'], ['cps energy', 'utilities'],
+  ['avangrid', 'utilities'],
 
   // ── Shopping — big-box & online retail, department stores ──
   ['amazon', 'shopping'], ['amzn mktp', 'shopping'], ['walmart', 'shopping'],
@@ -299,10 +322,26 @@ const MERCHANTS = [
   ['geico', 'insurance'], ['state farm', 'insurance'], ['progressive ins', 'insurance'],
   ['allstate', 'insurance'], ['liberty mutual', 'insurance'], ['nationwide ins', 'insurance'],
   ['farmers ins', 'insurance'], ['aflac', 'insurance'], ['metlife', 'insurance'],
+  // More P&C / auto / home / life carriers. Qualified where bare is a word or
+  // city: travelers→travel, mercury, root, lemonade, chubb→"chubby",
+  // erie→city, usaa→also a bank ("USAA TRANSFER" must stay blank).
+  ['the hartford', 'insurance'], ['travelers ins', 'insurance'], ['american family ins', 'insurance'],
+  ['erie insurance', 'insurance'], ['auto-owners ins', 'insurance'], ['mercury ins', 'insurance'],
+  ['safeco', 'insurance'], ['esurance', 'insurance'], ['root insurance', 'insurance'],
+  ['lemonade insurance', 'insurance'], ['amica', 'insurance'], ['usaa insurance', 'insurance'],
+  ['new york life', 'insurance'], ['northwestern mutual', 'insurance'], ['guardian life', 'insurance'],
+  ['mutual of omaha', 'insurance'], ['chubb insurance', 'insurance'], ['cincinnati insurance', 'insurance'],
+  ['unum', 'insurance'],
 
   // ── Income — payroll / deposits (direction-guarded in categorize.js) ──
   ['adp payroll', 'income'], ['gusto pay', 'income'], ['payroll', 'income'],
   ['direct deposit', 'income'],
+  // More payroll processors (what an employee sees on a paycheck deposit).
+  ['paychex', 'income'], ['paycom', 'income'], ['paylocity', 'income'],
+  ['trinet', 'income'], ['justworks', 'income'], ['intuit payroll', 'income'],
+  ['ceridian', 'income'], ['adp wage', 'income'],
+  // Government / benefit deposits (direction-guarded, so inflow-only).
+  ['ssa treas', 'other_income'], ['social security admin', 'other_income'],
 ];
 
 // ── Keyword rules ─────────────────────────────────────────────────────────────
