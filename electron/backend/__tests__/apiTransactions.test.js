@@ -258,7 +258,10 @@ test('fuzzy: far descriptions stay uncategorized', (t) => {
   const cat = getCategories(c).find((x) => x.name === 'Match Books').id;
   createTx(c, 'City Bookstore Downtown', { catId: cat });
   setSetting(c, 'tx_fuzzy_threshold', '0.85');
-  assert.equal(importRows(c, ['City Hardware Store']).auto_categorized, 0);
+  // A non-describable merchant: far from the learned rule AND one the built-in
+  // categorizer abstains on, so this isolates fuzzy-threshold behavior (a real
+  // word like "Hardware" would now be categorized shopping by the classifier).
+  assert.equal(importRows(c, ['Qplex Kiosk 7743']).auto_categorized, 0);
 });
 
 test('fuzzy: ambiguous rules leave transaction alone', (t) => {
