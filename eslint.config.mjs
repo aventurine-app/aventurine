@@ -73,7 +73,9 @@ const appGlobals = {
   confirmDelete: 'readonly',
   promptAddYear: 'readonly',
   bootstrapYearTablePage: 'readonly',
-  // widgets/txfileimport.js / txexport.js
+  // widgets/txparse.js (pure parsing core; also require()d by the backend
+  // test suite) / txfileimport.js / txexport.js
+  TxParse: 'readonly',
   TxFileImport: 'readonly',
   TxFileExport: 'readonly',
   // electron/preload.js contextBridge surface (undefined in plain browsers;
@@ -122,6 +124,14 @@ export default [
         ...appGlobals,
       },
     },
+  },
+
+  // txparse.js is dual-environment — a browser classic script that also
+  // module.exports itself for the backend test suite. Declare `module` so
+  // its typeof-guarded CJS branch lints.
+  {
+    files: ['static/js/widgets/txparse.js'],
+    languageOptions: { globals: { module: 'readonly' } },
   },
 
   // Electron main process, backend, build/train scripts, tests: Node CJS.

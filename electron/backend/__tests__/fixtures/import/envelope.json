@@ -1,0 +1,9 @@
+{
+  "exported_at": "2026-04-01T10:00:00Z",
+  "account": { "name": "Everyday Checking" },
+  "transactions": [
+    { "date": "2026-03-28", "payee": "SPOTIFY", "amount": -10.99, "category": null },
+    { "date": "2026-03-29", "payee": "REFUND - ACME", "amount": 25.0, "note": "order 8812" },
+    { "payee": "NO DATE ROW", "amount": 1 }
+  ]
+}

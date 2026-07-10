@@ -90,6 +90,12 @@ app.whenReady().then(async () => {
     check('tx table boots with data', await evalJs(
       'new Promise(res => setTimeout(() => res(!!document.querySelector(".tx-row, .tx-table tbody tr")), 800))'
     ));
+    // Import stack load-order contract: txparse.js (pure parser) must attach
+    // TxParse before txfileimport.js destructures it — a broken order leaves
+    // TxFileImport undefined and the Import button dead.
+    check('import parser + widget globals present', await evalJs(
+      '!!(window.TxParse && window.TxParse.parseFile && window.TxFileImport && window.TxFileImport.run)'
+    ));
 
     // Every page is assembled from pages/partials/ at serve time — walk all
     // routes and prove the shared chrome landed on each one.
