@@ -10,6 +10,7 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test",
+    "lint": "eslint ..",
     "smoke": "electron scripts/smoke.js",
     "check:package": "node scripts/check-package-files.js",
     "pack": "node scripts/check-package-files.js && electron-builder --dir",
@@ -19,8 +20,11 @@
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.4",
+    "@eslint/js": "^9.39.1",
     "electron": "^41.7.2",
-    "electron-builder": "^26.15.3"
+    "electron-builder": "^26.15.3",
+    "eslint": "^9.39.1",
+    "globals": "^16.5.0"
   },
   "dependencies": {
     "better-sqlite3-multiple-ciphers": "^12.10.0"

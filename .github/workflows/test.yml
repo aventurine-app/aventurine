@@ -25,6 +25,13 @@ jobs:
         working-directory: electron
         run: npm install
 
+      # Whole-repo static analysis (frontend classic scripts + backend CJS);
+      # config lives in eslint.config.mjs at the repo root. Dev-only — the
+      # shipped app stays build-step-free.
+      - name: Lint (ESLint)
+        working-directory: electron
+        run: npm run lint
+
       - name: Run backend suite (incl. categorization accuracy gate)
         working-directory: electron
         run: npm test

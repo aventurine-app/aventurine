@@ -10,6 +10,8 @@
 // transactions.js, txfileimport.js, settingsCategories.js); they now all
 // alias this global.
 
+/* exported escapeHtml */
+
 function escapeHtml(str) {
     return String(str ?? '')
         .replace(/&/g, '&amp;')

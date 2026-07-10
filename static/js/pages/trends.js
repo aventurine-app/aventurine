@@ -20,12 +20,6 @@ const state = {
   colors: null,    // Map<key, color>
 };
 
-// ─── Formatting ──────────────────────────────────────────────────────────────
-
-function fmtMoney(n) {
-  return formatCurrency(n, true) || (CURRENCY_SYMBOL + '0');
-}
-
 const ymToSlot = (ym) => {
   const [y, m] = ym.split('-').map(Number);
   return { year: y, monthIdx: m - 1 };

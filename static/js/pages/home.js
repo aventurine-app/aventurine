@@ -886,7 +886,7 @@ function renderIEChart(data) {
 }
 
 let appData = null;
-let selectedAccounts = new Set();
+const selectedAccounts = new Set();
 let accountRange = 'year';
 
 function buildColorMap(columns) {
@@ -1242,7 +1242,7 @@ async function renderMonthSection() {
                 data = { totals: body.totals || {}, categories: body.categories || [] };
                 homeMonthCache.set(ym, data);
             }
-        } catch (e) {
+        } catch {
             // Network hiccup — fall through to the empty states.
         }
         cancelSkeleton();
@@ -1330,7 +1330,7 @@ async function renderUpcomingExpenses() {
     try {
         const res = await apiFetch('/api/predictions/upcoming');
         if (res.ok) items = (await res.json()).upcoming || [];
-    } catch (e) {
+    } catch {
         // Network hiccup — fall through to the empty state.
     }
     cancelSkeleton();

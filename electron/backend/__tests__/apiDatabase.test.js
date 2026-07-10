@@ -272,7 +272,7 @@ test('db: browse lists dirs and db files only', (t) => {
 
 test('db: browse defaults to home; rejects non-directories', (t) => {
   const c = makeClient(t);
-  let r = c.get('/api/db/browse');
+  const r = c.get('/api/db/browse');
   assert.equal(r.body.ok, true);
   assert.equal(r.body.path, os.homedir());
 

@@ -14,7 +14,6 @@
 // not. The abstention gate's thresholds are calibrated at train time so the
 // classifier never miscategorizes the labeled corpus.
 
-const path = require('path');
 const { features } = require('./textFeatures');
 
 let _model = null;

@@ -111,7 +111,7 @@ function createConn() {
       candidate = connect(path, encrypted ? key : null);
       bootstrapSchema(candidate);
       seedDefaults(candidate);
-    } catch (e) {
+    } catch {
       if (candidate) {
         try { candidate.close(); } catch { /* already closed */ }
       }
@@ -183,7 +183,7 @@ function createConn() {
       if (typeof newPassword !== 'string' || !newPassword) {
         throw new ApiError('A password is required', 400);
       }
-      if (/\x00/.test(newPassword)) {
+      if (newPassword.includes('\x00')) {
         throw new ApiError('invalid database passphrase', 400);
       }
     }
@@ -210,7 +210,7 @@ function createConn() {
       const row = handle.prepare('PRAGMA quick_check').get();
       const verdict = row ? Object.values(row)[0] : null;
       if (verdict !== 'ok') throw new Error('integrity check failed after rekey');
-    } catch (e) {
+    } catch {
       // Roll back: restore the pre-rekey bytes and reopen under the OLD state.
       try { if (handle) handle.close(); } catch { /* already closed */ }
       handle = null;

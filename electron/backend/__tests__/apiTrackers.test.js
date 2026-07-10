@@ -37,7 +37,7 @@ test('balance: GET /data returns seed', (t) => {
 
 test('balance: entry upsert and delete', (t) => {
   const c = makeClient(t);
-  let data = getData(c);
+  const data = getData(c);
   const year = data.years[0];
   const col = data.columns[0].key;
 

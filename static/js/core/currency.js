@@ -26,6 +26,12 @@
 //   - On save, stripCurrencyValue() removes the symbol + commas so the
 //     backend receives a plain number.
 
+// The cross-file surface other scripts consume (mirrored in the globals list
+// in eslint.config.mjs at the repo root — keep the two in sync):
+/* exported CURRENCY_SYMBOL, formatCurrency, applyCurrencyFormat,
+   stripCurrencyValue, formatDate, setCurrencySymbol, setSymbolPosition,
+   setHideCents, setNegativeStyle, setNumberFormat, setDateFormat */
+
 // ─── State ──────────────────────────────────────────────────────────────────
 
 /**

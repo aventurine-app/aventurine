@@ -43,7 +43,7 @@ const TxFileImport = (() => {
     function decodeText(buf) {
         try {
             return new TextDecoder('utf-8', { fatal: true }).decode(buf);
-        } catch (e) {
+        } catch {
             return new TextDecoder('windows-1252').decode(buf);
         }
     }
@@ -207,7 +207,7 @@ const TxFileImport = (() => {
     function parseJSONTable(text) {
         let data;
         try { data = JSON.parse(text); }
-        catch (e) { throw new Error('the file is not valid JSON.'); }
+        catch { throw new Error('the file is not valid JSON.'); }
 
         let arr = Array.isArray(data) ? data : Object.values(data || {}).find(
             v => Array.isArray(v) && v.length && typeof v[0] === 'object'
@@ -388,7 +388,7 @@ const TxFileImport = (() => {
         }
         // JSON by extension, or by shape when the extension is unknown.
         const knownText = new Set(['csv', 'tsv', 'txt']);
-        if (ext === 'json' || (!knownText.has(ext) && /^[\[{]/.test(head))) {
+        if (ext === 'json' || (!knownText.has(ext) && /^[[{]/.test(head))) {
             return parseJSONTable(text);
         }
         return parseDelimited(text, detectDelimiter(text));
@@ -459,10 +459,10 @@ const TxFileImport = (() => {
         let m;
 
         // ISO: YYYY-MM-DD (also YYYY/MM/DD)
-        if ((m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/)))
+        if ((m = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/)))
             return mkIso(+m[1], +m[2], +m[3]);
         // US: MM/DD/YYYY or MM-DD-YYYY (banks love this)
-        if ((m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/)))
+        if ((m = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/)))
             return mkIso(+m[3], +m[1], +m[2]);
         // US short: MM/DD/YY
         if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/)))
@@ -474,11 +474,11 @@ const TxFileImport = (() => {
         if ((m = s.match(/^(\d{4})(\d{2})(\d{2})$/)))
             return mkIso(+m[1], +m[2], +m[3]);
         // Month name: "Jan 5, 2026" / "January 5 2026"
-        if ((m = s.match(/^([a-z]{3,9})\.?[ \-]+(\d{1,2}),?[ \-]+(\d{4})$/i)))
+        if ((m = s.match(/^([a-z]{3,9})\.?[ -]+(\d{1,2}),?[ -]+(\d{4})$/i)))
             return MONTH_NUM[m[1].slice(0, 3).toLowerCase()]
                 ? mkIso(+m[3], MONTH_NUM[m[1].slice(0, 3).toLowerCase()], +m[2]) : null;
         // Month name: "5 Jan 2026" / "05-Jan-2026"
-        if ((m = s.match(/^(\d{1,2})[ \-]([a-z]{3,9})\.?,?[ \-]+(\d{4})$/i)))
+        if ((m = s.match(/^(\d{1,2})[ -]([a-z]{3,9})\.?,?[ -]+(\d{4})$/i)))
             return MONTH_NUM[m[2].slice(0, 3).toLowerCase()]
                 ? mkIso(+m[3], MONTH_NUM[m[2].slice(0, 3).toLowerCase()], +m[1]) : null;
         // Excel serial date (xlsx cells store dates as day counts from
