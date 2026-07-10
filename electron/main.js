@@ -1,3 +1,5 @@
+'use strict';
+
 // ─── Electron shell for oliv ─────────────────────────────────────────
 //
 // The backend lives in THIS process (electron/backend/) and the renderer

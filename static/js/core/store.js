@@ -43,114 +43,116 @@
 // outlive the browser tab session. A new tab gets a fresh fetch so the user
 // is never looking at stale data from a previous session.
 
-const Store = (() => {
-    const DATASETS = {
-        ie:        '/api/data',
-        balance:   '/api/balance/data',
-        portfolio: '/api/portfolio/data',
-    };
-    // Bump the version suffix whenever the cached data shape changes so old
-    // sessionStorage entries are naturally ignored rather than causing errors.
-    const STORAGE_PREFIX = 'fl-store-v2-';
+(function () {
+    const Store = (() => {
+        const DATASETS = {
+            ie:        '/api/data',
+            balance:   '/api/balance/data',
+            portfolio: '/api/portfolio/data',
+        };
+        // Bump the version suffix whenever the cached data shape changes so old
+        // sessionStorage entries are naturally ignored rather than causing errors.
+        const STORAGE_PREFIX = 'fl-store-v2-';
 
-    const state    = {};        // name -> dataset
-    const inflight = {};        // name -> Promise (dedupes concurrent fetches)
-    const subs     = new Map(); // name -> Set<callback>
+        const state    = {};        // name -> dataset
+        const inflight = {};        // name -> Promise (dedupes concurrent fetches)
+        const subs     = new Map(); // name -> Set<callback>
 
-    function _readCache(name) {
-        try {
-            const raw = sessionStorage.getItem(STORAGE_PREFIX + name);
-            return raw ? JSON.parse(raw) : null;
-        } catch (_) {
-            return null;
-        }
-    }
-
-    function _writeCache(name) {
-        try {
-            sessionStorage.setItem(STORAGE_PREFIX + name, JSON.stringify(state[name]));
-        } catch (_) {
-            // Quota exceeded or sessionStorage disabled — keep going. The
-            // in-memory copy is still valid for the current page load.
-        }
-    }
-
-    function _dropCache(name) {
-        try {
-            sessionStorage.removeItem(STORAGE_PREFIX + name);
-        } catch (_) { /* same as above */ }
-    }
-
-    function _notify(name) {
-        const fns = subs.get(name);
-        if (!fns) return;
-        for (const fn of fns) {
-            try { fn(state[name]); }
-            catch (err) { console.error('Store subscriber threw:', err); }
-        }
-    }
-
-    async function _fetchFresh(name) {
-        const r = await apiFetch(DATASETS[name]);
-        if (!r.ok) throw new Error(`Store.ensure(${name}) failed: ${r.status}`);
-        state[name] = await r.json();
-        _writeCache(name);
-        _notify(name);
-        return state[name];
-    }
-
-    function ensure(name) {
-        // Object.hasOwn, not `in`: `in` walks the prototype chain, so a name
-        // like "constructor" or "toString" would pass the allowlist and then
-        // reach state[name] / DATASETS[name]. hasOwn checks own keys only.
-        if (!Object.hasOwn(DATASETS, name)) {
-            return Promise.reject(new Error(`Store: unknown dataset "${name}"`));
+        function _readCache(name) {
+            try {
+                const raw = sessionStorage.getItem(STORAGE_PREFIX + name);
+                return raw ? JSON.parse(raw) : null;
+            } catch (_) {
+                return null;
+            }
         }
 
-        // Hot path: already in memory.
-        if (state[name]) return Promise.resolve(state[name]);
+        function _writeCache(name) {
+            try {
+                sessionStorage.setItem(STORAGE_PREFIX + name, JSON.stringify(state[name]));
+            } catch (_) {
+                // Quota exceeded or sessionStorage disabled — keep going. The
+                // in-memory copy is still valid for the current page load.
+            }
+        }
 
-        // Warm path: sessionStorage has it. Return it now, revalidate behind.
-        const cached = _readCache(name);
-        if (cached) {
-            state[name] = cached;
+        function _dropCache(name) {
+            try {
+                sessionStorage.removeItem(STORAGE_PREFIX + name);
+            } catch (_) { /* same as above */ }
+        }
+
+        function _notify(name) {
+            const fns = subs.get(name);
+            if (!fns) return;
+            for (const fn of fns) {
+                try { fn(state[name]); }
+                catch (err) { console.error('Store subscriber threw:', err); }
+            }
+        }
+
+        async function _fetchFresh(name) {
+            const r = await apiFetch(DATASETS[name]);
+            if (!r.ok) throw new Error(`Store.ensure(${name}) failed: ${r.status}`);
+            state[name] = await r.json();
+            _writeCache(name);
+            _notify(name);
+            return state[name];
+        }
+
+        function ensure(name) {
+            // Object.hasOwn, not `in`: `in` walks the prototype chain, so a name
+            // like "constructor" or "toString" would pass the allowlist and then
+            // reach state[name] / DATASETS[name]. hasOwn checks own keys only.
+            if (!Object.hasOwn(DATASETS, name)) {
+                return Promise.reject(new Error(`Store: unknown dataset "${name}"`));
+            }
+
+            // Hot path: already in memory.
+            if (state[name]) return Promise.resolve(state[name]);
+
+            // Warm path: sessionStorage has it. Return it now, revalidate behind.
+            const cached = _readCache(name);
+            if (cached) {
+                state[name] = cached;
+                if (!inflight[name]) {
+                    inflight[name] = _fetchFresh(name)
+                        .catch(err => { console.error(err); })
+                        .finally(() => { delete inflight[name]; });
+                }
+                return Promise.resolve(cached);
+            }
+
+            // Cold path: must fetch before we can return anything.
             if (!inflight[name]) {
                 inflight[name] = _fetchFresh(name)
-                    .catch(err => { console.error(err); })
                     .finally(() => { delete inflight[name]; });
             }
-            return Promise.resolve(cached);
+            return inflight[name];
         }
 
-        // Cold path: must fetch before we can return anything.
-        if (!inflight[name]) {
-            inflight[name] = _fetchFresh(name)
-                .finally(() => { delete inflight[name]; });
+        function mutate(name, fn) {
+            if (!state[name]) return;   // nothing cached yet — next ensure() will fetch
+            fn(state[name]);
+            _writeCache(name);
+            _notify(name);
         }
-        return inflight[name];
-    }
 
-    function mutate(name, fn) {
-        if (!state[name]) return;   // nothing cached yet — next ensure() will fetch
-        fn(state[name]);
-        _writeCache(name);
-        _notify(name);
-    }
+        function invalidate(name) {
+            delete state[name];
+            _dropCache(name);
+            // Re-fetch on next ensure() — don't block the caller here.
+            return Promise.resolve();
+        }
 
-    function invalidate(name) {
-        delete state[name];
-        _dropCache(name);
-        // Re-fetch on next ensure() — don't block the caller here.
-        return Promise.resolve();
-    }
+        function subscribe(name, fn) {
+            if (!subs.has(name)) subs.set(name, new Set());
+            subs.get(name).add(fn);
+            return () => subs.get(name)?.delete(fn);
+        }
 
-    function subscribe(name, fn) {
-        if (!subs.has(name)) subs.set(name, new Set());
-        subs.get(name).add(fn);
-        return () => subs.get(name)?.delete(fn);
-    }
+        return { ensure, mutate, invalidate, subscribe };
+    })();
 
-    return { ensure, mutate, invalidate, subscribe };
-})();
-
-window.Store = Store;
+    window.Store = Store;
+}());

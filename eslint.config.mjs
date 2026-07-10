@@ -28,8 +28,9 @@ const js = require('@eslint/js');
 const globals = require('globals');
 
 // Cross-file globals the classic scripts share. Each entry is defined in
-// exactly one file (writable there via the per-file overrides further down)
-// and read-only everywhere else. Grouped by defining file:
+// exactly one IIFE-wrapped file, which attaches it via an explicit
+// `window.X = X` at its bottom, and is read-only everywhere (shadowing
+// inside the defining file's IIFE is fine). Grouped by defining file:
 const appGlobals = {
   // core/escape.js
   escapeHtml: 'readonly',
@@ -64,12 +65,11 @@ const appGlobals = {
   FinanceChart: 'readonly',
   // widgets/cellselect.js
   enableCellSelection: 'readonly',
-  // widgets/tables.js (also the de-facto shared-utils home — see the
-  // engineering-review notes; candidates for extraction to core/)
+  // core/format.js
   debounce: 'readonly',
   applyCommaFormat: 'readonly',
   formatDisplay: 'readonly',
-  openTableMenu: 'readonly',
+  // widgets/tables.js
   confirmDelete: 'readonly',
   promptAddYear: 'readonly',
   bootstrapYearTablePage: 'readonly',
@@ -122,57 +122,6 @@ export default [
         ...appGlobals,
       },
     },
-  },
-
-  // Each defining file may (re)declare / write its own global.
-  {
-    files: ['static/js/core/escape.js'],
-    languageOptions: { globals: { escapeHtml: 'off' } },
-  },
-  {
-    files: ['static/js/core/currency.js'],
-    languageOptions: {
-      globals: {
-        CURRENCY_SYMBOL: 'off', formatCurrency: 'off', applyCurrencyFormat: 'off',
-        stripCurrencyValue: 'off', formatDate: 'off', setCurrencySymbol: 'off',
-        setSymbolPosition: 'off', setHideCents: 'off', setNegativeStyle: 'off',
-        setNumberFormat: 'off', setDateFormat: 'off',
-      },
-    },
-  },
-  {
-    files: ['static/js/core/store.js'],
-    languageOptions: { globals: { Store: 'off' } },
-  },
-  {
-    files: ['static/js/shell/ui.js'],
-    languageOptions: { globals: { UI: 'off' } },
-  },
-  {
-    files: ['static/js/widgets/tables.js'],
-    languageOptions: {
-      globals: {
-        debounce: 'off', applyCommaFormat: 'off', formatDisplay: 'off',
-        openTableMenu: 'off', confirmDelete: 'off', promptAddYear: 'off',
-        bootstrapYearTablePage: 'off',
-      },
-    },
-  },
-  {
-    files: ['static/js/widgets/cellselect.js'],
-    languageOptions: { globals: { enableCellSelection: 'off' } },
-  },
-  {
-    files: ['static/js/widgets/chart.js'],
-    languageOptions: { globals: { FinanceChart: 'off' } },
-  },
-  {
-    files: ['static/js/widgets/txfileimport.js'],
-    languageOptions: { globals: { TxFileImport: 'off' } },
-  },
-  {
-    files: ['static/js/widgets/txexport.js'],
-    languageOptions: { globals: { TxFileExport: 'off' } },
   },
 
   // Electron main process, backend, build/train scripts, tests: Node CJS.
