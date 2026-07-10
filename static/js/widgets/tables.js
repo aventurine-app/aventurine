@@ -27,6 +27,11 @@
 // Portfolio uses layer (1) but has its own controller (portfolio.js) because
 // it operates on accounts rather than calendar years and has no column manager.
 
+// The cross-file surface other scripts consume (mirrored in the globals list
+// in eslint.config.mjs at the repo root — keep the two in sync):
+/* exported debounce, applyCommaFormat, formatDisplay, openTableMenu,
+   confirmDelete, promptAddYear, bootstrapYearTablePage */
+
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -139,6 +144,16 @@ function formatDisplay(num) {
 function debounce(fn, delay) {
     let timer;
     return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), delay); };
+}
+
+/**
+ * Announce a write that didn't reach the database. A silently dropped save
+ * is data loss — the user saw their value on screen but it was never stored
+ * — so every failed year-table write funnels here (wrapWrite below, plus the
+ * column-delete flow that inspects its own result).
+ */
+function reportSaveFailure() {
+    window.UI?.toast?.("Couldn't save your change — it hasn't been stored.", { type: 'error' });
 }
 
 /**
@@ -299,9 +314,11 @@ function sortTables(container) {
 /**
  * Build a thin object wrapping every year-table API call. `prefix` is the
  * mount point on the backend (e.g. '/api', '/api/balance').
- * Errors are intentionally swallowed at call sites — failed saves leave the
- * UI in an inconsistent state but don't throw, which is acceptable for a
- * single-user local app.
+ * Call sites stay try/catch-free: every write settles through wrapWrite,
+ * which surfaces failures as an error toast (a silently dropped save is
+ * data loss — the user saw their number in the cell but the DB never got
+ * it) and resolves to { ok: false } instead of rejecting, so awaiting
+ * callers can keep checking `.ok` without exception handling.
  *
  * The shapes mirror the backend endpoints (electron/backend/routes.js) exactly.
  */
@@ -323,9 +340,26 @@ function makeYearTableApi(prefix) {
     };
     const sendJson = (url, method, body, extra = {}) =>
         apiFetch(url, { method, headers: jsonHeaders, body: JSON.stringify(body), ...extra });
-    // Wrap a write so the Store cache for this feature is dropped once the
-    // request resolves. The actual response shape is preserved unchanged.
-    const wrapWrite = (promise) => promise.finally(invalidate);
+    // Wrap a write so (a) the Store cache for this feature is dropped once
+    // the request settles and (b) a failure surfaces a toast instead of
+    // vanishing. Failure is either a rejected fetch (backend unreachable) or
+    // an ok:false result — both the raw response-likes (upsertEntry et al.)
+    // and the .json()-ed bodies (column ops) carry `ok`. A rejection resolves
+    // to { ok: false } so callers need no try/catch (see the doc above).
+    // `report: false` is for writes whose caller presents the failure itself
+    // (deleteColumn's expected 'has_data' refusal → confirmColumnDelete).
+    const wrapWrite = (promise, { report = true } = {}) => promise
+        .then(
+            (res) => {
+                if (report && res && res.ok === false) reportSaveFailure();
+                return res;
+            },
+            (err) => {
+                if (report) reportSaveFailure();
+                return { ok: false, error: String(err?.message || err) };
+            },
+        )
+        .finally(invalidate);
     // `keepalive: true` lets a cell save survive the page navigation that
     // would otherwise abort an in-flight fetch — critical for flushing
     // pending writes from a pagehide handler. ~64KB body cap doesn't matter
@@ -346,7 +380,10 @@ function makeYearTableApi(prefix) {
         reorderColumns:(order)                    => wrapWrite(sendJson(`${prefix}/columns/reorder`, 'POST', { order }).then(r => r.json())),
         deleteColumn:  (key, force = false) => {
             const url = force ? `${prefix}/columns/${key}?force=true` : `${prefix}/columns/${key}`;
-            return wrapWrite(apiFetch(url, { method: 'DELETE' }).then(r => r.json()));
+            // report:false — the caller inspects the body: a 'has_data'
+            // refusal is the normal path into confirmColumnDelete, not a
+            // failure to announce.
+            return wrapWrite(apiFetch(url, { method: 'DELETE' }).then(r => r.json()), { report: false });
         },
     };
 }
@@ -963,12 +1000,21 @@ function showColumnManager(ctx) {
                 const key    = btn.closest('.col-row').dataset.key;
                 const col    = ctx.columns.find(c => c.key === key);
                 const result = await ctx.api.deleteColumn(key);
-                if (!result.ok && result.error === 'has_data') {
-                    confirmColumnDelete(col.label, async () => {
-                        await ctx.api.deleteColumn(key, true);
-                        await reloadYearTables(ctx);
-                        buildManager();
-                    });
+                if (!result.ok) {
+                    // 'has_data' is the expected refusal — re-confirm and
+                    // force. Anything else is a real failure: report it and
+                    // keep the column, rather than dropping it locally while
+                    // the backend still has it.
+                    if (result.error === 'has_data') {
+                        confirmColumnDelete(col.label, async () => {
+                            const forced = await ctx.api.deleteColumn(key, true);
+                            if (!forced.ok) reportSaveFailure();
+                            await reloadYearTables(ctx);
+                            buildManager();
+                        });
+                    } else {
+                        reportSaveFailure();
+                    }
                     return;
                 }
                 ctx.columns = ctx.columns.filter(c => c.key !== key);

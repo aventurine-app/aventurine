@@ -29,6 +29,13 @@
 //       month/year pickers). items: [{ label, action, danger?, selected? }].
 //       Styling: .p-table-dropdown / .p-dropdown-item in ui.css.
 //
+//   UI.toast(message, { type = 'info', duration = 5000 })
+//       Small transient notice, bottom-center. type: 'info' | 'error'.
+//       One toast at a time: a repeat call replaces the text and restarts
+//       the timer, so a burst of identical failures (e.g. server gone while
+//       the user edits several cells) coalesces instead of stacking.
+//       Click dismisses early. Styling: .ui-toast in ui.css.
+//
 // SECURITY: title/desc/label run through escapeHtml (global, from escape.js).
 // ============================================================================
 
@@ -127,7 +134,37 @@ const UI = (() => {
         setTimeout(() => document.addEventListener('click', close, true), 0);
     }
 
-    return { emptyState, ICONS, skLine, skLines, skBlock, skChart, skRows, skeletonGuard, openMenu };
+    // ── Toast ──────────────────────────────────────────────────────────────
+    // A single persistent element, shown/hidden by class so repeated calls
+    // coalesce (see the header comment). textContent (never innerHTML) keeps
+    // arbitrary error strings inert.
+    let _toastEl = null;
+    let _toastTimer = null;
+
+    function _hideToast() {
+        if (_toastEl) _toastEl.classList.remove('ui-toast-show');
+        clearTimeout(_toastTimer);
+        _toastTimer = null;
+    }
+
+    function toast(message, { type = 'info', duration = 5000 } = {}) {
+        if (!_toastEl) {
+            _toastEl = document.createElement('div');
+            _toastEl.className = 'ui-toast';
+            _toastEl.addEventListener('click', _hideToast);
+            document.body.appendChild(_toastEl);
+        }
+        _toastEl.textContent = message;
+        _toastEl.classList.toggle('ui-toast-error', type === 'error');
+        // 'alert' announces errors assertively to screen readers; 'status'
+        // queues politely. Set per call since the element is reused.
+        _toastEl.setAttribute('role', type === 'error' ? 'alert' : 'status');
+        _toastEl.classList.add('ui-toast-show');
+        clearTimeout(_toastTimer);
+        _toastTimer = setTimeout(_hideToast, duration);
+    }
+
+    return { emptyState, ICONS, skLine, skLines, skBlock, skChart, skRows, skeletonGuard, openMenu, toast };
 })();
 
 window.UI = UI;

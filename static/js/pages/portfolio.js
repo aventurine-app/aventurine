@@ -34,21 +34,38 @@ let ACCOUNTS = [];
 
 // ─── API client ─────────────────────────────────────────────────────────────
 // Thin wrapper around fetch — identical style to makeYearTableApi in
-// tables.js, just shaped for portfolio's account/entry endpoints. Errors are
-// swallowed at the call sites (same trade-off as year tables).
+// tables.js, just shaped for portfolio's account/entry endpoints. The writes
+// whose results no call site inspects (the debounced cell saves, the
+// deletes) go through guardWrite so a failure surfaces instead of vanishing.
 const portfolioApi = (() => {
     const jsonHeaders = { 'Content-Type': 'application/json' };
     const sendJson = (url, method, body) =>
         apiFetch(url, { method, headers: jsonHeaders, body: JSON.stringify(body) });
+    // Toast on failure and resolve { ok: false } instead of rejecting: these
+    // calls are fired from debounce() without an await, so a rejection would
+    // otherwise become an unhandled promise rejection — and the user would
+    // keep typing over a value that was never stored.
+    const guardWrite = (promise) => promise.then(
+        (res) => {
+            if (res && res.ok === false) {
+                window.UI?.toast?.("Couldn't save your change — it hasn't been stored.", { type: 'error' });
+            }
+            return res;
+        },
+        (err) => {
+            window.UI?.toast?.("Couldn't save your change — it hasn't been stored.", { type: 'error' });
+            return { ok: false, error: String(err?.message || err) };
+        },
+    );
     return {
         getAll:           ()                  => apiFetch('/api/portfolio/data').then(r => r.json()),
         renameAccount:    (id, name)          => sendJson(`/api/portfolio/account/${id}`, 'PUT', { name }).then(r => r.json()),
         duplicateAccount: (id)                => apiFetch(`/api/portfolio/account/${id}/duplicate`, { method: 'POST' }).then(r => r.json()),
-        deleteAccount:    (id)                => apiFetch(`/api/portfolio/account/${id}`, { method: 'DELETE' }),
+        deleteAccount:    (id)                => guardWrite(apiFetch(`/api/portfolio/account/${id}`, { method: 'DELETE' })),
         createAccount:    (name)              => sendJson('/api/portfolio/account', 'POST', { name }).then(r => r.json()),
         createEntry:      (accountId)         => sendJson('/api/portfolio/entry', 'POST', { account_id: accountId }).then(r => r.json()),
-        updateEntry:      (id, patch)         => sendJson(`/api/portfolio/entry/${id}`, 'PUT', patch),
-        deleteEntry:      (id)                => apiFetch(`/api/portfolio/entry/${id}`, { method: 'DELETE' }),
+        updateEntry:      (id, patch)         => guardWrite(sendJson(`/api/portfolio/entry/${id}`, 'PUT', patch)),
+        deleteEntry:      (id)                => guardWrite(apiFetch(`/api/portfolio/entry/${id}`, { method: 'DELETE' })),
     };
 })();
 

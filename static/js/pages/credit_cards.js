@@ -36,15 +36,31 @@ const CC_UTIL_TIERS = [
 ];
 
 // ─── API client ─────────────────────────────────────────────────────────────
+// updateCard/deleteCard results are never inspected at their call sites
+// (updateCard fires from debounced input handlers), so guardWrite surfaces
+// failures as a toast and resolves { ok: false } instead of rejecting — a
+// rejection out of debounce() would be an unhandled promise rejection.
 const ccApi = (() => {
     const jsonHeaders = { 'Content-Type': 'application/json' };
     const sendJson = (url, method, body) =>
         apiFetch(url, { method, headers: jsonHeaders, body: JSON.stringify(body) });
+    const guardWrite = (promise) => promise.then(
+        (res) => {
+            if (res && res.ok === false) {
+                window.UI?.toast?.("Couldn't save your change — it hasn't been stored.", { type: 'error' });
+            }
+            return res;
+        },
+        (err) => {
+            window.UI?.toast?.("Couldn't save your change — it hasn't been stored.", { type: 'error' });
+            return { ok: false, error: String(err?.message || err) };
+        },
+    );
     return {
         getAll:     ()          => apiFetch('/api/credit-cards/data').then(r => r.json()),
         createCard: ()          => sendJson('/api/credit-cards', 'POST', {}).then(r => r.json()),
-        updateCard: (id, patch) => sendJson(`/api/credit-cards/${id}`, 'PUT', patch),
-        deleteCard: (id)        => apiFetch(`/api/credit-cards/${id}`, { method: 'DELETE' }),
+        updateCard: (id, patch) => guardWrite(sendJson(`/api/credit-cards/${id}`, 'PUT', patch)),
+        deleteCard: (id)        => guardWrite(apiFetch(`/api/credit-cards/${id}`, { method: 'DELETE' })),
     };
 })();
 
