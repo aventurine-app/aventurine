@@ -5,20 +5,13 @@
 
 const { bad } = require('../validate');
 
-const ALLOWED_KEYS = new Set(['tx_auto_match', 'tx_fuzzy_threshold']);
+const ALLOWED_KEYS = new Set(['tx_auto_match']);
 
 const VALID_VALUES = {
   tx_auto_match: ['on', 'off'],
 };
 
-// Keys whose value is a number stored as a string. Validated by range; the
-// value is still persisted verbatim as text (app_settings.value is TEXT).
-// tx_fuzzy_threshold is the match-strength slider: 1.0 = exact, lower = fuzzier.
-const NUMERIC_RANGES = {
-  tx_fuzzy_threshold: { min: 0.5, max: 1 },
-};
-
-const DEFAULTS = { tx_auto_match: 'on', tx_fuzzy_threshold: '1' };
+const DEFAULTS = { tx_auto_match: 'on' };
 
 function get(ctx) {
   const db = ctx.db();
@@ -41,13 +34,6 @@ function put(ctx, { params, body }) {
   const allowed = VALID_VALUES[key];
   if (allowed && !allowed.includes(value)) {
     bad(`invalid value; allowed: ${allowed.join(', ')}`);
-  }
-  const range = NUMERIC_RANGES[key];
-  if (range) {
-    const n = Number(value);
-    if (!Number.isFinite(n) || n < range.min || n > range.max) {
-      bad(`invalid value; must be a number between ${range.min} and ${range.max}`);
-    }
   }
   db.prepare(
     `INSERT INTO app_settings ("key", value) VALUES (?, ?)

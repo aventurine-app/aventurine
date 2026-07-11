@@ -125,32 +125,14 @@
     <div class="settings-card">
         <div class="settings-row">
             <div class="settings-row-label">
-                <div class="settings-row-name">Similar Transaction Matching</div>
-                <div class="settings-row-desc">
-                    Controls how "Categorize Similar" decides two descriptions are
-                    the same. <strong>100%</strong> matches only identical
-                    descriptions (case-insensitive); lower values match
-                    progressively fuzzier — catching typos, trailing spaces, and
-                    minor wording differences.
-                </div>
-            </div>
-            <div class="settings-threshold-control">
-                <input class="settings-threshold-slider" type="range"
-                       min="0.5" max="1" step="0.05" value="1"
-                       aria-label="Match strength">
-                <span class="settings-threshold-value">100%</span>
-            </div>
-        </div>
-        <div class="settings-row">
-            <div class="settings-row-label">
                 <div class="settings-row-name">Automatic Categorization</div>
                 <div class="settings-row-desc">
                     Remembers the category you assign to a description and applies
                     it automatically to matching transactions you add or import
-                    later. Only confident matches are categorized — anything
-                    uncertain is left alone for you to review. When matching above
-                    is set below <strong>100%</strong>, near-identical descriptions
-                    can also auto-match.
+                    later — including near-identical descriptions with typos or
+                    minor wording differences. Only confident matches are
+                    categorized; anything uncertain is left alone for you to
+                    review.
                 </div>
             </div>
             <div class="settings-match-toggle">

@@ -279,10 +279,9 @@
       ],
     },
     // static/js/shell/settings.js — feature toggles read by the settings
-    // panel; tx_auto_match/tx_fuzzy_threshold configure the learned
-    // auto-categorization matcher (electron/backend/services/matchRules.js
-    // on the real backend).
-    '/api/app-settings': { tx_auto_match: 'on', tx_fuzzy_threshold: '1' },
+    // panel; tx_auto_match configures the learned auto-categorization
+    // matcher (electron/backend/services/matchRules.js on the real backend).
+    '/api/app-settings': { tx_auto_match: 'on' },
     // static/js/widgets/txfileimport.js — known transaction hashes, used
     // client-side to flag duplicate rows during import preview.
     '/api/transactions/hashes': { hashes: [] },

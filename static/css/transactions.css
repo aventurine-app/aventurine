@@ -1301,7 +1301,10 @@
     flex-direction: column;
     width: 94vw;
     max-width: 940px;
-    max-height: 82vh;
+    /* Fixed, not content-driven: the wizard's match list grows and shrinks
+       with every slider query, and a height that tracked it would make the
+       whole dialog jump. */
+    height: 82vh;
     background: var(--dialog-surface);
     border: var(--border-width) solid var(--dialog-stroke);
     border-radius: 10px;
@@ -1362,6 +1365,205 @@
     border-top: var(--border-width) solid var(--dialog-stroke);
     flex-shrink: 0;
 }
+
+/* ── Wizard step 1: the cascade checkbox rides the footer's left edge. ── */
+.tx-cascade-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: auto;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    user-select: none;
+}
+
+.tx-cascade-toggle input { flex-shrink: 0; }
+
+/* display:flex would otherwise beat the [hidden] UA rule on later steps. */
+.tx-cascade-toggle[hidden] { display: none; }
+
+/* ── Wizard step 2: match-strength slider + live results. ── */
+.tx-match-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 6px;
+}
+
+.tx-match-slider-label {
+    color: var(--text-primary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+}
+
+/* Custom-drawn track/thumb, same recipe as the Preferences sliders: the
+   native track ignores color-scheme under Electron/Chromium. */
+.tx-match-slider {
+    flex: 1;
+    max-width: 280px;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+}
+
+.tx-match-slider::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+}
+
+.tx-match-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    margin-top: -5px;
+    border-radius: 50%;
+    background: var(--accent-primary);
+}
+
+.tx-match-slider::-moz-range-track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+}
+
+.tx-match-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border: none;
+    border-radius: 50%;
+    background: var(--accent-primary);
+}
+
+.tx-match-slider:focus-visible { outline: none; }
+
+.tx-match-slider:focus-visible::-webkit-slider-thumb {
+    box-shadow: 0 0 0 3px var(--frost-dim);
+}
+
+.tx-match-slider:focus-visible::-moz-range-thumb {
+    box-shadow: 0 0 0 3px var(--frost-dim);
+}
+
+.tx-match-value {
+    min-width: 44px;
+    text-align: right;
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+    font-variant-numeric: tabular-nums;
+}
+
+.tx-match-hint {
+    padding-bottom: 14px;
+    color: var(--text-secondary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    line-height: var(--lh-relaxed);
+}
+
+.tx-match-hint strong { color: var(--text-primary); }
+
+/* Re-queries dim the current list in place until the new results land. */
+.tx-match-results { transition: opacity 0.15s ease; }
+.tx-match-results.tx-match-loading { opacity: 0.55; }
+
+/* Placeholder line for empty / searching / no-category states in the match
+   list and the review step. */
+.tx-match-empty {
+    padding: 14px 0;
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    line-height: var(--lh-relaxed);
+}
+
+.tx-similar-col-cat { white-space: nowrap; }
+
+/* ── Wizard step 3: review summary. ── */
+.tx-review-section-title {
+    padding: 4px 0 8px;
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+}
+
+.tx-review-section-title + .tx-review-section-title,
+.tx-review-row + .tx-review-section-title,
+.tx-review-cascade + .tx-review-section-title {
+    margin-top: 16px;
+}
+
+.tx-review-note {
+    padding-bottom: 8px;
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+}
+
+.tx-review-row {
+    padding: 10px 12px;
+    border: var(--border-width) solid var(--border);
+    border-radius: 6px;
+}
+
+.tx-review-row + .tx-review-row { margin-top: 8px; }
+
+.tx-review-desc {
+    color: var(--text-primary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+    margin-bottom: 6px;
+}
+
+.tx-review-changes,
+.tx-review-cascade {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tx-review-changes li,
+.tx-review-cascade li {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 2px 0;
+    color: var(--text-secondary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    line-height: var(--lh-relaxed);
+}
+
+.tx-review-changes strong,
+.tx-review-cascade strong {
+    color: var(--text-primary);
+}
+
+.tx-review-field {
+    min-width: 84px;
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+}
+
+.tx-review-before { text-decoration: line-through; }
+
+.tx-review-arrow { color: var(--text-tertiary); }
 
 
 /* ─── 7. Pagination ──────────────────────────────────────────────────────────

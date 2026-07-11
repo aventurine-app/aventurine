@@ -11,12 +11,10 @@
 
 const AUTO_FUZZY_THRESHOLD = 0.92;
 
-// The single user-facing match-strength control (tx_fuzzy_threshold) for the
-// interactive "Categorize Similar" pass: 1.0 = exact (the default), lower =
-// progressively fuzzier. The slider clamps to [MIN, MAX]. The unattended
-// auto-match bar (AUTO_FUZZY_THRESHOLD above) stays fixed and stricter; the
-// slider only gates *whether* fuzzy auto-match runs at all (threshold < 1).
-const DEFAULT_MATCH_THRESHOLD = 1.0;
+// Range of the interactive match-strength slider (the bulk-edit wizard's
+// "find similar" step): 1.0 = exact, lower = progressively fuzzier. The value
+// arrives per request from the renderer; the unattended auto-match bar
+// (AUTO_FUZZY_THRESHOLD above) stays fixed and stricter.
 const FUZZY_THRESHOLD_MIN = 0.5;
 const FUZZY_THRESHOLD_MAX = 1.0;
 
@@ -109,14 +107,6 @@ function autoMatchEnabled(db) {
   return getSetting(db, 'tx_auto_match', 'on') !== 'off';
 }
 
-/** User-tuned interactive match bar, clamped to the slider's range. A garbage
- *  or out-of-range stored value falls back to the default rather than throwing. */
-function getFuzzyThreshold(db) {
-  const n = Number(getSetting(db, 'tx_fuzzy_threshold', String(DEFAULT_MATCH_THRESHOLD)));
-  if (!Number.isFinite(n)) return DEFAULT_MATCH_THRESHOLD;
-  return Math.min(FUZZY_THRESHOLD_MAX, Math.max(FUZZY_THRESHOLD_MIN, n));
-}
-
 /** Upsert the rule for a description after a user assignment (last decision wins). */
 function recordMatch(db, description, categoryId) {
   const pattern = normalise(description);
@@ -173,14 +163,12 @@ function applyAutoMatch(db, transactions) {
   const rules = db.prepare('SELECT pattern, category_id FROM match_rules').all();
   if (!rules.length) return 0;
 
-  // Fuzzy auto-match runs only when the match-strength slider is below 100%.
-  const fuzzy = getFuzzyThreshold(db) < 1;
   const catTypes = new Map(
     db.prepare('SELECT id, cat_type FROM categories').all().map((c) => [c.id, c.cat_type])
   );
   // Exact matches resolve via one Map instead of a per-row scan of every rule
-  // (patterns are unique — recordMatch upserts by pattern), so a big import
-  // against a big rule set stays O(rows + rules) unless fuzzy is on.
+  // (patterns are unique — recordMatch upserts by pattern); only rows with no
+  // exact hit pay for the fuzzy scan at the fixed AUTO_FUZZY_THRESHOLD bar.
   const byPattern = new Map(rules.map((r) => [r.pattern, r.category_id]));
 
   let n = 0;
@@ -189,7 +177,7 @@ function applyAutoMatch(db, transactions) {
     const pattern = normalise(t.description);
     if (!pattern) continue;
     let catId = byPattern.get(pattern);
-    if (catId === undefined) catId = fuzzy ? fuzzyMatchCategory(pattern, rules) : null;
+    if (catId === undefined) catId = fuzzyMatchCategory(pattern, rules);
     if (catId == null || !catTypes.has(catId)) continue;
     t.category_id = catId;
     t.tx_type = catTypes.get(catId);
@@ -200,12 +188,12 @@ function applyAutoMatch(db, transactions) {
 
 module.exports = {
   AUTO_FUZZY_THRESHOLD,
-  DEFAULT_MATCH_THRESHOLD,
+  FUZZY_THRESHOLD_MIN,
+  FUZZY_THRESHOLD_MAX,
   sequenceRatio,
   normalise,
   getSetting,
   autoMatchEnabled,
-  getFuzzyThreshold,
   recordMatch,
   forgetMatch,
   autoMatchCategory,

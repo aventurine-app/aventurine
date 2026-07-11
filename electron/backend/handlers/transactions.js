@@ -22,7 +22,8 @@ const {
   forgetMatch,
   applyAutoMatch,
   sequenceRatio,
-  getFuzzyThreshold,
+  FUZZY_THRESHOLD_MIN,
+  FUZZY_THRESHOLD_MAX,
 } = require('../services/matchRules');
 const { applyBuiltinCategorize } = require('../services/categorize');
 
@@ -106,21 +107,38 @@ function remove(ctx, { params }) {
 function similar(ctx, { query }) {
   const db = ctx.db();
   const rawDesc = (query.description || '').trim();
-  const excludeId = query.exclude_id != null ? parseInt(query.exclude_id, 10) : NaN;
   if (!rawDesc) return { transactions: [] };
 
-  // The single match-strength slider (tx_fuzzy_threshold) drives this: 1.0 means
-  // exact (case-insensitive) only; any value below it is a fuzzy SequenceMatcher
-  // bar. (The unattended auto-match bar stays fixed — see services/matchRules.js.)
-  const threshold = getFuzzyThreshold(db);
+  // Match strength arrives per request (the wizard's slider): 1.0 means exact
+  // (case-insensitive) only; any value below it is a fuzzy SequenceMatcher bar.
+  // Absent/garbage values fall back to exact, the safest reading. (The
+  // unattended auto-match bar stays fixed — see services/matchRules.js.)
+  let threshold = Number(query.threshold);
+  if (!Number.isFinite(threshold)) threshold = 1;
+  threshold = Math.min(FUZZY_THRESHOLD_MAX, Math.max(FUZZY_THRESHOLD_MIN, threshold));
+
+  // By default only uncategorized rows are candidates; include_categorized=1
+  // (the cascade flow) widens the pool to every transaction.
+  const includeCategorized = query.include_categorized === '1';
+  const catFilter = includeCategorized ? '' : ' AND category_id IS NULL';
+
+  // exclude_ids: comma-separated ids to leave out (the rows being edited);
+  // exclude_id is the original single-id spelling, still honoured.
+  const exclude = new Set(
+    `${query.exclude_ids || ''},${query.exclude_id || ''}`
+      .split(',')
+      .map((s) => parseInt(s, 10))
+      .filter((n) => Number.isInteger(n))
+  );
+
   const needle = rawDesc.toLowerCase();
   let rows;
   if (threshold < 1) {
-    // Pull all uncategorized rows and filter in JS — same as the Python
-    // difflib pass; the uncategorized set is usually small.
+    // Pull the candidate rows and filter in JS — same as the Python difflib
+    // pass; the candidate set is small at personal-ledger scale.
     rows = db
       .prepare(
-        'SELECT * FROM transactions WHERE category_id IS NULL ORDER BY date DESC, id DESC'
+        `SELECT * FROM transactions WHERE 1=1${catFilter} ORDER BY date DESC, id DESC`
       )
       .all()
       .filter(
@@ -130,15 +148,18 @@ function similar(ctx, { query }) {
     rows = db
       .prepare(
         `SELECT * FROM transactions
-          WHERE category_id IS NULL AND lower(description) = ?
+          WHERE lower(description) = ?${catFilter}
           ORDER BY date DESC, id DESC`
       )
       .all(needle);
   }
-  if (Number.isInteger(excludeId)) {
-    rows = rows.filter((t) => t.id !== excludeId);
-  }
-  return { transactions: rows.map((t) => serialiseTx(t)) };
+  rows = rows.filter((t) => !exclude.has(t.id));
+  // Derive direction from the category, same as list() — the widened pool can
+  // return categorized rows whose stored tx_type predates a category re-type.
+  const catTypes = new Map(
+    db.prepare('SELECT id, cat_type FROM categories').all().map((c) => [c.id, c.cat_type])
+  );
+  return { transactions: rows.map((t) => serialiseTx(t, catTypes)) };
 }
 
 function categorizeSimilar(ctx, { body }) {
@@ -154,14 +175,17 @@ function categorizeSimilar(ctx, { body }) {
   const cat = db.prepare('SELECT * FROM categories WHERE id = ?').get(categoryId);
   if (!cat) bad('unknown category_id');
 
-  // Only rows that are still uncategorized at commit time; tx_type derives
-  // from the category — direction is owned by Category.cat_type.
+  // By default only rows still uncategorized at commit time are touched;
+  // overwrite:true (the cascade flow, where the user confirmed each row) also
+  // recategorizes rows that already had a category. tx_type derives from the
+  // category — direction is owned by Category.cat_type.
+  const catGuard = data.overwrite === true ? '' : ' AND category_id IS NULL';
   const placeholders = ids.map(() => '?').join(',');
   const updated = db.transaction(() => {
     const rows = db
       .prepare(
         `SELECT * FROM transactions
-          WHERE id IN (${placeholders}) AND category_id IS NULL`
+          WHERE id IN (${placeholders})${catGuard}`
       )
       .all(...ids);
     const upd = db.prepare(

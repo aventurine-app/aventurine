@@ -181,11 +181,9 @@
         if (!window.confirm('Reset all preferences to their defaults? This affects only settings, not your financial data.')) {
             return;
         }
-        // Reset the DB-backed matching settings to their seed values.
-        await Promise.all([
-            saveAppSetting('tx_auto_match', 'on'),
-            saveAppSetting('tx_fuzzy_threshold', '1'),
-        ]).catch(() => { /* non-critical; defaults still apply on reload */ });
+        // Reset the DB-backed matching setting to its seed value.
+        await saveAppSetting('tx_auto_match', 'on')
+            .catch(() => { /* non-critical; defaults still apply on reload */ });
         // Snap the live zoom back to 100% before clearing its key (a stored
         // webContents zoom otherwise survives the reload).
         if (window.aventurineZoom) window.aventurineZoom.reset();
@@ -257,10 +255,11 @@
 
 
     // ── Transaction matching settings ─────────────────────────────────────────
-    // The auto-categorization radio group plus the match-strength slider, both
-    // backed by /api/app-settings. One cached fetch serves every widget; radios
-    // are selected by their name attribute since they share the .settings-match-*
-    // styling classes.
+    // The auto-categorization radio group, backed by /api/app-settings. One
+    // cached fetch serves every widget; radios are selected by their name
+    // attribute since they share the .settings-match-* styling classes. (The
+    // match-strength slider lives in the Transactions bulk-edit wizard now,
+    // passed per request — it is no longer a stored setting.)
 
     let _appSettingsPromise = null;
 
@@ -299,43 +298,7 @@
     }
 
 
-    // ── Match strength slider ─────────────────────────────────────────────────
-    // The single control for similar-transaction matching: 100% = exact,
-    // anything lower is fuzzy. The label tracks the slider live; the value is
-    // persisted on release (change), not on every drag tick.
-
-    function pct(v) { return Math.round(Number(v) * 100) + '%'; }
-
-    function setThresholdLabel(slider) {
-        const label = slider.closest('.settings-threshold-control')
-            ?.querySelector('.settings-threshold-value');
-        if (label) label.textContent = pct(slider.value);
-    }
-
-    async function wireFuzzyThreshold() {
-        const settings = await loadAppSettings();
-        const value = settings.tx_fuzzy_threshold || '1';
-        // Exclude the auto-lock slider, which shares the threshold-slider styling
-        // classes but is a minutes control, not the 0–1 fuzzy threshold.
-        const SEL = '.settings-threshold-slider:not(.settings-autolock-slider)';
-        document.querySelectorAll(SEL).forEach(slider => {
-            slider.value = value;
-            setThresholdLabel(slider);
-            // Live label + keep any coexisting instance (page + modal) in sync.
-            slider.addEventListener('input', () => {
-                document.querySelectorAll(SEL).forEach(other => {
-                    if (other !== slider) other.value = slider.value;
-                    setThresholdLabel(other);
-                });
-            });
-            slider.addEventListener('change', () => {
-                saveAppSetting('tx_fuzzy_threshold', slider.value);
-            });
-        });
-    }
-
     wireSettingRadios('tx_auto_match', 'on');
-    wireFuzzyThreshold();
 
 
     // ── Section tabs (Preferences modal) ───────────────────────────────────────

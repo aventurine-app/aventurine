@@ -38,8 +38,8 @@ test('fresh DB: baseline schema + seed', () => {
   assert.equal(db.prepare('SELECT COUNT(*) c FROM balance_columns').get().c, 5);
   assert.equal(db.prepare('SELECT COUNT(*) c FROM portfolio_accounts').get().c, 1);
   assert.equal(
-    db.prepare('SELECT value FROM app_settings WHERE "key"=?').get('tx_fuzzy_threshold').value,
-    '1'
+    db.prepare('SELECT value FROM app_settings WHERE "key"=?').get('tx_auto_match').value,
+    'on'
   );
 
   for (const t of ['active_years', 'app_settings', 'balance_entries', 'categories',

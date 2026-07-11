@@ -43,7 +43,7 @@ const DDL = [
      PRIMARY KEY (year)
    )`,
   `CREATE TABLE app_settings (
-     -- Key/value application preferences (e.g. tx_fuzzy_threshold).
+     -- Key/value application preferences (e.g. tx_auto_match).
      "key" VARCHAR(64) NOT NULL,
      value TEXT DEFAULT '' NOT NULL,
      PRIMARY KEY ("key")

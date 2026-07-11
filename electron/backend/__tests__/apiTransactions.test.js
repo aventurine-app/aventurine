@@ -207,47 +207,87 @@ test('app-settings defaults and validation', (t) => {
   assert.equal(c.put('/api/app-settings/nonsense', { value: 'x' }).status, 404);
 });
 
-test('tx_fuzzy_threshold defaults to exact (1) and is range-validated', (t) => {
+test('tx_fuzzy_threshold is no longer a stored setting', (t) => {
   const c = makeClient(t);
-  assert.equal(c.get('/api/app-settings').body.tx_fuzzy_threshold, '1');
-  assert.equal(c.put('/api/app-settings/tx_fuzzy_threshold', { value: '0.7' }).status, 200);
-  assert.equal(c.get('/api/app-settings').body.tx_fuzzy_threshold, '0.7');
-  // Out of range / non-numeric is rejected.
-  assert.equal(c.put('/api/app-settings/tx_fuzzy_threshold', { value: '1.5' }).status, 400);
-  assert.equal(c.put('/api/app-settings/tx_fuzzy_threshold', { value: '0.1' }).status, 400);
-  assert.equal(c.put('/api/app-settings/tx_fuzzy_threshold', { value: 'loose' }).status, 400);
+  assert.equal(!('tx_fuzzy_threshold' in c.get('/api/app-settings').body), true);
+  assert.equal(c.put('/api/app-settings/tx_fuzzy_threshold', { value: '0.7' }).status, 404);
 });
 
-test('similar: match strength of 100% is exact, lower is fuzzy', (t) => {
+test('similar: threshold param — absent/garbage is exact, lower is fuzzy, clamped at 0.5', (t) => {
   const c = makeClient(t);
   createTx(c, 'acme grocery mart'); // uncategorized; ~0.80 similar to the needle
   const needle = encodeURIComponent('acme grocery store');
 
-  // Default strength is 100% (exact), so a non-identical row is left out.
+  // No threshold (and a garbage one) mean exact, so a non-identical row is left out.
   let r = c.get(`/api/transactions/similar?description=${needle}`);
   assert.equal(r.status, 200);
   assert.equal(r.body.transactions.length, 0);
+  r = c.get(`/api/transactions/similar?description=${needle}&threshold=loose`);
+  assert.equal(r.body.transactions.length, 0);
 
-  // Loosening the bar brings it in.
-  setSetting(c, 'tx_fuzzy_threshold', '0.5');
-  r = c.get(`/api/transactions/similar?description=${needle}`);
+  // Loosening the bar brings it in; a still-stricter bar keeps it out.
+  r = c.get(`/api/transactions/similar?description=${needle}&threshold=0.5`);
   assert.equal(r.body.transactions.length, 1);
   assert.equal(r.body.transactions[0].description, 'acme grocery mart');
+  r = c.get(`/api/transactions/similar?description=${needle}&threshold=0.95`);
+  assert.equal(r.body.transactions.length, 0);
+
+  // Below-range values clamp up to 0.5 rather than matching everything.
+  createTx(c, 'utterly unrelated payee');
+  r = c.get(`/api/transactions/similar?description=${needle}&threshold=0.01`);
+  assert.ok(r.body.transactions.every((x) => x.description !== 'utterly unrelated payee'));
 });
 
-test('auto-match catches near-identical descriptions only below 100% strength', (t) => {
+test('similar: include_categorized widens the pool; exclude_ids drops the edited rows', (t) => {
+  const c = makeClient(t);
+  const cat = makeCategory(c, 'Match Gym');
+  // Uncategorized row first — categorizing `a` records a learned rule that
+  // would otherwise auto-categorize `b` at creation.
+  const b = createTx(c, 'monthly gym membership');
+  const a = createTx(c, 'monthly gym membership', { catId: cat });
+  const needle = encodeURIComponent('monthly gym membership');
+
+  // Default pool: uncategorized only.
+  let r = c.get(`/api/transactions/similar?description=${needle}`);
+  assert.deepEqual(r.body.transactions.map((x) => x.id), [b.id]);
+
+  // Widened pool: the categorized row joins in.
+  r = c.get(`/api/transactions/similar?description=${needle}&include_categorized=1`);
+  assert.deepEqual(r.body.transactions.map((x) => x.id).sort(), [a.id, b.id].sort());
+
+  // The rows being edited are excluded.
+  r = c.get(
+    `/api/transactions/similar?description=${needle}&include_categorized=1&exclude_ids=${a.id},${b.id}`
+  );
+  assert.equal(r.body.transactions.length, 0);
+});
+
+test('categorize-similar: overwrite recategorizes already-categorized rows', (t) => {
+  const c = makeClient(t);
+  const catA = makeCategory(c, 'Match Old');
+  const catB = makeCategory(c, 'Match New');
+  const tx = createTx(c, 'Corner Bakery 22', { catId: catA });
+
+  // Without overwrite the categorized row is guarded (existing behavior).
+  let r = c.post('/api/transactions/categorize-similar', { ids: [tx.id], category_id: catB });
+  assert.equal(r.body.updated, 0);
+
+  r = c.post('/api/transactions/categorize-similar', {
+    ids: [tx.id], category_id: catB, overwrite: true,
+  });
+  assert.equal(r.body.updated, 1);
+  assert.equal(txByDesc(c, 'Corner Bakery 22')[0].category_id, catB);
+});
+
+test('auto-match catches near-identical descriptions at the fixed 0.92 bar', (t) => {
   const c = makeClient(t);
   const cat = makeCategory(c, 'Match Music');
   // Synthetic merchant the built-in lexicon doesn't know, so this isolates the
   // LEARNED fuzzy-match behavior from cold-start categorization.
   createTx(c, 'Zentrix Premium', { catId: cat });
 
-  // Default strength is exact, so a near-identical (not identical) import misses.
-  let result = importRows(c, ['Zentrix Premiums']);
-  assert.equal(result.auto_categorized, 0);
-
-  setSetting(c, 'tx_fuzzy_threshold', '0.85');
-  result = importRows(c, ['Zentrix Premiums']);
+  // Near-identical (≥ 0.92 similar) auto-matches with no setting involved.
+  const result = importRows(c, ['Zentrix Premiums']);
   assert.equal(result.auto_categorized, 1);
   assert.ok(txByDesc(c, 'Zentrix Premiums').some((x) => x.category_id === cat));
 });
@@ -257,9 +297,8 @@ test('fuzzy: far descriptions stay uncategorized', (t) => {
   makeCategory(c, 'Match Books');
   const cat = getCategories(c).find((x) => x.name === 'Match Books').id;
   createTx(c, 'City Bookstore Downtown', { catId: cat });
-  setSetting(c, 'tx_fuzzy_threshold', '0.85');
-  // A non-describable merchant: far from the learned rule AND one the built-in
-  // categorizer abstains on, so this isolates fuzzy-threshold behavior (a real
+  // A non-describable merchant: below the fixed 0.92 bar AND one the built-in
+  // categorizer abstains on, so this isolates fuzzy auto-match behavior (a real
   // word like "Hardware" would now be categorized shopping by the classifier).
   assert.equal(importRows(c, ['Qplex Kiosk 7743']).auto_categorized, 0);
 });
@@ -270,7 +309,6 @@ test('fuzzy: ambiguous rules leave transaction alone', (t) => {
   const catB = makeCategory(c, 'Match Amb B');
   createTx(c, 'acme store x1', { catId: catA });
   createTx(c, 'acme store x2', { catId: catB });
-  setSetting(c, 'tx_fuzzy_threshold', '0.85');
 
   assert.equal(importRows(c, ['acme store x']).auto_categorized, 0);
   assert.equal(txByDesc(c, 'acme store x')[0].category_id, null);
