@@ -34,7 +34,7 @@ test('db: status reports active db', (t) => {
   const c = makeClient(t);
   const s = c.get('/api/db/status').body;
   assert.equal(s.ok, true);
-  assert.equal(s.path, path.resolve(process.env.OLIV_DB_PATH));
+  assert.equal(s.path, path.resolve(process.env.AVENTURINE_DB_PATH));
   assert.equal(s.encrypted, false);
   assert.equal(s.locked, false);
   assert.equal(s.encryption_available, true);
@@ -214,7 +214,7 @@ test('db: open foreign sqlite refused before switching', (t) => {
   con.close();
   const r = c.post('/api/db/open', { path: p });
   assert.equal(r.status, 400);
-  assert.ok(r.body.error.includes('Oliv'));
+  assert.ok(r.body.error.includes('Aventurine'));
   assert.equal(c.get('/api/data').status, 200, 'still on the original DB');
 });
 
@@ -292,7 +292,7 @@ test('db: locked startup gates data APIs until unlock', (t) => {
   );
 
   // …then simulate a restart: a fresh conn whose pointer file names the
-  // encrypted DB and whose data dir is isolated. OLIV_DB_PATH must be
+  // encrypted DB and whose data dir is isolated. AVENTURINE_DB_PATH must be
   // absent or it would override the pointer.
   const dataDir = path.join(dir, 'data');
   fs.mkdirSync(dataDir);
@@ -300,17 +300,17 @@ test('db: locked startup gates data APIs until unlock', (t) => {
     path.join(dataDir, 'active-db.json'),
     JSON.stringify({ path: p, encrypted: true })
   );
-  const prevDbPath = process.env.OLIV_DB_PATH;
-  const prevDataDir = process.env.OLIV_DATA_DIR;
-  delete process.env.OLIV_DB_PATH;
-  process.env.OLIV_DATA_DIR = dataDir;
+  const prevDbPath = process.env.AVENTURINE_DB_PATH;
+  const prevDataDir = process.env.AVENTURINE_DATA_DIR;
+  delete process.env.AVENTURINE_DB_PATH;
+  process.env.AVENTURINE_DATA_DIR = dataDir;
   const conn2 = createConn();
   conn2.init();
   t.after(() => {
     conn2.closeAll();
-    if (prevDbPath !== undefined) process.env.OLIV_DB_PATH = prevDbPath;
-    if (prevDataDir === undefined) delete process.env.OLIV_DATA_DIR;
-    else process.env.OLIV_DATA_DIR = prevDataDir;
+    if (prevDbPath !== undefined) process.env.AVENTURINE_DB_PATH = prevDbPath;
+    if (prevDataDir === undefined) delete process.env.AVENTURINE_DATA_DIR;
+    else process.env.AVENTURINE_DATA_DIR = prevDataDir;
   });
   const c2 = {
     get: (u) => dispatch(conn2, 'GET', u, null),

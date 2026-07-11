@@ -112,7 +112,7 @@
         ? UI.emptyState({
             icon: 'chart',
             title: 'No spending to chart yet',
-            desc: 'Categorize some transactions and Oliv will chart how your spending shifts over time.',
+            desc: 'Categorize some transactions and Aventurine will chart how your spending shifts over time.',
             action: { label: 'Add transactions', href: '/transactions', icon: 'plus', primary: true },
           })
         : UI.emptyState({

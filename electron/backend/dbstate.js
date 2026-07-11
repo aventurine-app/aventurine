@@ -6,7 +6,7 @@
 // DB reopens on restart; an encrypted database therefore starts LOCKED until
 // the passphrase is supplied again.
 //
-// OLIV_DB_PATH (the test suite) bypasses the pointer file entirely and
+// AVENTURINE_DB_PATH (the test suite) bypasses the pointer file entirely and
 // is never persisted, so tests can't clobber a real pointer.
 //
 // Factory, not singleton: each createDbState() owns its state, so tests can
@@ -16,13 +16,13 @@ const fs = require('fs');
 const path = require('path');
 
 function dataDir() {
-  const d = process.env.OLIV_DATA_DIR;
+  const d = process.env.AVENTURINE_DATA_DIR;
   if (d) {
     fs.mkdirSync(d, { recursive: true });
     return d;
   }
   // Non-Electron fallback (dev/tests without the env var): a .data dir under
-  // the cwd. The packaged app always sets OLIV_DATA_DIR (main.js).
+  // the cwd. The packaged app always sets AVENTURINE_DATA_DIR (main.js).
   const fallback = path.join(process.cwd(), '.data');
   fs.mkdirSync(fallback, { recursive: true });
   return fallback;
@@ -40,10 +40,10 @@ function createDbState() {
 
   const pointerFile = () => path.join(dataDir(), 'active-db.json');
   const dbFilePath = () =>
-    process.env.OLIV_DB_PATH || path.join(dataDir(), 'finance.db');
+    process.env.AVENTURINE_DB_PATH || path.join(dataDir(), 'finance.db');
 
   function loadInitialState() {
-    const explicit = process.env.OLIV_DB_PATH;
+    const explicit = process.env.AVENTURINE_DB_PATH;
     if (explicit) {
       state.path = path.resolve(explicit);
       state.encrypted = false;
@@ -67,7 +67,7 @@ function createDbState() {
   }
 
   function savePointer() {
-    if (process.env.OLIV_DB_PATH) return;
+    if (process.env.AVENTURINE_DB_PATH) return;
     const tmp = pointerFile() + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify({ path: state.path, encrypted: state.encrypted }));
     fs.renameSync(tmp, pointerFile());

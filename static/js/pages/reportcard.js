@@ -131,7 +131,7 @@
       host.innerHTML = UI.emptyState({
         icon: 'target',
         title: 'No report cards yet',
-        desc: 'Add transactions across a year and Oliv grades it against five money goals — one card per year.',
+        desc: 'Add transactions across a year and Aventurine grades it against five money goals — one card per year.',
         action: { label: 'Add transactions', href: '/transactions', icon: 'plus', primary: true },
       });
       return;

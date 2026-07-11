@@ -111,7 +111,7 @@
       el.innerHTML = UI.emptyState({
         icon: 'forecast',
         title: 'No forecast yet',
-        desc: 'Add a few transactions or a planned item and Oliv will project your balance forward.',
+        desc: 'Add a few transactions or a planned item and Aventurine will project your balance forward.',
         action: { label: 'Add transactions', href: '/transactions', icon: 'plus', primary: true },
       });
       return;

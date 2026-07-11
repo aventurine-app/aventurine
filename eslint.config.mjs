@@ -60,7 +60,7 @@ const appGlobals = {
   // shell/dbactions.js
   dbActions: 'readonly',
   // shell/zoom.js
-  olivZoom: 'readonly',
+  aventurineZoom: 'readonly',
   // widgets/chart.js
   FinanceChart: 'readonly',
   // widgets/cellselect.js

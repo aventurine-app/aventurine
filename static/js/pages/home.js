@@ -134,7 +134,7 @@
             legendEl.innerHTML = UI.emptyState({
                 icon: 'donut', compact: true,
                 title: 'No capital to show yet',
-                desc: 'Add your account balances and Oliv will chart how your assets and debts split.',
+                desc: 'Add your account balances and Aventurine will chart how your assets and debts split.',
                 action: { label: 'Add balances', href: '/statements#balance-sheet', icon: 'plus', primary: true },
             });
             return;
@@ -692,7 +692,7 @@
                 ? UI.emptyState({
                     icon: 'chart',
                     title: 'No net worth to chart yet',
-                    desc: 'Track your account balances and Oliv will plot your net worth over time.',
+                    desc: 'Track your account balances and Aventurine will plot your net worth over time.',
                     action: { label: 'Add balances', href: '/statements#balance-sheet', icon: 'plus', primary: true },
                 })
                 : UI.emptyState({
@@ -1198,7 +1198,7 @@
                 ? UI.emptyState({
                     icon: 'wallet',
                     title: 'No spending this month yet',
-                    desc: 'Import or add transactions and Oliv will break your month\'s spending down by category.',
+                    desc: 'Import or add transactions and Aventurine will break your month\'s spending down by category.',
                     action: { label: 'Add transactions', href: '/transactions', icon: 'plus', primary: true },
                 })
                 : UI.emptyState({
@@ -1342,7 +1342,7 @@
             el.innerHTML = UI.emptyState({
                 icon: 'calendar', compact: true,
                 title: 'No upcoming expenses yet',
-                desc: 'Oliv flags recurring charges automatically once it sees a few months of transactions.',
+                desc: 'Aventurine flags recurring charges automatically once it sees a few months of transactions.',
                 action: { label: 'Add transactions', href: '/transactions', icon: 'plus', primary: true },
             });
             return;

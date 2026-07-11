@@ -132,26 +132,26 @@
 
     // ── Zoom (Electron only) ───────────────────────────────────────────────────
     // The control drives the shared zoom API in zoom.js. NOTE: zoom.js loads
-    // AFTER this file (see scripts.html order), so window.olivZoom doesn't exist
+    // AFTER this file (see scripts.html order), so window.aventurineZoom doesn't exist
     // yet while settings.js executes — wiring it now would no-op. Defer to
     // DOMContentLoaded, by which point every body script (incl. zoom.js) has run.
-    // The row stays hidden in a plain browser where window.olivZoom is absent.
+    // The row stays hidden in a plain browser where window.aventurineZoom is absent.
 
     function wireZoom() {
-        if (!window.olivZoom) return;
+        if (!window.aventurineZoom) return;
         document.querySelectorAll('.settings-zoom-row').forEach(row => { row.hidden = false; });
 
         const render = () => {
             document.querySelectorAll('.settings-zoom-value').forEach(el => {
-                el.textContent = window.olivZoom.percent() + '%';
+                el.textContent = window.aventurineZoom.percent() + '%';
             });
         };
         document.querySelectorAll('.settings-zoom-btn, .settings-zoom-reset').forEach(btn => {
             btn.addEventListener('click', () => {
                 const action = btn.dataset.zoomAction;
-                if (action === 'in') window.olivZoom.zoomIn();
-                else if (action === 'out') window.olivZoom.zoomOut();
-                else if (action === 'reset') window.olivZoom.reset();
+                if (action === 'in') window.aventurineZoom.zoomIn();
+                else if (action === 'out') window.aventurineZoom.zoomOut();
+                else if (action === 'reset') window.aventurineZoom.reset();
             });
         });
         window.addEventListener('zoomchange', render);
@@ -188,7 +188,7 @@
         ]).catch(() => { /* non-critical; defaults still apply on reload */ });
         // Snap the live zoom back to 100% before clearing its key (a stored
         // webContents zoom otherwise survives the reload).
-        if (window.olivZoom) window.olivZoom.reset();
+        if (window.aventurineZoom) window.aventurineZoom.reset();
         PREF_KEYS.forEach(k => localStorage.removeItem(k));
         location.reload();
     }

@@ -13,9 +13,9 @@
 # (no C toolchain on this machine) — npmRebuild is off — and we unpack the
 # package from the asar so the .node can be dlopen'd at runtime.
 
-appId: com.olivfinance.oliv
-productName: Oliv
-copyright: Copyright © 2026 Oliv Finance
+appId: com.aventurineapp.aventurine
+productName: Aventurine
+copyright: Copyright © 2026 Aventurine
 
 directories:
   output: dist
@@ -47,7 +47,7 @@ asarUnpack:
 npmRebuild: false
 buildDependenciesFromSource: false
 
-# No publish config and no in-app updater. Oliv ships no auto-update
+# No publish config and no in-app updater. Aventurine ships no auto-update
 # (electron-updater was removed) and never phones home; CI builds with
 # `--publish never` and releases are SOURCE ONLY (the official binary is fenced
 # under the source-available license — see .github/workflows/release.yml). Users
@@ -64,15 +64,15 @@ linux:
   category: Office;Finance
   synopsis: Desktop personal-finance app
   description: >
-    Oliv — a private, local-first desktop personal-finance app.
-    Cash flow, balance sheet, transactions, budgeting and forecasting,
+    Aventurine — a private, local-first desktop personal-finance app.
+    Cash flow, balance sheet, transactions and forecasting,
     backed by a single encryptable SQLite database you control.
   desktop:
     entry:
       # Must equal Electron's runtime WM_CLASS (app.getName() → package.json
       # "name") so the desktop environment links the running window to this
       # launcher / taskbar icon.
-      StartupWMClass: oliv
+      StartupWMClass: aventurine
 
 appImage:
   # Self-contained, distro-agnostic single file.
@@ -108,4 +108,4 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: Oliv
+  shortcutName: Aventurine

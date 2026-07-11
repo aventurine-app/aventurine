@@ -41,7 +41,7 @@
     };
 
     // Public API for the Settings modal stepper. Mirrors the keyboard shortcuts.
-    window.olivZoom = {
+    window.aventurineZoom = {
         STEP, MIN, MAX,
         get:     () => level,
         percent: () => toPercent(level),

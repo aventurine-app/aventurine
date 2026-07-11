@@ -1,11 +1,11 @@
 {
-  "name": "oliv",
+  "name": "aventurine",
   "version": "0.2.4",
-  "description": "Oliv desktop app — Electron shell + in-process Node backend (electron/backend/).",
+  "description": "Aventurine desktop app — Electron shell + in-process Node backend (electron/backend/).",
   "main": "main.js",
   "private": true,
-  "author": "Oliv Finance <chatgpt.flattered848@passmail.net>",
-  "homepage": "https://olivfinance.com",
+  "author": "Aventurine <chatgpt.flattered848@passmail.net>",
+  "homepage": "https://aventurine-app.com",
   "license": "PolyForm-Noncommercial-1.0.0",
   "scripts": {
     "start": "electron .",
