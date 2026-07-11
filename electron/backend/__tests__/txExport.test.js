@@ -185,7 +185,7 @@ test('export with filters writes only the matching rows', (t) => {
     filters: { description: 'coffee', date_from: '2026-02-01', date_to: '2026-02-28', amount_min: 1, amount_max: 10 },
   });
   assert.deepEqual({ exported: body.exported, total: body.total }, { exported: 1, total: 1 });
-  let lines = fs.readFileSync(dest, 'utf8').split('\r\n').filter(Boolean);
+  const lines = fs.readFileSync(dest, 'utf8').split('\r\n').filter(Boolean);
   assert.deepEqual(lines.slice(1), ['2026-02-02,Coffee Shop,expense,,-4.50,']);
 
   // tx_type filters on the direction derived from the category.

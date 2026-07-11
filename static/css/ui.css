@@ -422,3 +422,44 @@
     outline: 2px solid var(--accent-primary);
     outline-offset: 2px;
 }
+
+/* ─── Toast (UI.toast) ───────────────────────────────────────────────────────
+ * Single transient notice, bottom-center; ui.js reuses one element and
+ * toggles .ui-toast-show so repeated messages coalesce instead of stacking.
+ * z-index 1400 sits above every modal layer (confirm dialogs 1000/1100, DB
+ * modal 1300): a failed-save notice must stay visible over whatever opened. */
+.ui-toast {
+    position: fixed;
+    left: 50%;
+    bottom: var(--space-24);
+    transform: translate(-50%, 8px);
+    max-width: 420px;
+    padding: var(--space-12) var(--space-16);
+    background: var(--dialog-surface);
+    border: var(--border-width) solid var(--dialog-stroke);
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    color: var(--text-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    line-height: 1.45;
+    z-index: 1400;
+    opacity: 0;
+    pointer-events: none;   /* invisible toast must never eat clicks */
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    cursor: pointer;        /* click dismisses (ui.js) */
+}
+
+.ui-toast-show {
+    opacity: 1;
+    transform: translate(-50%, 0);
+    pointer-events: auto;
+}
+
+.ui-toast-error {
+    border-color: color-mix(in srgb, var(--accent-tertiary) 55%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ui-toast { transition: opacity 0.18s ease; transform: translate(-50%, 0); }
+}

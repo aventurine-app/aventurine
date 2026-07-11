@@ -1,4 +1,6 @@
-// ─── Electron shell for oliv ─────────────────────────────────────────
+'use strict';
+
+// ─── Electron shell for aventurine ─────────────────────────────────────────
 //
 // The backend lives in THIS process (electron/backend/) and the renderer
 // reaches it over IPC ('api:request' → backend/routes.dispatch). There is no
@@ -8,7 +10,7 @@
 // reach a channel that only this renderer holds.
 //
 // Pages are pre-rendered static HTML in pages/ (see MIGRATION.md), served
-// from the custom app:// scheme. The fixed origin (app://oliv) keeps
+// from the custom app:// scheme. The fixed origin (app://aventurine) keeps
 // localStorage (theme, currency symbol, zoom) stable across
 // launches — no more persisted-port dance.
 
@@ -17,7 +19,7 @@ const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
 
-const APP_HOST = 'oliv';
+const APP_HOST = 'aventurine';
 const APP_ORIGIN = `app://${APP_HOST}`;
 
 // Repo layout: electron/ sits next to pages/ and static/.
@@ -48,17 +50,44 @@ protocol.registerSchemesAsPrivileged([
 // Kill the default File/Edit/View menu — base.html owns the title bar.
 Menu.setApplicationMenu(null);
 
+// One-time rebrand migration (Oliv → Aventurine, 2026-07): the userData dir
+// name derives from the app name, so the rename would strand any existing
+// profile ('Oliv' packaged, 'oliv-dev' dev). If the old dir exists and the new
+// one doesn't, move it, and re-point a pointer-file path that lived inside it.
+// A custom DB outside the profile is an absolute path and unaffected.
+function migrateLegacyProfile(oldDir, newDir) {
+    try {
+        if (!fs.existsSync(oldDir) || fs.existsSync(newDir)) return;
+        fs.renameSync(oldDir, newDir);
+        const pointer = path.join(newDir, 'data', 'active-db.json');
+        const d = JSON.parse(fs.readFileSync(pointer, 'utf8'));
+        if (typeof d.path === 'string' && d.path.startsWith(oldDir + path.sep)) {
+            d.path = path.join(newDir, path.relative(oldDir, d.path));
+            fs.writeFileSync(pointer, JSON.stringify(d));
+        }
+    } catch {
+        // No/unreadable pointer, or the move failed — the app proceeds exactly
+        // as it would on a fresh profile.
+    }
+}
+
 // Dev (npm start) gets its own profile so it never shares state with an
-// installed /opt/Oliv build. Both default to the 'oliv' userData dir, so
-// running dev while the packaged app is open makes the second instance fight
-// the first for the Chromium DOM-Storage LevelDB lock: the renderer's first
-// localStorage access then stalls ~4s (twice — localStorage + sessionStorage)
-// before falling back to in-memory, which is the "blank for seconds on launch"
-// symptom. A distinct dev userData dir (its own Local Storage AND its own
-// data/finance.db) sidesteps the collision entirely. Must run before
-// whenReady → startBackend, which derives OLIV_DATA_DIR from userData.
-if (!app.isPackaged) {
-    app.setPath('userData', path.join(app.getPath('appData'), 'oliv-dev'));
+// installed /opt/Aventurine build. Both default to the 'Aventurine' userData
+// dir, so running dev while the packaged app is open makes the second instance
+// fight the first for the Chromium DOM-Storage LevelDB lock: the renderer's
+// first localStorage access then stalls ~4s (twice — localStorage +
+// sessionStorage) before falling back to in-memory, which is the "blank for
+// seconds on launch" symptom. A distinct dev userData dir (its own Local
+// Storage AND its own data/finance.db) sidesteps the collision entirely. Must
+// run before whenReady → startBackend, which derives AVENTURINE_DATA_DIR from
+// userData.
+if (app.isPackaged) {
+    migrateLegacyProfile(path.join(app.getPath('appData'), 'Oliv'),
+                         app.getPath('userData'));
+} else {
+    const devDir = path.join(app.getPath('appData'), 'aventurine-dev');
+    migrateLegacyProfile(path.join(app.getPath('appData'), 'oliv-dev'), devDir);
+    app.setPath('userData', devDir);
 }
 
 // ─── Backend (in-process) ───────────────────────────────────────────────────
@@ -69,7 +98,7 @@ let mainWindow = null;
 
 function startBackend() {
     // Same data-dir contract as the Flask era: <userData>/data.
-    process.env.OLIV_DATA_DIR = path.join(app.getPath('userData'), 'data');
+    process.env.AVENTURINE_DATA_DIR = path.join(app.getPath('userData'), 'data');
     const { createConn } = require('./backend/conn');
     const { dispatch } = require('./backend/routes');
     conn = createConn();
@@ -89,7 +118,7 @@ function startBackend() {
                 cancelId:  0,
                 noLink:    true,
                 title:     'Confirm file write',
-                message:   'Oliv is about to write to a location you didn’t pick from a file dialog:',
+                message:   'Aventurine is about to write to a location you didn’t pick from a file dialog:',
                 detail:    `${filePath}\n\nContinue only if you started this action. Cancel if you didn’t.`,
             });
             return choice === 1;
@@ -261,7 +290,7 @@ async function createWindow() {
     const win = new BrowserWindow({
         width:  1280,
         height: 800,
-        title:  'Oliv',
+        title:  'Aventurine',
         // Frameless: the page draws its own title bar (base.html snapshot).
         frame:            false,
         backgroundColor:  '#212121',
@@ -323,7 +352,7 @@ app.whenReady().then(async () => {
         startBackend();
     } catch (err) {
         console.error('[electron] backend failed to start:', err);
-        dialog.showErrorBox('Oliv', `The database backend failed to start:\n${err.message}`);
+        dialog.showErrorBox('Aventurine', `The database backend failed to start:\n${err.message}`);
         app.quit();
         return;
     }

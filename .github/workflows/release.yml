@@ -80,7 +80,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: oliv-installers-${{ github.ref_name }}
+          name: aventurine-installers-${{ github.ref_name }}
           path: |
             electron/dist/*.AppImage
             electron/dist/*.rpm

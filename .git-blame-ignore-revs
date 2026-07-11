@@ -1,0 +1,5 @@
+# Whitespace-only / mechanical commits, skipped by git blame.
+# Use: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# IIFE-wrap of all classic scripts (indentation-only for most lines)
+180ce7a994115494ba124adfc916a37eb67b5e55

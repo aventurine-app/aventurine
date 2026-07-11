@@ -27,7 +27,7 @@ const { ApiError } = require('./validate');
 function logBackendError(method, reqPath, e) {
   console.error(`[backend] ${method} ${reqPath} failed:`, e);
   try {
-    const dir = process.env.OLIV_DATA_DIR;
+    const dir = process.env.AVENTURINE_DATA_DIR;
     if (!dir) return;
     fs.appendFileSync(
       path.join(dir, 'backend-errors.log'),

@@ -1,3 +1,5 @@
+'use strict';
+
 // ─── Preload bridge ─────────────────────────────────────────────────────────
 //
 // Runs in the renderer's isolated world before any page script. Exposes a

@@ -14,12 +14,13 @@ const path = require('path');
 app.whenReady().then(() => {
   let failed = false;
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fl-smoke-'));
-  process.env.OLIV_DATA_DIR = tmp;
-  delete process.env.OLIV_DB_PATH;
+  process.env.AVENTURINE_DATA_DIR = tmp;
+  delete process.env.AVENTURINE_DB_PATH;
 
   try {
     const { createConn } = require('../backend/conn');
     const { dispatch } = require('../backend/routes');
+    const { DEFAULT_CATEGORIES } = require('../backend/seed');
     const conn = createConn();
     conn.init();
 
@@ -32,7 +33,11 @@ app.whenReady().then(() => {
     check('db status 200 + unlocked', status.status === 200 && status.body.locked === false);
 
     const data = dispatch(conn, 'GET', '/api/data', null);
-    check('I&E data has seeded columns', data.status === 200 && data.body.columns.length === 11);
+    // One I&E column per seeded category — derived from the seed itself so a
+    // taxonomy change (e.g. the 2026-07 expansion from 11 to 18 categories)
+    // can't strand this check on a stale hardcoded count.
+    check('I&E data has seeded columns',
+      data.status === 200 && data.body.columns.length === DEFAULT_CATEGORIES.length);
 
     const tx = dispatch(conn, 'POST', '/api/transactions', {
       date: '2026-06-11', description: 'smoke tx', tx_type: 'expense', amount: 12.345,

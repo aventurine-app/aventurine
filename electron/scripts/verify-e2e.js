@@ -5,7 +5,7 @@
 // renderer that the page rendered, the preload bridge answers, and a write
 // round-trips through IPC to SQLite and back. Exits 0 on PASS.
 //
-//   OLIV_E2E=1 electron . is NOT used — this drives main.js directly:
+//   AVENTURINE_E2E=1 electron . is NOT used — this drives main.js directly:
 //   npm run verify  (alias: electron scripts/verify-e2e.js)
 
 const fs = require('fs');
@@ -13,10 +13,10 @@ const os = require('os');
 const path = require('path');
 
 // Isolated data dir — set AFTER requiring main.js, not before: main.js
-// re-points userData at the shared 'oliv-dev' profile at require time (dev
+// re-points userData at the shared 'aventurine-dev' profile at require time (dev
 // isolation from the packaged build), which silently clobbers any earlier
 // setPath and sends every write from this script into the REAL dev database.
-// startBackend derives OLIV_DATA_DIR from userData only at app.whenReady, so
+// startBackend derives AVENTURINE_DATA_DIR from userData only at app.whenReady, so
 // overriding here (post-require, pre-ready) is what actually isolates us.
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fl-e2e-'));
 const { app, BrowserWindow } = require('electron');
@@ -47,8 +47,8 @@ app.whenReady().then(async () => {
     const win = await waitForWindow();
     const evalJs = (js) => win.webContents.executeJavaScript(js, true);
 
-    check('renderer URL is app origin', win.webContents.getURL() === 'app://oliv/');
-    check('page title', (await evalJs('document.title')).includes('Oliv'));
+    check('renderer URL is app origin', win.webContents.getURL() === 'app://aventurine/');
+    check('page title', (await evalJs('document.title')).includes('Aventurine'));
     check('navbar rendered', await evalJs('!!document.querySelector(".menu .nav a[href=\'/transactions\']")'));
     // The sidebar is a shared partial; nav.js derives .active from the URL.
     check('home link marked active', await evalJs('document.querySelector(".menu .nav a[href=\'/\']").classList.contains("active")'));
@@ -84,11 +84,17 @@ app.whenReady().then(async () => {
     ) {
       await new Promise((r) => setTimeout(r, 150));
     }
-    check('link click navigates', win.webContents.getURL() === 'app://oliv/transactions');
+    check('link click navigates', win.webContents.getURL() === 'app://aventurine/transactions');
     check('transactions page loads', (await evalJs('document.title')).includes('Transactions'));
     check('active link follows navigation', await evalJs('document.querySelector(".menu .nav a[href=\'/transactions\']").classList.contains("active")'));
     check('tx table boots with data', await evalJs(
       'new Promise(res => setTimeout(() => res(!!document.querySelector(".tx-row, .tx-table tbody tr")), 800))'
+    ));
+    // Import stack load-order contract: txparse.js (pure parser) must attach
+    // TxParse before txfileimport.js destructures it — a broken order leaves
+    // TxFileImport undefined and the Import button dead.
+    check('import parser + widget globals present', await evalJs(
+      '!!(window.TxParse && window.TxParse.parseFile && window.TxFileImport && window.TxFileImport.run)'
     ));
 
     // Every page is assembled from pages/partials/ at serve time — walk all
@@ -106,7 +112,7 @@ app.whenReady().then(async () => {
     };
     for (const [route, name] of Object.entries(routes)) {
       const activeHref = route;
-      await win.loadURL(`app://oliv${route}`);
+      await win.loadURL(`app://aventurine${route}`);
       const ok = await evalJs(`document.title.includes(${JSON.stringify(name)})
         && !!document.querySelector(".titlebar")
         && !!document.querySelector(".menu .nav")
@@ -119,7 +125,7 @@ app.whenReady().then(async () => {
 
     // The title-bar File menu is now the only way to reach the DB modal —
     // prove the dropdown → window.dbActions → modal chain works.
-    await win.loadURL('app://oliv/');
+    await win.loadURL('app://aventurine/');
     await evalJs('document.querySelector("[data-menu=\'file\']").click()');
     await evalJs('document.querySelector("[data-menu-panel=\'file\'] [data-action=\'new-db\']").click()');
     check('File menu opens New Database modal', await evalJs(
@@ -137,7 +143,7 @@ app.whenReady().then(async () => {
     // the search field, the four collapsible type groups, each group's "Add
     // category" row, and the seeded category rows. The editor fills
     // asynchronously after load, so poll briefly like the tx table.
-    await win.loadURL('app://oliv/categories');
+    await win.loadURL('app://aventurine/categories');
     check('Categories page renders the editor', await evalJs(
       'new Promise(res => setTimeout(() => res('
         + 'document.querySelectorAll("[data-categories-editor] .cat-group").length === 4'

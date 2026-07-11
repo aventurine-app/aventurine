@@ -20,7 +20,6 @@ const { generateDataset } = require('./lib/synth');
 const { features } = require('../backend/services/textFeatures');
 const { categorize } = require('../backend/services/categorize'); // lexicon-only at train time
 const { predictWithModel } = require('../backend/services/classifier');
-const { DEFAULT_CATEGORIES } = require('../backend/seed');
 
 const FIX = path.join(__dirname, '..', 'backend', '__tests__', 'fixtures');
 const ARTIFACT = path.join(__dirname, '..', 'backend', 'services', 'categorizerModel.json');

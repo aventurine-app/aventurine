@@ -239,7 +239,7 @@ const balanceTable = bootstrapYearTablePage({
                 danger: true,
             }
         );
-        openTableMenu(menuBtn, items);
+        UI.openMenu(menuBtn, items);
     });
 
     // Recompute the year list from the DOM after tables.js (re)renders.
