@@ -31,11 +31,36 @@
     // Bank exports are usually UTF-8, but some tools still emit Windows-1252.
     // Try strict UTF-8 first; on failure fall back rather than render
     // replacement characters into descriptions.
+    //
+    // The Windows-1252 fallback is a hand-rolled table rather than
+    // `new TextDecoder('windows-1252')`: that call's output for bytes
+    // 0x80-0x9F (smart quotes, dashes, €, …) has been observed to differ
+    // across Node/ICU builds — same input, different decoded characters on
+    // different machines. A fixed table decodes identically everywhere this
+    // code runs, which matters because this exact path is what turns a real
+    // user's "ANSI" bank CSV into transaction descriptions.
+    const CP1252_C1 = [
+        0x20AC, 0x0081, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021,
+        0x02C6, 0x2030, 0x0160, 0x2039, 0x0152, 0x008D, 0x017D, 0x008F,
+        0x0090, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014,
+        0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x009D, 0x017E, 0x0178,
+    ];
+
+    function decodeWindows1252(buf) {
+        const bytes = new Uint8Array(buf);
+        let out = '';
+        for (let i = 0; i < bytes.length; i++) {
+            const b = bytes[i];
+            out += String.fromCharCode(b >= 0x80 && b <= 0x9F ? CP1252_C1[b - 0x80] : b);
+        }
+        return out;
+    }
+
     function decodeText(buf) {
         try {
             return new TextDecoder('utf-8', { fatal: true }).decode(buf);
         } catch {
-            return new TextDecoder('windows-1252').decode(buf);
+            return decodeWindows1252(buf);
         }
     }
 
