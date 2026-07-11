@@ -939,10 +939,19 @@
         });
     }
 
-    // Editing modal → every selected row laid out with all fields editable and one
-    // Save-all button. Reuses the inline editor's field cells + direction lock;
-    // saves loop the single-row update endpoint (which owns the direction rule and
-    // match-rule learning), so a row that fails stays selected for a retry.
+    // Editing wizard → three steps inside one overlay:
+    //   1. Edit — every selected row laid out with all fields editable, plus a
+    //      footer checkbox offering to cascade the chosen categories onto other
+    //      transactions with similar descriptions.
+    //   2. Find similar (only when the checkbox is on) — a match-strength slider
+    //      (always starting at 80%) over a live-updating list of candidate rows,
+    //      grouped by the category each would receive.
+    //   3. Review — a summary of the field changes (and the cascade) behind one
+    //      "Save all changes" button.
+    // Saves loop the single-row update endpoint (which owns the direction rule
+    // and match-rule learning), so a row that fails stays selected for a retry;
+    // the cascade runs categorize-similar with overwrite (the user confirmed
+    // each row in the match list).
     function txOpenBulkEditModal() {
         const txs = txSelectedRows();
         if (!txs.length) return;
@@ -958,10 +967,10 @@
         overlay.innerHTML = `
         <div class="tx-edit-dialog">
             <div class="tx-edit-header">
-                <span class="tx-edit-title">Edit ${txs.length} transaction${plural}</span>
+                <span class="tx-edit-title" id="tx-edit-title">Edit ${txs.length} transaction${plural}</span>
                 <button class="tx-import-close" id="tx-edit-close" aria-label="Close">&times;</button>
             </div>
-            <div class="tx-edit-body">
+            <div class="tx-edit-body" data-step="edit">
                 <div class="tx-edit-table-wrap">
                     <table class="tx-edit-table">
                         <thead>
@@ -978,9 +987,31 @@
                     </table>
                 </div>
             </div>
+            <div class="tx-edit-body" data-step="match" hidden>
+                <div class="tx-match-slider-row">
+                    <label class="tx-match-slider-label" for="tx-match-slider">Match strength</label>
+                    <input type="range" id="tx-match-slider" class="tx-match-slider"
+                           min="0.5" max="1" step="0.05" value="0.8">
+                    <span class="tx-match-value" id="tx-match-value">80%</span>
+                </div>
+                <div class="tx-match-hint">
+                    Transactions whose descriptions match the ones you edited get the
+                    same categories. <strong>100%</strong> matches identical descriptions
+                    only; lower values match progressively fuzzier.
+                </div>
+                <div class="tx-match-results" id="tx-match-results"></div>
+            </div>
+            <div class="tx-edit-body" data-step="review" hidden>
+                <div id="tx-review-body"></div>
+            </div>
             <div class="tx-edit-footer">
+                <label class="tx-cascade-toggle" id="tx-cascade-toggle">
+                    <input type="checkbox" class="tx-checkbox" id="tx-cascade-cb">
+                    <span>Find similar transactions and apply the same categories</span>
+                </label>
+                <button class="tx-similar-skip" id="tx-edit-back" hidden>Back</button>
                 <button class="tx-similar-skip" id="tx-edit-cancel">Cancel</button>
-                <button class="button-primary" id="tx-edit-save">Save all changes</button>
+                <button class="button-primary" id="tx-edit-next">Next</button>
             </div>
         </div>`;
         document.body.appendChild(overlay);
@@ -988,49 +1019,352 @@
         // Each row's Type select mirrors + locks to its category, same as the inline row.
         overlay.querySelectorAll('.tx-edit-row').forEach(row => txWireDirectionLock(row));
 
+        const $ = (sel) => overlay.querySelector(sel);
+        const steps = {
+            edit:   $('[data-step="edit"]'),
+            match:  $('[data-step="match"]'),
+            review: $('[data-step="review"]'),
+        };
+        const titleEl   = $('#tx-edit-title');
+        const backBtn   = $('#tx-edit-back');
+        const nextBtn   = $('#tx-edit-next');
+        const cascadeCb = $('#tx-cascade-cb');
+        const slider    = $('#tx-match-slider');
+        const sliderVal = $('#tx-match-value');
+        const results   = $('#tx-match-results');
+
+        let step   = 'edit';
+        let edits  = [];      // [{id, payload, orig}] collected on leaving step 1
+        let saving = false;
+
+        // No backdrop-click dismissal: a mid-wizard misclick would silently
+        // discard edits. Leaving is explicit — the × or the Cancel button.
         const close = () => overlay.remove();
-        const saveBtn = overlay.querySelector('#tx-edit-save');
-        overlay.querySelector('#tx-edit-close').addEventListener('click', close);
-        overlay.querySelector('#tx-edit-cancel').addEventListener('click', close);
-        overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+        $('#tx-edit-close').addEventListener('click', close);
+        $('#tx-edit-cancel').addEventListener('click', close);
 
-        // Categories before this edit, so we can tell which rows were actually
-        // (re)categorized and only run the detector for those.
-        const prevCat = new Map(txs.map(t => [t.id, t.category_id]));
+        function showStep(next) {
+            step = next;
+            for (const [k, el] of Object.entries(steps)) el.hidden = k !== step;
+            $('#tx-cascade-toggle').hidden = step !== 'edit';
+            backBtn.hidden = step === 'edit';
+            titleEl.textContent =
+                step === 'edit'  ? `Edit ${txs.length} transaction${plural}` :
+                step === 'match' ? 'Find similar transactions' :
+                                   'Review changes';
+            nextBtn.textContent = step === 'review' ? 'Save all changes' : 'Next';
+        }
 
-        saveBtn.addEventListener('click', async () => {
-            // Validate every row up front so a bad field doesn't leave a half-saved batch.
-            const edits = [];
+        // Validate every row up front so a bad field doesn't leave a half-saved batch.
+        function collectEdits() {
+            const out = [];
             for (const row of overlay.querySelectorAll('.tx-edit-row')) {
                 const payload = txReadFields(row);
-                if (!payload.date)                    { alert('Every transaction needs a date.');      return; }
-                if (!Number.isFinite(payload.amount)) { alert('Every amount must be a number.');       return; }
-                edits.push({ id: parseInt(row.dataset.id, 10), payload });
+                if (!payload.date)                    { alert('Every transaction needs a date.'); return null; }
+                if (!Number.isFinite(payload.amount)) { alert('Every amount must be a number.');  return null; }
+                const id = parseInt(row.dataset.id, 10);
+                out.push({ id, payload, orig: txs.find(t => t.id === id) });
+            }
+            return out;
+        }
+
+        // The fields whose old → new values the review step reports.
+        const FIELD_LABELS = {
+            date: 'Date', description: 'Description', tx_type: 'Type',
+            category_id: 'Category', amount: 'Amount', notes: 'Notes',
+        };
+
+        function fieldDisplay(field, value) {
+            if (field === 'category_id') return value == null ? 'Uncategorized' : (txCategoryName(value) ?? '—');
+            if (field === 'amount')      return txFmtAmount(value);
+            if (field === 'date')        return txFmtDate(value);
+            if (field === 'tx_type')     return TX_TYPE_LABELS[value] || value;
+            return value == null || value === '' ? '—' : String(value);
+        }
+
+        function rowChanges(orig, payload) {
+            const out = [];
+            for (const field of Object.keys(FIELD_LABELS)) {
+                const before = orig?.[field];
+                const after  = payload[field];
+                const same = field === 'amount'
+                    ? Number(before) === Number(after)
+                    : (before ?? '') === (after ?? '');
+                if (!same) out.push({ field, before, after });
+            }
+            return out;
+        }
+
+        // ── Step 2: live similar-transaction search ──────────────────────────
+        // One query per distinct (description, category) among the edited rows
+        // that end up categorized — those categories are what cascades. Each
+        // matched row is claimed by the first group that hits it, and rows
+        // already in the target category are skipped (a no-op there). The token
+        // drops stale responses when the slider moves mid-flight.
+        let fetchToken = 0;
+
+        async function fetchMatches() {
+            const token = ++fetchToken;
+            const seen = new Set();
+            const queries = [];
+            for (const { payload } of edits) {
+                if (payload.category_id == null || !payload.description) continue;
+                const key = `${payload.description.toLowerCase()} ${payload.category_id}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                queries.push(payload);
+            }
+            if (!queries.length) {
+                results.classList.remove('tx-match-loading');
+                results.innerHTML = '<div class="tx-match-empty">None of the edited transactions has a category, so there is nothing to apply to similar ones.</div>';
+                return;
+            }
+            // Only the results swap: a re-query keeps the current list in
+            // place (dimmed) until the new one lands, so the step never
+            // flashes or jumps while the slider is dragged. The placeholder
+            // shows only when there is no list yet.
+            if (results.querySelector('.tx-similar-group')) {
+                results.classList.add('tx-match-loading');
+            } else {
+                results.innerHTML = '<div class="tx-match-empty">Searching…</div>';
             }
 
-            saveBtn.disabled = true;
-            saveBtn.textContent = 'Saving…';
+            const excludeIds = edits.map(e => e.id).join(',');
+            const claimed = new Set();
+            const byCat   = new Map();
+            const groups  = [];
+            for (const q of queries) {
+                let matches = [];
+                try {
+                    const params = new URLSearchParams({
+                        description:         q.description,
+                        threshold:           slider.value,
+                        include_categorized: '1',
+                        exclude_ids:         excludeIds,
+                    });
+                    const r = await apiFetch(`/api/transactions/similar?${params}`);
+                    if (r.ok) matches = (await r.json()).transactions || [];
+                } catch (_) { /* non-critical path, skip this query */ }
+                if (token !== fetchToken) return;
+                for (const m of matches) {
+                    if (claimed.has(m.id) || m.category_id === q.category_id) continue;
+                    claimed.add(m.id);
+                    let g = byCat.get(q.category_id);
+                    if (!g) {
+                        g = {
+                            categoryId: q.category_id,
+                            catName:    txCategoryName(q.category_id) ?? 'the selected category',
+                            matches:    [],
+                        };
+                        byCat.set(q.category_id, g);
+                        groups.push(g);
+                    }
+                    g.matches.push(m);
+                }
+            }
+            renderMatches(groups);
+        }
+
+        function renderMatches(groups) {
+            results.classList.remove('tx-match-loading');
+            if (!groups.length) {
+                results.innerHTML = '<div class="tx-match-empty">No similar transactions found at this match strength. Lower the slider to search fuzzier.</div>';
+                return;
+            }
+            const rowHtml = (g) => g.matches.map(t => {
+                const isIncome = t.tx_type === 'income';
+                const amtClass = isIncome ? 'tx-amount-income' : 'tx-amount-expense';
+                const sign     = isIncome ? '+ ' : '− ';
+                const curCat   = txCategoryName(t.category_id);
+                const catCell  = curCat
+                    ? `<span class="tx-category-pill">${txEsc(curCat)}</span>`
+                    : '<span class="tx-category-pill tx-category-empty">Uncategorized</span>';
+                return `
+                    <tr>
+                        <td class="tx-similar-col-check">
+                            <input type="checkbox" class="tx-similar-cb" data-id="${t.id}" data-cat="${g.categoryId}" checked>
+                        </td>
+                        <td class="tx-similar-col-date">${txEsc(txFmtDate(t.date))}</td>
+                        <td>${txEsc(t.description)}</td>
+                        <td class="tx-similar-col-cat">${catCell}</td>
+                        <td class="tx-similar-col-amount ${amtClass}">${sign}${txFmtAmount(t.amount)}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            results.innerHTML = groups.map(g => `
+                <div class="tx-similar-group" data-cat="${g.categoryId}">
+                    <label class="tx-similar-group-head">
+                        <input type="checkbox" class="tx-similar-group-all" data-cat="${g.categoryId}" checked>
+                        <span class="tx-similar-group-name">Will become ${txEsc(g.catName)}</span>
+                        <span class="tx-similar-group-count">${g.matches.length}</span>
+                    </label>
+                    <div class="tx-similar-table-wrap">
+                        <table class="tx-similar-table"><tbody>${rowHtml(g)}</tbody></table>
+                    </div>
+                </div>
+            `).join('');
+
+            // A group's header checkbox mirrors its rows, same as the similar modal.
+            results.querySelectorAll('.tx-similar-group-all').forEach(all =>
+                all.addEventListener('change', () => {
+                    results.querySelectorAll(`.tx-similar-cb[data-cat="${all.dataset.cat}"]`)
+                        .forEach(cb => { cb.checked = all.checked; });
+                })
+            );
+            results.querySelectorAll('.tx-similar-cb').forEach(cb =>
+                cb.addEventListener('change', () => {
+                    const cbs = results.querySelectorAll(`.tx-similar-cb[data-cat="${cb.dataset.cat}"]`);
+                    const all = results.querySelector(`.tx-similar-group-all[data-cat="${cb.dataset.cat}"]`);
+                    if (all) all.checked = [...cbs].some(x => x.checked);
+                })
+            );
+        }
+
+        // Live label + debounced re-query while the slider moves.
+        let sliderDebounce = null;
+        slider.addEventListener('input', () => {
+            sliderVal.textContent = Math.round(slider.value * 100) + '%';
+            clearTimeout(sliderDebounce);
+            sliderDebounce = setTimeout(fetchMatches, 250);
+        });
+
+        // Checked matches per target category — the cascade payloads.
+        function checkedMatches() {
+            const byCat = new Map();
+            for (const cb of results.querySelectorAll('.tx-similar-cb:checked')) {
+                const cat = parseInt(cb.dataset.cat, 10);
+                if (!byCat.has(cat)) byCat.set(cat, []);
+                byCat.get(cat).push(parseInt(cb.dataset.id, 10));
+            }
+            return byCat;
+        }
+
+        // ── Step 3: summary ────────────────────────────────────────────────────
+        function renderSummary() {
+            const changed = [];
+            let untouched = 0;
+            for (const { payload, orig } of edits) {
+                const diffs = rowChanges(orig, payload);
+                if (diffs.length) changed.push({ orig, payload, diffs });
+                else untouched++;
+            }
+
+            const editHtml = changed.length
+                ? changed.map(({ orig, payload, diffs }) => `
+                    <div class="tx-review-row">
+                        <div class="tx-review-desc">${txEsc(payload.description || orig.description || '—')}</div>
+                        <ul class="tx-review-changes">
+                            ${diffs.map(d => `
+                                <li>
+                                    <span class="tx-review-field">${FIELD_LABELS[d.field]}</span>
+                                    <span class="tx-review-before">${txEsc(fieldDisplay(d.field, d.before))}</span>
+                                    <span class="tx-review-arrow">→</span>
+                                    <strong>${txEsc(fieldDisplay(d.field, d.after))}</strong>
+                                </li>`).join('')}
+                        </ul>
+                    </div>`).join('')
+                : '<div class="tx-match-empty">No field changes.</div>';
+
+            let cascadeHtml = '';
+            if (cascadeCb.checked) {
+                const byCat = checkedMatches();
+                const items = [...byCat].map(([cat, ids]) => `
+                    <li><strong>${txEsc(txCategoryName(cat) ?? '—')}</strong>
+                        applied to ${ids.length} similar transaction${ids.length === 1 ? '' : 's'}</li>`).join('');
+                cascadeHtml = `
+                    <div class="tx-review-section-title">Similar transactions</div>
+                    ${byCat.size
+                        ? `<ul class="tx-review-cascade">${items}</ul>`
+                        : '<div class="tx-match-empty">No similar transactions selected.</div>'}`;
+            }
+
+            $('#tx-review-body').innerHTML = `
+                <div class="tx-review-section-title">Your edits</div>
+                ${untouched ? `<div class="tx-review-note">${untouched} transaction${untouched === 1 ? '' : 's'} unchanged.</div>` : ''}
+                ${editHtml}
+                ${cascadeHtml}`;
+        }
+
+        // ── Save ───────────────────────────────────────────────────────────────
+        async function saveAll() {
+            if (saving) return;
+            saving = true;
+            nextBtn.disabled = true;
+            nextBtn.textContent = 'Saving…';
+
+            const changed = edits.filter(({ orig, payload }) => rowChanges(orig, payload).length);
             const failed = [];
-            const savedRows = [];
-            for (const { id, payload } of edits) {
+            for (const { id, payload } of changed) {
                 try {
                     const saved = await txApiUpdate(id, payload);
-                    savedRows.push(saved);
                     const idx = txState.rows.findIndex(r => r.id === saved.id);
                     if (idx !== -1) txState.rows[idx] = saved;
                 } catch (_) {
                     failed.push(id);
                 }
             }
+
+            let cascadeFailed = false;
+            const cascading = cascadeCb.checked ? checkedMatches() : new Map();
+            for (const [categoryId, ids] of cascading) {
+                try {
+                    const r = await apiFetch('/api/transactions/categorize-similar', {
+                        method:  'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        // overwrite: the user confirmed each row in the match
+                        // list, so already-categorized ones are recategorized
+                        // too. No tx_type — the backend derives it from the
+                        // category.
+                        body:    JSON.stringify({ ids, category_id: categoryId, overwrite: true }),
+                    });
+                    if (!r.ok) throw new Error('failed');
+                } catch (_) {
+                    cascadeFailed = true;
+                }
+            }
+
             close();
             txState.selectedIds = new Set(failed);
-            txSortRows();
-            txRender();
+            if (cascading.size) {
+                // Cascaded rows changed outside txState — refetch the ledger.
+                window.dispatchEvent(new Event('transactions:reload'));
+            } else {
+                txSortRows();
+                txRender();
+            }
             if (failed.length) alert(`${failed.length} transaction${failed.length === 1 ? '' : 's'} could not be saved.`);
+            if (cascadeFailed) alert('Some similar transactions could not be updated.');
+        }
 
-            // Same as the inline add row: once rows are categorized, offer to apply
-            // each new category to other uncategorized transactions that match.
-            await txRunSimilarDetector(savedRows, prevCat);
+        // ── Wizard navigation ──────────────────────────────────────────────────
+        backBtn.addEventListener('click', () => {
+            if (saving) return;
+            showStep(step === 'review' && cascadeCb.checked ? 'match' : 'edit');
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (step === 'edit') {
+                const collected = collectEdits();
+                if (!collected) return;
+                edits = collected;
+                if (cascadeCb.checked) {
+                    // Fresh search each time the edits may have changed; the
+                    // slider always starts back at its 80% default.
+                    slider.value = '0.8';
+                    sliderVal.textContent = '80%';
+                    showStep('match');
+                    fetchMatches();
+                } else {
+                    renderSummary();
+                    showStep('review');
+                }
+            } else if (step === 'match') {
+                renderSummary();
+                showStep('review');
+            } else {
+                saveAll();
+            }
         });
     }
 
@@ -1146,9 +1480,10 @@
     });
 
     // ─── Categorize-similar feature ──────────────────────────────────────────────
-    // After categorizing transactions (the inline add row or a bulk edit), find
-    // other uncategorized rows whose description matches and offer, in one combined
-    // dialog grouped by category, to apply the same categories to them.
+    // After categorizing a transaction in the inline add row, find other
+    // uncategorized rows whose description matches (exactly, case-insensitive)
+    // and offer, in one dialog grouped by category, to apply the same category.
+    // (Bulk edits run their own cascade inside the edit wizard instead.)
 
     // Gather, for each category the user just applied, the still-uncategorized rows
     // that match its description. Returns groups keyed by category; each matching
@@ -1198,25 +1533,6 @@
         const groups = await txGatherSimilarGroups([
             { description: saved.description, category_id: saved.category_id, exclude_id: saved.id },
         ]);
-        if (groups.length) await txShowSimilarModal(groups);
-    }
-
-    // After a bulk edit, offer a single combined dialog: every row whose category
-    // actually changed contributes a query (deduped by description+category), and
-    // the matches are grouped by category in one prompt rather than a chain.
-    async function txRunSimilarDetector(savedRows, prevCat) {
-        const seen = new Set();
-        const queries = [];
-        for (const t of savedRows) {
-            if (t.category_id == null || !t.description) continue;
-            if (prevCat.get(t.id) === t.category_id) continue;   // category unchanged
-            const key = `${t.description.toLowerCase()} ${t.category_id}`;
-            if (seen.has(key)) continue;
-            seen.add(key);
-            queries.push({ description: t.description, category_id: t.category_id, exclude_id: t.id });
-        }
-        if (!queries.length) return;
-        const groups = await txGatherSimilarGroups(queries);
         if (groups.length) await txShowSimilarModal(groups);
     }
 

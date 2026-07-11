@@ -45,7 +45,7 @@ const DEFAULT_BALANCE_COLUMNS = [
   ['debt',        'Debt',        'debt',       4],
 ];
 
-const DEFAULT_APP_SETTINGS = { tx_fuzzy_threshold: '1' };
+const DEFAULT_APP_SETTINGS = { tx_auto_match: 'on' };
 
 function seedDefaults(db) {
   const year = new Date().getFullYear();
