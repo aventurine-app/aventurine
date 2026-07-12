@@ -5,6 +5,8 @@
 // reset: each tracker is only seeded when still empty, and categories are
 // filled in by key so a partially-populated DB is completed, not duplicated.
 
+const { SYSTEM_CATEGORY_KEYS, insertPos } = require('./services/categories');
+
 // (key, name, cat_type, position)
 //
 // The canonical category set: a recognizable, standard personal-finance taxonomy
@@ -54,15 +56,39 @@ function seedDefaults(db) {
     db.prepare('INSERT INTO active_years (year) VALUES (?)').run(year);
   }
 
-  const existingKeys = new Set(
-    db.prepare('SELECT "key" FROM categories').all().map((r) => r.key)
-  );
-  const insCat = db.prepare(
-    'INSERT INTO categories ("key", name, cat_type, position) VALUES (?, ?, ?, ?)'
-  );
-  for (const [key, name, catType, pos] of DEFAULT_CATEGORIES) {
-    if (!existingKeys.has(key)) {
+  // The default taxonomy seeds only into an EMPTY table — a starting template,
+  // like every other tracker in this function. Re-filling by key on every open
+  // would resurrect defaults the user deliberately deleted (and re-insert them
+  // at their original seed position, colliding with whatever sits there now).
+  // A delete must survive relaunch: the user owns a non-empty table.
+  if (!db.prepare('SELECT 1 FROM categories LIMIT 1').get()) {
+    const insCat = db.prepare(
+      'INSERT INTO categories ("key", name, cat_type, position) VALUES (?, ?, ?, ?)'
+    );
+    for (const [key, name, catType, pos] of DEFAULT_CATEGORIES) {
       insCat.run(key, name, catType, pos);
+    }
+  }
+
+  // System buckets (the two uncat_* rows) are the one exception: they're
+  // load-bearing (NULL-category sums — without the row the Uncategorized
+  // column vanishes from Cash Flow), so a DB written before the API lock
+  // existed gets them re-created if deleted, and healed if renamed/re-typed.
+  // Enforced here at the storage boundary, on every open, so every read path
+  // sees the canonical rows. Position is not healed: reordering is allowed.
+  const healCat = db.prepare(
+    'UPDATE categories SET name = ?, cat_type = ? WHERE "key" = ? AND (name != ? OR cat_type != ?)'
+  );
+  for (const [key, name, catType] of DEFAULT_CATEGORIES) {
+    if (!SYSTEM_CATEGORY_KEYS.has(key)) continue;
+    if (db.prepare('SELECT 1 FROM categories WHERE "key" = ?').get(key)) {
+      healCat.run(name, catType, key, name, catType);
+    } else {
+      const pos = insertPos(db, catType);
+      db.prepare('UPDATE categories SET position = position + 1 WHERE position >= ?').run(pos);
+      db.prepare(
+        'INSERT INTO categories ("key", name, cat_type, position) VALUES (?, ?, ?, ?)'
+      ).run(key, name, catType, pos);
     }
   }
 

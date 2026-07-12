@@ -87,6 +87,50 @@ test('uncategorized-count reflects NULL-category rows', (t) => {
   assert.equal(c.get('/api/transactions/uncategorized-count').body.count, 1);
 });
 
+test('new category lands at the end of its own type block, not the global end', (t) => {
+  const c = makeClient(t);
+  // Cash Flow columns and the ledger dropdown render in flat position order,
+  // so a global MAX+1 append would park a new income category past Investing.
+  const ids = {
+    income: makeCategory(c, 'Freelance', 'income'),
+    expense: makeCategory(c, 'Pets', 'expense'),
+    savings: makeCategory(c, 'Vacation Fund', 'savings'),
+    investing: makeCategory(c, 'Crypto', 'investing'),
+  };
+
+  const cats = c.get('/api/categories').body.categories; // ORDER BY position
+  // Type blocks stay contiguous, in canonical order.
+  const types = cats.map((x) => x.cat_type);
+  const runs = types.filter((tp, i) => i === 0 || tp !== types[i - 1]);
+  assert.deepEqual(runs, ['income', 'expense', 'savings', 'investing']);
+  // Each new category is the last row of its own block.
+  for (const [tp, id] of Object.entries(ids)) {
+    const ofType = cats.filter((x) => x.cat_type === tp);
+    assert.equal(ofType[ofType.length - 1].id, id);
+  }
+  // Positions stay unique and contiguous 0..N-1 after the shifts.
+  assert.deepEqual(
+    cats.map((x) => x.position).sort((a, b) => a - b),
+    cats.map((_, i) => i)
+  );
+  // The Cash Flow columns payload sees the same order.
+  assert.deepEqual(
+    c.get('/api/data').body.columns.map((x) => x.key),
+    cats.map((x) => x.key)
+  );
+
+  // Fallback: a type with no rows left inserts after the nearest earlier block.
+  for (const cat of cats.filter((x) => x.cat_type === 'savings')) {
+    assert.equal(c.del(`/api/categories/${cat.id}`).status, 200);
+  }
+  makeCategory(c, 'Rainy Day', 'savings');
+  const after = c.get('/api/categories').body.categories.map((x) => x.cat_type);
+  assert.deepEqual(
+    after.filter((tp, i) => i === 0 || tp !== after[i - 1]),
+    ['income', 'expense', 'savings', 'investing']
+  );
+});
+
 test('category retype updates transactions', (t) => {
   const c = makeClient(t);
   const cat = firstCat(c, 'expense');

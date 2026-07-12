@@ -248,6 +248,20 @@
 .cat-name:focus,
 .cat-row:hover .cat-name:focus { border-color: var(--accent-primary); background: var(--surface1); }
 
+/* Locked row (the seeded "Uncategorized" buckets) — the name is a static label,
+   not an editable input, and there's no delete button; but the row is still
+   draggable, so the grip keeps its normal look. The label never grows the
+   hover/focus box a real input does. */
+.cat-name-static {
+  display: flex;
+  align-items: center;
+  cursor: default;
+}
+.cat-row:hover .cat-name-static {
+  border-color: transparent;
+  background: transparent;
+}
+
 /* ─── Delete × ───────────────────────────────────────────────────────────────
    Always visible but quiet — tertiary glyph at rest, wearing the expense
    colours (dark-red glyph on a light-red tint) on hover so the destructive

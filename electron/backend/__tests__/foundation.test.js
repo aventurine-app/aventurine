@@ -60,6 +60,70 @@ test('seed is idempotent', () => {
   db.close();
 });
 
+test('seed does not resurrect a deleted default category', () => {
+  const db = connect(tmpFile());
+  bootstrapSchema(db);
+  seedDefaults(db);
+  // The user deletes a seeded category; reopening the DB (which re-runs
+  // seedDefaults) must NOT bring it back — defaults are a starting template,
+  // not an enforced set.
+  db.prepare('DELETE FROM categories WHERE "key" = ?').run('groceries');
+  seedDefaults(db);
+  assert.equal(db.prepare('SELECT 1 FROM categories WHERE "key" = ?').get('groceries'), undefined);
+  assert.equal(db.prepare('SELECT COUNT(*) c FROM categories').get().c, 17);
+  db.close();
+});
+
+test('seed re-creates a missing system bucket at the end of its type block', () => {
+  const db = connect(tmpFile());
+  bootstrapSchema(db);
+  seedDefaults(db);
+  // A pre-lock DB could have deleted an uncat_* row. Unlike ordinary defaults,
+  // the system buckets are load-bearing (NULL-category sums) and must come back.
+  // Mirror what the old API delete did: remove the row AND compact positions.
+  const old = db.prepare('SELECT position FROM categories WHERE "key" = ?').get('uncat_expense');
+  db.prepare('DELETE FROM categories WHERE "key" = ?').run('uncat_expense');
+  db.prepare('UPDATE categories SET position = position - 1 WHERE position > ?').run(old.position);
+  seedDefaults(db);
+
+  const uncat = db.prepare('SELECT * FROM categories WHERE "key" = ?').get('uncat_expense');
+  assert.equal(uncat.name, 'Uncategorized');
+  assert.equal(uncat.cat_type, 'expense');
+  // Re-inserted at the end of the expense block: positions stay unique and
+  // dense, and type blocks stay contiguous.
+  const cats = db.prepare('SELECT cat_type, position FROM categories ORDER BY position').all();
+  assert.deepEqual(cats.map((c) => c.position), cats.map((_, i) => i));
+  const runs = cats.map((c) => c.cat_type).filter((tp, i, a) => i === 0 || tp !== a[i - 1]);
+  assert.deepEqual(runs, ['income', 'expense', 'savings', 'investing']);
+  db.close();
+});
+
+test('seed heals a drifted system bucket (name + type), leaves the rest alone', () => {
+  const db = connect(tmpFile());
+  bootstrapSchema(db);
+  seedDefaults(db);
+  // A DB written before the uncat_* lock existed can hold a renamed/re-typed
+  // system bucket (the real-world case: "UNc"). Seeding on open must restore
+  // the canonical row — but never touch user-owned rows or the position.
+  db.prepare(
+    "UPDATE categories SET name = 'UNc', cat_type = 'income', position = 99 WHERE \"key\" = 'uncat_expense'"
+  ).run();
+  db.prepare("UPDATE categories SET name = 'Eating Out' WHERE \"key\" = 'dining'").run();
+
+  seedDefaults(db);
+
+  const uncat = db.prepare('SELECT * FROM categories WHERE "key" = ?').get('uncat_expense');
+  assert.equal(uncat.name, 'Uncategorized');
+  assert.equal(uncat.cat_type, 'expense');
+  assert.equal(uncat.position, 99); // reordering system buckets is allowed
+  // User renames of ordinary categories survive.
+  assert.equal(
+    db.prepare('SELECT name FROM categories WHERE "key" = ?').get('dining').name,
+    'Eating Out'
+  );
+  db.close();
+});
+
 test('bootstrapSchema is a no-op on an already-initialised DB', () => {
   const p = tmpFile();
   const db = connect(p);

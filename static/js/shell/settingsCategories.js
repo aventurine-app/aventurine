@@ -119,6 +119,20 @@
     }
 
     function rowHtml(c) {
+        // The two seeded "Uncategorized" buckets are read-only: their key is
+        // hardcoded elsewhere (Cash Flow/Report Card/credit-card stats) to
+        // bucket NULL-category transactions, so renaming/deleting them would
+        // silently break those totals (backend enforces this too). Their name
+        // is a static label — no input at all, so there's nothing to edit — but
+        // they stay draggable so the user can still reorder them.
+        if (c.locked) {
+            return `
+                <div class="cat-row cat-locked" data-id="${c.id}">
+                    <span class="cat-grip" draggable="true" aria-label="Drag ${esc(c.name)} to reorder or recategorize">${ICON_GRIP}</span>
+                    <span class="cat-name cat-name-static">${esc(c.name)}</span>
+                </div>
+            `;
+        }
         return `
             <div class="cat-row" data-id="${c.id}">
                 <span class="cat-grip" draggable="true" aria-label="Drag ${esc(c.name)} to reorder or recategorize">${ICON_GRIP}</span>
@@ -421,6 +435,13 @@
             if (!draggingRow) return;
             const list = e.target.closest?.('.cat-list');
             if (!list) return;
+            // A locked row (the Uncategorized buckets) can be reordered but not
+            // recategorized — its type is hardcoded — so it only drops within
+            // its own group. Other groups aren't valid targets for it.
+            if (draggingRow.classList.contains('cat-locked') &&
+                list.dataset.type !== draggingRow.closest('.cat-list')?.dataset.type) {
+                return;
+            }
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
             placeIndicator(list, dragAfterRow(list, e.clientY));

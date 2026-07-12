@@ -4,7 +4,12 @@
 // functions (ctx, {params, query, body}); ctx is the conn manager.
 
 const { bad, cleanLabel } = require('../validate');
-const { VALID_CAT_TYPES, serialiseCategory } = require('../services/categories');
+const {
+  VALID_CAT_TYPES,
+  SYSTEM_CATEGORY_KEYS,
+  insertPos,
+  serialiseCategory,
+} = require('../services/categories');
 
 function getCat(db, id) {
   return db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
@@ -27,13 +32,15 @@ function create(ctx, { body }) {
   }
 
   const cat = db.transaction(() => {
-    const nextPos =
-      (db.prepare('SELECT MAX(position) AS m FROM categories').get().m ?? -1) + 1;
+    const pos = insertPos(db, data.cat_type);
+    // Open the slot so later columns keep their relative order (and position
+    // stays unique) — same shift the yearTable factory does on column add.
+    db.prepare('UPDATE categories SET position = position + 1 WHERE position >= ?').run(pos);
     const info = db
       .prepare(
         'INSERT INTO categories ("key", name, cat_type, position) VALUES (?, ?, ?, ?)'
       )
-      .run('__tmp__', name, data.cat_type, nextPos);
+      .run('__tmp__', name, data.cat_type, pos);
     const id = info.lastInsertRowid;
     // Stable key derived from the new row's id, so renames never orphan
     // Entry rows (mirror of the Flask flush-then-set-key dance).
@@ -48,9 +55,11 @@ function update(ctx, { params, body }) {
   const cat = getCat(db, params.cat_id);
   if (!cat) bad('not found', 404);
   const data = body || {};
+  const locked = SYSTEM_CATEGORY_KEYS.has(cat.key);
 
   db.transaction(() => {
     if ('name' in data) {
+      if (locked) bad('category is locked', 409);
       const name = cleanLabel(data.name);
       if (!name) bad('invalid name');
       const existing = db.prepare('SELECT id FROM categories WHERE name = ?').get(name);
@@ -60,6 +69,7 @@ function update(ctx, { params, body }) {
 
     if ('cat_type' in data) {
       if (!VALID_CAT_TYPES.includes(data.cat_type)) bad('invalid cat_type');
+      if (locked && data.cat_type !== cat.cat_type) bad('category is locked', 409);
       if (data.cat_type !== cat.cat_type) {
         cat.cat_type = data.cat_type;
         // Direction is owned by the category — re-type the transactions that
@@ -111,6 +121,7 @@ function remove(ctx, { params }) {
   const db = ctx.db();
   const cat = getCat(db, params.cat_id);
   if (!cat) bad('not found', 404);
+  if (SYSTEM_CATEGORY_KEYS.has(cat.key)) bad('category is locked', 409);
 
   const txCount = db
     .prepare('SELECT COUNT(*) AS c FROM transactions WHERE category_id = ?')
