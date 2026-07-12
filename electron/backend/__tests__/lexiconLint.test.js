@@ -23,8 +23,13 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { MERCHANTS, KEYWORDS } = require('../services/merchantCategories');
-const { normaliseMerchant, categorize } = require('../services/categorize');
+const {
+  MERCHANTS,
+  KEYWORDS,
+  DISPLAY_OVERRIDES,
+  merchantDisplayFor,
+} = require('../services/merchantCategories');
+const { normaliseMerchant, categorize, merchantDisplayName } = require('../services/categorize');
 const { DEFAULT_CATEGORIES } = require('../seed');
 
 const ALL_ENTRIES = [
@@ -106,5 +111,39 @@ test('lexicon: hazard corpus never triggers a category', () => {
       `hazard "${desc}" categorized as ${hit && hit.categoryKey} (via ${hit && hit.source}) — ` +
         'a lexicon entry is hiding inside an unrelated description'
     );
+  }
+});
+
+// ── Display names (see merchantCategories DISPLAY_OVERRIDES) ─────────────────
+
+test('display names: every override key is a real merchant needle', () => {
+  // A typo'd key would silently fall back to auto-casing — the exact class of
+  // quiet quality drift the override map exists to prevent.
+  const needles = new Set(MERCHANTS.map(([n]) => n));
+  for (const key of Object.keys(DISPLAY_OVERRIDES)) {
+    assert.ok(needles.has(key), `DISPLAY_OVERRIDES key "${key}" is not a merchant needle`);
+  }
+});
+
+test('display names: every merchant needle yields a usable name or an explicit null', () => {
+  for (const [needle] of MERCHANTS) {
+    const name = merchantDisplayFor(needle);
+    if (name === null) continue; // deliberate "categorize but never rename"
+    assert.ok(
+      typeof name === 'string' && name.trim() === name && name.length > 0,
+      `needle "${needle}" produced unusable display name ${JSON.stringify(name)}`
+    );
+  }
+});
+
+test('display names: hazard corpus never gets a merchant name', () => {
+  // The same precision bar as categories: a hazard row (bank op, P2P payee,
+  // generic LLC) renamed to a brand would be a silent lie in the ledger.
+  const hazards = JSON.parse(
+    fs.readFileSync(path.join(__dirname, 'fixtures', 'lexicon-hazards.json'), 'utf8')
+  );
+  for (const desc of hazards) {
+    const name = merchantDisplayName(desc);
+    assert.equal(name, null, `hazard "${desc}" would display as "${name}"`);
   }
 });

@@ -99,16 +99,35 @@ const DESCRIPTORS = {
     'travel agency'],
   insurance: ['insurance', 'assurance', 'casualty', 'indemnity', 'underwriters',
     'insurance agency', 'insurance services', 'mutual insurance', 'life & annuity'],
+  // Bare "rent" is a safe descriptor at the WORD level (tokenize splits on
+  // non-alnum, so "parent"/"current" never collapse into it): a rent-flavored
+  // description that's actually a P2P transfer/reimbursement (e.g. a Venmo
+  // "RENT SHARE") is still direction-gated downstream — applyBuiltinCategorize
+  // only applies an expense-typed category ('rent') to an expense-typed row,
+  // so a positive-amount roommate reimbursement can never be mislabeled rent
+  // even if the classifier fires on it.
+  // "rent"/"apts" are repeated: each duplicate is another perDescriptor batch,
+  // proportionally raising their trained frequency (and thus NB log-likelihood)
+  // relative to the single-occurrence words above, since real-world rent-ish
+  // descriptions lean on these bare abbreviations far more than "residential
+  // mgmt"-style full phrases.
   rent: ['apartments', 'apartment homes', 'property management', 'realty', 'leasing',
-    'mortgage', 'home loans', 'property group', 'residential mgmt'],
+    'mortgage', 'home loans', 'property group', 'residential mgmt',
+    ...Array(8).fill('rent'), ...Array(8).fill('apts'), 'apt'],
 };
 
 // Neutral proper-ish tokens combined with descriptors. These appear across ALL
 // categories, so they carry no category signal — the descriptor does. That is
 // exactly what we want the model to learn.
+// Street-type abbreviations belong here too: a bare "st"/"ave"/"blvd" tail is
+// an address fragment on ANY merchant's row, not a travel signal — without
+// this, the "st regis" lexicon entry (a specific hotel brand) leaks "st" as a
+// standalone travel-leaning token, since that's the only place training data
+// ever sees it as a word on its own.
 const NEUTRAL = ['sunrise', 'golden', 'blue', 'main street', 'downtown', 'riverside', 'oak',
   'maple', 'summit', 'coastal', 'urban', 'metro', 'evergreen', 'lakeside', 'north', 'south',
-  'valley', 'harbor', 'liberty', 'central', 'grand', 'sunset', 'park avenue', 'union'];
+  'valley', 'harbor', 'liberty', 'central', 'grand', 'sunset', 'park avenue', 'union',
+  'st', 'ave', 'blvd', 'dr', 'rd', 'ln', 'ct'];
 const PLACEY = [...CITIES.map((c) => c.toLowerCase()), 'westfield', 'fairview', 'georgetown',
   'clarkson', 'brentwood', 'kingsport', 'edgewater'];
 
@@ -135,6 +154,29 @@ const P2P = ['ZELLE TO', 'ZELLE FROM', 'VENMO PAYMENT', 'CASH APP', 'PAYPAL', 'Z
 const GIBBER = ['zentro', 'xqplex', 'vantiq', 'norvex', 'quilo', 'braxid', 'omnica', 'zephyx',
   'kolt', 'druvo', 'plentt', 'yestra', 'oncava', 'wexbo', 'trilix', 'fenopy'];
 const GIBBER_TAIL = ['outpost', 'holdings', 'trading', 'systems', 'labs', 'depot', 'exchange', 'supply'];
+
+// Roommate-style rent splits routed through a P2P app ("VENMO PAYMENT ...
+// RENT SHARE") are a common real-world pattern the base generators never
+// produce: genUnknown's P2P examples are always "<marker> <person name>",
+// so the model has only ever seen a P2P prefix paired with a name, never with
+// a rent word, and defaults to reading any P2P-shaped text as 'unknown'. This
+// teaches the discriminating case directly. (Direction — expense vs. the
+// payee's-side reimbursement — is handled downstream by applyBuiltinCategorize's
+// cat_type guard, not here; this only teaches the TEXT pattern.)
+const RENT_SHARE_PHRASE = ['rent share', 'rent split', 'apt rent', 'rent portion',
+  'monthly rent share', 'half of rent', 'rent my share'];
+
+function genRentP2PExamples(rng, out, count) {
+  for (let i = 0; i < count; i++) {
+    const marker = pick(rng, P2P);
+    const phrase = pick(rng, RENT_SHARE_PHRASE);
+    const withName = chance(rng, 0.6)
+      ? `${marker} ${pick(rng, FIRST)} ${pick(rng, LAST)} ${phrase}`
+      : `${marker} ${phrase}`;
+    const text = withName.toUpperCase() + (chance(rng, 0.3) ? ' ' + Math.floor(rng() * 8999 + 1000) : '');
+    out.push({ text, label: 'rent' });
+  }
+}
 
 // ── Generators ──────────────────────────────────────────────────────────────
 function genPositivesFromLexicon(rng, out, perEntry) {
@@ -200,11 +242,13 @@ function generateDataset(opts = {}) {
     perLexiconEntry = 6,
     perDescriptor = 40,
     unknownCount = 14000,
+    rentP2PCount = 120,
   } = opts;
   const rng = makeRng(seed);
   const out = [];
   genPositivesFromLexicon(rng, out, perLexiconEntry);
   genPositivesFromDescriptors(rng, out, perDescriptor);
+  genRentP2PExamples(rng, out, rentP2PCount);
   genUnknown(rng, out, unknownCount);
   // Deterministic shuffle so train/val split isn't ordered by class.
   for (let i = out.length - 1; i > 0; i--) {

@@ -25,7 +25,7 @@ const {
   FUZZY_THRESHOLD_MIN,
   FUZZY_THRESHOLD_MAX,
 } = require('../services/matchRules');
-const { applyBuiltinCategorize } = require('../services/categorize');
+const { applyBuiltinCategorize, applyDisplayNames } = require('../services/categorize');
 
 function list(ctx) {
   const db = ctx.db();
@@ -249,6 +249,10 @@ function importRows(ctx, { body }) {
   // start. Both skip already-categorized rows, so they never fight.
   const autoCategorized =
     applyAutoMatch(db, inserted) + applyBuiltinCategorize(db, inserted);
+  // Third pass: clean display names for rows the merchant lexicon recognizes
+  // (dictionary lookup only — the raw description is stored untouched and the
+  // ledger keeps it one click away). Hand-entered rows never get one.
+  applyDisplayNames(db, inserted);
   if (inserted.length) {
     db.transaction(() => {
       for (const t of inserted) insertTx(db, t);
@@ -300,8 +304,12 @@ function exportFilterSql(filters) {
     if (typeof filters.description !== 'string') bad('filters.description must be a string');
     const needle = filters.description.trim().toLowerCase();
     if (needle) {
-      conds.push('instr(lower(t.description), ?) > 0');
-      args.push(needle);
+      // Match the raw description OR the clean display name — the table's
+      // Name filter searches both, and the export must save what it shows.
+      conds.push(
+        "(instr(lower(t.description), ?) > 0 OR instr(lower(COALESCE(t.display_name, '')), ?) > 0)"
+      );
+      args.push(needle, needle);
     }
   }
   if (filters.amount_min != null) {

@@ -18,7 +18,7 @@ const path = require('path');
 
 const { generateDataset } = require('./lib/synth');
 const { features } = require('../backend/services/textFeatures');
-const { categorize } = require('../backend/services/categorize'); // lexicon-only at train time
+const { lexiconCategorize: categorize } = require('../backend/services/categorize'); // lexicon-only at train time
 const { predictWithModel } = require('../backend/services/classifier');
 
 const FIX = path.join(__dirname, '..', 'backend', '__tests__', 'fixtures');

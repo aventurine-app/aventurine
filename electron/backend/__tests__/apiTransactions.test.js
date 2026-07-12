@@ -119,6 +119,85 @@ test('amount stored as rounded magnitude', (t) => {
   assert.equal(tx.amount, 12.35);
 });
 
+// ── Clean display names (no Python ancestor) ─────────────────────────────────
+// Imports get a curated display_name when the MERCHANT lexicon recognizes the
+// row — dictionary lookup only, never a string generated from the description.
+// The stored description is never touched (matching, dedup, search and export
+// key off it).
+
+test('import names lexicon merchants; description keeps the raw string', (t) => {
+  const c = makeClient(t);
+  const raw = 'NETFLIX.COM 866-579-7172 CA';
+  importRows(c, [raw, 'Lunch with Sam']);
+
+  const named = txByDesc(c, raw)[0];
+  assert.equal(named.display_name, 'Netflix');
+  assert.equal(named.description, raw);
+
+  // A row the merchant lexicon doesn't recognize stays unnamed — no attempt,
+  // no failure.
+  assert.equal(txByDesc(c, 'Lunch with Sam')[0].display_name, null);
+});
+
+test('keyword-tier categorization names nothing (kind, not identity)', (t) => {
+  const c = makeClient(t);
+  const raw = 'SQ *BLUE BOTTLE COFFEE 866-123-4567 CA';
+  const result = importRows(c, [raw]);
+  assert.equal(result.auto_categorized, 1); // 'coffee' keyword → dining
+  assert.equal(txByDesc(c, raw)[0].display_name, null);
+});
+
+test('hand-entered transactions get no display_name', (t) => {
+  const c = makeClient(t);
+  const tx = createTx(c, 'NETFLIX.COM');
+  assert.equal(tx.display_name, null);
+});
+
+test('editing the description clears display_name; other edits keep it', (t) => {
+  const c = makeClient(t);
+  const raw = 'CHECKCARD 1234 SHELL OIL';
+  importRows(c, [raw]);
+  const tx = txByDesc(c, raw)[0];
+  assert.equal(tx.display_name, 'Shell');
+
+  // Non-description edits (and a payload re-sending the same description,
+  // as bulk edit does) keep the clean name.
+  let r = c.put(`/api/transactions/${tx.id}`, { amount: 12.5, description: raw });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.transaction.display_name, 'Shell');
+
+  // The user rewrote the description — it supersedes the derived name.
+  r = c.put(`/api/transactions/${tx.id}`, { description: 'Gas fill-up' });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.transaction.display_name, null);
+});
+
+test('display names respect the auto-match switch and skip identical names', (t) => {
+  const c = makeClient(t);
+  setSetting(c, 'tx_auto_match', 'off');
+  importRows(c, ['NETFLIX.COM']);
+  assert.equal(txByDesc(c, 'NETFLIX.COM')[0].display_name, null);
+
+  setSetting(c, 'tx_auto_match', 'on');
+  // The canonical name equals the description verbatim — nothing to reveal,
+  // so nothing is stored.
+  importRows(c, ['Netflix']);
+  assert.equal(txByDesc(c, 'Netflix')[0].display_name, null);
+});
+
+test('rows categorized by a learned rule still get the merchant name', (t) => {
+  const c = makeClient(t);
+  const cat = makeCategory(c, 'My Streaming');
+  createTx(c, 'NETFLIX.COM', { catId: cat }); // teaches a MatchRule
+
+  const result = importRows(c, ['NETFLIX.COM']);
+  assert.equal(result.auto_categorized, 1); // via the learned rule, not the lexicon
+  const rows = txByDesc(c, 'NETFLIX.COM').filter((x) => x.display_name != null);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].display_name, 'Netflix');
+  assert.equal(rows[0].category_id, cat);
+});
+
 // ── test_match_rules.py ───────────────────────────────────────────────────────
 
 test('import auto-categorizes exact match', (t) => {

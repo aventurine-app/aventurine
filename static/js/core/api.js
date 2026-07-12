@@ -185,10 +185,12 @@
     // this workspace's CLAUDE.md (import leaves unmatched rows blank).
     '/api/transactions': {
       transactions: [
-        { id: 1, date: `${year}-03-04`, description: 'NETFLIX.COM', category_id: null,
-          tx_type: 'expense', amount: 15.49, notes: '' },
-        { id: 2, date: `${year}-03-01`, description: 'ACME PAYROLL', category_id: 1,
-          tx_type: 'income', amount: 2100, notes: '' },
+        // display_name models the lexicon's canonical merchant name; null on
+        // the payroll row exercises the plain (no reveal toggle) rendering.
+        { id: 1, date: `${year}-03-04`, description: 'NETFLIX.COM', display_name: 'Netflix',
+          category_id: null, tx_type: 'expense', amount: 15.49, notes: '' },
+        { id: 2, date: `${year}-03-01`, description: 'ACME PAYROLL', display_name: null,
+          category_id: 1, tx_type: 'income', amount: 2100, notes: '' },
       ],
       categories: [
         { id: 1, key: 'income', name: 'Primary Income', cat_type: 'income', position: 0 },

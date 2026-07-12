@@ -20,6 +20,8 @@
 //                          not in place.)
 //   txState.selectedIds  — Set of checked transaction ids; drives the header
 //                          Edit/Delete buttons and the two action modals
+//   txState.revealedIds  — ids whose original (raw bank) description is
+//                          expanded under the clean display name
 //   txState.filters      — Transactions Search controls, raw input values;
 //                          a blank value means that filter is off
 
@@ -33,6 +35,7 @@
         categories:  [],
         editingId:   null,
         selectedIds: new Set(),
+        revealedIds: new Set(),
         page:        1,   // 1-based; clamped to the visible-row count on every render
         filters: {
             dateFrom:  '',
@@ -148,12 +151,28 @@
         const typeLabel   = meta.label;
         const typeClass   = meta.cls;
 
+        // Imported rows the merchant lexicon recognizes carry a canonical
+        // display_name with the raw bank string one click away; manual entries
+        // and unrecognized imports have none and render the description
+        // directly, with no affordance.
+        let descCell = txEsc(t.description);
+        if (t.display_name) {
+            const revealed = txState.revealedIds.has(t.id);
+            descCell = `
+            <button type="button" class="tx-desc-toggle" data-tx-desc="${t.id}"
+                    aria-expanded="${revealed}" title="${revealed ? 'Hide' : 'Show'} original description">
+                <span class="tx-desc-name">${txEsc(t.display_name)}</span>
+                <svg class="tx-desc-chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M7 8.5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>${revealed ? `
+            <div class="tx-desc-original">${txEsc(t.description)}</div>` : ''}`;
+        }
+
         const selected = txState.selectedIds.has(t.id);
         return `
         <tr class="tx-row${selected ? ' tx-selected' : ''}" data-id="${t.id}">
             <td class="tx-col-select"><input type="checkbox" class="tx-checkbox tx-row-cb" data-id="${t.id}" ${selected ? 'checked' : ''} aria-label="Select transaction"></td>
             <td class="tx-col-date">${txEsc(txFmtDate(t.date))}</td>
-            <td class="tx-col-description">${txEsc(t.description)}</td>
+            <td class="tx-col-description">${descCell}</td>
             <td class="tx-col-type"><span class="tx-type-pill ${typeClass}">${typeLabel}</span></td>
             <td class="tx-col-category">${catCell}</td>
             <td class="tx-col-amount ${amountClass}">${sign}${txFmtAmount(t.amount)}</td>
@@ -282,7 +301,9 @@
         if (f.dateFrom && t.date < f.dateFrom) return false;
         if (f.dateTo   && t.date > f.dateTo)   return false;
         const name = f.name.trim().toLowerCase();
-        if (name && !(t.description || '').toLowerCase().includes(name)) return false;
+        if (name
+            && !(t.description  || '').toLowerCase().includes(name)
+            && !(t.display_name || '').toLowerCase().includes(name)) return false;
         const min = txParseAmountFilter(f.amountMin);
         const max = txParseAmountFilter(f.amountMax);
         if (min !== null && t.amount < min) return false;
@@ -1185,7 +1206,7 @@
                             <input type="checkbox" class="tx-similar-cb" data-id="${t.id}" data-cat="${g.categoryId}" checked>
                         </td>
                         <td class="tx-similar-col-date">${txEsc(txFmtDate(t.date))}</td>
-                        <td>${txEsc(t.description)}</td>
+                        <td title="${txEsc(t.description)}">${txEsc(t.display_name || t.description)}</td>
                         <td class="tx-similar-col-cat">${catCell}</td>
                         <td class="tx-similar-col-amount ${amtClass}">${sign}${txFmtAmount(t.amount)}</td>
                     </tr>
@@ -1386,6 +1407,15 @@
             else if (emptyBtn.dataset.emptyAction === 'tx-clear-filters') txClearFilters();
             return;
         }
+        // Clean-name cell: toggle the original bank description under it.
+        const descBtn = e.target.closest('.tx-desc-toggle');
+        if (descBtn) {
+            const id = parseInt(descBtn.dataset.txDesc, 10);
+            if (txState.revealedIds.has(id)) txState.revealedIds.delete(id);
+            else txState.revealedIds.add(id);
+            txRender();
+            return;
+        }
         const btn = e.target.closest('button[data-action]');
         if (!btn) return;
         const action = btn.dataset.action;
@@ -1554,7 +1584,7 @@
                     <input type="checkbox" class="tx-similar-cb" data-id="${t.id}" data-cat="${g.categoryId}" checked>
                 </td>
                 <td class="tx-similar-col-date">${txEsc(txFmtDate(t.date))}</td>
-                <td>${txEsc(t.description)}</td>
+                <td title="${txEsc(t.description)}">${txEsc(t.display_name || t.description)}</td>
                 <td class="tx-similar-col-amount ${amtClass}">${sign}${txFmtAmount(t.amount)}</td>
             </tr>
         `;

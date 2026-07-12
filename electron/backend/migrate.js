@@ -8,7 +8,7 @@
 //                                     re-stamp. Each migration is additive and
 //                                     idempotent so a re-run is harmless.
 
-const { SCHEMA_VERSION, createBaselineSchema } = require('./schema');
+const { SCHEMA_VERSION, createBaselineSchema, DDL } = require('./schema');
 
 function tableExists(db, name) {
   return !!db
@@ -104,6 +104,21 @@ const MIGRATIONS = [
     if (hasCol) {
       db.exec('ALTER TABLE categories DROP COLUMN flex_type');
     }
+  }],
+  // v8 — Transactions gain display_name: the import-derived clean merchant
+  // name the ledger shows in place of the raw bank description (NULL = show
+  // the description itself). Existing rows stay NULL — there is no way to
+  // tell an imported row from a hand-entered one after the fact, and a wrong
+  // "clean" name on a manual entry costs more than a messy one on an import.
+  [8, (db) => {
+    const hasCol = db.pragma('table_info(transactions)').some((c) => c.name === 'display_name');
+    if (!hasCol) {
+      db.exec('ALTER TABLE transactions ADD COLUMN display_name VARCHAR(200)');
+    }
+    // Recreate v_transactions from the baseline text so a migrated DB's view
+    // exposes display_name exactly like a fresh DB's.
+    db.exec('DROP VIEW IF EXISTS v_transactions');
+    db.exec(DDL.find((s) => s.includes('CREATE VIEW v_transactions')));
   }],
 ];
 

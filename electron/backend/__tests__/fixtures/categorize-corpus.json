@@ -72,6 +72,7 @@
   { "desc": "AMZN MKTP US*2X4AB1CD3", "expected": "shopping" },
   { "desc": "AMAZON.COM*A1B2C3", "expected": "shopping" },
   { "desc": "WALMART.COM AA", "expected": "shopping" },
+  { "desc": "CHECKCARD 0119 WAL-MART #2210 WAL-MART SUP DENTON T", "expected": "shopping" },
   { "desc": "TARGET 00012345", "expected": "shopping" },
   { "desc": "COSTCO WHSE #0456", "expected": "shopping" },
   { "desc": "BEST BUY #123", "expected": "shopping" },

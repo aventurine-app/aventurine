@@ -17,7 +17,7 @@
 //   - the v_* views pre-join the normalized tables into human-readable,
 //     chronologically-sortable shapes for ad-hoc querying.
 
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 
 // Months persist as 1-12 integers so `ORDER BY year, month` sorts
 // chronologically (the app translates to/from English names at its API
@@ -163,6 +163,7 @@ const DDL = [
      id INTEGER NOT NULL,
      date DATE NOT NULL,                                    -- ISO 'YYYY-MM-DD'
      description VARCHAR(200) DEFAULT '' NOT NULL,
+     display_name VARCHAR(200),  -- import-derived clean merchant name; NULL = show description
      category_id INTEGER,
      amount FLOAT DEFAULT 0 NOT NULL CHECK (amount >= 0),
      notes VARCHAR(500) DEFAULT '' NOT NULL,
@@ -218,6 +219,7 @@ const DDL = [
        t.id,
        t.date,
        t.description,
+       t.display_name,
        t.amount,
        COALESCE(c.cat_type, t.tx_type) AS tx_type,
        CASE WHEN COALESCE(c.cat_type, t.tx_type) = 'income'
@@ -294,4 +296,6 @@ function createBaselineSchema(db) {
   for (const stmt of DDL) db.exec(stmt);
 }
 
-module.exports = { SCHEMA_VERSION, createBaselineSchema };
+// DDL is exported so migrations can recreate a single view from the baseline
+// text instead of carrying a drifting copy (see migrate.js v8).
+module.exports = { SCHEMA_VERSION, createBaselineSchema, DDL };

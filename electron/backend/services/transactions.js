@@ -23,6 +23,7 @@ function serialiseTx(t, catTypeById = null) {
     id: t.id,
     date: t.date || null,
     description: t.description,
+    display_name: t.display_name ?? null,
     category_id: t.category_id,
     tx_type: txType,
     amount: t.amount,
@@ -49,7 +50,11 @@ function applyTxFields(db, t, data, { requireAll }) {
   if ('description' in data || requireAll) {
     const val = 'description' in data ? data.description : '';
     if (typeof val !== 'string') return 'invalid description';
-    t.description = val.slice(0, 200);
+    const next = val.slice(0, 200);
+    // A user-edited description supersedes the import-derived clean name; a
+    // payload that merely re-sends the same text (bulk edit) keeps it.
+    if (next !== t.description) t.display_name = null;
+    t.description = next;
   }
   if ('category_id' in data) {
     const val = data.category_id;
@@ -92,14 +97,15 @@ function insertTx(db, t) {
   let stmt = insertStmts.get(db);
   if (!stmt) {
     stmt = db.prepare(
-      `INSERT INTO transactions (date, description, category_id, tx_type, amount, notes)
-       VALUES (?, ?, ?, ?, ?, ?)`
+      `INSERT INTO transactions (date, description, display_name, category_id, tx_type, amount, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
     );
     insertStmts.set(db, stmt);
   }
   const info = stmt.run(
       t.date,
       t.description ?? '',
+      t.display_name ?? null,
       t.category_id ?? null,
       t.tx_type ?? 'expense',
       t.amount ?? 0,
@@ -113,9 +119,9 @@ function insertTx(db, t) {
 function updateTx(db, t) {
   db.prepare(
     `UPDATE transactions
-        SET date = ?, description = ?, category_id = ?, tx_type = ?, amount = ?, notes = ?
+        SET date = ?, description = ?, display_name = ?, category_id = ?, tx_type = ?, amount = ?, notes = ?
       WHERE id = ?`
-  ).run(t.date, t.description, t.category_id, t.tx_type, t.amount, t.notes, t.id);
+  ).run(t.date, t.description, t.display_name ?? null, t.category_id, t.tx_type, t.amount, t.notes, t.id);
 }
 
 /** Fresh tx object with the model's column defaults (mirror of Transaction()). */
@@ -124,6 +130,7 @@ function newTx() {
     id: null,
     date: null,
     description: '',
+    display_name: null,
     category_id: null,
     tx_type: 'expense',
     amount: 0,

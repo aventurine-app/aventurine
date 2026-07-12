@@ -73,6 +73,26 @@ test('bootstrapSchema is a no-op on an already-initialised DB', () => {
   db.close();
 });
 
+test('v8 migration adds transactions.display_name and refreshes v_transactions', () => {
+  const db = connect(tmpFile());
+  bootstrapSchema(db);
+  seedDefaults(db);
+  // Rewind to the v7 shape: no display_name column, view without it. (The
+  // view must go first — SQLite refuses to drop a column a view references.)
+  db.exec('DROP VIEW v_transactions');
+  db.exec('ALTER TABLE transactions DROP COLUMN display_name');
+  db.pragma('user_version = 7');
+
+  bootstrapSchema(db);
+  assert.equal(db.pragma('user_version', { simple: true }), SCHEMA_VERSION);
+  assert.ok(db.pragma('table_info(transactions)').some((c) => c.name === 'display_name'));
+  db.prepare(
+    "INSERT INTO transactions (date, description, display_name) VALUES ('2026-07-01', 'SQ *CAFE 42', 'Cafe')"
+  ).run();
+  assert.equal(db.prepare('SELECT display_name FROM v_transactions').get().display_name, 'Cafe');
+  db.close();
+});
+
 test('connect() leaves foreign_keys OFF (handler-enforced integrity)', () => {
   // better-sqlite3-multiple-ciphers is compiled with foreign_keys ON by
   // default; connect() must switch it OFF since referential rules live in the

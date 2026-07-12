@@ -553,6 +553,46 @@
     color: var(--text-secondary);
 }
 
+/* Clean description (imported rows): the cell shows the import-derived clean
+   merchant name; the raw bank string expands underneath on click. The toggle
+   is a real <button> for keyboard access but renders as plain cell text, with
+   a small chevron that appears on row hover / focus so an untouched table
+   stays visually quiet. */
+.tx-desc-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+}
+
+.tx-desc-chevron {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    color: var(--text-secondary);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.tx-row:hover .tx-desc-chevron,
+.tx-desc-toggle:focus-visible .tx-desc-chevron        { opacity: 1; }
+.tx-desc-toggle[aria-expanded="true"] .tx-desc-chevron { opacity: 1; transform: rotate(180deg); }
+
+/* The revealed raw bank string — quiet second line under the clean name. */
+.tx-desc-original {
+    margin: 2px 0 0;
+    font-size: var(--size-small);
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+}
+
 /* Pill-style category badge inside the display-mode row. Neutral surface
    so it reads as a tag without competing with the description. */
 .tx-category-pill {
