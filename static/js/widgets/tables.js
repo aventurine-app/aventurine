@@ -302,6 +302,11 @@
      * (the Statements year stepper toggles [hidden] on the .db-outer cards).
      */
     function renderYearTables(ctx) {
+        // Commit any edits still inside their debounce window BEFORE tearing the
+        // inputs down. fire() writes through to ctx.entries synchronously (see
+        // fireSaveFor), so the rebuild below picks the values up even when the
+        // API call is still in flight.
+        flushAllPendingCellSaves();
         ctx.container.innerHTML = '';
         [...ctx.years].sort((a, b) => b - a).forEach(year => {
             const outerEl = createYearTable(year, ctx);
@@ -486,16 +491,18 @@
     const SAVE_DEBOUNCE_MS = 600;
     const _pendingCellSaves = new Map();   // input -> { timer, fire }
 
-    window.addEventListener('pagehide', () => {
-        // The save fetches carry `keepalive: true` (see makeYearTableApi) so the
-        // browser holds them open long enough to reach the server even as the
-        // page unloads.
+    function flushAllPendingCellSaves() {
         for (const { timer, fire } of _pendingCellSaves.values()) {
             clearTimeout(timer);
             fire();
         }
         _pendingCellSaves.clear();
-    });
+    }
+
+    // The save fetches carry `keepalive: true` (see makeYearTableApi) so the
+    // browser holds them open long enough to reach the server even as the
+    // page unloads.
+    window.addEventListener('pagehide', flushAllPendingCellSaves);
 
     // ─── Table init: populate cells + wire input events ─────────────────────────
 
@@ -525,9 +532,16 @@
         const fireSaveFor = (input, month, col) => {
             _pendingCellSaves.delete(input);
             const val = parseFloat(stripCurrencyValue(input.value));
+            // Write through to ctx.entries so the in-memory model always matches
+            // the cells. renderYearTables rebuilds the DOM from ctx.entries, so
+            // without this a local re-render (e.g. after a column rename) blanks
+            // every value entered since the last full reload.
+            const months = ctx.entries[String(currentYear)] ??= {};
             if (input.value === '' || isNaN(val)) {
+                if (months[month]) delete months[month][col];
                 ctx.api.deleteEntry(currentYear, month, col);
             } else {
+                (months[month] ??= {})[col] = val;
                 ctx.api.upsertEntry(currentYear, month, col, val);
             }
         };
