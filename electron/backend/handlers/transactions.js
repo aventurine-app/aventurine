@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { bad, parseIsoDate, isFiniteNumber, validateYear } = require('../validate');
-const { ensureSyncedYear } = require('../categorySync');
+const { ensureActiveYear } = require('./incomeExpenses');
 const { normalisePath } = require('./database');
 const { EXPORT_FORMATS, exportHeader, exportBody, exportFooter } = require('../services/txExport');
 const {
@@ -257,12 +257,11 @@ function importRows(ctx, { body }) {
   if (inserted.length) {
     db.transaction(() => {
       for (const t of inserted) insertTx(db, t);
-      // Auto-create a Cash Flow year-table (fully synced) for every year this
-      // import touches, so imported history feeds the statement, Report Card,
-      // and Home with zero configuration. ensureSyncedYear is guarded on
-      // creation — years the user already configured are left exactly as-is.
+      // Auto-create a Cash Flow year-table for every year this import touches,
+      // so imported history feeds the statement, Report Card, and Home with
+      // zero configuration (cells compute from transactions by default).
       for (const year of new Set(inserted.map((t) => parseInt(t.date.slice(0, 4), 10)))) {
-        if (validateYear(year)) ensureSyncedYear(db, year);
+        if (validateYear(year)) ensureActiveYear(db, year);
       }
     })();
   }

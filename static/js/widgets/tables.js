@@ -279,7 +279,6 @@
             addYear:       (year)                    => wrapWrite(sendJson(`${prefix}/year`,   'POST',   { year })),
             deleteYear:    (year)                    => wrapWrite(apiFetch(`${prefix}/year/${year}`, { method: 'DELETE' })),
             duplicateYear: (src, tgt)                => wrapWrite(sendJson(`${prefix}/year/${src}/duplicate`, 'POST', { target_year: tgt })),
-            setSync:       (year, body)              => wrapWrite(sendJson(`${prefix}/year/${year}/sync`, 'POST', body)),
             addColumn:     (body)                    => wrapWrite(sendJson(`${prefix}/columns`, 'POST', body).then(r => r.json())),
             updateColumn:  (key, updates)            => wrapWrite(sendJson(`${prefix}/columns/${key}`, 'PUT', updates).then(r => r.json())),
             moveColumn:    (key, direction)          => wrapWrite(sendJson(`${prefix}/columns/${key}/move`, 'POST', { direction }).then(r => r.json())),
@@ -325,10 +324,12 @@
         ctx.columns   = data.columns;
         ctx.years     = data.years;
         ctx.entries   = data.entries;
-        // Per-year synced-category map { yearStr: [catKey,…] }. Only the Cash Flow
-        // page ships it; other year-table pages leave ctx.sync undefined (all cells
-        // editable).
-        ctx.sync      = data.sync || {};
+        // Provenance layers — only the Cash Flow page ships them. `computed` is
+        // the per-cell transaction sums, `manual` the stored per-cell overrides;
+        // entries is the blend (manual ?? computed). Pages without the layers
+        // (Balance Sheet) render every cell as a plain hand-entered value.
+        ctx.computed  = data.computed || null;
+        ctx.manual    = data.manual   || null;
         renderYearTables(ctx);
     }
 
@@ -354,10 +355,6 @@
         outer.className = 'db-outer';
         outer.dataset.year = year;
 
-        // Which categories are sync-computed for THIS year (per-table sync). Empty
-        // on pages that don't ship a sync map (everything stays editable).
-        const syncedKeys = new Set(ctx.sync?.[String(year)] || []);
-
         const wrapper = document.createElement('div');
         wrapper.className = 'db-wrapper';
 
@@ -366,8 +363,8 @@
 
         // ── thead: column headers ───────────────────────────────────────────────
         const thead = document.createElement('thead');
-        // Sync state is per-table now and managed from the ⋮ → Sync Settings modal,
-        // so headers carry no sync affordance — the read-only body cells are the cue.
+        // Cell provenance (computed vs hand-entered) is per cell and signalled by
+        // the value's own styling, so headers carry no affordance for it.
         const headerRow = document.createElement('tr');
         headerRow.className = 'db-header-row';
         const monthTh = document.createElement('th');
@@ -383,8 +380,6 @@
         table.appendChild(thead);
 
         // ── tbody: one row per month, one cell per column ──────────────────────
-        // Editable inputs for normal columns, read-only spans for synced ones —
-        // see _buildDataCell.
         const tbody = document.createElement('tbody');
         MONTHS.forEach(month => {
             const tr = document.createElement('tr');
@@ -393,7 +388,7 @@
             monthTd.textContent = month;
             tr.appendChild(monthTd);
             ctx.columns.forEach(col => {
-                tr.appendChild(_buildDataCell(month, col, syncedKeys.has(col.key)));
+                tr.appendChild(_buildDataCell(month, col));
             });
             tbody.appendChild(tr);
         });
@@ -411,7 +406,7 @@
             totalLabelTd.textContent = 'Total';
             totalRow.appendChild(totalLabelTd);
             ctx.columns.forEach(col => {
-                totalRow.appendChild(_buildTotalCell(col, syncedKeys.has(col.key)));
+                totalRow.appendChild(_buildTotalCell(col));
             });
             tfoot.appendChild(totalRow);
             table.appendChild(tfoot);
@@ -423,31 +418,17 @@
     }
 
     /**
-     * Build one body cell. Two shapes:
-     *   • Editable column      — editable <input>. The input carries the currency
-     *                            symbol as a prefix once content is present (e.g.
-     *                            "$1,234"); see currency.js for the editing model.
-     *   • Synced cell (isSynced) — read-only <span>. Its text is the computed sum of
-     *                            matching transactions for the month, populated by
-     *                            initYearTable from the entries payload. No event
-     *                            wiring on these cells. Sync is per-table, so the
-     *                            same column may be synced in one year and editable
-     *                            in another.
+     * Build one body cell: an editable <input>. The input carries the currency
+     * symbol as a prefix once content is present (e.g. "$1,234"); see
+     * currency.js for the editing model. On the Cash Flow page a cell whose
+     * value is computed from transactions gets the .cell-computed treatment
+     * (accent-info italics) from applyCellPresentation — an empty cell is
+     * simply blank, so the accent colour is the only signal that a computation
+     * is present.
      */
-    function _buildDataCell(month, col, isSynced) {
+    function _buildDataCell(month, col) {
         const td = document.createElement('td');
         td.className = 'data-cell';
-
-        if (isSynced) {
-            td.classList.add('db-col-synced');
-            const span = document.createElement('span');
-            span.className     = 'db-input db-synced-value';
-            span.dataset.month = month;
-            span.dataset.col   = col.key;
-            span.textContent   = '—';
-            td.appendChild(span);
-            return td;
-        }
 
         const input = document.createElement('input');
         input.type          = 'text';        // not number, so symbol + commas can show
@@ -455,26 +436,22 @@
         input.className     = 'db-input';
         input.dataset.month = month;
         input.dataset.col   = col.key;
-        input.placeholder   = '—';
         td.appendChild(input);
         return td;
     }
 
     /**
      * Build one read-only total cell (used when includeTotals is true). The
-     * span starts at "—" and updateYearTotals() rewrites it to "$<sum>" (with
+     * span starts blank and updateYearTotals() rewrites it to "$<sum>" (with
      * the user's chosen symbol baked in via formatCurrency) once the column
-     * has a non-zero sum. `isSynced` extends the synced-cell highlight into the
-     * totals row for this year.
+     * has a value.
      */
-    function _buildTotalCell(col, isSynced) {
+    function _buildTotalCell(col) {
         const td = document.createElement('td');
         td.className = 'data-cell';
-        if (isSynced) td.classList.add('db-col-synced');
         td.dataset.totalCol = col.key;
         const valSpan = document.createElement('span');
         valSpan.className = 'total-value';
-        valSpan.textContent = '—';
         td.appendChild(valSpan);
         return td;
     }
@@ -504,6 +481,94 @@
     // page unloads.
     window.addEventListener('pagehide', flushAllPendingCellSaves);
 
+    // ─── Cell provenance presentation (Cash Flow) ───────────────────────────────
+    // On pages that ship the provenance layers (ctx.computed / ctx.manual), a
+    // cell is in one of two states:
+    //   computed — no stored entry: the value is the month's transaction sum,
+    //              rendered in accent-info italics (.cell-computed). An empty
+    //              computed cell is simply blank — the accent colour is the
+    //              ONLY signal that a computation is present.
+    //   yours    — a stored entry overrides the cell: plain text like any other
+    //              input. When a computed value exists underneath, the cell
+    //              also grows a hover-revealed ↺ button that clears the entry.
+    // Tooltips carry the education (including the shadowed computed value), so
+    // the resting grid gains no extra chrome.
+
+    const cellLayerValue = (layer, year, month, col) =>
+        layer?.[String(year)]?.[month]?.[col];
+
+    // Shown once ever, the first time the user overrides a computed cell —
+    // teaches both halves of the model at the exact moment it changes.
+    const OVERRIDE_HINT_KEY = 'cf-override-hint-shown';
+    function maybeShowOverrideHint(ctx, year, month, col) {
+        if (cellLayerValue(ctx.computed, year, month, col) === undefined) return;
+        if (localStorage.getItem(OVERRIDE_HINT_KEY)) return;
+        localStorage.setItem(OVERRIDE_HINT_KEY, '1');
+        UI.toast(
+            'This cell now holds your value and won’t update from transactions. '
+            + 'Clear it anytime to return to the computed figure.',
+            { type: 'info', duration: 8000 }
+        );
+    }
+
+    /**
+     * Sync one cell's value, styling, tooltip, and revert affordance to the
+     * provenance layers. No-op on pages without them. `flash` replays the
+     * fade-in on a value returning to its computed state (tables.css §computed);
+     * `onRevert` wires the ↺ button through the same save path as typing.
+     */
+    function applyCellPresentation(input, year, month, col, ctx, { flash = false, onRevert } = {}) {
+        if (!ctx.computed) return;
+        const td       = input.closest('td');
+        const manual   = cellLayerValue(ctx.manual, year, month, col);
+        const computed = cellLayerValue(ctx.computed, year, month, col);
+        let revertBtn  = td.querySelector('.cell-revert');
+
+        input.classList.remove('cell-flash');
+
+        if (manual !== undefined) {
+            // Overridden: the user's value, plain chrome.
+            input.value = formatCurrency(manual, false, { editable: true });
+            input.classList.remove('cell-computed');
+            if (computed !== undefined) {
+                input.title = 'Entered by hand — clear the cell to return to the '
+                    + `computed value (${formatCurrency(computed)})`;
+                if (!revertBtn && onRevert) {
+                    revertBtn = document.createElement('button');
+                    revertBtn.type = 'button';
+                    revertBtn.className = 'cell-revert';
+                    revertBtn.textContent = '↺';
+                    revertBtn.title = `Restore the computed value (${formatCurrency(computed)})`;
+                    revertBtn.setAttribute('aria-label', 'Restore the computed value');
+                    revertBtn.addEventListener('click', () => onRevert(input, month, col));
+                    td.appendChild(revertBtn);
+                } else if (revertBtn) {
+                    revertBtn.title = `Restore the computed value (${formatCurrency(computed)})`;
+                }
+            } else {
+                input.title = '';
+                revertBtn?.remove();
+            }
+            return;
+        }
+
+        revertBtn?.remove();
+        if (computed !== undefined) {
+            input.value = formatCurrency(computed, false, { editable: true });
+            input.classList.add('cell-computed');
+            input.title = 'Computed from your transactions — type to set your own value';
+            if (flash) {
+                // Force a reflow so re-adding the class replays the animation.
+                void input.offsetWidth;
+                input.classList.add('cell-flash');
+            }
+        } else {
+            input.value = '';
+            input.classList.remove('cell-computed');
+            input.title = '';
+        }
+    }
+
     // ─── Table init: populate cells + wire input events ─────────────────────────
 
     /**
@@ -529,21 +594,57 @@
         // doubles as the registry that blur and pagehide flush against, so
         // moving focus or navigating away never drops an in-progress edit.
 
+        // Re-apply a cell's provenance presentation (value/styling/tooltip/↺).
+        // No-op on pages without the layers. Defined up front so fireSaveFor
+        // and the revert button share it.
+        const present = (input, month, col, opts = {}) =>
+            applyCellPresentation(input, currentYear, month, col, ctx, { onRevert, ...opts });
+
         const fireSaveFor = (input, month, col) => {
             _pendingCellSaves.delete(input);
             const val = parseFloat(stripCurrencyValue(input.value));
-            // Write through to ctx.entries so the in-memory model always matches
-            // the cells. renderYearTables rebuilds the DOM from ctx.entries, so
-            // without this a local re-render (e.g. after a column rename) blanks
-            // every value entered since the last full reload.
-            const months = ctx.entries[String(currentYear)] ??= {};
+            // Write through to ctx.entries (and the manual layer, where the page
+            // has one) so the in-memory model always matches the cells.
+            // renderYearTables rebuilds the DOM from ctx.entries, so without
+            // this a local re-render (e.g. after a column rename) blanks every
+            // value entered since the last full reload.
+            const yearStr = String(currentYear);
+            const months = ctx.entries[yearStr] ??= {};
+            const computed = cellLayerValue(ctx.computed, currentYear, month, col);
             if (input.value === '' || isNaN(val)) {
-                if (months[month]) delete months[month][col];
+                // Clearing a cell deletes the entry. On provenance pages that
+                // RELEASES the cell back to its computed value (blank when the
+                // month has no matching transactions) — a blank is never a
+                // meaningful override; to force zero, type 0.
+                if (ctx.manual?.[yearStr]?.[month]) delete ctx.manual[yearStr][month][col];
+                if (computed !== undefined) (months[month] ??= {})[col] = computed;
+                else if (months[month]) delete months[month][col];
                 ctx.api.deleteEntry(currentYear, month, col);
             } else {
                 (months[month] ??= {})[col] = val;
+                if (ctx.computed) {
+                    (((ctx.manual ??= {})[yearStr] ??= {})[month] ??= {})[col] = val;
+                    maybeShowOverrideHint(ctx, currentYear, month, col);
+                }
                 ctx.api.upsertEntry(currentYear, month, col, val);
             }
+            // Re-present unless the user is mid-edit in this cell (blur presents
+            // then; this covers cellselect's synthetic edits, the ↺ button, and
+            // debounced saves that land after focus moved on). Totals follow so
+            // a restored computed value is counted again.
+            if (document.activeElement !== input) {
+                present(input, month, col, { flash: input.value === '' && computed !== undefined });
+                if (ctx.includeTotals) updateYearTotals(outerEl, ctx);
+            }
+        };
+
+        // ↺ on an overridden cell: clear the entry through the same save path
+        // as typing, so ctx write-through, totals, and presentation all follow.
+        const onRevert = (input, month, col) => {
+            const pending = _pendingCellSaves.get(input);
+            if (pending) { clearTimeout(pending.timer); _pendingCellSaves.delete(input); }
+            input.value = '';
+            fireSaveFor(input, month, col);
         };
 
         const scheduleSave = (input, month, col) => {
@@ -563,27 +664,27 @@
             pending.fire();
         };
 
-        // Synced columns (I&E) render their values into spans, not inputs.
-        // They get no event listeners — values come from the backend each time
-        // the page reloads (computed from the Transactions ledger).
-        outerEl.querySelectorAll('span.db-synced-value').forEach(span => {
-            const month = span.dataset.month;
-            const col   = span.dataset.col;
-            const saved = yearEntries?.[month]?.[col];
-            span.textContent = (saved !== undefined) ? formatCurrency(saved) : '—';
-        });
-
         outerEl.querySelectorAll('input[data-month][data-col]').forEach(input => {
             const month = input.dataset.month;
             const col   = input.dataset.col;
-            const saved = yearEntries?.[month]?.[col];
             // Pre-fill with the symbol-prefixed display value so the cell
             // matches what the user would see after typing. {editable} keeps the
             // cents even when "hide cents" is on — they'd otherwise be truncated
-            // on the next save.
-            if (saved !== undefined) input.value = formatCurrency(saved, false, { editable: true });
+            // on the next save. Provenance pages route through present(), which
+            // also applies the computed styling/tooltips/↺.
+            if (ctx.computed) {
+                present(input, month, col);
+            } else {
+                const saved = yearEntries?.[month]?.[col];
+                if (saved !== undefined) input.value = formatCurrency(saved, false, { editable: true });
+            }
 
             input.addEventListener('input', () => {
+                // The user is typing: whatever the cell held, it now reads as
+                // theirs — the computed styling drops immediately, the save
+                // (debounced below) records the override.
+                input.classList.remove('cell-computed', 'cell-flash');
+                input.title = '';
                 applyCurrencyFormat(input);
                 scheduleSave(input, month, col);
                 if (ctx.includeTotals) updateYearTotals(outerEl, ctx);
@@ -591,8 +692,22 @@
 
             // Leaving the cell commits any pending edit immediately. Users expect
             // tab/click-away to mean "I'm done with this cell" — waiting out a
-            // debounce window first feels like the app is hesitating.
-            input.addEventListener('blur', () => flushSave(input));
+            // debounce window first feels like the app is hesitating. The flush's
+            // fireSaveFor re-presents the cell (focus has already moved on); when
+            // nothing was pending (no edit, or the debounce already fired while
+            // the cell was still focused) present here instead, so a cleared cell
+            // fades its computed value back in on the way out.
+            input.addEventListener('blur', () => {
+                if (_pendingCellSaves.has(input)) {
+                    flushSave(input);
+                } else {
+                    present(input, month, col, {
+                        flash: input.value === ''
+                            && cellLayerValue(ctx.computed, currentYear, month, col) !== undefined,
+                    });
+                    if (ctx.includeTotals) updateYearTotals(outerEl, ctx);
+                }
+            });
 
             // ── Spreadsheet-style arrow-key navigation ─────────────────────────
             // Stops at the table edges (does not wrap). Enter is treated as
@@ -641,7 +756,7 @@
 
     /**
      * Recompute the per-column totals shown in the table footer. Called after
-     * any cell edit, paste, or column add. Empty columns render as "—" so the
+     * any cell edit, paste, or column add. Empty columns render blank so the
      * cell isn't a confusing "$0".
      *
      * The cell holds just a .total-value span; formatCurrency() handles the
@@ -650,20 +765,15 @@
     function updateYearTotals(outerEl, ctx) {
         ctx.columns.forEach(col => {
             let sum = 0, hasValue = false;
-            // Sum across both editable inputs and synced read-only spans so the
-            // totals row stays accurate on I&E tables where some columns may be
-            // sync-computed and others manually entered.
-            const addValue = (raw) => {
-                const val = parseFloat(stripCurrencyValue(raw));
+            outerEl.querySelectorAll(`input[data-col="${col.key}"]`).forEach(el => {
+                const val = parseFloat(stripCurrencyValue(el.value));
                 if (!isNaN(val)) { sum += val; hasValue = true; }
-            };
-            outerEl.querySelectorAll(`input[data-col="${col.key}"]`).forEach(el => addValue(el.value));
-            outerEl.querySelectorAll(`span.db-synced-value[data-col="${col.key}"]`).forEach(el => addValue(el.textContent));
+            });
 
             const cell    = outerEl.querySelector(`[data-total-col="${col.key}"]`);
             if (!cell) return;
             const valSpan = cell.querySelector('.total-value');
-            valSpan.textContent = hasValue ? formatCurrency(sum) : '—';
+            valSpan.textContent = hasValue ? formatCurrency(sum) : '';
         });
     }
 
@@ -978,102 +1088,6 @@
         buildManager();
     }
 
-    // ─── Cash Flow Sync modal ────────────────────────────────────────────────────
-
-    // A small switch toggle reused for every category row. Shape mirrors the
-    // Settings categories switch so the affordance reads consistently.
-    const _SYNC_SWITCH = (key, on) =>
-        `<label class="sync-switch">
-        <input type="checkbox" data-key="${escapeHtml(key)}" ${on ? 'checked' : ''}>
-        <span class="sync-switch-track"><span class="sync-switch-knob"></span></span>
-    </label>`;
-
-    /**
-     * Open (or toggle closed) the per-year category sync modal for one dataset.
-     * Reached via the Statements sheet ⋮ → "Cash Flow Sync" (the syncSettings
-     * handle bootstrapYearTablePage returns). Lists every category grouped by
-     * type with a switch that controls whether that category's monthly value for
-     * THIS year is computed from transactions (synced) or hand-entered. A toolbar
-     * offers Sync all / Unsync all.
-     *
-     * Every change round-trips through ctx.api.setSync, then reloadYearTables()
-     * re-fetches so synced cells pick up their computed values, then the modal
-     * body is rebuilt from the fresh ctx.sync — same rebuild-from-scratch approach
-     * as showColumnManager.
-     *
-     * SECURITY: category keys and labels are user-controlled and escapeHtml'd
-     * before being interpolated into the innerHTML template.
-     */
-    function showSyncSettings(year, ctx) {
-        const existing = document.querySelector('.sync-manager-overlay');
-        if (existing) { existing.remove(); return; }
-
-        // Reuse the column-manager overlay framing (backdrop blur + modal frame);
-        // sync-manager-overlay only adds the per-row toggle styling.
-        const overlay = document.createElement('div');
-        overlay.className = 'confirm-overlay col-manager-overlay sync-manager-overlay';
-        document.body.appendChild(overlay);
-
-        const types = ctx.types || [{ key: null, label: '' }];
-
-        const render = () => {
-            const syncedKeys = new Set(ctx.sync?.[String(year)] || []);
-
-            const sectionsHtml = types.map(t => {
-                const cols = ctx.types
-                    ? ctx.columns.filter(c => c.type === t.key)
-                    : ctx.columns;
-                if (!cols.length) return '';
-                const rows = cols.map(c => `
-                <div class="sync-row" data-key="${escapeHtml(c.key)}">
-                    <span class="sync-row-label">${escapeHtml(c.label)}</span>
-                    ${_SYNC_SWITCH(c.key, syncedKeys.has(c.key))}
-                </div>`).join('');
-                const heading = ctx.types
-                    ? `<div class="col-type-label">${escapeHtml(t.label)}</div>` : '';
-                return `<div class="col-manager-section">${heading}<div class="sync-list">${rows}</div></div>`;
-            }).join('');
-
-            overlay.innerHTML = `
-            <div class="col-manager sync-manager">
-                <div class="col-manager-header">
-                    <span>Cash Flow Sync — ${year}</span>
-                    <button class="col-manager-close" aria-label="Close">×</button>
-                </div>
-                <div class="sync-manager-toolbar">
-                    <button class="sync-bulk-btn" data-sync="true">Sync all</button>
-                    <button class="sync-bulk-btn" data-sync="false">Unsync all</button>
-                </div>
-                <div class="col-manager-body">
-                    ${sectionsHtml || '<div class="col-empty">No categories yet.</div>'}
-                </div>
-            </div>`;
-
-            overlay.querySelector('.col-manager-close').addEventListener('click', () => overlay.remove());
-            overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-
-            // Per-category toggle.
-            overlay.querySelectorAll('.sync-switch input[data-key]').forEach(input => {
-                input.addEventListener('change', async () => {
-                    await ctx.api.setSync(year, { category: input.dataset.key, sync: input.checked });
-                    await reloadYearTables(ctx);
-                    render();
-                });
-            });
-
-            // Sync all / Unsync all.
-            overlay.querySelectorAll('.sync-bulk-btn').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    await ctx.api.setSync(year, { all: true, sync: btn.dataset.sync === 'true' });
-                    await reloadYearTables(ctx);
-                    render();
-                });
-            });
-        };
-
-        render();
-    }
-
     // ─── Bootstrap ──────────────────────────────────────────────────────────────
 
     /**
@@ -1112,8 +1126,6 @@
      *   reload       — re-fetch /data and re-render every table
      *   hasYear      — whether this dataset currently has the given year
      *   addYear      — create a year in this dataset and render its table
-     *   syncSettings — open the per-year category sync modal for this dataset
-     *                  (Statements ⋮ → "Cash Flow Sync")
      */
     function bootstrapYearTablePage(opts) {
         const ctx = {
@@ -1129,7 +1141,8 @@
             columns:   [],
             years:     [],
             entries:   {},
-            sync:      {},
+            computed:  null,
+            manual:    null,
             container: null,
         };
 
@@ -1184,7 +1197,6 @@
             reload:       () => reloadYearTables(ctx),
             hasYear:      (year) => ctx.years.includes(year),
             addYear,
-            syncSettings: (year) => showSyncSettings(year, ctx),
         };
     }
 

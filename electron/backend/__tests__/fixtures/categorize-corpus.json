@@ -176,5 +176,19 @@
   { "desc": "SOULCYCLE UWS", "expected": "health" },
   { "desc": "BETTERHELP.COM COUNSELING", "expected": "health" },
   { "desc": "ZELLE TO DAVID LEVINE", "expected": null },
-  { "desc": "CARAVANS RV DEALERSHIP", "expected": null }
+  { "desc": "CARAVANS RV DEALERSHIP", "expected": null },
+  { "desc": "ROBINHOOD FUNDS 4412", "expected": "investing" },
+  { "desc": "COINBASE.COM 8889087930 CA", "expected": "investing" },
+  { "desc": "ACH VANGUARD BUY INVESTMENT", "expected": "investing" },
+  { "desc": "FID BKG SVC LLC MONEYLINE", "expected": "investing" },
+  { "desc": "E*TRADE SECURITIES ACH TRNSFR", "expected": "investing" },
+  { "desc": "CHARLES SCHWAB BROKERAGE WEB", "expected": "investing" },
+  { "desc": "LES SCHWAB TIRE CTR PORTLAND OR", "expected": "automobile" },
+  { "desc": "ACORNS INVEST TRANSFER", "expected": "investing" },
+  { "desc": "WEALTHFRONT EDI PYMNTS", "expected": "investing" },
+  { "desc": "TIAA CREF DES:INVEST", "expected": "investing" },
+  { "desc": "GEMINI TRUST CO NEW YORK NY", "expected": "investing" },
+  { "desc": "CRYPTO.COM MCO VISA", "expected": "investing" },
+  { "desc": "GOOGLE *GEMINI AI PREMIUM", "expected": null },
+  { "desc": "SEATTLE KRAKEN TEAM STORE", "expected": null }
 ]

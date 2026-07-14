@@ -425,6 +425,36 @@ const MERCHANTS = [
   ['mutual of omaha', 'insurance'], ['chubb insurance', 'insurance'], ['cincinnati insurance', 'insurance'],
   ['unum', 'insurance'],
 
+  // ── Investing — brokerages, retirement, robo-advisors, crypto exchanges ──
+  // Direction-guarded in categorize.js: applies only to OUTFLOW rows (a debit
+  // to a brokerage is a contribution/buy → investing). An inflow from one is a
+  // withdrawal, not income, so it deliberately stays blank.
+  // Deliberate omissions (two common meanings): bare 'sofi' (hides in "sofia";
+  // SoFi is also a lender/bank), bare 'merrill' ("merrillville"), bare
+  // 'kraken' (Seattle Kraken), bare 'gemini' (Google Gemini), bare
+  // 'empower'/'principal' (generic words), 'e trade' ("singapore trade co"),
+  // john hancock / transamerica (as much insurance as retirement).
+  ['robinhood', 'investing'], ['coinbase', 'investing'], ['vanguard', 'investing'],
+  ['fidelity', 'investing'], ['fid bkg svc', 'investing'],
+  ['charles schwab', 'investing'], ['schwab', 'investing'],
+  ['etrade', 'investing'], ['trade securities', 'investing'],
+  ['td ameritrade', 'investing'], ['ameritrade', 'investing'],
+  ['webull', 'investing'], ['betterment', 'investing'], ['wealthfront', 'investing'],
+  ['acorns', 'investing'], ['stash capital', 'investing'], ['public investing', 'investing'],
+  ['m1 finance', 'investing'], ['sofi invest', 'investing'], ['sofi securities', 'investing'],
+  ['interactive brokers', 'investing'], ['tastytrade', 'investing'],
+  ['tradestation', 'investing'], ['thinkorswim', 'investing'],
+  ['ally invest', 'investing'], ['apex clearing', 'investing'],
+  ['merrill lynch', 'investing'], ['merrill edge', 'investing'],
+  ['morgan stanley', 'investing'], ['edward jones', 'investing'],
+  ['ameriprise', 'investing'], ['rowe price', 'investing'], ['tiaa', 'investing'],
+  ['voya financial', 'investing'], ['empower retirement', 'investing'],
+  ['principal financial', 'investing'], ['computershare', 'investing'],
+  ['fundrise', 'investing'],
+  // Crypto exchanges ('payward' is Kraken's legal/ACH name).
+  ['kraken.com', 'investing'], ['payward', 'investing'], ['binance', 'investing'],
+  ['gemini trust', 'investing'], ['crypto.com', 'investing'],
+
   // ── Income — payroll / deposits (direction-guarded in categorize.js) ──
   ['adp payroll', 'income'], ['gusto pay', 'income'], ['payroll', 'income'],
   ['direct deposit', 'income'],
@@ -489,6 +519,13 @@ const KEYWORDS = [
   // "current"; "payment" is stripped as noise).
   ['mortgage', 'rent'], ['property manage', 'rent'], ['leasing office', 'rent'],
   ['apartments', 'rent'], ['apartment homes', 'rent'],
+  // Investing (direction-guarded to outflows, like the merchant entries).
+  // No bare 'invest' ("investigation") or 'investment' ("XYZ INVESTMENTS LLC"
+  // is a common landlord/property-firm name). 'securities'/'brokerage' name a
+  // broker-dealer specifically; note 'insurance' is listed earlier, so an
+  // "… INSURANCE BROKERAGE" row resolves to insurance, not investing.
+  ['securities', 'investing'], ['brokerage', 'investing'],
+  ['wealth management', 'investing'],
   // Income / other income (direction-guarded, so these only apply to inflows)
   ['salary', 'income'], ['paycheck', 'income'],
   ['tax refund', 'other_income'], ['irs treas', 'other_income'], ['pension', 'other_income'],
@@ -897,6 +934,29 @@ const DISPLAY_OVERRIDES = {
   'usaa insurance': 'USAA',
   'chubb insurance': 'Chubb',
   'guardian life': 'Guardian',
+
+  // Investing
+  'fid bkg svc': 'Fidelity', // Fidelity's ACH descriptor, not a brand name
+  schwab: 'Charles Schwab',
+  etrade: 'E*TRADE',
+  'trade securities': 'E*TRADE', // matches "E*TRADE SECURITIES" post-normalize
+  ameritrade: 'TD Ameritrade',
+  'rowe price': 'T. Rowe Price',
+  tiaa: 'TIAA',
+  'voya financial': 'Voya',
+  'empower retirement': 'Empower',
+  'principal financial': 'Principal',
+  'sofi invest': 'SoFi',
+  'sofi securities': 'SoFi',
+  'stash capital': 'Stash',
+  'public investing': 'Public.com',
+  'ally invest': 'Ally Invest',
+  tastytrade: 'tastytrade', // brand styles itself lowercase
+  thinkorswim: 'thinkorswim', // ditto
+  tradestation: 'TradeStation',
+  'kraken.com': 'Kraken',
+  payward: 'Kraken', // Kraken's legal/ACH name
+  'gemini trust': 'Gemini',
 
   // Income
   'adp payroll': 'ADP',

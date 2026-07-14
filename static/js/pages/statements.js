@@ -193,9 +193,8 @@ const balanceTable = bootstrapYearTablePage({
         })));
     });
 
-    // ── Year ⋮ menu: Cash Flow Sync / Edit Year (renumber) / Delete Year ────
-    // Sync targets the cash flow dataset only; Edit/Delete act on the year
-    // across BOTH datasets.
+    // ── Year ⋮ menu: Edit Year (renumber) / Delete Year ─────────────────────
+    // Both act on the year across BOTH datasets.
     const withYear = (year, fn) => CONTROLLERS
         .filter(c => c.hasYear(year))
         .reduce((p, c) => p.then(() => fn(c)), Promise.resolve());
@@ -206,14 +205,6 @@ const balanceTable = bootstrapYearTablePage({
         const year = years[current];
         if (year === undefined) return;
         const items = [];
-        // Per-year category sync is a Cash Flow concept, so the item only
-        // appears when the cash flow dataset actually has this year.
-        if (cashflowTable.hasYear(year)) {
-            items.push({
-                label: 'Cash Flow Sync',
-                action: () => cashflowTable.syncSettings(year),
-            });
-        }
         items.push(
             {
                 // There is no rename endpoint; renumbering is duplicate-into-
