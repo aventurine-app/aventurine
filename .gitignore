@@ -29,3 +29,6 @@ design-system/
 .DS_Store
 .vscode/
 .idea/
+
+# Stray H2 (Java) database artifact — not used by this project
+storage.mv.db

@@ -77,7 +77,8 @@
 
 /* ── Menu items (File / Settings) ─────────────────────────────────────── */
 .titlebar-menu {
-    margin-left: var(--space-16);
+    /* No leading margin: the app icon's right margin supplies the gap to
+       the File menu (see .titlebar-icon). */
     display: flex;
     align-items: center;
     gap: 2px;
