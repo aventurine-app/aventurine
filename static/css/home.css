@@ -548,11 +548,12 @@
 
 /* Hovering a bar spotlights it by dimming the rest — the same affordance as
    the Capital Profile donut. :has() scopes the dim to actual bar hovers, so
-   sweeping the empty plot area doesn't grey the whole chart. */
-.home-chart:has(.chart-bar:hover) .chart-bar { opacity: 0.55; }
-.home-chart .chart-bar:hover { opacity: 1; }
-.home-chart:has(.chart-hbar:hover) .chart-hbar { opacity: 0.55; }
-.home-chart .chart-hbar:hover { opacity: 1; }
+   sweeping the empty plot area doesn't grey the whole chart. The dim targets
+   only the non-hovered bars (:not(:hover)); dimming *all* bars and then
+   re-lighting the hovered one would fail, because :has() lifts the dim rule's
+   specificity above a plain :hover override, leaving the hovered bar greyed. */
+.home-chart:has(.chart-bar:hover) .chart-bar:not(:hover) { opacity: 0.55; }
+.home-chart:has(.chart-hbar:hover) .chart-hbar:not(:hover) { opacity: 0.55; }
 
 @keyframes chart-bar-grow  { to { transform: scaleY(1); } }
 @keyframes chart-hbar-grow { to { transform: scaleX(1); } }

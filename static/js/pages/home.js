@@ -1124,7 +1124,7 @@
      * typography) so the Spending card lines up with everything else; the bars'
      * grow-in entrance lives in home.css §11.
      *
-     *   bars: [{ label, color, value }] — pre-sorted, values > 0.
+     *   bars: [{ label, color, value }] — in user category order, values > 0.
      *
      * SECURITY: bar labels are user-controlled category names — escaped both in
      * the axis label and the <title> tooltip.
@@ -1223,8 +1223,9 @@
      * for the Monthly Cash Flow bars plus per-expense-category values for the
      * Spending bars. Every column contributes to its type's total whatever its
      * cell holds (synced or hand-entered — the statement already resolved
-     * that); the Spending list keeps only positive expense cells, sorted
-     * biggest-first, mirroring what the statement table shows for the month.
+     * that); the Spending list keeps only positive expense cells, in the
+     * user's category order (the order `data.columns` arrives in — the same
+     * left-to-right order the Cash Flow statement shows).
      */
     function sliceStatementMonth(data) {
         const cells = ((data.entries || {})[String(homeMonth.year)] || {})[MONTHS[homeMonth.monthIdx]] || {};
@@ -1238,7 +1239,6 @@
                 categories.push({ key: col.key, name: col.label, total: val });
             }
         }
-        categories.sort((a, b) => b.total - a.total);
         return { totals, categories };
     }
 
