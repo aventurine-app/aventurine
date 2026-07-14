@@ -6,7 +6,7 @@
        Modals, settings, inline Browse/Cancel.  Defined in dbmodal.css.
      • Action button   (.button-primary / -secondary) — uppercase micro "eyebrow".
        The page call-to-action (Add Year, Export, Add Card …) plus a tail of
-       page-specific aliases (forecast-add, budget-copy, sync-bulk, cat-add,
+       page-specific aliases (forecast-add, budget-copy, cat-add,
        col-add) that share this shape.
 
    The per-shape fill/size still lives in each component file for now; what this
@@ -29,7 +29,6 @@
 .cat-add-btn:focus-visible,
 .forecast-add-btn:focus-visible,
 .budget-nav-btn:focus-visible,
-.sync-bulk-btn:focus-visible,
 .col-add-btn:focus-visible,
 /* icon / close buttons — these all lacked a focus ring entirely */
 .tx-action-btn:focus-visible,
@@ -47,7 +46,6 @@
 .button-secondary:not(:disabled):active,
 .cat-add-btn:not(:disabled):active,
 .forecast-add-btn:not(:disabled):active,
-.sync-bulk-btn:not(:disabled):active,
 .col-add-btn:not(:disabled):active,
 .tx-action-btn:not(:disabled):active,
 .p-menu-btn:not(:disabled):active {
@@ -63,7 +61,6 @@
 .tx-add-btn:disabled,
 .cat-add-btn:disabled,
 .forecast-add-btn:disabled,
-.sync-bulk-btn:disabled,
 .col-add-btn:disabled,
 .tx-action-btn:disabled {
     cursor: not-allowed;
@@ -82,7 +79,7 @@
    the --button-text colour on accent fills. Per-page LAYOUT (flex sizing) stays
    in the page file; only the button SHAPE moved here. */
 .button-primary, .button-secondary,
-.forecast-add-btn, .sync-bulk-btn,
+.forecast-add-btn,
 .cat-add-btn, .col-add-btn {
     display: inline-flex;
     align-items: center;
@@ -110,11 +107,11 @@
                 border-color 0.15s ease, transform 0.1s ease;
 }
 
-/* Outlined accent — secondary emphasis (Manage Columns, Add row, Sync-all …).
+/* Outlined accent — secondary emphasis (Manage Columns, Add row …).
    Neutral fill with the accent carried by the text + border, so it reads as a
    quieter sibling of the accent-filled primary action. */
 .button-secondary,
-.forecast-add-btn, .sync-bulk-btn {
+.forecast-add-btn {
    color: var(--accent-neutral);
    font-weight: var(--weight-superbold);
    border: 1px solid var(--color-base-200);
@@ -122,14 +119,13 @@
 /* On hover the outlined secondary fills in with neutral charcoal + contrast
    text, so it reads as a quiet neutral sibling of the accent-filled primary. */
 .button-secondary:not(:disabled):hover,
-.forecast-add-btn:not(:disabled):hover,
-.sync-bulk-btn:not(:disabled):hover {
+.forecast-add-btn:not(:disabled):hover {
     background: var(--color-base-200);
 }
 /* Disabled outlined secondary — drop the accent so it reads inert: gray text
    and border instead of carrying the primary accent at reduced opacity. */
 .button-secondary:disabled,
-.forecast-add-btn:disabled, .sync-bulk-btn:disabled {
+.forecast-add-btn:disabled {
     color: var(--text-tertiary);
     border-color: var(--border);
 }

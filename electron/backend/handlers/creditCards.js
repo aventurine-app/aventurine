@@ -7,7 +7,6 @@
 
 const { bad, cleanLabel, isFiniteNumber, round2 } = require('../validate');
 const { recentMonthlyAverage } = require('../services/creditCards');
-const { syncedMap } = require('../categorySync');
 
 function serialiseCard(c) {
   return {
@@ -22,50 +21,47 @@ function serialiseCard(c) {
 
 /**
  * {category_id -> average monthly spend} for every expense category. Data-source
- * rule matches /api/data, now per-(year, category): a synced cell's monthly
- * value comes from transactions ('uncat_expense' sums NULL-category expense
- * rows), a manual cell's from Entry. Cell maps are keyed year*100 + monthIndex —
- * numerically chronological.
+ * rule matches /api/data, per cell: a month's value is the transaction sum for
+ * that (active-year, month, category) cell — 'uncat_expense' sums NULL-category
+ * expense rows — unless a stored Entry overrides that one cell. Cell maps are
+ * keyed year*100 + monthIndex — numerically chronological.
  */
 function monthlySpendByCategory(db) {
   const cats = db.prepare("SELECT * FROM categories WHERE cat_type = 'expense'").all();
   const totals = new Map(cats.map((c) => [c.id, new Map()]));
   const bump = (cells, key, amount) => cells.set(key, (cells.get(key) || 0) + amount);
 
-  const synced = syncedMap(db);
-  const isCellSynced = (yearStr, key) => !!synced[yearStr]?.has(key);
   const idByKey = new Map(cats.map((c) => [c.key, c.id]));
   const keyById = new Map(cats.map((c) => [c.id, c.key]));
+  const activeYears = new Set(
+    db.prepare('SELECT year FROM active_years').all().map((y) => String(y.year))
+  );
 
-  // Manual cells — stored Entry values for expense categories, skipping any
-  // (year, category) that is synced (those follow transactions instead).
-  for (const e of db.prepare('SELECT * FROM entries').all()) {
-    const cid = idByKey.get(e.category);
-    if (cid === undefined) continue; // not an expense category
-    if (isCellSynced(String(e.year), e.category)) continue;
-    // month is stored as 1-12; the cell key stays numerically chronological.
-    bump(totals.get(cid), e.year * 100 + e.month, e.value);
-  }
-
-  // Synced cells — transactions. Categorized expense rows map by their category
-  // key; NULL-category expense rows feed uncat_expense.
+  // Computed layer — transactions of active years. Categorized expense rows map
+  // by their category key; NULL-category expense rows feed uncat_expense.
   for (const t of db.prepare('SELECT * FROM transactions').all()) {
     if (!t.date) continue;
-    let key, cid;
+    const yearStr = t.date.slice(0, 4);
+    if (!activeYears.has(yearStr)) continue;
+    let cid;
     if (t.category_id == null) {
       if (t.tx_type !== 'expense') continue;
-      key = 'uncat_expense';
       cid = idByKey.get('uncat_expense');
       if (cid === undefined) continue;
     } else {
       cid = t.category_id;
-      key = keyById.get(cid);
-      if (key === undefined) continue; // not an expense category
+      if (!keyById.has(cid)) continue; // not an expense category
     }
-    const yearStr = t.date.slice(0, 4);
-    if (!isCellSynced(yearStr, key)) continue;
     const cellKey = parseInt(yearStr, 10) * 100 + parseInt(t.date.slice(5, 7), 10);
     bump(totals.get(cid), cellKey, t.amount);
+  }
+
+  // Manual layer — a stored Entry replaces its cell's computed sum outright.
+  for (const e of db.prepare('SELECT * FROM entries').all()) {
+    const cid = idByKey.get(e.category);
+    if (cid === undefined) continue; // not an expense category
+    // month is stored as 1-12; the cell key stays numerically chronological.
+    totals.get(cid).set(e.year * 100 + e.month, e.value);
   }
 
   const result = {};

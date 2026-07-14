@@ -150,7 +150,6 @@ test('report-card API: a fresh DB shows only the seeded current year, no evaluab
 test('report-card API: aggregates a Cash Flow year by category cat_type', (t) => {
   const c = makeClient(t);
   c.post('/api/year', { year: 2025 });
-  c.post('/api/year/2025/sync', { all: true, sync: false }); // new years default synced; hand-enter below
   const entry = (category, value) =>
     c.post('/api/entry', { year: 2025, month: 'January', category, value });
 
@@ -185,41 +184,36 @@ test('report-card API: a tracked year with no activity still gets a (goal-less) 
   assert.ok(y.goals.every((g) => g.status === 'na'));
 });
 
-test('report-card API: transactions alone do not feed an unsynced year', (t) => {
+test('report-card API: transactions in a year with no year-table are not counted', (t) => {
   const c = makeClient(t);
   const id = categoryIds(c);
-  c.post('/api/year', { year: 2025 });
-  // New years default to fully synced; turn it off so the cell stays
-  // hand-entered (here, empty) and transactions do NOT feed it.
-  c.post('/api/year/2025/sync', { all: true, sync: false });
-  c.post('/api/transactions', { date: '2025-03-01', description: 'pay', category_id: id.income, amount: 100000 });
-
-  const y = c.get('/api/report-card').body.years.find((yr) => yr.year === 2025);
-  assert.equal(y.income, 0);
-  assert.equal(y.goals.length, 5);
-  assert.ok(y.goals.every((g) => g.status === 'na'));
+  // 2019 has no year-table — its transactions stay off the statement, so no card.
+  c.post('/api/transactions', { date: '2019-03-01', description: 'pay', category_id: id.income, amount: 100000 });
+  assert.ok(!c.get('/api/report-card').body.years.some((yr) => yr.year === 2019));
 });
 
-test('report-card API: synced cells pull figures from transactions', (t) => {
+test('report-card API: cells pull figures from transactions, entries override per cell', (t) => {
   const c = makeClient(t);
   const id = categoryIds(c);
   c.post('/api/year', { year: 2025 });
-  // Sync a categorized bucket and an uncategorized bucket for the year.
-  c.post('/api/year/2025/sync', { category: 'income', sync: true });
-  c.post('/api/year/2025/sync', { category: 'uncat_expense', sync: true });
 
   c.post('/api/transactions', { date: '2025-01-01', description: 'pay', category_id: id.income, amount: 4000 });
   c.post('/api/transactions', { date: '2025-01-02', description: 'rent', tx_type: 'expense', amount: 1500 });
 
-  const y = c.get('/api/report-card').body.years.find((yr) => yr.year === 2025);
+  let y = c.get('/api/report-card').body.years.find((yr) => yr.year === 2025);
   assert.equal(y.income, 4000);
-  assert.equal(y.expenses, 1500); // uncategorized expense, via the synced uncat bucket
+  assert.equal(y.expenses, 1500); // uncategorized expense, via the uncat bucket
+
+  // A manual entry replaces its one cell's computed sum in the totals too.
+  c.post('/api/entry', { year: 2025, month: 'January', category: 'income', value: 5000 });
+  y = c.get('/api/report-card').body.years.find((yr) => yr.year === 2025);
+  assert.equal(y.income, 5000);
+  assert.equal(y.expenses, 1500);
 });
 
 test('report-card API: debt-to-income uses the latest Balance-Sheet debt month', (t) => {
   const c = makeClient(t);
   c.post('/api/year', { year: 2025 });
-  c.post('/api/year/2025/sync', { all: true, sync: false }); // new years default synced; hand-enter below
   c.post('/api/entry', { year: 2025, month: 'June', category: 'income', value: 100000 });
 
   // Add a debt-type Balance-Sheet column and give it two months in 2025.
@@ -238,9 +232,6 @@ test('report-card API: multiple years come back newest-first with YoY changes', 
   const c = makeClient(t);
   c.post('/api/year', { year: 2024 });
   c.post('/api/year', { year: 2025 });
-  // New years default to fully synced; hand-enter income below.
-  c.post('/api/year/2024/sync', { all: true, sync: false });
-  c.post('/api/year/2025/sync', { all: true, sync: false });
   c.post('/api/entry', { year: 2024, month: 'January', category: 'income', value: 80000 });
   c.post('/api/entry', { year: 2025, month: 'January', category: 'income', value: 100000 });
 

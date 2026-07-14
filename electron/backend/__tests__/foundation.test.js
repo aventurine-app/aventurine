@@ -31,13 +31,6 @@ test('fresh DB: baseline schema + seed', () => {
 
   const yr = new Date().getFullYear();
   assert.ok(db.prepare('SELECT 1 FROM active_years WHERE year=?').get(yr));
-  // The bootstrap year defaults to fully synced — every category is computed
-  // from transactions, so a first import lights up the Cash Flow statement
-  // (and everything that reads it) with zero configuration.
-  assert.equal(
-    db.prepare('SELECT COUNT(*) c FROM category_sync WHERE year=?').get(yr).c,
-    cats.length
-  );
   assert.ok(db.prepare('SELECT 1 FROM balance_active_years WHERE year=?').get(yr));
   assert.equal(db.prepare('SELECT COUNT(*) c FROM balance_columns').get().c, 5);
   assert.equal(db.prepare('SELECT COUNT(*) c FROM portfolio_accounts').get().c, 1);
@@ -47,10 +40,12 @@ test('fresh DB: baseline schema + seed', () => {
   );
 
   for (const t of ['active_years', 'app_settings', 'balance_entries', 'categories',
-    'category_sync', 'credit_cards', 'entries', 'match_rules', 'portfolio_accounts',
+    'credit_cards', 'entries', 'match_rules', 'portfolio_accounts',
     'portfolio_entries', 'transactions', 'forecast_planned', 'budget_amounts']) {
     assert.ok(tableExists(db, t), `table ${t} present`);
   }
+  // Retired in v9 — a fresh DB must not carry the per-category sync table.
+  assert.ok(!tableExists(db, 'category_sync'), 'category_sync absent');
   db.close();
 });
 
@@ -61,11 +56,6 @@ test('seed is idempotent', () => {
   seedDefaults(db);
   assert.equal(db.prepare('SELECT COUNT(*) c FROM categories').get().c, 18);
   assert.equal(db.prepare('SELECT COUNT(*) c FROM portfolio_accounts').get().c, 1);
-  // Sync seeding is tied to the bootstrap insert: once the user unsyncs
-  // categories, reopening the DB (re-running seed) must not re-sync them.
-  db.prepare('DELETE FROM category_sync').run();
-  seedDefaults(db);
-  assert.equal(db.prepare('SELECT COUNT(*) c FROM category_sync').get().c, 0);
   db.close();
 });
 
@@ -163,6 +153,43 @@ test('v8 migration adds transactions.display_name and refreshes v_transactions',
     "INSERT INTO transactions (date, description, display_name) VALUES ('2026-07-01', 'SQ *CAFE 42', 'Cafe')"
   ).run();
   assert.equal(db.prepare('SELECT display_name FROM v_transactions').get().display_name, 'Cafe');
+  db.close();
+});
+
+test('v9 migration drops category_sync and the entries it shadowed', () => {
+  const db = connect(tmpFile());
+  bootstrapSchema(db);
+  seedDefaults(db);
+  // Rewind to the v8 shape: the sync table exists, groceries is synced for
+  // 2025, and a stale entry hides under that synced cell while a visible
+  // manual entry lives in an unsynced cell.
+  db.exec(`CREATE TABLE category_sync (
+     year INTEGER NOT NULL,
+     category VARCHAR(50) NOT NULL,
+     PRIMARY KEY (year, category)
+   )`);
+  db.prepare("INSERT INTO category_sync (year, category) VALUES (2025, 'groceries')").run();
+  db.prepare(
+    "INSERT INTO entries (year, month, category, value) VALUES (2025, 3, 'groceries', 9999)"
+  ).run();
+  db.prepare(
+    "INSERT INTO entries (year, month, category, value) VALUES (2025, 3, 'rent', 1500)"
+  ).run();
+  db.pragma('user_version = 8');
+
+  bootstrapSchema(db);
+  assert.equal(db.pragma('user_version', { simple: true }), SCHEMA_VERSION);
+  assert.ok(!tableExists(db, 'category_sync'), 'sync table dropped');
+  // The shadowed (invisible) entry is gone; the visible manual value survives
+  // as a per-cell override.
+  assert.equal(
+    db.prepare("SELECT COUNT(*) c FROM entries WHERE category = 'groceries'").get().c,
+    0
+  );
+  assert.equal(
+    db.prepare("SELECT value FROM entries WHERE category = 'rent'").get().value,
+    1500
+  );
   db.close();
 });
 

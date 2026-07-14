@@ -381,25 +381,58 @@
     background-color: var(--frost-2);
 }
 
-/* ── Synced cell ───────────────────────────────────────────────────────────
-   A (year, category) cell computed from transactions (set per table via
-   ⋮ → Sync Settings) renders as a read-only value. The synced state is signalled
-   by the value's --accent-info text colour (no cell-background wash), so synced
-   cells read as a distinct, non-editable range. Sync is per-table now, so
-   headers carry no sync affordance. */
-.db-synced-value {
-    display: block;
-    box-sizing: border-box;
-    width: 100%;
-    text-align: right;
+/* ── Computed cell (Cash Flow) ─────────────────────────────────────────────
+   A cell whose value is the month's transaction sum (no manual override).
+   Fully editable — typing claims the cell as the user's — but the resting
+   state is signalled by the value's --accent-info italics (no cell-background
+   wash, no icons): the accent colour is the ONLY chrome saying "this number
+   is computed". Empty computed cells are simply blank. Two redundant channels
+   (hue + italic) so the state survives colour-vision differences. */
+.db-input.cell-computed {
     color: var(--accent-info);
-    font-family: var(--font-numeric);
-    font-size: var(--size-body);
-    font-style: italic;       /* "computed" affordance — sets it apart from input cells */
-    padding: var(--cell-pad-y) var(--col-first-pad);
-    cursor: not-allowed;
-    user-select: none;
     font-variant-numeric: tabular-nums;
+}
+
+/* A cleared override fading its computed value back in — the moment that
+   teaches "clear returns the computed figure" better than any copy. */
+.db-input.cell-flash {
+    animation: cell-computed-return 240ms ease-out;
+}
+@keyframes cell-computed-return {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .db-input.cell-flash { animation: none; }
+}
+
+/* ↺ on an overridden cell that still has a computed value underneath.
+   Hidden at rest (the grid stays clean); revealed on cell hover or keyboard
+   focus, sitting in the cell's left gutter clear of the right-aligned value. */
+.db-table td.data-cell {
+    position: relative;
+}
+.cell-revert {
+    position: absolute;
+    left: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: none;
+    border: none;
+    background: transparent;
+    color: var(--frost-dim);
+    font-size: var(--size-body);
+    line-height: 1;
+    padding: 4px;
+    cursor: pointer;
+}
+.db-table td.data-cell:hover .cell-revert,
+.cell-revert:focus-visible {
+    display: block;
+}
+.cell-revert:hover,
+.cell-revert:focus-visible {
+    color: var(--accent-info);
 }
 
 /* ── Multi-cell selection (cellselect.js) ──────────────────────────────────
@@ -674,90 +707,6 @@
     font-size: var(--size-small);
     font-style: italic;
     padding: 4px 0;
-}
-
-/* ── Cash Flow Sync modal (Statements ⋮ → Cash Flow Sync) ───────────────────
-   Reuses the column-manager frame (.col-manager) + overlay blur. Adds a
-   Sync-all / Unsync-all toolbar and a per-category row with an iOS-style
-   switch (ported from the old Settings category sync switch). */
-.sync-manager-toolbar {
-    display: flex;
-    gap: 8px;
-    padding: 14px 22px;
-    border-bottom: var(--border-width) solid var(--border);
-    flex-shrink: 0;
-}
-
-/* .sync-bulk-btn (neutral eyebrow action button) lives in buttons.css. */
-
-.sync-list {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.sync-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 7px 6px;
-    border-radius: 6px;
-}
-
-.sync-row:hover { background: var(--surface2); }
-
-.sync-row-label {
-    color: var(--text-primary);
-    font-size: var(--size-body);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.sync-switch {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    cursor: pointer;
-}
-
-.sync-switch input[type="checkbox"] {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-}
-
-.sync-switch-track {
-    position: relative;
-    display: inline-block;
-    width: 30px;
-    height: 16px;
-    border-radius: 9px;
-    background: var(--surface3);
-    border: var(--border-width) solid var(--border);
-    transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.sync-switch-knob {
-    position: absolute;
-    top: 50%;
-    left: 1px;
-    transform: translateY(-50%);
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #fff;
-    transition: left 0.15s ease;
-}
-
-.sync-switch input:checked + .sync-switch-track {
-    background: var(--accent-info);
-    border-color: var(--accent-info);
-}
-
-.sync-switch input:checked + .sync-switch-track .sync-switch-knob {
-    left: 15px;
 }
 
 .col-row {

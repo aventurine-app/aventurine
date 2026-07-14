@@ -9,11 +9,10 @@
 // "Relevant years" are the years on the Cash Flow statement (the `active_years`
 // table) — so every year the user tracks gets a card, even one with no activity
 // yet, not just years that happen to have transactions. Each year's figures are
-// the exact same numbers the Cash Flow page shows: hand-entered cell values plus,
-// for synced cells, the transaction-derived sums (see incomeExpenses.dataGet).
+// the exact same numbers the Cash Flow page shows: per cell, the transaction-
+// derived sum unless a stored Entry overrides it (see incomeExpenses.dataGet).
 
-const { syncedMap } = require('../categorySync');
-const { syncSums } = require('./incomeExpenses');
+const { computedCells, manualCells, blendCells } = require('./incomeExpenses');
 const { buildReportCards } = require('../services/reportCard');
 
 // cat_type → which headline bucket a category feeds. savings and investing are
@@ -25,17 +24,13 @@ const BUCKET_BY_CAT_TYPE = {
   investing: 'savings',
 };
 
-// The two uncategorized sync buckets (NULL-category transactions, by tx_type)
-// feed the same income/expense headline figures.
-const BUCKET_BY_SYNC_KEY = { uncat_income: 'income', uncat_expense: 'expenses' };
-
 /**
  * Per-year { income, expenses, savings } from the Cash Flow statement. Mirrors
  * incomeExpenses.dataGet's data sourcing exactly: every active year is seeded
- * (so empty years still get a card), hand-entered cell values are summed unless
- * the cell is synced, and synced cells contribute their transaction-derived
- * sums. A category key maps to a bucket by its cat_type; the uncat_* sync keys
- * map to income/expense. Cells for unknown/typeless keys are skipped.
+ * (so empty years still get a card), and each cell contributes its blended
+ * value — the transaction sum unless a manual Entry overrides that cell. A
+ * category key maps to a bucket by its cat_type (the uncat_* buckets are real
+ * categories); cells for unknown/typeless keys are skipped.
  */
 function yearlyTotals(db) {
   const bucketByKey = new Map();
@@ -43,7 +38,6 @@ function yearlyTotals(db) {
     const bucket = BUCKET_BY_CAT_TYPE[c.cat_type];
     if (bucket) bucketByKey.set(c.key, bucket);
   }
-  const bucketFor = (key) => bucketByKey.get(key) || BUCKET_BY_SYNC_KEY[key] || null;
 
   const totals = new Map(); // year -> { income, expenses, savings }
   const ensure = (year) => {
@@ -56,23 +50,13 @@ function yearlyTotals(db) {
   // get a card (with no evaluable goals).
   for (const y of db.prepare('SELECT year FROM active_years').all()) ensure(y.year);
 
-  const synced = syncedMap(db);
-
-  // Hand-entered cells — a synced cell ignores its stored manual value.
-  for (const e of db.prepare('SELECT year, month, category, value FROM entries').all()) {
-    if (synced[String(e.year)]?.has(e.category)) continue;
-    const bucket = bucketFor(e.category);
-    if (!bucket) continue;
-    ensure(e.year)[bucket] += e.value;
-  }
-
-  // Synced cells — { yearStr -> { month -> { catKey -> sum } } } from transactions.
-  for (const [yearStr, months] of Object.entries(syncSums(db))) {
+  const blended = blendCells(computedCells(db), manualCells(db));
+  for (const [yearStr, months] of Object.entries(blended)) {
     const year = parseInt(yearStr, 10);
     if (!Number.isInteger(year)) continue;
     for (const cells of Object.values(months)) {
       for (const [key, amt] of Object.entries(cells)) {
-        const bucket = bucketFor(key);
+        const bucket = bucketByKey.get(key);
         if (!bucket) continue;
         ensure(year)[bucket] += amt;
       }

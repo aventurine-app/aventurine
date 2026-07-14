@@ -120,6 +120,28 @@ const MIGRATIONS = [
     db.exec('DROP VIEW IF EXISTS v_transactions');
     db.exec(DDL.find((s) => s.includes('CREATE VIEW v_transactions')));
   }],
+  // v9 — per-category sync mode is retired: every Cash Flow cell of an active
+  // year now computes from transactions by default, and a stored Entry
+  // overrides its one cell. Entries that were shadowed by a synced
+  // (year, category) were invisible before this change, so they are deleted —
+  // otherwise they would surface as overrides the user never made. Visible
+  // manual values are untouched and carry over as per-cell overrides. The
+  // category_sync table then has no readers and is dropped. v_cash_flow is
+  // recreated so a migrated DB's view carries the same self-describing
+  // comments as a fresh DB's.
+  [9, (db) => {
+    if (tableExists(db, 'category_sync')) {
+      db.exec(
+        `DELETE FROM entries WHERE EXISTS (
+           SELECT 1 FROM category_sync cs
+            WHERE cs.year = entries.year AND cs.category = entries.category
+         )`
+      );
+      db.exec('DROP TABLE category_sync');
+    }
+    db.exec('DROP VIEW IF EXISTS v_cash_flow');
+    db.exec(DDL.find((s) => s.includes('CREATE VIEW v_cash_flow')));
+  }],
 ];
 
 function bootstrapSchema(db) {

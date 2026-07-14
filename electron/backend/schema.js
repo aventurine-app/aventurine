@@ -17,7 +17,7 @@
 //   - the v_* views pre-join the normalized tables into human-readable,
 //     chronologically-sortable shapes for ad-hoc querying.
 
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 9;
 
 // Months persist as 1-12 integers so `ORDER BY year, month` sorts
 // chronologically (the app translates to/from English names at its API
@@ -80,9 +80,9 @@ const DDL = [
    )`,
   `CREATE TABLE categories (
      -- Cash Flow / transaction categories. "key" is a stable slug referenced by
-     -- entries.category, category_sync.category and budget_amounts.category (so
-     -- those survive renames). cat_type is the category's direction and owns the
-     -- tx_type of every transaction linked to it.
+     -- entries.category and budget_amounts.category (so those survive renames).
+     -- cat_type is the category's direction and owns the tx_type of every
+     -- transaction linked to it.
      id INTEGER NOT NULL,
      "key" VARCHAR(50) NOT NULL,
      name VARCHAR(100) NOT NULL,
@@ -91,15 +91,6 @@ const DDL = [
      position INTEGER DEFAULT 0 NOT NULL,
      PRIMARY KEY (id),
      UNIQUE ("key")
-   )`,
-  `CREATE TABLE category_sync (
-     -- Per-(year, category) membership: a row means this category's Cash Flow
-     -- values for that year are computed from transactions instead of
-     -- hand-entered. category is a categories."key", so it survives renames.
-     year INTEGER NOT NULL CHECK (year BETWEEN 1000 AND 9999),
-     category VARCHAR(50) NOT NULL,
-     PRIMARY KEY (year, category),
-     FOREIGN KEY (category) REFERENCES categories ("key")
    )`,
   `CREATE TABLE credit_cards (
      -- Tracked credit cards. category_id optionally links a card to the spend
@@ -114,10 +105,11 @@ const DDL = [
      FOREIGN KEY (category_id) REFERENCES categories (id)
    )`,
   `CREATE TABLE entries (
-     -- One value per (year, month, category) cell of Cash Flow. category is a
-     -- categories."key". value MAY be negative (manual adjustments), so no sign
-     -- CHECK. A cell whose (year, category) is in category_sync is computed from
-     -- transactions and ignores any stored value here.
+     -- One value per (year, month, category) cell of Cash Flow: a hand-entered
+     -- value that OVERRIDES that cell's transaction-computed sum (cells with no
+     -- row here show the sum of the month's matching transactions). category is
+     -- a categories."key". value MAY be negative (manual adjustments), so no
+     -- sign CHECK.
      id INTEGER NOT NULL,
      year INTEGER NOT NULL CHECK (year BETWEEN 1000 AND 9999),
      month INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
@@ -232,10 +224,10 @@ const DDL = [
      LEFT JOIN categories c ON c.id = t.category_id`,
 
   `CREATE VIEW v_cash_flow AS
-     -- Cash Flow manual entries with the category resolved to a name/type.
-     -- month is the 1-12 number (sort by year, month); month_name is its label.
-     -- Cells whose (year, category) is in category_sync are computed from
-     -- transactions and do NOT appear here.
+     -- Cash Flow manual entries (per-cell overrides of the transaction-computed
+     -- values) with the category resolved to a name/type. month is the 1-12
+     -- number (sort by year, month); month_name is its label. Cells with no
+     -- entry are computed from transactions and do NOT appear here.
      SELECT
        e.year,
        e.month,
