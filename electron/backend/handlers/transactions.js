@@ -105,6 +105,17 @@ function remove(ctx, { params }) {
   return { ok: true };
 }
 
+// Wipe the entire ledger. Deliberately narrow: it touches ONLY the
+// transactions table — categories, learned match rules, balance-sheet
+// entries, and every other feature are left exactly as they were. Guarded on
+// the frontend by a type-to-confirm dialog (settings.js). Returns the number
+// of rows removed so the UI can report it.
+function removeAll(ctx) {
+  const db = ctx.db();
+  const info = db.prepare('DELETE FROM transactions').run();
+  return { ok: true, deleted: info.changes };
+}
+
 function similar(ctx, { query }) {
   const db = ctx.db();
   const rawDesc = (query.description || '').trim();
@@ -257,11 +268,19 @@ function importRows(ctx, { body }) {
   if (inserted.length) {
     db.transaction(() => {
       for (const t of inserted) insertTx(db, t);
-      // Auto-create a Cash Flow year-table for every year this import touches,
-      // so imported history feeds the statement, Report Card, and Home with
-      // zero configuration (cells compute from transactions by default).
+      // Auto-create the Cash Flow *and* Balance Sheet year-tables for every
+      // year this import touches, so imported history feeds the statement,
+      // Report Card, and Home with zero configuration (Cash Flow cells compute
+      // from transactions by default) and both /statements tabs stay in step —
+      // a year that appears in one must appear in the other.
+      const ensureBalanceYear = db.prepare(
+        'INSERT OR IGNORE INTO balance_active_years (year) VALUES (?)'
+      );
       for (const year of new Set(inserted.map((t) => parseInt(t.date.slice(0, 4), 10)))) {
-        if (validateYear(year)) ensureActiveYear(db, year);
+        if (validateYear(year)) {
+          ensureActiveYear(db, year);
+          ensureBalanceYear.run(year);
+        }
       }
     })();
   }
@@ -450,6 +469,7 @@ const routes = [
   ['GET', '/api/transactions', list],
   ['POST', '/api/transactions', create],
   ['PUT', '/api/transactions/<int:tx_id>', update],
+  ['DELETE', '/api/transactions', removeAll],
   ['DELETE', '/api/transactions/<int:tx_id>', remove],
   ['GET', '/api/transactions/uncategorized-count', uncategorizedCount],
   ['GET', '/api/transactions/similar', similar],

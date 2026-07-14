@@ -29,7 +29,11 @@
 // "SQ *BLUE BOTTLE COFFEE 866-123 CA" reduces to "blue bottle coffee".
 const NOISE_PATTERNS = [
   // Payment-processor / aggregator prefixes (the "<proc> *<merchant>" idiom).
-  /\b(sq|tst|sp|pp|paypal|google|goog|apl|apple|amzn mktp|amazon mktpl|amzn|toast|clover|venmo|cash app|zelle)\s*\*+\s*/gi,
+  // NB: no amzn/amazon here — Amazon is a real merchant we want to KEEP, not a
+  // third-party passthrough. Stripping "AMZN *2X4" as a prefix blanked Amazon's
+  // own retail rows; it now falls through to the '*'→space rule and matches the
+  // 'amzn' needle. (Amazon Pay passthrough is rare and still lands in shopping.)
+  /\b(sq|tst|sp|pp|paypal|google|goog|apl|apple|toast|clover|venmo|cash app|zelle)\s*\*+\s*/gi,
   // Transaction-type markers banks staple onto the front.
   // NB: no bare "mobile" here — it would eat carrier names (T-Mobile, Boost Mobile).
   /\b(pos|ach|web|recur(?:ring)?|autopay|auto pay|electronic|online|debit card purchase|debit card|credit card|checkcard|check card|chkcard|visa dda pur|visa|mastercard|purchase authorized on|purchase|payment|pmt|withdrawal|ext trnsfr)\b/gi,
@@ -92,8 +96,10 @@ const MERCHANTS = [
   ['in-n-out', 'dining'], ['in n out', 'dining'], ['five guys', 'dining'],
   ['shake shack', 'dining'], ['whataburger', 'dining'], ['culvers', 'dining'],
   ["culver's", 'dining'], ['raising cane', 'dining'], ['panda express', 'dining'],
-  // No 'noodles & co' — the normalizer strips a trailing " co" as a state
-  // abbreviation, so it can never match; the 'noodle' keyword covers it.
+  // Full brand form only. An abbreviated "NOODLES & CO" loses its trailing " co"
+  // to the state-abbreviation strip and can't match this needle; the 'noodle'
+  // keyword catches that form (without the clean display name).
+  ['noodles & company', 'dining'],
   ['qdoba', 'dining'], ['olive garden', 'dining'],
   ['applebee', 'dining'], ['chilis', 'dining'], ["chili's", 'dining'],
   ['outback steak', 'dining'], ['red lobster', 'dining'], ['ihop', 'dining'],
@@ -161,6 +167,9 @@ const MERCHANTS = [
   ['murphy usa', 'automobile'], ['murphy express', 'automobile'], ['citgo', 'automobile'],
   ['sinclair oil', 'automobile'], ['gulf oil', 'automobile'], ['holiday stationstore', 'automobile'],
   ['maverik', 'automobile'], ['bp products', 'automobile'], ['stewarts shops', 'automobile'],
+  // Mid-Atlantic / Northeast convenience-fuel chains (peers of Wawa/Sheetz).
+  ['royal farms', 'automobile'], ['rutters', 'automobile'], ["rutter's", 'automobile'],
+  ['turkey hill', 'automobile'], ['thorntons', 'automobile'],
   // Rideshare / micromobility / car-share.
   ['zipcar', 'automobile'], ['turo', 'automobile'], ['getaround', 'automobile'],
   ['lime scooter', 'automobile'], ['bird scooter', 'automobile'],
@@ -203,7 +212,10 @@ const MERCHANTS = [
   ['amazon music', 'entertainment'], ['soundcloud', 'entertainment'], ['iheartradio', 'entertainment'],
   ['deezer', 'entertainment'], ['qobuz', 'entertainment'],
   // More gaming (qualified: rockstar→energy drink, blizzard→weather/DQ).
-  ['rockstar games', 'entertainment'], ['battle.net', 'entertainment'], ['blizzard entertainment', 'entertainment'],
+  ['rockstar games', 'entertainment'], ['battle.net', 'entertainment'],
+  // 'blizzard ent' (not bare 'blizzard' → snowstorm / DQ Blizzard) catches the
+  // usual "BLIZZARD ENT*…" charge as well as the full name.
+  ['blizzard entertainment', 'entertainment'], ['blizzard ent', 'entertainment'],
   ['activision', 'entertainment'], ['square enix', 'entertainment'], ['humble bundle', 'entertainment'],
   ['gog.com', 'entertainment'], ['minecraft', 'entertainment'], ['bandai namco', 'entertainment'],
   ['game pass', 'entertainment'],
@@ -293,7 +305,7 @@ const MERCHANTS = [
   ['avangrid', 'utilities'],
 
   // ── Shopping — big-box & online retail, department stores ──
-  ['amazon', 'shopping'], ['amzn mktp', 'shopping'], ['walmart', 'shopping'],
+  ['amazon', 'shopping'], ['amzn mktp', 'shopping'], ['amzn', 'shopping'], ['walmart', 'shopping'],
   // Older exports hyphenate/space the brand ("WAL-MART #5849", "WAL MART SUP").
   ['wal-mart', 'shopping'], ['wal mart', 'shopping'],
   ['target', 'shopping'], ['costco', 'shopping'], ['sams club', 'shopping'],
@@ -684,6 +696,8 @@ const DISPLAY_OVERRIDES = {
   'holiday stationstore': 'Holiday Stationstores',
   'bp products': 'BP',
   'stewarts shops': "Stewart's Shops",
+  rutters: "Rutter's",
+  "rutter's": "Rutter's",
   'lime scooter': 'Lime',
   'bird scooter': 'Bird',
   chargepoint: 'ChargePoint',
@@ -732,6 +746,7 @@ const DISPLAY_OVERRIDES = {
   soundcloud: 'SoundCloud',
   iheartradio: 'iHeartRadio',
   'blizzard entertainment': 'Blizzard',
+  'blizzard ent': 'Blizzard',
   'gog.com': 'GOG.com',
   seatgeek: 'SeatGeek',
   'dave & buster': "Dave & Buster's",
@@ -809,6 +824,7 @@ const DISPLAY_OVERRIDES = {
 
   // Shopping
   'amzn mktp': 'Amazon',
+  amzn: 'Amazon',
   'wal-mart': 'Walmart',
   'wal mart': 'Walmart',
   'sams club': "Sam's Club",

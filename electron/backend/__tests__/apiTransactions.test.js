@@ -449,6 +449,38 @@ test('category delete drops its rules', (t) => {
   assert.equal(importRows(c, ['Doomed Merchant']).auto_categorized, 0);
 });
 
+test('DELETE /api/transactions wipes the whole ledger but nothing else', (t) => {
+  const c = makeClient(t);
+  const cat = makeCategory(c, 'Match Persist');
+  // A learned rule (created by categorizing) must survive the wipe: deleting all
+  // transactions clears only the ledger, not categories or match rules.
+  const tx = createTx(c, 'Persist Merchant', { catId: cat });
+  c.del(`/api/transactions/${tx.id}`); // leaves the rule behind
+  createTx(c, 'One');
+  createTx(c, 'Two');
+  createTx(c, 'Three');
+  assert.equal(c.get('/api/transactions').body.transactions.length, 3);
+
+  const r = c.del('/api/transactions');
+  assert.equal(r.status, 200);
+  assert.equal(r.body.ok, true);
+  assert.equal(r.body.deleted, 3);
+
+  // Ledger empty…
+  assert.equal(c.get('/api/transactions').body.transactions.length, 0);
+  // …but the category and its learned rule are untouched: an import of the
+  // remembered description still auto-categorizes.
+  assert.ok(getCategories(c).some((x) => x.id === cat));
+  assert.equal(importRows(c, ['Persist Merchant']).auto_categorized, 1);
+});
+
+test('DELETE /api/transactions on an empty ledger is a no-op', (t) => {
+  const c = makeClient(t);
+  const r = c.del('/api/transactions');
+  assert.equal(r.status, 200);
+  assert.equal(r.body.deleted, 0);
+});
+
 test('import cold-categorizes known merchants via the built-in lexicon (no learned rules)', (t) => {
   const c = makeClient(t);
   const catId = (key) => getCategories(c).find((x) => x.key === key).id;
@@ -876,6 +908,11 @@ test('import: auto-creates year-tables for the years it touches', (t) => {
   assert.ok(d.years.includes(2023) && d.years.includes(2024));
   assert.equal(d.entries['2024'].March.uncat_expense, 5);
   assert.equal(d.entries['2023'].November.uncat_expense, 7);
+
+  // …and the matching Balance Sheet years are created in lockstep, so both
+  // /statements tabs show the same year rolodex.
+  const b = c.get('/api/balance/data').body;
+  assert.ok(b.years.includes(2023) && b.years.includes(2024));
 });
 
 test('import: never disturbs manual overrides in an existing year', (t) => {
