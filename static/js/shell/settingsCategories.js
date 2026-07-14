@@ -101,6 +101,7 @@
     const ICON_GRIP = '<svg viewBox="0 0 10 16" fill="currentColor" aria-hidden="true"><circle cx="2.5" cy="3" r="1.4"/><circle cx="7.5" cy="3" r="1.4"/><circle cx="2.5" cy="8" r="1.4"/><circle cx="7.5" cy="8" r="1.4"/><circle cx="2.5" cy="13" r="1.4"/><circle cx="7.5" cy="13" r="1.4"/></svg>';
 
     const ICON_X       = '<svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    const ICON_LOCK    = '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3.25" y="7" width="9.5" height="6.25" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 7V4.75a2.5 2.5 0 0 1 5 0V7" stroke="currentColor" stroke-width="1.5"/></svg>';
     const ICON_PLUS    = '<svg viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
     const ICON_SEARCH  = '<svg class="cat-search-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
     const ICON_CHEVRON = '<svg class="cat-group-chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -124,12 +125,16 @@
         // bucket NULL-category transactions, so renaming/deleting them would
         // silently break those totals (backend enforces this too). Their name
         // is a static label — no input at all, so there's nothing to edit — but
-        // they stay draggable so the user can still reorder them.
+        // they stay draggable so the user can still reorder them. A lock glyph
+        // sits where the delete × would be, so the missing affordances read as
+        // deliberate rather than broken.
         if (c.locked) {
+            const lockTip = 'Built-in category — can’t be renamed or deleted';
             return `
                 <div class="cat-row cat-locked" data-id="${c.id}">
                     <span class="cat-grip" draggable="true" aria-label="Drag ${esc(c.name)} to reorder or recategorize">${ICON_GRIP}</span>
                     <span class="cat-name cat-name-static">${esc(c.name)}</span>
+                    <span class="cat-lock" role="img" title="${lockTip}" aria-label="${lockTip}">${ICON_LOCK}</span>
                 </div>
             `;
         }

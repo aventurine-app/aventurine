@@ -262,6 +262,25 @@
   background: transparent;
 }
 
+/* Lock glyph on locked rows — occupies the same 32px slot the delete × does on
+   editable rows, so the row grids align and the lock reads as the reason the
+   delete is missing. Informational, not a button: default cursor, and it only
+   brightens with the row hover like the grip does. */
+.cat-lock {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  cursor: default;
+  transition: color 0.15s ease;
+}
+
+.cat-lock svg { width: 12px; height: 12px; }
+.cat-row:hover .cat-lock { color: var(--text-secondary); }
+
 /* ─── Delete × ───────────────────────────────────────────────────────────────
    Always visible but quiet — tertiary glyph at rest, wearing the expense
    colours (dark-red glyph on a light-red tint) on hover so the destructive
@@ -351,7 +370,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cat-row, .cat-name, .cat-icon-btn, .cat-grip,
+  .cat-row, .cat-name, .cat-icon-btn, .cat-grip, .cat-lock,
   .cat-add-row, .cat-group-head, .cat-group-chevron, .cat-search-input {
     transition: none;
   }
