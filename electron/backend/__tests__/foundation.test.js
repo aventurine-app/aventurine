@@ -29,11 +29,15 @@ test('fresh DB: baseline schema + seed', () => {
   const cats = db.prepare('SELECT * FROM categories ORDER BY position').all();
   assert.equal(cats.length, 18, 'eighteen default categories');
 
-  // Clean slate: nothing is synced until the user turns it on per table.
-  assert.equal(db.prepare('SELECT COUNT(*) c FROM category_sync').get().c, 0);
-
   const yr = new Date().getFullYear();
   assert.ok(db.prepare('SELECT 1 FROM active_years WHERE year=?').get(yr));
+  // The bootstrap year defaults to fully synced — every category is computed
+  // from transactions, so a first import lights up the Cash Flow statement
+  // (and everything that reads it) with zero configuration.
+  assert.equal(
+    db.prepare('SELECT COUNT(*) c FROM category_sync WHERE year=?').get(yr).c,
+    cats.length
+  );
   assert.ok(db.prepare('SELECT 1 FROM balance_active_years WHERE year=?').get(yr));
   assert.equal(db.prepare('SELECT COUNT(*) c FROM balance_columns').get().c, 5);
   assert.equal(db.prepare('SELECT COUNT(*) c FROM portfolio_accounts').get().c, 1);
@@ -57,6 +61,11 @@ test('seed is idempotent', () => {
   seedDefaults(db);
   assert.equal(db.prepare('SELECT COUNT(*) c FROM categories').get().c, 18);
   assert.equal(db.prepare('SELECT COUNT(*) c FROM portfolio_accounts').get().c, 1);
+  // Sync seeding is tied to the bootstrap insert: once the user unsyncs
+  // categories, reopening the DB (re-running seed) must not re-sync them.
+  db.prepare('DELETE FROM category_sync').run();
+  seedDefaults(db);
+  assert.equal(db.prepare('SELECT COUNT(*) c FROM category_sync').get().c, 0);
   db.close();
 });
 

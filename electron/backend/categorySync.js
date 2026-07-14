@@ -25,4 +25,25 @@ function isSynced(db, year, category) {
     .get(year, category);
 }
 
-module.exports = { syncedMap, isSynced };
+/**
+ * Ensure a Cash Flow year-table exists, creating it fully synced. A brand-new
+ * year defaults to computed-from-transactions for every category — the user
+ * opts cells OUT rather than in. Guarded on the insert actually creating the
+ * year, so calling this for an existing year never re-syncs categories the
+ * user has turned off. Returns true when the year was created.
+ *
+ * Shared by the Cash Flow "+ year" endpoint and the transaction importer
+ * (an import auto-creates the years it touches, so imported history feeds
+ * the statement, Report Card, and Home with zero configuration).
+ */
+function ensureSyncedYear(db, year) {
+  const info = db.prepare('INSERT OR IGNORE INTO active_years (year) VALUES (?)').run(year);
+  if (info.changes > 0) {
+    db.prepare(
+      'INSERT OR IGNORE INTO category_sync (year, category) SELECT ?, "key" FROM categories'
+    ).run(year);
+  }
+  return info.changes > 0;
+}
+
+module.exports = { syncedMap, isSynced, ensureSyncedYear };

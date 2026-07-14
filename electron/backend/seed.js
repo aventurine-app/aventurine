@@ -52,8 +52,16 @@ const DEFAULT_APP_SETTINGS = { tx_auto_match: 'on' };
 function seedDefaults(db) {
   const year = new Date().getFullYear();
 
+  // Fresh DB → bootstrap the current year. It defaults to fully synced (the
+  // category_sync rows are seeded below, after the categories exist), so a
+  // brand-new user's first import populates the Cash Flow statement — and
+  // everything reading it — with zero configuration. Guarded on this insert
+  // actually happening: an opened DB that already has year-tables is never
+  // touched, so sync choices the user made survive every startup.
+  let bootstrappedYear = false;
   if (!db.prepare('SELECT 1 FROM active_years LIMIT 1').get()) {
     db.prepare('INSERT INTO active_years (year) VALUES (?)').run(year);
+    bootstrappedYear = true;
   }
 
   // The default taxonomy seeds only into an EMPTY table — a starting template,
@@ -90,6 +98,12 @@ function seedDefaults(db) {
         'INSERT INTO categories ("key", name, cat_type, position) VALUES (?, ?, ?, ?)'
       ).run(key, name, catType, pos);
     }
+  }
+
+  if (bootstrappedYear) {
+    db.prepare(
+      'INSERT OR IGNORE INTO category_sync (year, category) SELECT ?, "key" FROM categories'
+    ).run(year);
   }
 
   if (!db.prepare('SELECT 1 FROM balance_active_years LIMIT 1').get()) {
