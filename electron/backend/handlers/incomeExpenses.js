@@ -8,7 +8,7 @@
 // categorySync.js.
 
 const { bad, parseEntry, validateYear, VALID_MONTHS, monthNumber, monthName } = require('../validate');
-const { syncedMap, isSynced } = require('../categorySync');
+const { syncedMap, isSynced, ensureSyncedYear } = require('../categorySync');
 
 const NULL_SYNC_KEYS = { income: 'uncat_income', expense: 'uncat_expense' };
 
@@ -122,18 +122,9 @@ function yearAdd(ctx, { body }) {
   if (!body) bad('invalid request');
   const year = body.year;
   if (!validateYear(year)) bad('invalid year');
-  db.transaction(() => {
-    const info = db.prepare('INSERT OR IGNORE INTO active_years (year) VALUES (?)').run(year);
-    // A newly created year-table defaults to fully synced: every category is
-    // computed from transactions, so the user opts cells OUT rather than IN.
-    // Guard on `info.changes` so re-posting an existing year is a no-op and
-    // never silently re-syncs categories the user had already turned off.
-    if (info.changes > 0) {
-      db.prepare(
-        'INSERT OR IGNORE INTO category_sync (year, category) SELECT ?, "key" FROM categories'
-      ).run(year);
-    }
-  })();
+  // A newly created year-table defaults to fully synced — see ensureSyncedYear.
+  // Re-posting an existing year is a no-op.
+  db.transaction(() => ensureSyncedYear(db, year))();
   return { ok: true, year };
 }
 

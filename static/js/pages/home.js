@@ -6,8 +6,8 @@
 // "This Month" — the monthly view, defaulting to the current month with a
 // panel-level stepper to look back at earlier months:
 //   1. Monthly Cash Flow (horizontal bars: the month's income / expenses /
-//      savings / investing totals, from /api/spending)
-//   2. Spending (bar chart: the month's expense total per category, same fetch)
+//      savings / investing totals, from the Cash Flow statement — /api/data)
+//   2. Spending (bar chart: the month's expense total per category, same data)
 //   3. Upcoming Expenses (predicted recurring spends from the transactions ledger)
 //
 // "Over Time" — the long-run view:
@@ -997,23 +997,21 @@
         });
     }
 
-    // ─── This Month (one month of ledger activity) ───────────────────────────────
-    // The panel's two charts share one month of data from GET /api/spending
-    // (handlers/trends.js): per-type totals feed the Monthly Cash Flow horizontal
-    // bars, per-category totals feed the Spending bars. The panel-level stepper
-    // defaults to the current month — month-to-date — and walks back to any
-    // earlier month; both charts follow it.
+    // ─── This Month (one month of the Cash Flow statement) ──────────────────────
+    // The panel's two charts read one month of the Cash Flow statement (the
+    // same /api/data payload the Over Time charts use): per-type totals feed
+    // the Monthly Cash Flow horizontal bars, per-expense-category values feed
+    // the Spending bars. The statement is the blend point — synced cells are
+    // computed from transactions, the rest are hand-entered — so the panel
+    // lights up for import users and manual bookkeepers alike. The panel-level
+    // stepper defaults to the current month — month-to-date — and walks back to
+    // any earlier month; both charts follow it (no fetch: the month is sliced
+    // out of the already-loaded dataset).
 
     let homeMonth = (() => {
         const now = new Date();
         return { year: now.getFullYear(), monthIdx: now.getMonth() };
     })();
-    const homeMonthCache = new Map();  // 'YYYY-MM' -> { totals, categories }
-    let homeMonthReq = 0;              // fetch token — drops out-of-order responses
-
-    function homeMonthKey() {
-        return `${homeMonth.year}-${String(homeMonth.monthIdx + 1).padStart(2, '0')}`;
-    }
 
     function isCurrentHomeMonth() {
         const now = new Date();
@@ -1112,7 +1110,7 @@
             container.innerHTML = UI.emptyState({
                 icon: 'chart', compact: true,
                 title: isCurrentHomeMonth() ? 'No activity this month yet' : `Nothing in ${homeMonthLabel()}`,
-                desc: 'Transactions you add or import show up here as income, expenses, savings, and investing.',
+                desc: 'Transactions you import and figures you enter on your Cash Flow statement show up here as income, expenses, savings, and investing.',
             });
             return;
         }
@@ -1198,7 +1196,7 @@
                 ? UI.emptyState({
                     icon: 'wallet',
                     title: 'No spending this month yet',
-                    desc: 'Import or add transactions and Aventurine will break your month\'s spending down by category.',
+                    desc: 'Import transactions — or fill in your Cash Flow statement by hand — and Aventurine will break your month\'s spending down by category.',
                     action: { label: 'Add transactions', href: '/transactions', icon: 'plus', primary: true },
                 })
                 : UI.emptyState({
@@ -1220,16 +1218,37 @@
 
     /** Update the stepper label/buttons, fetch the month (cached per page load),
      *  and (re)render both monthly charts. */
+    /**
+     * Slice one month out of the Cash Flow statement payload: per-type totals
+     * for the Monthly Cash Flow bars plus per-expense-category values for the
+     * Spending bars. Every column contributes to its type's total whatever its
+     * cell holds (synced or hand-entered — the statement already resolved
+     * that); the Spending list keeps only positive expense cells, sorted
+     * biggest-first, mirroring what the statement table shows for the month.
+     */
+    function sliceStatementMonth(data) {
+        const cells = ((data.entries || {})[String(homeMonth.year)] || {})[MONTHS[homeMonth.monthIdx]] || {};
+        const totals = { income: 0, expense: 0, savings: 0, investing: 0 };
+        const categories = [];
+        for (const col of data.columns || []) {
+            const val = cells[col.key];
+            if (typeof val !== 'number') continue;
+            if (col.type in totals) totals[col.type] += val;
+            if (col.type === 'expense' && val > 0) {
+                categories.push({ key: col.key, name: col.label, total: val });
+            }
+        }
+        categories.sort((a, b) => b.total - a.total);
+        return { totals, categories };
+    }
+
     async function renderMonthSection() {
         const labelEl = document.getElementById('home-month-label');
         const nextBtn = document.getElementById('home-month-next');
         if (labelEl) labelEl.textContent = homeMonthLabel();
         if (nextBtn) nextBtn.disabled = isCurrentHomeMonth();
 
-        const ym = homeMonthKey();
-        const token = ++homeMonthReq;
-
-        let data = homeMonthCache.get(ym);
+        let data = ieData;
         if (!data) {
             const cancelSkeleton = UI.skeletonGuard(() => {
                 for (const id of ['mcf-chart', 'spending-chart']) {
@@ -1239,23 +1258,19 @@
                 }
             });
             try {
-                const res = await apiFetch(`/api/spending?month=${ym}`);
-                if (res.ok) {
-                    const body = await res.json();
-                    data = { totals: body.totals || {}, categories: body.categories || [] };
-                    homeMonthCache.set(ym, data);
-                }
+                // Deduped with init()'s fetch by Store — one request per load.
+                data = await fetchIEData();
             } catch {
-                // Network hiccup — fall through to the empty states.
+                // Fetch failure — fall through to the empty states.
+                data = { entries: {}, columns: [] };
             }
             cancelSkeleton();
-            // A newer month was requested while this one was in flight — drop it.
-            if (token !== homeMonthReq) return;
-            data = data || { totals: {}, categories: [] };
+            ieData = data;
         }
 
-        renderMonthlyCashflow(data.totals);
-        renderSpendingChart(data.categories);
+        const month = sliceStatementMonth(data);
+        renderMonthlyCashflow(month.totals);
+        renderSpendingChart(month.categories);
     }
 
     /** Step the monthly view back/forward. Forward stops at the current month
@@ -1431,8 +1446,8 @@
     async function init() {
         wireTabs();
         wireMonthStepper();
-        // Independent fetches — kick them off first so the "This Month" panel
-        // loads alongside the Over Time charts.
+        // Kick these off first so the "This Month" panel loads alongside the
+        // Over Time charts (its statement fetch is deduped with the one below).
         renderMonthSection();
         renderUpcomingExpenses();
         const cancelSkeletons = UI.skeletonGuard(showHomeSkeletons);
