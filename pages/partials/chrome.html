@@ -147,6 +147,20 @@
             </div>
         </div>
     </div>
+    <div class="settings-card settings-card-danger">
+        <div class="settings-row">
+            <div class="settings-row-label">
+                <div class="settings-row-name">Delete All Transactions</div>
+                <div class="settings-row-desc">
+                    Permanently removes every transaction from this database. This
+                    cannot be undone. Nothing else is affected — your categories,
+                    learned category rules, balance sheet, and all other settings
+                    are left untouched.
+                </div>
+            </div>
+            <button class="db-btn db-btn-danger settings-delete-all-tx" type="button">Delete All…</button>
+        </div>
+    </div>
 </div>
 
 <div class="settings-tabpanel" data-tabpanel="format" role="tabpanel" hidden
@@ -352,6 +366,38 @@
             <div class="settings-modal-footer enc-footer">
                 <button class="db-btn" data-enc-cancel type="button">Cancel</button>
                 <button class="db-btn db-btn-primary" data-enc-submit type="button">Apply</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Delete-all-transactions confirmation (opened from Settings → Transactions →
+         Delete All…). Destructive and irreversible, so it demands the user type an
+         exact confirmation phrase before the button un-disables. Wired in
+         static/js/shell/settings.js against DELETE /api/transactions. -->
+    <div class="settings-modal-overlay" data-modal="delete-all-tx" hidden>
+        <div class="settings-modal delete-all-tx-modal">
+            <div class="settings-modal-header">
+                <span class="settings-modal-title">Delete All Transactions</span>
+                <button class="settings-modal-close" aria-label="Close">×</button>
+            </div>
+            <div class="settings-modal-body">
+                <div class="settings-row-desc">
+                    This permanently deletes <strong>every transaction</strong> in
+                    the open database. It cannot be undone. Categories, learned
+                    category rules, the balance sheet, and all other settings are
+                    left untouched.
+                </div>
+                <div class="enc-field">
+                    <label class="enc-label">Type <strong>DELETE</strong> to confirm</label>
+                    <input class="enc-input" type="text" data-delete-all-tx-input
+                           autocomplete="off" spellcheck="false" placeholder="DELETE">
+                </div>
+                <div class="enc-error" data-delete-all-tx-error hidden></div>
+            </div>
+            <div class="settings-modal-footer enc-footer">
+                <button class="db-btn" data-delete-all-tx-cancel type="button">Cancel</button>
+                <button class="db-btn db-btn-danger" data-delete-all-tx-submit type="button" disabled>Delete All Transactions</button>
             </div>
         </div>
     </div>

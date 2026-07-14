@@ -301,6 +301,71 @@
     wireSettingRadios('tx_auto_match', 'on');
 
 
+    // ── Delete all transactions (Transactions tab, danger zone) ────────────────
+    // Irreversible: wipes the whole ledger (DELETE /api/transactions) but nothing
+    // else. Because it's so destructive, the confirm modal keeps its button
+    // disabled until the user types the exact phrase, and we reload afterward so
+    // every surface re-reads from the now-empty table.
+
+    const DELETE_ALL_TX_PHRASE = 'DELETE';
+
+    function wireDeleteAllTx() {
+        const overlay = document.querySelector('[data-modal="delete-all-tx"]');
+        if (!overlay) return;
+        const input  = overlay.querySelector('[data-delete-all-tx-input]');
+        const submit = overlay.querySelector('[data-delete-all-tx-submit]');
+        const cancel = overlay.querySelector('[data-delete-all-tx-cancel]');
+        const error  = overlay.querySelector('[data-delete-all-tx-error]');
+
+        const close = () => { overlay.hidden = true; };
+        const reset = () => {
+            input.value = '';
+            submit.disabled = true;
+            if (error) { error.hidden = true; error.textContent = ''; }
+        };
+
+        function open() {
+            reset();
+            overlay.hidden = false;
+            input.focus();
+        }
+
+        input.addEventListener('input', () => {
+            submit.disabled = input.value.trim() !== DELETE_ALL_TX_PHRASE;
+        });
+        // Enter submits once the phrase matches.
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !submit.disabled) { e.preventDefault(); run(); }
+        });
+
+        cancel.addEventListener('click', close);
+
+        async function run() {
+            if (input.value.trim() !== DELETE_ALL_TX_PHRASE) return;
+            submit.disabled = true;
+            try {
+                const res = await apiFetch('/api/transactions', { method: 'DELETE' });
+                if (!res.ok) throw new Error('request failed');
+                location.reload();
+            } catch (_) {
+                if (error) {
+                    error.textContent = 'Could not delete transactions. Please try again.';
+                    error.hidden = false;
+                }
+                submit.disabled = false;
+            }
+        }
+
+        submit.addEventListener('click', run);
+
+        document.querySelectorAll('.settings-delete-all-tx').forEach(btn => {
+            btn.addEventListener('click', open);
+        });
+    }
+
+    wireDeleteAllTx();
+
+
     // ── Section tabs (Preferences modal) ───────────────────────────────────────
     // The Preferences sections are split across horizontal tabs. Each tab reveals
     // one .settings-tabpanel; inactive panels carry the [hidden] attribute. Roving
