@@ -265,6 +265,7 @@
 .total-row {
     border-top: var(--table-border-width) solid var(--border);
     background-color: var(--frost-2);
+    font-weight: 700;
 }
 
 /* == Sticky first column ==
@@ -309,6 +310,7 @@
    the same tint over --surface1 to match the rest of the (non-sticky) row. */
 .db-table .total-row .month-label {
     background-image: linear-gradient(var(--frost-2), var(--frost-2));
+    font-weight: 700;
 }
 
 /* The "Total" span in the tfoot. Block layout so the right-aligned padding
