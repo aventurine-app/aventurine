@@ -21,6 +21,11 @@
 //   5. Commit       — POST confirmed rows to /api/transactions/import
 //   6. Reload       — fire 'transactions:reload' so the ledger refreshes
 //
+// Steps 2 and 5 can block for a second-plus on large files, so each wait
+// shows an indeterminate progress bar (export's progress styles); the
+// standalone busy modals reveal only after ~150ms so small files never
+// flash one.
+//
 // All parsing is client-side. The server only receives clean row objects.
 // On import the server auto-categorizes confident rows on-device (learned
 // per-user rules first, then the built-in merchant lexicon); the count comes
@@ -82,12 +87,51 @@
             overlay.append(dialog);
             document.body.append(overlay);
 
-            const close = () => overlay.remove();
+            // Same closable guard as txexport.js's buildModal: the dialog can't
+            // be dismissed while a parse or the commit POST is in flight.
+            let closable = true;
+            const close = () => { if (closable) overlay.remove(); };
             header.querySelector('.tx-import-close').addEventListener('click', close);
             overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 
-            return { overlay, dialog, body, close };
+            return {
+                overlay, dialog, body, close,
+                setClosable(v) {
+                    closable = v;
+                    header.querySelector('.tx-import-close').disabled = !v;
+                },
+            };
         }
+
+        // ── Busy states ───────────────────────────────────────────────────────────
+        // The import flow's waits (file parse, the single commit POST) have no
+        // row-level progress to report, so they show the export modal's progress
+        // styles with an indeterminate fill instead of a percentage.
+        function progressBar(label) {
+            const el = document.createElement('div');
+            el.className = 'tx-export-progress';
+            el.innerHTML = `
+            <div class="tx-export-progress-label">${esc(label)}</div>
+            <div class="tx-export-progress-track"><div class="tx-export-progress-fill tx-export-progress-fill--indeterminate"></div></div>
+        `;
+            return el;
+        }
+
+        // Standalone busy modal for the parse phase. The overlay holds invisible
+        // for ~150ms before fading in (.tx-import-overlay--busy), so small files
+        // that parse instantly never flash a modal.
+        function showBusyModal(label) {
+            const modal = buildModal('Import Transactions');
+            modal.overlay.classList.add('tx-import-overlay--busy');
+            modal.dialog.classList.add('tx-import-dialog--busy');
+            modal.setClosable(false);
+            modal.body.append(progressBar(label));
+            return { close: () => { modal.setClosable(true); modal.close(); } };
+        }
+
+        // Two frames: the busy bar must be painted (and compositor-animated)
+        // before synchronous parse work blocks the renderer.
+        const nextPaint = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
         // ── Step 1: Mapping modal ─────────────────────────────────────────────────
         function showMappingModal(headers, rows, detected, onContinue) {
@@ -159,7 +203,7 @@
 
         // ── Step 2: Preview modal ─────────────────────────────────────────────────
         function showPreviewModal(parsed, errors, dupeSet) {
-            const { body, close } = buildModal('Review Import');
+            const { body, close, setClosable } = buildModal('Review Import');
 
             // Augment each row with a stable index, fingerprint, and dup flag.
             const rows     = parsed.map((r, i) => ({ ...r, _idx: i, _fp: fingerprint(r), _dup: dupeSet.has(fingerprint(r)) }));
@@ -248,8 +292,17 @@
                 const toSend = rows
                     .filter(r => checked.has(r._idx))
                     .map(({ date, description, tx_type, amount, notes }) => ({ date, description, tx_type, amount, notes }));
+
+                // Swap the table for an indeterminate bar while the commit POST
+                // writes to the database — the wait reads as work, not a hang.
+                const tableView = [...body.children];
+                body.replaceChildren(progressBar(`Importing ${toSend.length} transaction${toSend.length !== 1 ? 's' : ''}…`));
+                footer.style.display = 'none';
+                setClosable(false);
+
                 try {
                     const result = await commitRows(toSend);
+                    setClosable(true);
                     close();
                     const msg = `Imported ${result.inserted} transaction${result.inserted !== 1 ? 's' : ''}.`
                         + (result.auto_categorized ? ` ${result.auto_categorized} categorized automatically.` : '')
@@ -257,6 +310,10 @@
                     alert(msg);
                     window.dispatchEvent(new Event('transactions:reload'));
                 } catch (err) {
+                    // Put the preview back so the user can retry or deselect rows.
+                    body.replaceChildren(...tableView);
+                    footer.style.display = '';
+                    setClosable(true);
                     alert('Import failed: ' + err.message);
                 }
             });
@@ -277,16 +334,24 @@
                 input.remove();
                 if (!file) return;
 
+                // Parsing a big file (xlsx inflate, format sniffing) runs right
+                // here in the renderer and can block for a second-plus, so the
+                // busy bar goes up first and gets a frame to paint.
+                const busy = showBusyModal('Reading file…');
+                await nextPaint();
+
                 const buf = await file.arrayBuffer().catch(() => null);
-                if (!buf || !buf.byteLength) { alert('Could not read the file.'); return; }
+                if (!buf || !buf.byteLength) { busy.close(); alert('Could not read the file.'); return; }
 
                 let table;
                 try {
                     table = await parseFile(file.name, buf);
                 } catch (err) {
+                    busy.close();
                     alert('Could not import this file: ' + err.message);
                     return;
                 }
+                busy.close();
                 if (!table.headers.length || !table.rows.length) {
                     alert('The file appears to be empty or has no data rows.');
                     return;
@@ -295,8 +360,14 @@
                 // Shared continuation for both paths: validate rows, fetch
                 // duplicate fingerprints, open the preview.
                 const proceed = async (mapping, firstRowNum) => {
+                    // Row validation + the dup-hash fetch scale with file size;
+                    // same delayed-reveal bar as the parse phase.
+                    const busy = showBusyModal('Preparing preview…');
+                    await nextPaint();
+
                     const { parsed, errors } = applyMapping(table.rows, mapping, firstRowNum);
                     if (!parsed.length) {
+                        busy.close();
                         const sample = errors.slice(0, 3).map(e => `  Row ${e.row}: ${e.reason}`).join('\n');
                         alert(`No valid rows could be parsed (${errors.length} error${errors.length > 1 ? 's' : ''}).\n\nFirst errors:\n${sample}`);
                         return;
@@ -307,6 +378,7 @@
                     const minDate = parsed.reduce((min, r) => (r.date < min ? r.date : min), parsed[0].date);
                     const dupeSet = await fetchHashes(minDate);
 
+                    busy.close();
                     showPreviewModal(parsed, errors, dupeSet);
                 };
 

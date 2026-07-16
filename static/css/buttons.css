@@ -107,6 +107,15 @@
                 border-color 0.15s ease, transform 0.1s ease;
 }
 
+/* The display:inline-flex above outranks the UA's [hidden] rule, so the
+   hidden attribute (import/export progress states hide their action button
+   with it) would silently do nothing without this. */
+.button-primary[hidden], .button-secondary[hidden],
+.forecast-add-btn[hidden],
+.cat-add-btn[hidden], .col-add-btn[hidden] {
+    display: none;
+}
+
 /* Outlined accent — secondary emphasis (Manage Columns, Add row …).
    Neutral fill with the accent carried by the text + border, so it reads as a
    quieter sibling of the accent-filled primary action. */

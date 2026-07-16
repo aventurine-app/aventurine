@@ -838,6 +838,24 @@
     overflow: hidden;
 }
 
+/* Busy variant — the parse/preview-prep wait states. The overlay holds
+   invisible for ~150ms then fades in, so files that parse instantly never
+   flash a modal. Opacity animates on the compositor, so the reveal still
+   plays while synchronous parse work blocks the renderer. */
+.tx-import-overlay--busy {
+    animation: tx-busy-reveal 0.35s ease both;
+}
+
+@keyframes tx-busy-reveal {
+    0%, 45% { opacity: 0; }
+    100%    { opacity: 1; }
+}
+
+/* Just a label and a bar inside — the full 740px preview width would dwarf it. */
+.tx-import-dialog--busy {
+    max-width: 420px;
+}
+
 .tx-import-dialog-header {
     display: flex;
     align-items: center;
@@ -1250,7 +1268,9 @@
 }
 
 /* Progress bar — fill width is driven from txexport.js as chunks land, so
-   it reflects rows actually written rather than an animation. */
+   it reflects rows actually written rather than an animation. The import
+   flow (txfileimport.js) reuses these styles for its wait states, with the
+   --indeterminate fill below in place of a percentage. */
 .tx-export-progress {
     display: flex;
     flex-direction: column;
@@ -1279,6 +1299,28 @@
     border-radius: inherit;
     background: var(--accent-primary);
     transition: width 0.2s ease;
+}
+
+/* Indeterminate variant — the import flow's wait states (file parse, the
+   single commit POST) have no row counts to report, so a fixed-width fill
+   sweeps the track instead. transform runs on the compositor, so the sweep
+   keeps moving even while parse work blocks the renderer. */
+.tx-export-progress-fill--indeterminate {
+    width: 40%;
+    animation: tx-progress-sweep 1.2s ease-in-out infinite;
+}
+
+@keyframes tx-progress-sweep {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(250%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tx-export-progress-fill--indeterminate {
+        animation: none;
+        width: 100%;
+        opacity: 0.55;
+    }
 }
 
 .tx-export-progress-count {
