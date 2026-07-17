@@ -19,14 +19,14 @@
     <!-- Report tabs. Adding another report = a .cf-tab button here + a matching
          .cf-panel below. Controller: cashflow.js (data-driven, no JS change). -->
     <div class="cf-tabs" role="tablist" aria-label="Cash Flow reports">
-        <button type="button" class="cf-tab active" id="cf-tab-forecast" role="tab"
-            data-tab="forecast" aria-controls="cf-panel-forecast" aria-selected="true">Forecast</button>
-        <button type="button" class="cf-tab" id="cf-tab-cashflow" role="tab"
-            data-tab="cashflow" aria-controls="cf-panel-cashflow" aria-selected="false" tabindex="-1">Cash Flow</button>
+        <button type="button" class="cf-tab active" id="cf-tab-cashflow" role="tab"
+            data-tab="cashflow" aria-controls="cf-panel-cashflow" aria-selected="true">Cash Flow</button>
+        <button type="button" class="cf-tab" id="cf-tab-forecast" role="tab"
+            data-tab="forecast" aria-controls="cf-panel-forecast" aria-selected="false" tabindex="-1">Forecast</button>
     </div>
 
     <div class="cf-panel" id="cf-panel-forecast" role="tabpanel"
-        data-panel="forecast" aria-labelledby="cf-tab-forecast" tabindex="0">
+        data-panel="forecast" aria-labelledby="cf-tab-forecast" tabindex="0" hidden>
 
 <div class="forecast-page">
 
@@ -88,7 +88,7 @@
     </div><!-- /.cf-panel -->
 
     <div class="cf-panel" id="cf-panel-cashflow" role="tabpanel"
-        data-panel="cashflow" aria-labelledby="cf-tab-cashflow" tabindex="0" hidden>
+        data-panel="cashflow" aria-labelledby="cf-tab-cashflow" tabindex="0">
 
 <div class="forecast-page">
 

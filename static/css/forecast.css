@@ -22,14 +22,19 @@
 .cf-reports {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    /* Tab row → report panel: same tight 8px as Statements' toolbar → tables
+       (.stmt-page), so the segmented control sits identically on both pages. */
+    gap: var(--space-8);
     padding: var(--page-pad);
     /* Fill the page so the reports use the full available width — the charts
        scale responsively to their container, making legends easier to read. */
     width: 100%;
 }
 
-/* Tab styles live in ui.css — shared with .home-tab and .stmt-tab. */
+/* Tab styles live in ui.css — the segmented control shared with .home-tab and
+   .stmt-tab. The column above stretches its children; keep the track hugging
+   its labels like the other pages' toolbars do. */
+.cf-tabs { align-self: flex-start; }
 
 .forecast-page {
     display: flex;

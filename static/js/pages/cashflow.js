@@ -41,7 +41,7 @@
     if (j >= 0) { e.preventDefault(); select(tabs[j], true); }
   });
 
-  // Sync initial state (roving tabindex + panel visibility) to the markup's
-  // pre-selected tab.
-  select(tabs.find((t) => t.getAttribute('aria-selected') === 'true') || tabs[0]);
+  // The default report is whatever tab comes first in the row — reordering
+  // the buttons in the markup is all it takes to change it.
+  select(tabs[0]);
 }());
