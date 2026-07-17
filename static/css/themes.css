@@ -107,5 +107,10 @@ html[data-theme="dark"],
     --segctl-raised-stroke: var(--stroke-soft);
     --segctl-raised-shadow: 0 1px 2px rgba(0,0,0, 0.35);
 
+    /* Toolbar controls (stepper label, toolbar range picker) — same fill as
+       card-header pickers here; the light theme lifts them a rung instead
+       (see style.css). */
+    --toolbar-control-bg:   var(--surface2);
+
 }
 

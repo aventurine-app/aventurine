@@ -478,8 +478,11 @@
  * lets narrower content like a bare year tighten it). It's a real <button>
  * now — hover/focus affordances signal the picker behind it. */
 .stepper-label {
-    background: var(--color-base-200);
-    border: 0px solid transparent;
+    /* Theme-tuned fill (style.css/themes.css): matches .range-selector-btn's
+       surface2 on dark, one rung lighter on light where surface2 would
+       disappear into the page background. */
+    background: var(--toolbar-control-bg);
+    border: var(--border-width) solid var(--border);
     border-radius: 6px;
     padding: 0 var(--space-16);
     height: var(--control-height);

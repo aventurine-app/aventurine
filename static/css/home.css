@@ -53,6 +53,11 @@
    anchor it left instead. */
 #home-range .range-selector-menu { right: auto; left: 0; }
 
+/* Toolbar instance sits on the page background (not a card), so it takes the
+   toolbar-control fill the stepper label uses — one rung lighter than the
+   light page background, surface2 on dark (see style.css/themes.css). */
+#home-range .range-selector-btn { background-color: var(--toolbar-control-bg); }
+
 /* Both panels: cards in a 2×2 grid of equal-width columns, as direct grid
    children. An odd card count leaves the last cell empty. */
 .home-grid {
