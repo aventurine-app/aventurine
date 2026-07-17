@@ -239,6 +239,15 @@
    /* Dialog chrome — opaque surface/border rather than translucent tints */
    --dialog-surface:   var(--surface1);
    --dialog-stroke:    var(--border);
+
+   /* Segmented control (Statements tabs) — a grey track holding the options,
+      with the active one on a raised card. "Raised" is lighter-than-track in
+      BOTH themes, which no surface-N pair provides (the ramps run opposite
+      directions), hence dedicated tokens; dark values in themes.css. */
+   --segctl-track:         var(--color-base-200);
+   --segctl-raised:        var(--color-base-050);
+   --segctl-raised-stroke: var(--stroke-divider);
+   --segctl-raised-shadow: 0 1px 2px rgba(0,0,0, 0.10), 0 1px 1px rgba(0,0,0, 0.06);
 }
 
 

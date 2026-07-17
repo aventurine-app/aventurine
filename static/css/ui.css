@@ -298,10 +298,9 @@
 .p-dropdown-item-danger:hover { background: rgba(255, 60, 60, 0.1); color: rgba(255, 90, 90, 1); }
 
 /* ─── Page-level tab bar (underline style) ──────────────────────────────────
- * Shared by Home (.home-tab), Cash Flow Reports (.cf-tab), and Statements
- * (.stmt-tab). All three were identical; centralized here. Per-page container
- * layout (.home-tabs, .cf-tabs) also shared; the Statements toolbar owns its
- * own border-bottom so the line spans the full toolbar width. */
+ * Shared by Home (.home-tab) and Cash Flow Reports (.cf-tab). Statements
+ * (.stmt-tab) used to share these too but now styles its tabs as a segmented
+ * control in statements.css. */
 .home-tabs, .cf-tabs {
     display: flex;
     align-items: stretch;
@@ -309,7 +308,7 @@
     border-bottom: var(--border-width) solid var(--border);
 }
 
-.home-tab, .cf-tab, .stmt-tab {
+.home-tab, .cf-tab {
     appearance: none;
     background: transparent;
     border: none;
@@ -327,20 +326,19 @@
     transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
-.home-tab:hover, .cf-tab:hover, .stmt-tab:hover {
+.home-tab:hover, .cf-tab:hover {
     color: var(--text-primary);
     background: color-mix(in srgb, var(--text-primary) 6%, transparent);
 }
 
 .home-tab.active, .home-tab[aria-selected="true"],
-.cf-tab.active, .cf-tab[aria-selected="true"],
-.stmt-tab.active, .stmt-tab[aria-selected="true"] {
+.cf-tab.active, .cf-tab[aria-selected="true"] {
     color: var(--text-primary);
     font-weight: var(--weight-semibold);
     border-bottom-color: var(--accent-primary);
 }
 
-.home-tab:focus-visible, .cf-tab:focus-visible, .stmt-tab:focus-visible {
+.home-tab:focus-visible, .cf-tab:focus-visible {
     outline: 2px solid var(--color-accent-400);
     outline-offset: -2px;
 }
@@ -349,7 +347,7 @@
 .home-panel:focus, .cf-panel:focus, .stmt-panel:focus { outline: none; }
 
 @media (prefers-reduced-motion: reduce) {
-    .home-tab, .cf-tab, .stmt-tab { transition: none; }
+    .home-tab, .cf-tab { transition: none; }
 }
 
 /* The current choice in picker-style menus (stepper month/year). */

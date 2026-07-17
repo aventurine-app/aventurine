@@ -107,5 +107,13 @@ html[data-theme="dark"],
     --dialog-surface: rgb(38, 38, 40);
     --dialog-stroke:  rgba(255,255,255, 0.12);
 
+    /* Segmented control — raised must sit LIGHTER than the track on dark
+       (raised = lighter), so both rungs step up from the base-950 page. The
+       hairline does the lifting a drop shadow can't on dark surfaces. */
+    --segctl-track:         var(--color-base-900);
+    --segctl-raised:        var(--color-base-700);
+    --segctl-raised-stroke: var(--stroke-soft);
+    --segctl-raised-shadow: 0 1px 2px rgba(0,0,0, 0.35);
+
 }
 

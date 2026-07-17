@@ -32,26 +32,78 @@
 }
 
 /* ─── Toolbar — tabs + ⋮ menu ───────────────────────────────────────────────
-   The border-bottom spans the full toolbar width so the underline tab bar
-   reads as a continuous separator (same visual as .home-tabs / .cf-tabs). */
+   The tabs are a segmented control: a grey track (.stmt-tabs) holding both
+   labels, with the active one lifted on a raised card. Unlike the underline
+   bars on Home / Cash Flow Reports (ui.css), the track hugs its content, so
+   the toolbar spreads track and ⋮ apart instead of drawing a full-width rule. */
 .stmt-toolbar {
     display: flex;
-    align-items: stretch;
-    gap: 0;
-    border-bottom: var(--border-width) solid var(--border);
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
 }
 
 .stmt-tabs {
-    flex: 1;
-    display: flex;
-    align-items: stretch;
+    display: inline-flex;
+    align-items: center;
     gap: 4px;
+    padding: 4px;
+    background: var(--segctl-track);
+    /* Inner card radius 8 + 4px track padding, so the curves stay concentric. */
+    border-radius: 12px;
+}
+
+/* Type + box tokens mirror the action-button shape (buttons.css) — same
+   32px control height, uppercase micro type — so the segments read as
+   siblings of Add New Year / Manage Columns in the header above. */
+.stmt-tab {
+    appearance: none;
+    background: transparent;
+    /* Transparent hairline reserves the active card's border so the label
+       never shifts when selection lands (buttons must stand still). */
+    border: 1px solid transparent;
+    border-radius: 8px;
+    box-sizing: border-box;
+    height: var(--control-height);
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-superbold);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+    white-space: nowrap;
+    padding: var(--space-8) var(--space-16);
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.stmt-tab:hover {
+    color: var(--text-primary);
+    background: var(--frost-2);
+}
+
+/* No weight bump on active — a bolder label is wider, and in a content-hugging
+   track that width change would shove the sibling tab sideways. The raised
+   card + primary text colour carry the selected state on their own. */
+.stmt-tab.active, .stmt-tab[aria-selected="true"] {
+    color: var(--text-primary);
+    background: var(--segctl-raised);
+    border-color: var(--segctl-raised-stroke);
+    box-shadow: var(--segctl-raised-shadow);
+}
+
+.stmt-tab:focus-visible {
+    outline: 2px solid var(--color-accent-400);
+    outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .stmt-tab { transition: none; }
 }
 
 .stmt-toolbar-right {
     display: flex;
     align-items: center;
-    padding-bottom: 4px;
 }
 
 /* The ⋮ dropdown (.p-table-dropdown, position: absolute) anchors here. */
