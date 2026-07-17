@@ -98,10 +98,10 @@
     font-weight: var(--weight-semibold);
     letter-spacing: var(--track-wide);
 }
-.rc-change-good { color: #5ba672; }
+.rc-change-good { color: var(--accent-gain); }
 .rc-change-bad  { color: var(--accent-tertiary); }
 .rc-change-flat { color: var(--text-tertiary); }
-.rc-change-up   { color: #5ba672; }
+.rc-change-up   { color: var(--accent-gain); }
 .rc-change-none { color: var(--text-tertiary); font-style: italic; font-weight: var(--weight-regular); }
 
 /* ─── Metrics row ─────────────────────────────────────────────────────────── */
@@ -161,8 +161,8 @@
     align-self: center;
 }
 .rc-goal-met .rc-goal-icon {
-    color: #5ba672;
-    background: color-mix(in srgb, #5ba672 18%, transparent);
+    color: var(--accent-gain);
+    background: color-mix(in srgb, var(--accent-gain) 18%, transparent);
 }
 .rc-goal-miss .rc-goal-icon {
     color: var(--accent-tertiary);

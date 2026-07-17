@@ -158,8 +158,8 @@
 
 
    /* Finance-positive green — the green that means "gain / income / asset":
-      .stat-change-up & .roi-positive deltas, ledger income amounts, the income
-      category, and the net-worth / asset charts. This is the app's original
+      .stat-change-up & .roi-positive deltas, the income category, and the
+      net-worth / asset charts (ledger income amounts use --accent-gain). This is the app's original
       olive, split from --accent-primary so it stays green while the UI accent
       goes pink. Mirrors the primary/400 pair: -strong is deepened for AA as text
       on the light surface (lightened on dark in themes.css); -lighter is the
@@ -167,6 +167,10 @@
    --accent-positive:         #8b9751;
    --accent-positive-strong:  color-mix(in srgb, var(--accent-positive) 82%, #000);
    --accent-positive-lighter: #b1bf7a;
+   /* Gain green — a truer green than the olive above, paired with
+      --accent-tertiary red for good/bad verdicts: Report Card grades & goal
+      checks, and the ledger's income amounts. Same value in both themes. */
+   --accent-gain:             #5ba672;
    --accent-secondary: #b8921e;
    --accent-quatenary: #e28623;
    --accent-quinary:   #5a2a6e;

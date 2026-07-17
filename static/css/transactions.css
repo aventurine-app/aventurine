@@ -632,8 +632,9 @@
 }
 
 /* Amount colour follows sign: money in (income) reads green, money out
-   (expense / savings / investing) reads red. */
-.tx-row td.tx-amount-income    { color: var(--accent-positive); }
+   (expense / savings / investing) reads red — the same --accent-gain /
+   --accent-tertiary pair as the Report Card verdicts. */
+.tx-row td.tx-amount-income    { color: var(--accent-gain); }
 .tx-row td.tx-amount-expense   { color: var(--accent-tertiary); }
 .tx-row td.tx-amount-savings   { color: var(--accent-tertiary); }
 .tx-row td.tx-amount-investing { color: var(--accent-tertiary); }
