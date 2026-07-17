@@ -1404,6 +1404,10 @@
                 t.tabIndex = on ? 0 : -1;
             });
             panels.forEach((p) => { p.hidden = p.dataset.panel !== id; });
+            // The month stepper sits on the toolbar row (outside the panels)
+            // but only scopes the Month to Month cards — hide it elsewhere.
+            const stepper = document.getElementById('home-month');
+            if (stepper) stepper.hidden = id !== 'month';
             if (focus) tab.focus();
         }
 

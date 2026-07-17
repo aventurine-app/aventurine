@@ -298,17 +298,16 @@
 .p-dropdown-item-danger:hover { background: rgba(255, 60, 60, 0.1); color: rgba(255, 90, 90, 1); }
 
 /* ─── Page-level tab bar (underline style) ──────────────────────────────────
- * Shared by Home (.home-tab) and Cash Flow Reports (.cf-tab). Statements
- * (.stmt-tab) used to share these too but now styles its tabs as a segmented
- * control in statements.css. */
-.home-tabs, .cf-tabs {
+ * Cash Flow Reports (.cf-tab). Home and Statements used to share these but
+ * both now use the segmented control below. */
+.cf-tabs {
     display: flex;
     align-items: stretch;
     gap: 4px;
     border-bottom: var(--border-width) solid var(--border);
 }
 
-.home-tab, .cf-tab {
+.cf-tab {
     appearance: none;
     background: transparent;
     border: none;
@@ -326,19 +325,18 @@
     transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
-.home-tab:hover, .cf-tab:hover {
+.cf-tab:hover {
     color: var(--text-primary);
     background: color-mix(in srgb, var(--text-primary) 6%, transparent);
 }
 
-.home-tab.active, .home-tab[aria-selected="true"],
 .cf-tab.active, .cf-tab[aria-selected="true"] {
     color: var(--text-primary);
     font-weight: var(--weight-semibold);
     border-bottom-color: var(--accent-primary);
 }
 
-.home-tab:focus-visible, .cf-tab:focus-visible {
+.cf-tab:focus-visible {
     outline: 2px solid var(--color-accent-400);
     outline-offset: -2px;
 }
@@ -347,7 +345,83 @@
 .home-panel:focus, .cf-panel:focus, .stmt-panel:focus { outline: none; }
 
 @media (prefers-reduced-motion: reduce) {
-    .home-tab, .cf-tab { transition: none; }
+    .cf-tab { transition: none; }
+}
+
+/* ─── Segmented tab control + toolbar row ───────────────────────────────────
+ * Shared by Statements (.stmt-*) and Home (.home-*). Moved here from
+ * statements.css when Home adopted it.
+ *
+ * The tabs are a segmented control: a grey track holding both labels, with
+ * the active one lifted on a raised card. Unlike the underline bar on Cash
+ * Flow Reports (above), the track hugs its content.
+ *
+ * The toolbar row layouts differ per page and live in each page's stylesheet:
+ * Statements (statements.css) pins its year stepper dead-center between the
+ * tabs and the ⋮ menu; Home (home.css) puts the month stepper far left and
+ * the tabs far right. */
+
+/* The stepper is display:flex, which beats the UA's [hidden] { display: none }
+ * — restate it at author level (Home hides its month stepper on Year to Year). */
+.stepper[hidden] { display: none; }
+
+.stmt-tabs, .home-tabs {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    background: var(--segctl-track);
+    /* Inner card radius 8 + 4px track padding, so the curves stay concentric. */
+    border-radius: 12px;
+}
+
+/* Type + box tokens mirror the action-button shape (buttons.css) — same
+   32px control height, uppercase micro type — so the segments read as
+   siblings of the other 32px controls across the row. */
+.stmt-tab, .home-tab {
+    appearance: none;
+    background: transparent;
+    /* Transparent hairline reserves the active card's border so the label
+       never shifts when selection lands (buttons must stand still). */
+    border: 1px solid transparent;
+    border-radius: 8px;
+    box-sizing: border-box;
+    height: var(--control-height);
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-superbold);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+    white-space: nowrap;
+    padding: var(--space-8) var(--space-16);
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.stmt-tab:hover, .home-tab:hover {
+    color: var(--text-primary);
+    background: var(--frost-2);
+}
+
+/* No weight bump on active — a bolder label is wider, and in a content-hugging
+   track that width change would shove the sibling tab sideways. The raised
+   card + primary text colour carry the selected state on their own. */
+.stmt-tab.active, .stmt-tab[aria-selected="true"],
+.home-tab.active, .home-tab[aria-selected="true"] {
+    color: var(--text-primary);
+    background: var(--segctl-raised);
+    border-color: var(--segctl-raised-stroke);
+    box-shadow: var(--segctl-raised-shadow);
+}
+
+.stmt-tab:focus-visible, .home-tab:focus-visible {
+    outline: 2px solid var(--color-accent-400);
+    outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .stmt-tab, .home-tab { transition: none; }
 }
 
 /* The current choice in picker-style menus (stepper month/year). */

@@ -16,30 +16,32 @@
 
 <div class="home-page">
 
-    <!-- Dashboard view tabs. Same ARIA tablist pattern as Cash Flow Reports
-         (cash-flow.html): a .home-tab button here + a matching
-         .home-panel[data-panel] below. Controller: wireTabs() in home.js. -->
-    <div class="home-tabs" role="tablist" aria-label="Home dashboard views">
-        <button type="button" class="home-tab active" id="home-tab-month" role="tab"
-            data-tab="month" aria-controls="home-panel-month" aria-selected="true">Month to Month</button>
-        <button type="button" class="home-tab" id="home-tab-overtime" role="tab"
-            data-tab="overtime" aria-controls="home-panel-overtime" aria-selected="false" tabindex="-1">Year to Year</button>
-    </div>  
-
-    <div class="home-panel" id="home-panel-month" role="tabpanel"
-        data-panel="month" aria-labelledby="home-tab-month" tabindex="0">
-
-    <!-- The stepper scopes every monthly card below: current month by
-         default, arrows walk back to any earlier month; clicking the label
-         opens a recent-months picker. -->
-    <div class="home-month-bar">
-        <div class="stepper" id="home-month">
+    <!-- Toolbar: month stepper far left, segmented view tabs far right
+         (layout in home.css; the tab control itself is shared with Statements
+         via ui.css). Same ARIA tablist pattern as Cash Flow Reports: a
+         .home-tab button here + a matching .home-panel[data-panel] below.
+         Controller: wireTabs() in home.js. -->
+    <div class="home-toolbar">
+        <!-- The stepper scopes every card on the Month to Month panel: current
+             month by default, arrows walk back to any earlier month; clicking
+             the label opens a recent-months picker. wireTabs() hides it while
+             Year to Year is active (those cards have their own range pickers). -->
+        <div class="stepper" id="home-month" aria-label="Dashboard month">
             <button class="stepper-btn" id="home-month-prev" type="button" aria-label="Previous month">&#8249;</button>
             <button class="stepper-label" id="home-month-label" type="button" aria-live="polite"
                 aria-haspopup="menu" title="Choose month">&nbsp;</button>
             <button class="stepper-btn" id="home-month-next" type="button" aria-label="Next month" disabled>&#8250;</button>
         </div>
+        <div class="home-tabs" role="tablist" aria-label="Home dashboard views">
+            <button type="button" class="home-tab active" id="home-tab-month" role="tab"
+                data-tab="month" aria-controls="home-panel-month" aria-selected="true">Month to Month</button>
+            <button type="button" class="home-tab" id="home-tab-overtime" role="tab"
+                data-tab="overtime" aria-controls="home-panel-overtime" aria-selected="false" tabindex="-1">Year to Year</button>
+        </div>
     </div>
+
+    <div class="home-panel" id="home-panel-month" role="tabpanel"
+        data-panel="month" aria-labelledby="home-tab-month" tabindex="0">
 
     <div class="home-grid">
 

@@ -35,7 +35,17 @@
     width: 100%;
 }
 
-/* Tab styles live in ui.css — shared with .cf-tab and .stmt-tab. */
+/* Toolbar row — month stepper far left, view tabs far right. The segmented
+   tab control itself is shared with Statements via ui.css. margin-left:auto
+   (not space-between) pins the tabs right, so they stay put when the stepper
+   is hidden on the Year to Year tab. */
+.home-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.home-toolbar .home-tabs { margin-left: auto; }
 
 .home-grid {
     display: flex;
@@ -501,18 +511,10 @@
 }
 
 
-/* ─── 11. This Month panel (stepper, cash-flow + spending bar charts) ────── */
+/* ─── 11. This Month panel (cash-flow + spending bar charts) ─────────────── */
 
-/* The stepper sits in its own right-aligned row above the panel's cards —
-   it scopes every monthly chart below it, not one card. */
-.home-month-bar {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 16px;
-}
-
-/* The prev/label/next month picker itself is the shared .stepper component
-   (ui.css) — Statements' year stepper uses the same one. */
+/* The month picker sits on the toolbar row (see §1) — it's the shared
+   .stepper component (ui.css); Statements' year stepper uses the same one. */
 
 /* Bars grow up from the baseline on entrance; per-bar delays are set inline
    by the renderer (home.js), same pattern as the line charts' draw-in. */

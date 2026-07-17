@@ -4,9 +4,9 @@
    on the same toolbar row as the tabs).
 
    The tables themselves are styled by tables.css; the page scroll shell is the
-   standard `.page:has(.db-page)` one. Tab button styles are shared via ui.css
-   (.home-tab / .cf-tab / .stmt-tab). This file owns the toolbar layout and
-   the statement-specific overrides.
+   standard `.page:has(.db-page)` one. The toolbar grid and segmented tab
+   control live in ui.css (shared with Home). This file owns the
+   statement-specific overrides only.
    Loads AFTER tables.css (see statements.html).
    ============================================================================ */
 
@@ -26,15 +26,12 @@
 }
 
 /* ─── Toolbar — tabs left; stepper dead-center; ⋮ menu right ────────────────
-   The tabs are a segmented control: a grey track (.stmt-tabs) holding both
-   labels, with the active one lifted on a raised card. Unlike the underline
-   bars on Home / Cash Flow Reports (ui.css), the track hugs its content.
-
-   The 1fr/auto/1fr grid pins the stepper to the midpoint of the FULL row
-   width (the equal side tracks absorb the tabs/actions width difference) —
-   not merely the middle of the space left between them. If the window gets
-   too narrow for that, a 1fr track grows past its twin and the stepper
-   yields off-center rather than overlapping its neighbours. */
+   Segmented tab styles are shared via ui.css. The 1fr/auto/1fr grid pins the
+   stepper to the midpoint of the FULL row width (the equal side tracks absorb
+   the tabs/actions width difference) — not merely the middle of the space
+   left between them. If the window gets too narrow for that, a 1fr track
+   grows past its twin and the stepper yields off-center rather than
+   overlapping its neighbours. */
 .stmt-toolbar {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
@@ -44,67 +41,9 @@
 
 .stmt-tabs { justify-self: start; }
 .stmt-year-stepper { justify-self: center; }
-.stmt-toolbar-right { justify-self: end; }
-
-.stmt-tabs {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px;
-    background: var(--segctl-track);
-    /* Inner card radius 8 + 4px track padding, so the curves stay concentric. */
-    border-radius: 12px;
-}
-
-/* Type + box tokens mirror the action-button shape (buttons.css) — same
-   32px control height, uppercase micro type — so the segments read as
-   siblings of the other 32px controls across the row. */
-.stmt-tab {
-    appearance: none;
-    background: transparent;
-    /* Transparent hairline reserves the active card's border so the label
-       never shifts when selection lands (buttons must stand still). */
-    border: 1px solid transparent;
-    border-radius: 8px;
-    box-sizing: border-box;
-    height: var(--control-height);
-    color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-superbold);
-    letter-spacing: var(--track-widest);
-    text-transform: uppercase;
-    white-space: nowrap;
-    padding: var(--space-8) var(--space-16);
-    cursor: pointer;
-    transition: color 0.15s, background 0.15s, box-shadow 0.15s;
-}
-
-.stmt-tab:hover {
-    color: var(--text-primary);
-    background: var(--frost-2);
-}
-
-/* No weight bump on active — a bolder label is wider, and in a content-hugging
-   track that width change would shove the sibling tab sideways. The raised
-   card + primary text colour carry the selected state on their own. */
-.stmt-tab.active, .stmt-tab[aria-selected="true"] {
-    color: var(--text-primary);
-    background: var(--segctl-raised);
-    border-color: var(--segctl-raised-stroke);
-    box-shadow: var(--segctl-raised-shadow);
-}
-
-.stmt-tab:focus-visible {
-    outline: 2px solid var(--color-accent-400);
-    outline-offset: -2px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .stmt-tab { transition: none; }
-}
 
 .stmt-toolbar-right {
+    justify-self: end;
     display: flex;
     align-items: center;
     gap: 8px;
