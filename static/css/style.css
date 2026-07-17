@@ -146,9 +146,9 @@
    --border:           var(--color-base-300);
 
    /* Accent — the page/UI accent: buttons, focus rings, selection, toggles,
-      active tabs, links. Uses the --color-accent ramp, distinct from the olive
-      finance-positive green below so UI chrome recolours independently of the
-      gain/income indicators. */
+      active tabs, links. Uses the --color-accent ramp, distinct from the gain
+      green below so UI chrome recolours independently of the gain/income
+      indicators. */
    --accent-primary:   var(--color-accent-600);
 
    /* Button text — the colour of text/icons sitting on a filled accent (or
@@ -157,20 +157,13 @@
    --button-text:      var(--color-accent-050);
 
 
-   /* Finance-positive green — the green that means "gain / income / asset":
-      .stat-change-up & .roi-positive deltas, the income category, and the
-      net-worth / asset charts (ledger income amounts use --accent-gain). This is the app's original
-      olive, split from --accent-primary so it stays green while the UI accent
-      goes pink. Mirrors the primary/400 pair: -strong is deepened for AA as text
-      on the light surface (lightened on dark in themes.css); -lighter is the
-      third stop of the asset-chart ramp (was the undefined --accent300). */
-   --accent-positive:         #8b9751;
-   --accent-positive-strong:  color-mix(in srgb, var(--accent-positive) 82%, #000);
-   --accent-positive-lighter: #b1bf7a;
-   /* Gain green — a truer green than the olive above, paired with
-      --accent-tertiary red for good/bad verdicts: Report Card grades & goal
-      checks, and the ledger's income amounts. Same value in both themes. */
-   --accent-gain:             #5ba672;
+   /* Gain green — the green that means "gain / income / in your favor",
+      paired with --accent-tertiary red wherever a number or verdict carries
+      direction: Report Card grades & goal checks, ledger income amounts,
+      .stat-change-up / .roi-positive deltas, and the income category swatch.
+      Split from --accent-primary so it stays green whatever the UI accent;
+      same value in both themes (charts draw from --chart-*, not this). */
+   --accent-gain:      #5ba672;
    --accent-secondary: #b8921e;
    --accent-quatenary: #e28623;
    --accent-quinary:   #5a2a6e;
@@ -186,7 +179,7 @@
     * account balances, Trends, the cash-flow Sankey — draws its line/slice/
     * node colours from these tokens so the charts FOLLOW THE UI ACCENT and
     * retone whenever the accent is swapped. They are deliberately separate
-    * from the green/red gain-loss tokens (--accent-positive / --accent-tertiary),
+    * from the green/red gain-loss tokens (--accent-gain / --accent-tertiary),
     * which stay reserved for the NUMERIC figures: +/- deltas, ROI, and ledger
     * amounts. Charts = accent; numbers = green/red.
     *
@@ -503,7 +496,7 @@
 .stat-change-up,
 .roi-positive,
 .p-computed.roi-positive {
-    color: var(--accent-positive-strong);
+    color: var(--accent-gain);
 }
 
 .stat-change-down,

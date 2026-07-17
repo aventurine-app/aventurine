@@ -44,20 +44,12 @@ html[data-theme="dark"],
 
     /* Accents — the page/UI accent: primary actions, links, focus,
        active/selected states. Uses the --color-accent ramp (defined once in
-       style.css), distinct from the olive finance-positive green below so UI
-       chrome recolours independently of the gain/income indicators. */
+       style.css), distinct from the gain green (--accent-gain, style.css) so
+       UI chrome recolours independently of the gain/income indicators. */
     --accent-primary: var(--color-accent-400);   /* base — buttons, links, focus, selection, hover/active fills */
 
     /* Button text — text/icons on filled accent (or neutral-hover) buttons. */
     --button-text:    var(--color-base-900);
-
-    /* Finance-positive green (olive) — the gain/income/asset indicators on
-       tables, finance metrics and graphs (mirrors style.css). -strong is
-       lightened on dark surfaces (as the accent itself is) for the status
-       deltas + the asset chart; -lighter is the third asset-chart-ramp stop. */
-    --accent-positive:         #8b9751;
-    --accent-positive-strong:  color-mix(in srgb, var(--accent-positive) 70%, #fff);
-    --accent-positive-lighter: #b1bf7a;
 
     --accent-secondary: #c5ac63;
     --accent-tertiary:  #e2585b;
