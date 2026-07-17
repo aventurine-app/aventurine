@@ -308,6 +308,10 @@
                         + (result.auto_categorized ? ` ${result.auto_categorized} categorized automatically.` : '')
                         + (result.skipped?.length ? ` ${result.skipped.length} skipped.` : '');
                     alert(msg);
+                    // Imported rows change the computed Cash Flow cells the
+                    // dashboards render from the shared Store cache — drop it
+                    // so they refetch instead of showing stale data.
+                    if (window.Store) window.Store.invalidate('ie');
                     window.dispatchEvent(new Event('transactions:reload'));
                 } catch (err) {
                     // Put the preview back so the user can retry or deselect rows.

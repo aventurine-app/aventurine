@@ -1474,6 +1474,22 @@
         if (firstCol) selectedAccounts.add(firstCol.key);
         renderAccountSelector(appData);
         renderAccountChart();
+
+        // Repaint when a background revalidation lands fresh data (store.js
+        // warm path serves the sessionStorage snapshot first, then refetches).
+        // Registered after the initial render so the cold-path notify doesn't
+        // trigger a redundant second paint.
+        Store.subscribe('balance', data => {
+            appData = data;
+            renderNetworthSection(appData);
+            renderAccountsPie(appData);
+            renderAccountSelector(appData);
+            renderAccountChart();
+        });
+        Store.subscribe('ie', data => {
+            ieData = data;
+            renderIEChart(ieData);
+        });
     }
 
     document.addEventListener('DOMContentLoaded', init);

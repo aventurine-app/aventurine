@@ -74,6 +74,15 @@
     }
 
     // ─── API ─────────────────────────────────────────────────────────────────────
+
+    // Every transaction write changes the computed Cash Flow cells that Home
+    // renders from the shared Store cache (store.js), so drop the 'ie' dataset
+    // after each one — the next dashboard visit refetches instead of showing a
+    // stale sessionStorage snapshot. Same pattern as tables.js makeYearTableApi.
+    function txInvalidateDerived() {
+        if (window.Store) window.Store.invalidate('ie');
+    }
+
     async function txApiList() {
         const r = await apiFetch('/api/transactions');
         if (!r.ok) throw new Error('failed to list transactions');
@@ -87,6 +96,7 @@
         });
         const data = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(data.error || 'failed to create');
+        txInvalidateDerived();
         return data.transaction;
     }
 
@@ -97,12 +107,14 @@
         });
         const data = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(data.error || 'failed to update');
+        txInvalidateDerived();
         return data.transaction;
     }
 
     async function txApiDelete(id) {
         const r = await apiFetch(`/api/transactions/${id}`, { method: 'DELETE' });
         if (!r.ok) throw new Error('failed to delete');
+        txInvalidateDerived();
     }
 
     // ─── SVG icons ───────────────────────────────────────────────────────────────
@@ -1340,6 +1352,7 @@
                         body:    JSON.stringify({ ids, category_id: categoryId, overwrite: true }),
                     });
                     if (!r.ok) throw new Error('failed');
+                    txInvalidateDerived();
                 } catch (_) {
                     cascadeFailed = true;
                 }
@@ -1683,6 +1696,7 @@
                     });
                     const data = await r.json().catch(() => ({}));
                     if (!r.ok) throw new Error(data.error || 'failed');
+                    txInvalidateDerived();
                 }
                 close();
                 window.dispatchEvent(new Event('transactions:reload'));
