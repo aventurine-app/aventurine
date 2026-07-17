@@ -35,10 +35,10 @@
     width: 100%;
 }
 
-/* Toolbar row — month stepper far left, view tabs far right. The segmented
-   tab control itself is shared with Statements via ui.css. margin-left:auto
-   (not space-between) pins the tabs right, so they stay put when the stepper
-   is hidden on the Year to Year tab. */
+/* Toolbar row — month stepper (Month to Month) or range picker (Year to
+   Year) far left, view tabs far right. The segmented tab control itself is
+   shared with Statements via ui.css. margin-left:auto (not space-between)
+   pins the tabs right, so they stay put when the left control swaps. */
 .home-toolbar {
     display: flex;
     align-items: center;
@@ -47,35 +47,23 @@
 
 .home-toolbar .home-tabs { margin-left: auto; }
 
+/* The shared .range-selector-menu (ui.css) right-aligns to its button — made
+   for pickers on a card header's right edge. This instance sits at the row's
+   LEFT edge, where a rightward-anchored menu grows off the content area, so
+   anchor it left instead. */
+#home-range .range-selector-menu { right: auto; left: 0; }
+
+/* Both panels: cards in a 2×2 grid of equal-width columns, as direct grid
+   children. An odd card count leaves the last cell empty. */
 .home-grid {
-    display: flex;
-    align-items: flex-start;
-    gap: 16px;
-}
-
-.home-col {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    min-width: 0;
-}
-
-.home-col-main  { flex: 0 0 calc(70% - 8px); }
-.home-col-aside { flex: 1; }
-
-/* Year to Year panel: four cards in a 2×2 grid of equal-width columns.
-   Cards are direct grid children (no .home-col wrappers). */
-.home-grid-quad {
     display: grid;
     grid-template-columns: 1fr 1fr;
     align-items: stretch;
+    gap: 16px;
 }
 
 @media (max-width: 1200px) {
-    .home-grid { flex-direction: column; }
-    .home-grid-quad { grid-template-columns: 1fr; }
-    .home-col-main,
-    .home-col-aside { flex: none; width: 100%; }
+    .home-grid { grid-template-columns: 1fr; }
 }
 
 
@@ -175,15 +163,15 @@
 
 
 /* ─── 6. Accounts card (donut + legend) ──────────────────────────────────── */
-/* Ring on top, legend list below. The aside column caps the card at
-   ~300px of content — a side-by-side donut + legend never fit, the legend
-   just overflowed the card edge. Stacked, both get the full width. */
+/* Legend list on the left, ring on the right — the card spans a half-width
+   grid column, so both fit side by side. */
 .accounts-body {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 24px;
+    gap: 32px;
 }
+
+.accounts-legend { flex: 1; }
 
 .accounts-pie {
     flex: 0 0 auto;
@@ -223,7 +211,6 @@
 }
 
 .accounts-legend {
-    width: 100%;
     display: flex;
     flex-direction: column;
     gap: 14px;
@@ -351,74 +338,7 @@
    Forecast — was duplicated in all three page stylesheets). */
 
 
-/* ─── 9. Upcoming Expenses card ──────────────────────────────────────────── */
-/* Row list mirroring the accounts legend: name + cycle/due meta on the
-   left, predicted amount on the right. Rows are JS-rendered (home.js). */
-.upcoming-list {
-    display: flex;
-    flex-direction: column;
-}
-
-.upcoming-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    padding: 12px 0;
-    border-bottom: var(--border-width) solid var(--stroke-divider);
-}
-
-.upcoming-item:first-child { padding-top: 0; }
-.upcoming-item:last-child  { padding-bottom: 0; border-bottom: none; }
-
-.upcoming-text {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-}
-
-/* Merchant names come straight from bank statements and can run long —
-   ellipsize rather than wrap so every row stays one line tall. */
-.upcoming-name {
-    color: var(--text-primary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    font-weight: var(--weight-regular);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* Cycle + due date share the micro-eyebrow treatment used by the accounts
-   legend so the two aside cards read as one family. */
-.upcoming-meta {
-    display: flex;
-    gap: 10px;
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wider);
-    text-transform: uppercase;
-}
-
-.upcoming-due     { color: var(--text-secondary); }
-.upcoming-due-now { color: var(--accent-tertiary); }
-
-.upcoming-amount {
-    color: var(--text-primary);
-    font-family: var(--font-numeric);
-    font-size: var(--size-h3);
-    font-weight: var(--weight-light);
-    letter-spacing: var(--track-tight);
-    font-variant-numeric: tabular-nums;
-    flex-shrink: 0;
-}
-
-
-/* ─── 10. Charts: unified frame chrome + entrance animation ──────────────── */
+/* ─── 9. Charts: unified frame chrome + entrance animation ───────────────── */
 /* All three line charts share the .home-chart renderer in home.js — one
    frame, one grid, one label style. Chrome colors come from theme variables
    so a palette change (or the light theme) retones the charts too. */

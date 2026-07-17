@@ -8,13 +8,12 @@
 //   1. Monthly Cash Flow (horizontal bars: the month's income / expenses /
 //      savings / investing totals, from the Cash Flow statement — /api/data)
 //   2. Spending (bar chart: the month's expense total per category, same data)
-//   3. Upcoming Expenses (predicted recurring spends from the transactions ledger)
+//   3. Capital Profile (donut by account type, latest known balances)
 //
 // "Over Time" — the long-run view:
 //   4. Net worth over time (line chart from balance data)
-//   5. Accounts breakdown (donut by account type, current month)
-//   6. Income & Expenses monthly totals (line chart)
-//   7. Per-account balances (line chart, user picks which accounts to compare)
+//   5. Income & Expenses monthly totals (line chart)
+//   6. Per-account balances (line chart, user picks which accounts to compare)
 //
 // All charts are built as inline SVG by hand — no chart library. The
 // ResizeObserver-based observeChart() helper redraws on container resize; for
@@ -43,42 +42,28 @@
             cs.getPropertyValue(`--chart-${i + 1}`).trim() || fb);
     }
 
-    /** Find the most recent (year, month) entry across the dataset. */
-    function findMostRecentPoint(entries) {
-        let bestYear = null, bestMonthIdx = -1;
-        for (const [yearStr, months] of Object.entries(entries)) {
-            const year = parseInt(yearStr);
-            for (const month of Object.keys(months)) {
-                const idx = MONTH_INDEX.get(month);
-                if (idx === undefined) continue;
-                if (bestYear === null || year > bestYear || (year === bestYear && idx > bestMonthIdx)) {
-                    bestYear = year;
-                    bestMonthIdx = idx;
-                }
-            }
-        }
-        return bestYear !== null ? { year: bestYear, month: MONTHS[bestMonthIdx] } : null;
-    }
-
     /**
      * Last-observation-carried-forward snapshot of the balance sheet: for each
      * account column, the value from the most recent month it was actually
      * filled in. A balance carries forward until the user enters a newer one, so
      * a row that only updates one account doesn't blank out the rest of the pie.
+     * `cutoff` ({ year, monthIdx }, optional) caps the search — months after it
+     * are ignored, giving the snapshot "as of" that month.
      * Returns a { key: value } map over the latest known value per column.
      */
-    function latestValueByColumn(entries) {
-        const latest = {};   // key -> { year, monthIdx, value }
+    function latestValueByColumn(entries, cutoff) {
+        const cutoffT = cutoff ? cutoff.year * 12 + cutoff.monthIdx : Infinity;
+        const latest = {};   // key -> { t, value } with t = year * 12 + monthIdx
         for (const [yearStr, months] of Object.entries(entries)) {
             const year = parseInt(yearStr);
             for (const [month, cats] of Object.entries(months)) {
                 const idx = MONTH_INDEX.get(month);
                 if (idx === undefined) continue;
+                const t = year * 12 + idx;
+                if (t > cutoffT) continue;
                 for (const [key, val] of Object.entries(cats)) {
                     const prev = latest[key];
-                    if (!prev || year > prev.year || (year === prev.year && idx > prev.monthIdx)) {
-                        latest[key] = { year, monthIdx: idx, value: val };
-                    }
+                    if (!prev || t > prev.t) latest[key] = { t, value: val };
                 }
             }
         }
@@ -96,13 +81,14 @@
     }
 
     // ─── Accounts pie ────────────────────────────────────────────────────────────
-    // Single donut summarising the balance sheet at its latest known state. One
-    // slice per account type — Investments, Cash, Retirement, Debt — sized by
-    // the sum of each column's most recent value (carried forward via
-    // latestValueByColumn, so a partially-filled latest month doesn't blank out
-    // accounts that were only updated in an earlier month). Debt is shown as its absolute
-    // magnitude so the slice has visible area; its distinct accent shade and the legend
-    // label mark it as a liability rather than an asset.
+    // Single donut summarising the balance sheet as of the month shown by the
+    // panel stepper (homeMonth). One slice per account type — Investments, Cash,
+    // Retirement, Debt — sized by the sum of each column's most recent value at
+    // or before that month (carried forward via latestValueByColumn, so a
+    // partially-filled month doesn't blank out accounts that were only updated
+    // earlier). Debt is shown as its absolute magnitude so the slice has visible
+    // area; its distinct accent shade and the legend label mark it as a
+    // liability rather than an asset.
 
     /** Pull the four slice colours from the accent-derived --chart-* tokens so the
      *  capital-profile pie follows the UI accent and retones on a palette/theme swap.
@@ -126,12 +112,19 @@
 
         const entries = data.entries || {};
         const columns = data.columns || [];
-        const recent  = findMostRecentPoint(entries);
+        const curr    = latestValueByColumn(entries, homeMonth);
 
-        if (!recent) {
+        if (Object.keys(curr).length === 0) {
             pieEl.style.display = 'none';
             pieEl.innerHTML = '';
-            legendEl.innerHTML = UI.emptyState({
+            // Distinguish a truly empty balance sheet from a stepped-back month
+            // that predates the first recorded balance.
+            const hasAnyData = Object.keys(latestValueByColumn(entries)).length > 0;
+            legendEl.innerHTML = hasAnyData ? UI.emptyState({
+                icon: 'donut', compact: true,
+                title: `No balances by ${homeMonthLabel()}`,
+                desc: 'Your first recorded balance is in a later month — step forward to see your capital profile.',
+            }) : UI.emptyState({
                 icon: 'donut', compact: true,
                 title: 'No capital to show yet',
                 desc: 'Add your account balances and Aventurine will chart how your assets and debts split.',
@@ -141,7 +134,6 @@
         }
 
         pieEl.style.display = '';
-        const curr = latestValueByColumn(entries);
         const sumType = (type) => columns
             .filter(c => c.type === type)
             .reduce((s, c) => s + (curr[c.key] ?? 0), 0);
@@ -582,11 +574,11 @@
         render(target.clientWidth);
     }
 
-    // ─── Net worth section (summary + range-picker + chart) ─────────────────────
+    // ─── Time range (Year to Year panel) ─────────────────────────────────────────
     //
-    // The Net Worth card owns its own state machine: a single string telling us
-    // which time window to display. Changing the range re-derives the chart
-    // slots, the filtered points, and the % change shown in the summary block.
+    // One shared range for every Year to Year chart, picked from the toolbar
+    // dropdown (the stepper's counterpart on that tab). Changing it re-derives
+    // each chart's slots, filtered points, and the Net Worth % change.
     //
     // Ranges:
     //   year — January through the current month of the current calendar year.
@@ -595,7 +587,7 @@
     //   24mo — trailing 24 months ending on the current month. Change = 24-month.
     //   5yr  — trailing 60 months ending on the current month. Change = 5-year.
 
-    let networthRange = 'year';
+    let overtimeRange = 'year';
 
     const RANGE_LABELS = {
         year: 'This Year',
@@ -652,14 +644,11 @@
     /** Update the summary text (value + change) and (re)render the chart. */
     function renderNetworthSection(balanceData) {
         const all   = computeNetWorth(balanceData);
-        const slots = getRangeSlots(networthRange);
+        const slots = getRangeSlots(overtimeRange);
         const filtered = filterPointsToSlots(all.points, slots);
 
         const valueEl  = document.getElementById('networth-value');
         const changeEl = document.getElementById('networth-change');
-        const btnEl    = document.getElementById('networth-range-btn');
-
-        if (btnEl) btnEl.textContent = RANGE_LABELS[networthRange];
 
         // Summary value = most recent data point overall (not affected by range).
         const currentVal = all.points.length > 0
@@ -715,10 +704,9 @@
         observeChart('networth-chart', (W, animate) => buildChartSVG({ series, slots, W, animate }));
     }
 
-    /** Wire a range-picker button + dropdown (Net Worth, Income & Expenses, and
-     *  Account Balances each have one). `onSelect` receives the chosen range key
-     *  and re-renders its section. The outer click handler closes the dropdown
-     *  when the user clicks anywhere else. */
+    /** Wire the toolbar range-picker button + dropdown. `onSelect` receives the
+     *  chosen range key and re-renders the Year to Year charts. The outer click
+     *  handler closes the dropdown when the user clicks anywhere else. */
     function wireRangePicker(btnId, menuId, onSelect) {
         const btn  = document.getElementById(btnId);
         const menu = document.getElementById(menuId);
@@ -797,7 +785,6 @@
     }
 
     let ieData  = null;
-    let ieRange = 'year';
     // Series hidden via the legend toggles. Both lines start visible; the set
     // holds labels the user has switched off.
     const ieHidden = new Set();
@@ -838,9 +825,6 @@
         const container = document.getElementById('ie-chart');
         if (!container) return;
 
-        const btnEl = document.getElementById('ie-range-btn');
-        if (btnEl) btnEl.textContent = RANGE_LABELS[ieRange];
-
         const series = computeIESeries(data);
         const hasAnyData = series.some(s => s.points.length > 0);
 
@@ -861,7 +845,7 @@
 
         // Same windowing as Net Worth: build the slot list for the selected
         // range and drop points outside it so the Y axis scales to the window.
-        const slots = getRangeSlots(ieRange);
+        const slots = getRangeSlots(overtimeRange);
         const visible = series
             .filter(s => !ieHidden.has(s.label))
             .map(s => ({ ...s, points: filterPointsToSlots(s.points, slots) }));
@@ -890,7 +874,6 @@
 
     let appData = null;
     const selectedAccounts = new Set();
-    let accountRange = 'year';
 
     function buildColorMap(columns) {
         const palette = readChartPalette();
@@ -900,9 +883,6 @@
     function renderAccountChart() {
         const container = document.getElementById('account-chart');
         if (!container || !appData) return;
-
-        const btnEl = document.getElementById('account-range-btn');
-        if (btnEl) btnEl.textContent = RANGE_LABELS[accountRange];
 
         const keys = [...selectedAccounts];
         if (keys.length === 0) {
@@ -917,7 +897,7 @@
 
         // Same windowing as Net Worth: build the slot list for the selected
         // range and drop points outside it so the Y axis scales to the window.
-        const slots = getRangeSlots(accountRange);
+        const slots = getRangeSlots(overtimeRange);
         const allYears = (appData.years || []).slice().sort((a, b) => a - b);
         const colorMap = buildColorMap(appData.columns);
         const series = keys.map(key => {
@@ -1271,6 +1251,10 @@
         const month = sliceStatementMonth(data);
         renderMonthlyCashflow(month.totals);
         renderSpendingChart(month.categories);
+        // The Capital Profile donut is month-scoped too. Balance data isn't in
+        // yet on the first call from init() — that path renders the pie itself
+        // once the fetch lands.
+        if (appData) renderAccountsPie(appData);
     }
 
     /** Step the monthly view back/forward. Forward stops at the current month
@@ -1308,76 +1292,6 @@
         });
     }
 
-    // ─── Upcoming expenses (recurring-spend predictions) ─────────────────────────
-    // The detection itself is in the backend (electron/backend/services/predictions.js): the ledger
-    // is scanned for regular charges and the next one per merchant is projected.
-    // This card just fetches /api/predictions/upcoming and renders the list.
-
-    const CYCLE_LABELS = {
-        weekly:    'Weekly',
-        biweekly:  'Every 2 weeks',
-        monthly:   'Monthly',
-        quarterly: 'Quarterly',
-        yearly:    'Yearly',
-    };
-
-    /** Human "Due …" string for a prediction. The T00:00:00 suffix forces
-     *  local-time parsing — a bare ISO date parses as UTC and can shift a day
-     *  backwards in western timezones. */
-    function fmtDueLabel(item) {
-        if (item.due_in_days <= 0) return 'Due now';
-        if (item.due_in_days === 1) return 'Due tomorrow';
-        const d = new Date(item.next_date + 'T00:00:00');
-        return `Due ${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}`;
-    }
-
-    /**
-     * Fetch and render the Upcoming Expenses card. Failures and empty results
-     * both fall through to a quiet empty state — a brand-new ledger simply has
-     * no patterns yet, which isn't an error worth surfacing.
-     *
-     * SECURITY: item.description comes straight from user transaction data and
-     * passes through escapeHtml before innerHTML interpolation.
-     */
-    async function renderUpcomingExpenses() {
-        const el = document.getElementById('upcoming-list');
-        if (!el) return;
-        const cancelSkeleton = UI.skeletonGuard(() => { el.innerHTML = UI.skRows(3); });
-
-        let items = [];
-        try {
-            const res = await apiFetch('/api/predictions/upcoming');
-            if (res.ok) items = (await res.json()).upcoming || [];
-        } catch {
-            // Network hiccup — fall through to the empty state.
-        }
-        cancelSkeleton();
-
-        if (items.length === 0) {
-            el.innerHTML = UI.emptyState({
-                icon: 'calendar', compact: true,
-                title: 'No upcoming expenses yet',
-                desc: 'Aventurine flags recurring charges automatically once it sees a few months of transactions.',
-                action: { label: 'Add transactions', href: '/transactions', icon: 'plus', primary: true },
-            });
-            return;
-        }
-
-        el.innerHTML = items.map(item => {
-            const dueClass = item.due_in_days <= 0 ? ' upcoming-due-now' : '';
-            return `<div class="upcoming-item">
-            <div class="upcoming-text">
-                <div class="upcoming-name">${escapeHtml(item.description)}</div>
-                <div class="upcoming-meta">
-                    <span>${CYCLE_LABELS[item.cycle] || escapeHtml(item.cycle)}</span>
-                    <span class="upcoming-due${dueClass}">${fmtDueLabel(item)}</span>
-                </div>
-            </div>
-            <div class="upcoming-amount">${fmtValue(item.amount)}</div>
-        </div>`;
-        }).join('');
-    }
-
     // ─── Tabs ────────────────────────────────────────────────────────────────────
 
     /**
@@ -1404,10 +1318,13 @@
                 t.tabIndex = on ? 0 : -1;
             });
             panels.forEach((p) => { p.hidden = p.dataset.panel !== id; });
-            // The month stepper sits on the toolbar row (outside the panels)
-            // but only scopes the Month to Month cards — hide it elsewhere.
+            // The month stepper and the range picker share the toolbar row
+            // (outside the panels) but each scopes one panel's cards — show
+            // whichever matches the active tab.
             const stepper = document.getElementById('home-month');
             if (stepper) stepper.hidden = id !== 'month';
+            const rangeSel = document.getElementById('home-range');
+            if (rangeSel) rangeSel.hidden = id !== 'overtime';
             if (focus) tab.focus();
         }
 
@@ -1450,10 +1367,9 @@
     async function init() {
         wireTabs();
         wireMonthStepper();
-        // Kick these off first so the "This Month" panel loads alongside the
+        // Kick this off first so the "This Month" panel loads alongside the
         // Over Time charts (its statement fetch is deduped with the one below).
         renderMonthSection();
-        renderUpcomingExpenses();
         const cancelSkeletons = UI.skeletonGuard(showHomeSkeletons);
         const [balanceData, ieDataFetched] = await Promise.all([fetchBalanceData(), fetchIEData()]);
         cancelSkeletons();
@@ -1461,16 +1377,12 @@
         ieData  = ieDataFetched;
         renderNetworthSection(appData);
         renderIEChart(ieData);
-        wireRangePicker('networth-range-btn', 'networth-range-menu', range => {
-            networthRange = range;
+        wireRangePicker('home-range-btn', 'home-range-menu', range => {
+            overtimeRange = range;
+            const btn = document.getElementById('home-range-btn');
+            if (btn) btn.textContent = RANGE_LABELS[range];
             renderNetworthSection(appData);
-        });
-        wireRangePicker('ie-range-btn', 'ie-range-menu', range => {
-            ieRange = range;
             renderIEChart(ieData);
-        });
-        wireRangePicker('account-range-btn', 'account-range-menu', range => {
-            accountRange = range;
             renderAccountChart();
         });
         renderAccountsPie(appData);

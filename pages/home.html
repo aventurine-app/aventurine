@@ -32,6 +32,17 @@
                 aria-haspopup="menu" title="Choose month">&nbsp;</button>
             <button class="stepper-btn" id="home-month-next" type="button" aria-label="Next month" disabled>&#8250;</button>
         </div>
+        <!-- One range picker scoping every card on the Year to Year panel
+             (the stepper's counterpart: wireTabs() swaps which one shows). -->
+        <div class="range-selector" id="home-range" hidden>
+            <button class="range-selector-btn" id="home-range-btn" type="button">This Year</button>
+            <div class="range-selector-menu" id="home-range-menu" hidden>
+                <button data-range="year"   type="button">This Year</button>
+                <button data-range="12mo"   type="button">Last 12 Months</button>
+                <button data-range="24mo"   type="button">Last 24 Months</button>
+                <button data-range="5yr"    type="button">Last 5 Years</button>
+            </div>
+        </div>
         <div class="home-tabs" role="tablist" aria-label="Home dashboard views">
             <button type="button" class="home-tab active" id="home-tab-month" role="tab"
                 data-tab="month" aria-controls="home-panel-month" aria-selected="true">Month to Month</button>
@@ -45,7 +56,6 @@
 
     <div class="home-grid">
 
-        <div class="home-col home-col-main">
             <div class="home-card">
                 <div class="home-card-header">
                     <span class="home-card-title">Monthly Cash Flow<span class="fc-info" tabindex="0" role="note"
@@ -54,6 +64,16 @@
                 </div>
                 <div class="chart-area">
                     <div id="mcf-chart"></div>
+                </div>
+            </div>
+
+            <div class="home-card accounts-card">
+                <div class="home-card-header">
+                    <span class="home-card-title">Capital Profile</span>
+                </div>
+                <div class="accounts-body">
+                    <div id="accounts-legend" class="accounts-legend"></div>
+                    <div id="accounts-pie" class="accounts-pie"></div>
                 </div>
             </div>
 
@@ -67,18 +87,6 @@
                     <div id="spending-chart"></div>
                 </div>
             </div>
-        </div>
-
-        <div class="home-col home-col-aside">
-            <div class="home-card">
-                <div class="home-card-header">
-                    <span class="home-card-title">Upcoming Expenses</span>
-                </div>
-                <!-- Populated by renderUpcomingExpenses() in home.js from
-                     /api/predictions/upcoming (recurring-spend detection). -->
-                <div id="upcoming-list" class="upcoming-list"></div>
-            </div>
-        </div>
 
     </div>
 
@@ -87,22 +95,13 @@
     <div class="home-panel" id="home-panel-overtime" role="tabpanel"
         data-panel="overtime" aria-labelledby="home-tab-overtime" tabindex="0" hidden>
 
-    <div class="home-grid home-grid-quad">
+    <div class="home-grid">
 
             <div class="home-card networth-card">
                 <div class="home-card-header">
                     <span class="home-card-title">Net Worth<span class="fc-info" tabindex="0" role="note"
                         aria-label="Your Balance Sheet's most recent value for each account, added up — cash, investment, and retirement accounts minus debt. Every account contributes its latest recorded balance, even if from an earlier month."
                         data-tip="Your Balance Sheet's most recent value for each account, added up — cash, investment, and retirement accounts minus debt. Every account contributes its latest recorded balance, even if from an earlier month.">i</span></span>
-                    <div class="range-selector" id="networth-range">
-                        <button class="range-selector-btn" id="networth-range-btn" type="button">This Year</button>
-                        <div class="range-selector-menu" id="networth-range-menu" hidden>
-                            <button data-range="year"   type="button">This Year</button>
-                            <button data-range="12mo"   type="button">Last 12 Months</button>
-                            <button data-range="24mo"   type="button">Last 24 Months</button>
-                            <button data-range="5yr"    type="button">Last 5 Years</button>
-                        </div>
-                    </div>
                 </div>
                 <div class="networth-summary">
                     <div class="networth-value" id="networth-value">—</div>
@@ -113,28 +112,9 @@
                 </div>
             </div>
 
-            <div class="home-card accounts-card">
-                <div class="home-card-header">
-                    <span class="home-card-title">Capital Profile</span>
-                </div>
-                <div class="accounts-body">
-                    <div id="accounts-pie" class="accounts-pie"></div>
-                    <div id="accounts-legend" class="accounts-legend"></div>
-                </div>
-            </div>
-
             <div class="home-card">
                 <div class="home-card-header">
                     <span class="home-card-title">Account Balances</span>
-                    <div class="range-selector" id="account-range">
-                        <button class="range-selector-btn" id="account-range-btn" type="button">This Year</button>
-                        <div class="range-selector-menu" id="account-range-menu" hidden>
-                            <button data-range="year"   type="button">This Year</button>
-                            <button data-range="12mo"   type="button">Last 12 Months</button>
-                            <button data-range="24mo"   type="button">Last 24 Months</button>
-                            <button data-range="5yr"    type="button">Last 5 Years</button>
-                        </div>
-                    </div>
                 </div>
                 <div id="account-selector" class="account-selector"></div>
                 <div class="chart-area">
@@ -145,15 +125,6 @@
             <div class="home-card">
                 <div class="home-card-header">
                     <span class="home-card-title">Income & Expenses</span>
-                    <div class="range-selector" id="ie-range">
-                        <button class="range-selector-btn" id="ie-range-btn" type="button">This Year</button>
-                        <div class="range-selector-menu" id="ie-range-menu" hidden>
-                            <button data-range="year"   type="button">This Year</button>
-                            <button data-range="12mo"   type="button">Last 12 Months</button>
-                            <button data-range="24mo"   type="button">Last 24 Months</button>
-                            <button data-range="5yr"    type="button">Last 5 Years</button>
-                        </div>
-                    </div>
                 </div>
                 <div id="ie-selector" class="account-selector"></div>
                 <div class="chart-area">

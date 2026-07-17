@@ -245,8 +245,9 @@
       categories: [{ id: 4, name: 'Food' }],
       monthly_spend: { 4: 520.0 },
     },
-    // static/js/pages/home.js — upcoming predicted transactions widget;
-    // empty here since fixtures don't model recurring-transaction detection.
+    // Recurring-spend predictions (backend service kept for a future
+    // recurring-transaction calendar; no dashboard widget consumes it now).
+    // Empty here since fixtures don't model recurring-transaction detection.
     '/api/predictions/upcoming': { upcoming: [] },
     // static/js/pages/trends.js — 12-month per-category spend series for
     // the Spending Trends chart.
