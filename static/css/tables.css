@@ -391,7 +391,7 @@
    is computed". Empty computed cells are simply blank. Two redundant channels
    (hue + italic) so the state survives colour-vision differences. */
 .db-input.cell-computed {
-    color: var(--accent-info);
+    color: var(--accent-primary);
     font-variant-numeric: tabular-nums;
 }
 
