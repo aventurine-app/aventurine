@@ -33,7 +33,6 @@ const PAGE_ROUTES = {
     '/':                'home.html',
     '/statements':      'statements.html',
     '/portfolio':       'portfolio.html',
-    '/categories':      'categories.html',
     '/transactions':    'transactions.html',
     '/credit-cards':    'credit-cards.html',
     '/cash-flow':       'cash-flow.html',

@@ -1,5 +1,7 @@
-/* ─── Categories page ──────────────────────────────────────────────────────
-   Standalone home for the category editor.
+/* ─── Categories editor ─────────────────────────────────────────────────────
+   The category editor (settingsCategories.js), hosted by the "Manage
+   Categories" modal the Statements page opens from the Cash Flow ⋮ menu
+   (statements.js builds the .cat-manager shell).
 
    Layout: a search field above a stack of collapsible group cards — one per
    category type (Income · Expense · Savings · Investing). Each card header
@@ -8,33 +10,32 @@
    quiet "Add category" row at the bottom. A live search filters rows across
    all groups, hides groups with no matches and forces the rest open.
    Drag-and-drop (grip handle) reorders within a group or recategorizes across
-   open groups. Mirrors the Trackers pages: top-left anchored, shared page
-   padding. ─────────────────────────────────────────────────────────────── */
-.page:has(.cat-page) {
-  align-items: flex-start;
-  padding: var(--page-pad);
-  box-sizing: border-box;
+   open groups. ─────────────────────────────────────────────────────────── */
+
+/* ─── Modal shell ────────────────────────────────────────────────────────────
+   Frame / header / title / close button + the scrollable-body scrollbar are
+   shared via style.css §8 (Shared modal primitives). The overlay reuses
+   .confirm-overlay (positioning + scrim, tables.css) and only adds the
+   backdrop blur — same recipe as the column manager. */
+.cat-manager-overlay {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
-.cat-page {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  width: 100%;
+/* Wider than the 420px column manager: category rows carry longer names and
+   the four group cards breathe better with room for the count summaries. */
+.cat-manager { width: 560px; }
+
+.cat-manager-header { flex-shrink: 0; }
+
+.cat-manager-body {
+  padding: 22px;
+  overflow-y: auto;
 }
 
-.cat-page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-/* The editor root stacks the search field and the group cards. Constrained
-   width — a settings-style list reads better as a column than stretched
-   across a wide window. */
-.cat-page-editor {
-  width: 100%;
-  max-width: 640px;
+/* The editor root stacks the search field and the group cards. */
+[data-categories-editor] {
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -177,7 +178,7 @@
 
 /* While a drag is in progress the empty-group hints are noise — the accent
    line is the only placement cue the user needs. */
-.cat-page-editor.dragging .cat-empty { display: none; }
+[data-categories-editor].dragging .cat-empty { display: none; }
 
 /* ─── Category row ───────────────────────────────────────────────────────────
    A divider-separated line inside the group card: [grip] [name] [flex-type]

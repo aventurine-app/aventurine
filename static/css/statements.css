@@ -1,6 +1,7 @@
 /* ============================================================================
    statements.css — Statements page (Cash Flow + Balance Sheet behind tabs,
-   with a compact ‹ year › stepper in the page header).
+   with a compact ‹ year › stepper and the ⋮ menu — home of every action —
+   on the same toolbar row as the tabs).
 
    The tables themselves are styled by tables.css; the page scroll shell is the
    standard `.page:has(.db-page)` one. Tab button styles are shared via ui.css
@@ -19,29 +20,31 @@
     gap: 8px;
 }
 
-.p-menu-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-}
-
-/* ─── Stepper in the page header ────────────────────────────────────────────
-   The year stepper sits in .db-page-header (tables.css flex row) alongside the
-   action buttons, taking the place of the old page title. */
+/* Bare years never need the wide month-name label slot (ui.css default). */
 .stmt-year-stepper {
     --stepper-label-min: 56px;
 }
 
-/* ─── Toolbar — tabs + ⋮ menu ───────────────────────────────────────────────
+/* ─── Toolbar — tabs left; stepper dead-center; ⋮ menu right ────────────────
    The tabs are a segmented control: a grey track (.stmt-tabs) holding both
    labels, with the active one lifted on a raised card. Unlike the underline
-   bars on Home / Cash Flow Reports (ui.css), the track hugs its content, so
-   the toolbar spreads track and ⋮ apart instead of drawing a full-width rule. */
+   bars on Home / Cash Flow Reports (ui.css), the track hugs its content.
+
+   The 1fr/auto/1fr grid pins the stepper to the midpoint of the FULL row
+   width (the equal side tracks absorb the tabs/actions width difference) —
+   not merely the middle of the space left between them. If the window gets
+   too narrow for that, a 1fr track grows past its twin and the stepper
+   yields off-center rather than overlapping its neighbours. */
 .stmt-toolbar {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    justify-content: space-between;
     gap: 8px;
 }
+
+.stmt-tabs { justify-self: start; }
+.stmt-year-stepper { justify-self: center; }
+.stmt-toolbar-right { justify-self: end; }
 
 .stmt-tabs {
     display: inline-flex;
@@ -55,7 +58,7 @@
 
 /* Type + box tokens mirror the action-button shape (buttons.css) — same
    32px control height, uppercase micro type — so the segments read as
-   siblings of Add New Year / Manage Columns in the header above. */
+   siblings of the other 32px controls across the row. */
 .stmt-tab {
     appearance: none;
     background: transparent;
@@ -104,6 +107,7 @@
 .stmt-toolbar-right {
     display: flex;
     align-items: center;
+    gap: 8px;
 }
 
 /* The ⋮ dropdown (.p-table-dropdown, position: absolute) anchors here. */
@@ -111,10 +115,9 @@
     position: relative;
 }
 
-/* The header action groups and the year cards are display:flex, which beats
-   the UA's [hidden] { display: none } — restate it at author level. */
-.db-actions[hidden] { display: none; }
-.db-outer[hidden]   { display: none; }
+/* The year cards are display:flex, which beats the UA's
+   [hidden] { display: none } — restate it at author level. */
+.db-outer[hidden] { display: none; }
 
 /* Shown when the selected year has no table in this tab (or no years exist). */
 .stmt-empty {

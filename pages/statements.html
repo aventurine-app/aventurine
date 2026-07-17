@@ -6,6 +6,9 @@
     <!-- @include head -->
     <link rel="stylesheet" href="/static/css/tables.css">
     <link rel="stylesheet" href="/static/css/statements.css">
+    <!-- Categories editor styles — used by the "Manage Categories" modal the
+         Cash Flow ⋮ menu opens. -->
+    <link rel="stylesheet" href="/static/css/categories.css">
 </head>
 <body>
     <!-- @include chrome -->
@@ -16,26 +19,11 @@
         <div class="page">
 
 <div class="db-page stmt-page">
-    <!-- Year stepper takes the place of the page title; action buttons stay right. -->
-    <div class="db-page-header">
-        <div class="stepper stmt-year-stepper" aria-label="Statement year">
-            <button type="button" class="stepper-btn" id="stmt-year-prev" aria-label="Previous year" disabled>&#8249;</button>
-            <button type="button" class="stepper-label" id="stmt-year-label" aria-live="polite"
-                aria-haspopup="menu" title="Choose year">&nbsp;</button>
-            <button type="button" class="stepper-btn" id="stmt-year-next" aria-label="Next year" disabled>&#8250;</button>
-        </div>
-        <!-- One action group per tab; statements.js shows the active tab's. -->
-        <div class="db-actions" id="stmt-actions-cashflow">
-            <button class="button-primary">Add New Year</button>
-        </div>
-        <div class="db-actions" id="stmt-actions-balance" hidden>
-            <button class="button-secondary">Manage Columns</button>
-            <button class="button-primary">Add New Year</button>
-        </div>
-    </div>
-
-    <!-- Toolbar: tabs left, ⋮ menu right. The stepper has moved to the page
-         header above. Controller: statements.js. -->
+    <!-- Single toolbar row: tabs (the page's identity — there is no title) on
+         the left; year stepper dead-center on the row; the ⋮ menu on the
+         right. Every action lives in the ⋮ menu: Add New Year (always),
+         Manage Columns (Balance Sheet tab only), Edit/Delete Year (when a
+         year is selected). Controller: statements.js. -->
     <section class="stmt-sheet" id="stmt-sheet" aria-label="Statement">
         <div class="stmt-toolbar">
             <div class="stmt-tabs" role="tablist" aria-label="Statements">
@@ -44,12 +32,18 @@
                 <button type="button" class="stmt-tab" id="stmt-tab-balance" role="tab"
                     data-tab="balance" aria-controls="stmt-panel-balance" aria-selected="false" tabindex="-1">Balance Sheet</button>
             </div>
+            <div class="stepper stmt-year-stepper" aria-label="Statement year">
+                <button type="button" class="stepper-btn" id="stmt-year-prev" aria-label="Previous year" disabled>&#8249;</button>
+                <button type="button" class="stepper-label" id="stmt-year-label" aria-live="polite"
+                    aria-haspopup="menu" title="Choose year">&nbsp;</button>
+                <button type="button" class="stepper-btn" id="stmt-year-next" aria-label="Next year" disabled>&#8250;</button>
+            </div>
             <div class="stmt-toolbar-right">
                 <!-- The wrapper is the positioned anchor the ⋮ dropdown
                      attaches to (openTableMenu appends into the button's
                      parent). -->
                 <div class="stmt-menu-wrap">
-                    <button class="p-menu-btn" id="stmt-menu-btn" title="Statement options" disabled>⋮</button>
+                    <button class="p-menu-btn" id="stmt-menu-btn" title="Statement options">⋮</button>
                 </div>
             </div>
         </div>

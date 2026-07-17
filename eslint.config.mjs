@@ -59,6 +59,8 @@ const appGlobals = {
   refreshUncatBadge: 'readonly',
   // shell/dbactions.js
   dbActions: 'readonly',
+  // shell/settingsCategories.js
+  mountCategoriesEditor: 'readonly',
   // shell/zoom.js
   aventurineZoom: 'readonly',
   // widgets/chart.js

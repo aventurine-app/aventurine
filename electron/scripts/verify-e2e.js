@@ -101,7 +101,6 @@ app.whenReady().then(async () => {
     // routes and prove the shared chrome landed on each one.
     const routes = {
       '/':                'Home',
-      '/categories':      'Categories',
       '/transactions':    'Transactions',
       '/statements':      'Statements',
       '/portfolio':       'Portfolio',
@@ -139,14 +138,20 @@ app.whenReady().then(async () => {
       '!document.querySelector("[data-modal=\'preferences\']").hidden'
     ));
 
-    // Category management now lives on its own page — prove the editor renders
-    // the search field, the four collapsible type groups, each group's "Add
-    // category" row, and the seeded category rows. The editor fills
-    // asynchronously after load, so poll briefly like the tx table.
-    await win.loadURL('app://aventurine/categories');
-    check('Categories page renders the editor', await evalJs(
+    // Category management lives in the Statements Cash Flow ⋮ menu — open
+    // "Manage Categories" and prove the modal editor renders the search field,
+    // the four collapsible type groups, each group's "Add category" row, and
+    // the seeded category rows. The editor fills asynchronously after mount,
+    // so poll briefly like the tx table.
+    await win.loadURL('app://aventurine/statements');
+    await evalJs('new Promise(res => setTimeout(res, 400))');
+    await evalJs('document.getElementById("stmt-menu-btn").click()');
+    await evalJs(`[...document.querySelectorAll('.p-table-dropdown button, [role="menuitem"], .p-dropdown-item')]
+      .find(el => el.textContent.trim() === 'Manage Categories')?.click()`);
+    check('Statements ⋮ → Manage Categories renders the editor modal', await evalJs(
       'new Promise(res => setTimeout(() => res('
-        + 'document.querySelectorAll("[data-categories-editor] .cat-group").length === 4'
+        + '!!document.querySelector(".cat-manager-overlay .cat-manager")'
+        + ' && document.querySelectorAll("[data-categories-editor] .cat-group").length === 4'
         + ' && document.querySelectorAll("[data-categories-editor] .cat-add-row").length === 4'
         + ' && !!document.querySelector("[data-categories-editor] .cat-search-input")'
         + ' && document.querySelectorAll("[data-categories-editor] .cat-row").length > 0'

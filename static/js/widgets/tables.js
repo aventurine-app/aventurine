@@ -1118,14 +1118,18 @@
      *                                   when the page wires add-year itself via
      *                                   the handle's addYear
      *   manageColsBtnSelector string? — the "Manage Columns" button (default
-     *                                   '.db-actions .button-secondary')
+     *                                   '.db-actions .button-secondary'); pass
+     *                                   null when the page opens the manager
+     *                                   itself via the handle's manageColumns
+     *                                   (Statements puts it in the ⋮ menu)
      *
      * Returns a small handle the page controller can drive year-level operations
      * through (the Statements ⋮ menu acts on a year across BOTH datasets):
-     *   api          — the makeYearTableApi wrapper for this dataset
-     *   reload       — re-fetch /data and re-render every table
-     *   hasYear      — whether this dataset currently has the given year
-     *   addYear      — create a year in this dataset and render its table
+     *   api           — the makeYearTableApi wrapper for this dataset
+     *   reload        — re-fetch /data and re-render every table
+     *   hasYear       — whether this dataset currently has the given year
+     *   addYear       — create a year in this dataset and render its table
+     *   manageColumns — open this dataset's column manager modal
      */
     function bootstrapYearTablePage(opts) {
         const ctx = {
@@ -1180,11 +1184,15 @@
 
             // "Manage Columns" button — opens the (toggleable) column manager.
             // Skipped when the page opts out (Cash Flow manages categories in
-            // Settings). querySelector returns null when the button isn't in the
-            // template, so the guard covers that case without any explicit flag.
-            const manageBtn = document.querySelector(opts.manageColsBtnSelector || '.db-actions .button-secondary');
-            if (manageBtn && !ctx.hideColumnManager) {
-                manageBtn.addEventListener('click', () => showColumnManager(ctx));
+            // Settings) or owns the entry point itself (manageColsBtnSelector:
+            // null + the handle's manageColumns). querySelector returns null
+            // when the button isn't in the template, so the guard covers that
+            // case without any explicit flag.
+            if (opts.manageColsBtnSelector !== null) {
+                const manageBtn = document.querySelector(opts.manageColsBtnSelector || '.db-actions .button-secondary');
+                if (manageBtn && !ctx.hideColumnManager) {
+                    manageBtn.addEventListener('click', () => showColumnManager(ctx));
+                }
             }
         };
 
@@ -1193,10 +1201,11 @@
         init();
 
         return {
-            api:          ctx.api,
-            reload:       () => reloadYearTables(ctx),
-            hasYear:      (year) => ctx.years.includes(year),
+            api:           ctx.api,
+            reload:        () => reloadYearTables(ctx),
+            hasYear:       (year) => ctx.years.includes(year),
             addYear,
+            manageColumns: () => showColumnManager(ctx),
         };
     }
 

@@ -1,20 +1,24 @@
 'use strict';
 
 // ─── Statements page ────────────────────────────────────────────────────────
-// Cash Flow and Balance Sheet merged behind two tabs, with a compact ‹ year ›
-// stepper in the toolbar that picks which single year is visible.
+// Cash Flow and Balance Sheet merged behind two tabs, with everything on ONE
+// toolbar row: tabs left; ‹ year › stepper dead-center; the ⋮ menu right.
 //
 // The tables are still owned end-to-end by tables.js — this file boots one
-// year-table controller per tab (each scoped to its own container + header
-// buttons via the *Selector opts) and layers the page chrome on top:
+// year-table controller per tab (each scoped to its own container via the
+// *Selector opts) and layers the page chrome on top:
 //
-//   • an ARIA tablist that swaps the visible panel + its header actions;
+//   • an ARIA tablist that swaps the visible panel;
 //   • the year stepper: prev/next walk the union of years across both
 //     datasets (oldest → newest); the selected year is applied to BOTH
 //     containers by toggling [hidden] on the .db-outer[data-year] cards;
-//   • the ⋮ menu, whose actions (Edit Year / Delete Year) apply to the
-//     selected year across BOTH datasets, driven through the handles
-//     bootstrapYearTablePage returns.
+//   • the ⋮ menu, the single home for every action (all of them are
+//     rare-use, so progressive disclosure keeps the toolbar to three
+//     elements): Add New Year always; Manage Categories on the Cash Flow
+//     tab (the shared categories editor in a modal); Manage Columns on the
+//     Balance Sheet tab; Edit Year / Delete Year when a year is selected —
+//     the year operations apply across BOTH datasets, driven through the
+//     handles bootstrapYearTablePage returns.
 //
 // tables.js re-renders a container wholesale after column edits / year
 // operations, so year visibility is re-applied via a MutationObserver on the
@@ -53,7 +57,7 @@ const balanceTable = bootstrapYearTablePage({
     addInputPlaceholder:   'Account name',
     containerSelector:     '#stmt-tables-balance',
     addYearBtnSelector:    null,   // page-owned: Add New Year fills BOTH datasets
-    manageColsBtnSelector: '#stmt-actions-balance .button-secondary',
+    manageColsBtnSelector: null,   // page-owned: lives in the ⋮ menu
 });
 
 // ── Page controller: toolbar tabs, year stepper, ⋮ menu ─────────────────────
@@ -67,7 +71,6 @@ const balanceTable = bootstrapYearTablePage({
             label:     'Cash Flow',
             tab:       document.getElementById('stmt-tab-cashflow'),
             panel:     document.getElementById('stmt-panel-cashflow'),
-            actions:   document.getElementById('stmt-actions-cashflow'),
             container: document.getElementById('stmt-tables-cashflow'),
             empty:     document.getElementById('stmt-empty-cashflow'),
         },
@@ -76,21 +79,30 @@ const balanceTable = bootstrapYearTablePage({
             label:     'Balance Sheet',
             tab:       document.getElementById('stmt-tab-balance'),
             panel:     document.getElementById('stmt-panel-balance'),
-            actions:   document.getElementById('stmt-actions-balance'),
             container: document.getElementById('stmt-tables-balance'),
             empty:     document.getElementById('stmt-empty-balance'),
         },
     ];
 
+    // ── Toolbar elements + year state ────────────────────────────────────────
+    const prevBtn   = document.getElementById('stmt-year-prev');
+    const nextBtn   = document.getElementById('stmt-year-next');
+    const yearLabel = document.getElementById('stmt-year-label');
+    const menuBtn   = document.getElementById('stmt-menu-btn');
+
+    let years     = [];       // union across both containers, oldest first
+    let current   = -1;       // index into years (-1 = no years yet)
+    let activeTab = TABS[0];  // the ⋮ menu's contents depend on the tab
+
     // ── Tabs (standard ARIA tablist with roving tabindex) ───────────────────
     function selectTab(active, focus) {
+        activeTab = active;
         TABS.forEach(t => {
             const on = t === active;
             t.tab.classList.toggle('active', on);
             t.tab.setAttribute('aria-selected', on ? 'true' : 'false');
             t.tab.tabIndex = on ? 0 : -1;
             t.panel.hidden = !on;
-            t.actions.hidden = !on;
         });
         if (focus) active.tab.focus();
     }
@@ -117,9 +129,9 @@ const balanceTable = bootstrapYearTablePage({
 
     // ── "Add New Year" — one statement year spans BOTH datasets ─────────────
     // A statement year is a Cash Flow table AND a Balance Sheet table, so the
-    // button (whichever tab's copy is visible) creates the year in every
-    // dataset that lacks it. Validating against years present in *both* lets
-    // the same prompt backfill a year that only one dataset has.
+    // ⋮ menu item creates the year in every dataset that lacks it. Validating
+    // against years present in *both* lets the same prompt backfill a year
+    // that only one dataset has.
     function promptAddYearEverywhere() {
         const existing = years.filter(y => CONTROLLERS.every(c => c.hasYear(y)));
         promptAddYear(existing, async newYear => {
@@ -128,18 +140,8 @@ const balanceTable = bootstrapYearTablePage({
             }
         });
     }
-    TABS.forEach(t => t.actions.querySelector('.button-primary')
-        .addEventListener('click', promptAddYearEverywhere));
 
-    // ── Year stepper state ──────────────────────────────────────────────────
-    const prevBtn   = document.getElementById('stmt-year-prev');
-    const nextBtn   = document.getElementById('stmt-year-next');
-    const yearLabel = document.getElementById('stmt-year-label');
-    const menuBtn   = document.getElementById('stmt-menu-btn');
-
-    let years   = [];      // union across both containers, oldest first
-    let current = -1;      // index into years (-1 = no years yet)
-
+    // ── Year stepper ─────────────────────────────────────────────────────────
     const unionYears = () => {
         const set = new Set();
         TABS.forEach(t => t.container.querySelectorAll('.db-outer[data-year]')
@@ -152,7 +154,6 @@ const balanceTable = bootstrapYearTablePage({
     // stepper label + arrow affordances.
     function applyYear() {
         const year = years[current];
-        menuBtn.disabled  = (year === undefined);
         prevBtn.disabled  = (current <= 0);
         nextBtn.disabled  = (current < 0 || current >= years.length - 1);
         yearLabel.textContent = (year === undefined) ? '—' : String(year);
@@ -166,8 +167,8 @@ const balanceTable = bootstrapYearTablePage({
             t.empty.hidden = has;
             if (!has) {
                 t.empty.textContent = (year === undefined)
-                    ? 'No years yet — use "Add New Year" to start.'
-                    : `No ${t.label} table for ${year} yet — use "Add New Year" to create it.`;
+                    ? 'No years yet — use "Add New Year" in the ⋮ menu to start.'
+                    : `No ${t.label} table for ${year} yet — use "Add New Year" in the ⋮ menu to create it.`;
             }
         });
     }
@@ -193,8 +194,49 @@ const balanceTable = bootstrapYearTablePage({
         })));
     });
 
-    // ── Year ⋮ menu: Edit Year (renumber) / Delete Year ─────────────────────
-    // Both act on the year across BOTH datasets.
+    // ── "Manage Categories" modal (Cash Flow tab) ────────────────────────────
+    // The Cash Flow columns ARE the categories, but they're managed by the
+    // shared categories editor (settingsCategories.js) — not the year-table
+    // column manager — because category edits also drive the Transactions
+    // ledger dropdown. The modal shell mirrors showColumnManager (tables.js):
+    // toggle if already open, close on × or backdrop, and the editor mounts
+    // into a [data-categories-editor] root. Closing reloads the Cash Flow
+    // tables so renames/reorders/deletes land in the columns immediately.
+    function showCategoriesManager() {
+        const existing = document.querySelector('.cat-manager-overlay');
+        if (existing) { existing.remove(); return; }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'confirm-overlay cat-manager-overlay';
+        const tip = 'Categories group your transactions and appear as rows in your '
+            + 'Cash Flow statement. Drag a category by its handle to reorder it — the '
+            + 'order here sets the Cash Flow row order.\n\nDeletion is blocked when '
+            + 'transactions or stored values still reference a category — reassign first.';
+        overlay.innerHTML = `
+            <div class="cat-manager">
+                <div class="cat-manager-header">
+                    <span>Manage Categories<span class="fc-info" tabindex="0" role="note"
+                        aria-label="${escapeHtml(tip)}" data-tip="${escapeHtml(tip)}">i</span></span>
+                    <button class="cat-manager-close" aria-label="Close">×</button>
+                </div>
+                <div class="cat-manager-body">
+                    <div data-categories-editor></div>
+                </div>
+            </div>`;
+        document.body.appendChild(overlay);
+
+        const close = () => {
+            overlay.remove();
+            cashflowTable.reload();
+        };
+        overlay.querySelector('.cat-manager-close').addEventListener('click', close);
+        overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+        mountCategoriesEditor(overlay.querySelector('[data-categories-editor]'));
+    }
+
+    // ── ⋮ menu: Add New Year + per-tab manager + year ops ───────────────────
+    // The year operations act on the year across BOTH datasets.
     const withYear = (year, fn) => CONTROLLERS
         .filter(c => c.hasYear(year))
         .reduce((p, c) => p.then(() => fn(c)), Promise.resolve());
@@ -203,33 +245,50 @@ const balanceTable = bootstrapYearTablePage({
     menuBtn.addEventListener('click', e => {
         e.stopPropagation();
         const year = years[current];
-        if (year === undefined) return;
-        const items = [];
-        items.push(
-            {
-                // There is no rename endpoint; renumbering is duplicate-into-
-                // the-new-year + delete-the-old, per dataset that has it.
-                label: 'Edit Year',
-                action: () => promptAddYear(years, async newYear => {
-                    await withYear(year, async c => {
-                        await c.api.duplicateYear(year, newYear);
-                        await c.api.deleteYear(year);
-                    });
-                    await reloadAll();
-                }, {
-                    message: `Change <strong>${year}</strong> to:`,
-                    confirmLabel: 'Save',
-                }),
-            },
-            {
-                label: 'Delete Year',
-                action: () => confirmDelete(year, async () => {
-                    await withYear(year, c => c.api.deleteYear(year));
-                    await reloadAll();
-                }),
-                danger: true,
-            }
-        );
+        const items = [{
+            label: 'Add New Year',
+            action: promptAddYearEverywhere,
+        }];
+        if (activeTab.id === 'cashflow') {
+            items.push({
+                label: 'Manage Categories',
+                action: showCategoriesManager,
+            });
+        }
+        if (activeTab.id === 'balance') {
+            items.push({
+                label: 'Manage Columns',
+                action: () => balanceTable.manageColumns(),
+            });
+        }
+        if (year !== undefined) {
+            items.push(
+                {
+                    // There is no rename endpoint; renumbering is duplicate-
+                    // into-the-new-year + delete-the-old, per dataset that
+                    // has it.
+                    label: 'Edit Year',
+                    action: () => promptAddYear(years, async newYear => {
+                        await withYear(year, async c => {
+                            await c.api.duplicateYear(year, newYear);
+                            await c.api.deleteYear(year);
+                        });
+                        await reloadAll();
+                    }, {
+                        message: `Change <strong>${year}</strong> to:`,
+                        confirmLabel: 'Save',
+                    }),
+                },
+                {
+                    label: 'Delete Year',
+                    action: () => confirmDelete(year, async () => {
+                        await withYear(year, c => c.api.deleteYear(year));
+                        await reloadAll();
+                    }),
+                    danger: true,
+                }
+            );
+        }
         UI.openMenu(menuBtn, items);
     });
 

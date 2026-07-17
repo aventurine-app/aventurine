@@ -1,12 +1,18 @@
 'use strict';
 
 // ─── settingsCategories.js ──────────────────────────────────────────────────
-// Categories editor for the Categories page (pages/categories.html).
+// Categories editor. Lives in the "Manage Categories" modal the Statements
+// page opens from the Cash Flow ⋮ menu (statements.js), which mounts it via
+// window.mountCategoriesEditor; any static [data-categories-editor] root is
+// also wired at load.
 //
 // Layout: a search field above a stack of collapsible group cards — one per
 // category type (Income · Expense · Savings · Investing). Each card header
 // carries the type's colour dot, a count summary and a chevron; expanding it
 // reveals the category rows and a quiet "Add category" row at the bottom.
+// The cards are an accordion: all collapsed on open, expanding one collapses
+// the rest (during a drag, hovering a collapsed group springs it open so
+// cross-group recategorizing keeps a drop target).
 // Typing in the search filters rows by name across every group: groups with no
 // matches disappear, matching groups are forced open, and adding/dragging pause
 // until the query is cleared (a filtered list has no meaningful insertion order).
@@ -185,7 +191,10 @@
     function ui(rootEl) {
         let u = uiByRoot.get(rootEl);
         if (!u) {
-            u = { query: '', open: { income: false, expense: true, savings: false, investing: false } };
+            // Everything starts collapsed; the groups behave as an accordion
+            // (opening one closes the rest — see the toggle handler), so at
+            // most one is open at a time. A live search overrides both.
+            u = { query: '', open: { income: false, expense: false, savings: false, investing: false } };
             uiByRoot.set(rootEl, u);
         }
         return u;
@@ -281,15 +290,20 @@
             const action = e.target.closest('[data-action]')?.dataset?.action;
             const addBtn = e.target.closest('.cat-add-row');
 
-            // Group header — expand/collapse. A live search forces matching
-            // groups open (applyFilter wins), so the stored preference only
-            // takes effect once the query is cleared.
+            // Group header — accordion expand/collapse: opening a group
+            // collapses the others (drag-across-groups still works — expand
+            // the target group first, and reorders within one group never
+            // needed two open). A live search forces matching groups open
+            // (applyFilter wins), so the stored state only takes effect once
+            // the query is cleared.
             if (action === 'toggle') {
                 const section = e.target.closest('.cat-group');
                 const type = section?.dataset?.type;
                 if (!type) return;
                 const u = ui(rootEl);
-                u.open[type] = !u.open[type];
+                const willOpen = !u.open[type];
+                TYPE_ORDER.forEach(t => { u.open[t] = false; });
+                u.open[type] = willOpen;
                 applyFilter(rootEl);
                 return;
             }
@@ -438,13 +452,32 @@
 
         rootEl.addEventListener('dragover', (e) => {
             if (!draggingRow) return;
+            const srcType = draggingRow.closest('.cat-list')?.dataset.type;
+
+            // Spring-loaded groups: the accordion never has two groups open at
+            // once, so a collapsed group expands when the drag hovers it —
+            // otherwise cross-group recategorizing would have no drop target.
+            // View-only (u.open untouched): the source group must stay visible
+            // for the rest of the drag; dragend reconciles the accordion.
+            const group = e.target.closest?.('.cat-group');
+            if (group) {
+                const body = group.querySelector('.cat-group-body');
+                const springable = body.hasAttribute('hidden') &&
+                    !(draggingRow.classList.contains('cat-locked') &&
+                      group.dataset.type !== srcType);
+                if (springable) {
+                    body.removeAttribute('hidden');
+                    group.querySelector('.cat-group-head').setAttribute('aria-expanded', 'true');
+                }
+            }
+
             const list = e.target.closest?.('.cat-list');
             if (!list) return;
             // A locked row (the Uncategorized buckets) can be reordered but not
             // recategorized — its type is hardcoded — so it only drops within
             // its own group. Other groups aren't valid targets for it.
             if (draggingRow.classList.contains('cat-locked') &&
-                list.dataset.type !== draggingRow.closest('.cat-list')?.dataset.type) {
+                list.dataset.type !== srcType) {
                 return;
             }
             e.preventDefault();
@@ -465,6 +498,17 @@
             indicator = null;
             draggingRow.classList.remove('cat-dragging');
             rootEl.classList.remove('dragging');
+            // Reconcile the accordion after any spring-loaded expansions: the
+            // group the row landed in becomes the open one. applyFilter closes
+            // the rest immediately — commitOrder only re-renders when
+            // something actually moved (a cancelled drag wouldn't).
+            const u = ui(rootEl);
+            const landedType = draggingRow.closest('.cat-list')?.dataset.type;
+            if (landedType) {
+                TYPE_ORDER.forEach(t => { u.open[t] = false; });
+                u.open[landedType] = true;
+            }
+            applyFilter(rootEl);
             draggingRow = null;
             commitOrder();
         });
@@ -485,4 +529,13 @@
     } else {
         init();
     }
+
+    // ── Cross-file surface ───────────────────────────────────────────────────
+    // For roots created after load — the Statements "Manage Categories" modal
+    // builds its editor root on demand. The matching readonly entry lives in
+    // eslint.config.mjs.
+    window.mountCategoriesEditor = (root) => {
+        attach(root);
+        refresh(root);
+    };
 })();
