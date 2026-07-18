@@ -443,6 +443,18 @@
     padding: 2px;
 }
 
+/* Category-group headers inside the option list — the .tx-pop-label eyebrow
+   voice, spaced off the group above. */
+.tx-pop-group-label {
+    padding: 8px 8px 3px;
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+}
+
 .tx-pop-option {
     display: flex;
     align-items: center;
@@ -461,6 +473,9 @@
     cursor: pointer;
     transition: background 0.12s ease, color 0.12s ease;
 }
+
+/* Options under a group header sit a step in from the eyebrow. */
+.tx-pop-option.is-grouped { padding-left: 20px; }
 
 .tx-pop-option:hover { background: var(--frost-3); color: var(--text-primary); }
 .tx-pop-option.is-selected { color: var(--accent-primary); }
@@ -704,15 +719,18 @@
 }
 
 /* Native <select> caret styling — drawn via background-image so the menu
-   text stays clean. Same approach as the home-page range selector. */
+   text stays clean. Same approach as the home-page range selector
+   (.range-selector-btn in ui.css): a single conic-gradient triangle, one
+   layer, so it can't split into halves at fractional zoom the way the old
+   two-linear-gradient recipe did. */
 .tx-select {
     appearance: none;
     -webkit-appearance: none;
     padding-right: 28px;
-    background-image: linear-gradient(45deg,  transparent 50%, currentColor 50%),
-                      linear-gradient(135deg, currentColor 50%, transparent 50%);
-    background-position: calc(100% - 14px) 50%, calc(100% - 10px) 50%;
-    background-size: 4px 4px;
+    background-image: conic-gradient(from -45deg at 50% 100%,
+                      currentColor 90deg, transparent 0);
+    background-position: calc(100% - 10px) 50%;
+    background-size: 8px 4px;
     background-repeat: no-repeat;
 }
 

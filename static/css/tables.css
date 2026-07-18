@@ -667,13 +667,16 @@
     color: var(--text-primary);
 }
 
+/* Destructive — red outline that fills on hover, matching .db-btn-danger
+   (the Delete All Transactions modal) and the Transactions delete chip. */
 .confirm-delete {
-    background: rgba(180, 40, 40, 0.3);
-    border: var(--border-width) solid rgba(200, 60, 60, 0.45);
-    color: rgba(255, 140, 140, 1);
+    background: transparent;
+    border: var(--border-width) solid var(--accent-negative);
+    color: var(--accent-negative);
 }
 
 .confirm-delete:hover {
-    background: rgba(180, 40, 40, 0.55);
-    color: var(--text-primary);
+    background: var(--accent-negative);
+    border-color: var(--accent-negative);
+    color: #fff;
 }

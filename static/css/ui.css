@@ -191,11 +191,15 @@
     padding: 6px 26px 6px 12px;
     cursor: pointer;
     transition: background 0.15s, color 0.15s, border-color 0.15s;
-    /* Caret drawn via background-image so the button text stays clean. */
-    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
-                      linear-gradient(135deg, currentColor 50%, transparent 50%);
-    background-position: calc(100% - 14px) 50%, calc(100% - 10px) 50%;
-    background-size: 4px 4px;
+    /* Caret drawn via background-image so the button text stays clean.
+       A single conic-gradient triangle: the old two-linear-gradient recipe
+       drew the arrow as two abutting halves whose positions rounded to
+       device pixels independently, so they visibly split at fractional
+       zoom. One layer scales as a unit. */
+    background-image: conic-gradient(from -45deg at 50% 100%,
+                      currentColor 90deg, transparent 0);
+    background-position: calc(100% - 10px) 50%;
+    background-size: 8px 4px;
     background-repeat: no-repeat;
 }
 
@@ -203,6 +207,15 @@
     background-color: var(--surface3);
     color: var(--text-primary);
     border-color: var(--text-tertiary);
+}
+
+/* Caret flips to point up while the menu is open. Keyed off the sibling
+   menu's [hidden] state via :has() rather than a JS class so it stays in
+   sync with every open/close path (button toggle, item pick, outside
+   click) across the three wireRangePicker copies. */
+.range-selector:has(.range-selector-menu:not([hidden])) .range-selector-btn {
+    background-image: conic-gradient(from 135deg at 50% 0%,
+                      currentColor 90deg, transparent 0);
 }
 
 .range-selector-menu {
@@ -294,8 +307,13 @@
     color: var(--text-primary);
 }
 
-.p-dropdown-item-danger { color: rgba(255, 90, 90, 0.8); }
-.p-dropdown-item-danger:hover { background: rgba(255, 60, 60, 0.1); color: rgba(255, 90, 90, 1); }
+/* Destructive items (Delete Year) use the app's canonical red — the same
+   --accent-negative treatment as the settings danger zone. */
+.p-dropdown-item-danger { color: var(--accent-negative); }
+.p-dropdown-item-danger:hover {
+    background: color-mix(in srgb, var(--accent-negative) 15%, transparent);
+    color: var(--accent-negative);
+}
 
 .home-panel[hidden], .cf-panel[hidden], .stmt-panel[hidden] { display: none; }
 .home-panel:focus, .cf-panel:focus, .stmt-panel:focus { outline: none; }

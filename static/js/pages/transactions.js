@@ -201,7 +201,13 @@
         const TYPE_LABELS = { income: 'Income', expense: 'Expense', savings: 'Savings', investing: 'Investing' };
         const groups = {};
         TYPE_ORDER.forEach(k => { groups[k] = []; });
-        txState.categories.forEach(c => { (groups[c.cat_type] || (groups[c.cat_type] = [])).push(c); });
+        txState.categories.forEach(c => {
+            // The locked uncat_* system buckets aren't assignable — the blank
+            // sentinel above is Uncategorized. Kept only if a legacy row
+            // already points at one, so its current value still shows.
+            if (c.locked && c.id !== selectedId) return;
+            (groups[c.cat_type] || (groups[c.cat_type] = [])).push(c);
+        });
         TYPE_ORDER.forEach(k => groups[k].sort((a, b) => a.position - b.position));
         return ['<option value="">Uncategorized</option>']
             .concat(TYPE_ORDER.flatMap(k => {
@@ -583,13 +589,21 @@
 
     // A single-select option list for the Type/Category popovers. Picking an option
     // writes the filter and closes the popover; the current value is checked.
+    // An entry of { header } renders as a non-interactive group label instead
+    // of an option (the Category list groups by cat_type).
     function txBuildOptionList(key, options, current) {
         const list = document.createElement('div');
         list.className = 'tx-pop-options';
         list.setAttribute('role', 'listbox');
-        list.innerHTML = options.map(([value, label]) => {
+        let grouped = false;   // true once a header appears — options under it indent
+        list.innerHTML = options.map((entry) => {
+            if (entry.header) {
+                grouped = true;
+                return `<div class="tx-pop-group-label" role="presentation">${txEsc(entry.header)}</div>`;
+            }
+            const [value, label] = entry;
             const sel = value === current;
-            return `<button type="button" class="tx-pop-option${sel ? ' is-selected' : ''}" role="option" aria-selected="${sel}" data-value="${txEsc(value)}">
+            return `<button type="button" class="tx-pop-option${grouped ? ' is-grouped' : ''}${sel ? ' is-selected' : ''}" role="option" aria-selected="${sel}" data-value="${txEsc(value)}">
                     <span class="tx-pop-option-label">${txEsc(label)}</span>
                     <svg class="tx-pop-check" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 10.5l3.5 3.5L15 6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>`;
@@ -648,8 +662,19 @@
                 ['', 'All'], ['income', 'Income'], ['expense', 'Expense'], ['savings', 'Savings'], ['investing', 'Investing'],
             ], f.type || ''));
         } else if (key === 'category') {
-            const opts = [['', 'All'], ['none', 'Uncategorized']]
-                .concat(txState.categories.map(c => [String(c.id), c.name]));
+            // Grouped by cat_type under eyebrow headers. The locked uncat_*
+            // system buckets are skipped: no transaction is ever assigned to
+            // them (they're NULL-category sums), and the 'none' sentinel
+            // already covers Uncategorized.
+            const opts = [['', 'All'], ['none', 'Uncategorized']];
+            Object.entries(TX_TYPE_LABELS).forEach(([type, label]) => {
+                const cats = txState.categories
+                    .filter(c => c.cat_type === type && !c.locked)
+                    .sort((a, b) => a.position - b.position);
+                if (!cats.length) return;
+                opts.push({ header: label });
+                cats.forEach(c => opts.push([String(c.id), c.name]));
+            });
             wrap.appendChild(txBuildOptionList('category', opts, f.category || ''));
         }
         return wrap;
@@ -715,8 +740,11 @@
         if (catKey) {
             // Match on the stable category key the link carries; map it to the id the
             // filter state holds. An unknown key just leaves the category filter off.
+            // The locked uncat_* system buckets are NULL-category sums, not real
+            // assignments — filtering by their id matches nothing, so the Cash
+            // Flow "Uncategorized" band maps to the 'none' filter instead.
             const cat = txState.categories.find(c => c.key === catKey);
-            if (cat) txState.filters.category = String(cat.id);
+            if (cat) txState.filters.category = cat.locked ? 'none' : String(cat.id);
         }
 
         txState.page = 1;

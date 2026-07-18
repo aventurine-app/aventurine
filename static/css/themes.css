@@ -51,9 +51,6 @@ html[data-theme="dark"],
     /* Button text — text/icons on filled accent (or neutral-hover) buttons. */
     --button-text:    var(--color-base-900);
 
-    --accent-secondary: #c5ac63;
-    --accent-negative:  #e2585b;
-    --accent-quatenary: #4a8f8f;
 
     /* Neutral charcoal for secondary buttons (see style.css). A dark charcoal
        line would vanish on the dark background, so the idle line steps up to a
