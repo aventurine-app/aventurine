@@ -336,7 +336,10 @@
 
     /**
      * Build the DOM for one year's table:
-     *   - thead:        column labels (Month | col1 | col2 | …)
+     *   - thead:        column labels (Month | col1 | col2 | …); typed columns
+     *                   carry data-type, which draws the type's accent bar
+     *                   along the cell bottom (tables.css); the Month header
+     *                   gets the same bar in neutral border-grey via CSS alone
      *   - tbody:        twelve month rows of editable currency inputs
      *   - tfoot:        optional totals row (when ctx.includeTotals is true)
      *
@@ -372,6 +375,17 @@
         headerRow.appendChild(monthTh);
         ctx.columns.forEach(col => {
             const th = document.createElement('th');
+            // A typed column's header wears its type's accent as a bar hugging
+            // the cell bottom (th[data-type]::after, tables.css) — the same
+            // per-type colour that marks the type cards in the Manage Columns /
+            // Manage Categories modals — so a header shows the group its
+            // column belongs to. Colour alone shouldn't carry the meaning: the
+            // title names the group (e.g. "Cash Accounts") on hover.
+            if (col.type) {
+                const group = ctx.types?.find(t => t.key === col.type);
+                th.dataset.type = col.type;
+                th.title = (group?.label || col.type) + (ctx.typeSectionSuffix || '');
+            }
             th.textContent = col.label;
             headerRow.appendChild(th);
         });

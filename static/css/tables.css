@@ -236,6 +236,44 @@
     white-space: nowrap;
 }
 
+/* == Column-type accent bar ==
+   A 3px accent bar hugging the bottom edge of each header cell. Typed columns
+   (tables.js createYearTable sets th[data-type]) wear their type's colour —
+   the same per-type accent that marks the type cards in the Statements
+   managers, so a column visibly belongs to its group. The colours mirror the
+   --cat-accent mapping in categories.css (a type means the same colour
+   everywhere in the app); the group is also named in the cell's title
+   attribute so the meaning isn't colour-only. The Month header wears the same
+   bar in a fixed neutral — the table's border grey — so the header band reads
+   as one continuous rail without claiming a type.
+
+   Drawn as an ::after pinned to the cell's padding box: it spans the full
+   cell width (adjacent bars stay separated by the 1px cell border) and sits
+   flush on the header row's bottom divider. position:relative anchors it on
+   the typed cells; the sticky Month cell is already a positioned box, so its
+   pinning needs no change to anchor its own ::after. */
+.db-table th[data-type] { position: relative; }
+
+.db-table th[data-type]::after,
+.db-table .col-month::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+}
+
+.db-table .col-month::after            { background: var(--border); }
+.db-table th[data-type="income"]::after,
+.db-table th[data-type="cash"]::after       { background: var(--accent-positive); }
+.db-table th[data-type="expense"]::after,
+.db-table th[data-type="debt"]::after       { background: var(--accent-negative); }
+.db-table th[data-type="savings"]::after,
+.db-table th[data-type="retirement"]::after { background: var(--accent-secondary); }
+.db-table th[data-type="investing"]::after,
+.db-table th[data-type="investment"]::after { background: var(--accent-quatenary); }
+
 /* == Month/Year first-column header cell == */
 /* Left padding uses --col-first-pad to align with month labels in tbody */
 .col-month {
