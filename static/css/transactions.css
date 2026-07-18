@@ -994,6 +994,23 @@
 }
 .tx-import-map-select { flex: 1; }
 
+/* Amount-mode toggle: quiet text link swapping between one signed Amount
+   column and split Debit/Credit columns */
+.tx-import-map-mode {
+    align-self: flex-start;
+    margin-top: 8px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--accent-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+.tx-import-map-mode:hover { color: var(--text-primary); }
+
 /* Parse-error banner (rows skipped during mapping) */
 .tx-import-errors-banner {
     background: rgba(255, 140, 0, 0.08);

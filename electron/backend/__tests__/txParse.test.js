@@ -82,6 +82,51 @@ test('parseAmount strips symbols/commas and honours accountant parentheses', () 
   assert.ok(Number.isNaN(parseAmount(null)));
 });
 
+test('parseAmount: European decimal commas land at full value, US stays US', () => {
+  // The old behavior stripped every comma as grouping, so "12,34" became
+  // 1234 — a silent 100× corruption. Decimal commas must parse exactly.
+  assert.equal(parseAmount('12,34'), 12.34);
+  assert.equal(parseAmount('1.234,56'), 1234.56);
+  assert.equal(parseAmount('-1.234,56'), -1234.56);
+  assert.equal(parseAmount('(1.234,56)'), -1234.56);
+  assert.equal(parseAmount('1 234,56'), 1234.56);   // space grouping
+  assert.equal(parseAmount('€1.234,56'), 1234.56);
+  // US readings are unchanged: a lone comma with 3 trailing digits is
+  // grouping, and dot-decimal values parse as before.
+  assert.equal(parseAmount('1,234'), 1234);
+  assert.equal(parseAmount('1,234.56'), 1234.56);
+  assert.equal(parseAmount('4.50'), 4.5);
+});
+
+test('detectDecimalStyle: unambiguous values vote, grouped-only values abstain', () => {
+  const { detectDecimalStyle } = TxParse;
+  assert.equal(detectDecimalStyle(['-1.234,00', '-87,63']), 'comma');
+  assert.equal(detectDecimalStyle(['-1,850.00', '-4.50']), 'dot');
+  // "1.234" alone is ambiguous (EU grouping or US 3-decimal) — no vote,
+  // and a tie falls back to the dot (US) reading.
+  assert.equal(detectDecimalStyle(['1.234']), 'dot');
+  assert.equal(detectDecimalStyle(['1.234', '12,50']), 'comma');
+});
+
+test('applyMapping: one decimal convention inferred per file', () => {
+  // The decisive "12,50" row marks the file as comma-decimal, so the
+  // ambiguous grouped "1.234" row lands as 1234 — not 1.234.
+  const eu = applyMapping([
+    ['2026-01-15', 'MIETE',      '-1.234'],
+    ['2026-01-16', 'SUPERMARKT', '-12,50'],
+  ], { date: 0, description: 1, amount: 2, notes: null });
+  assert.equal(eu.errors.length, 0);
+  assert.deepEqual(eu.parsed.map(r => r.amount), [1234, 12.5]);
+
+  // A US file with grouped amounts stays dot-decimal throughout.
+  const us = applyMapping([
+    ['2026-01-15', 'RENT',   '-1,850.00'],
+    ['2026-01-16', 'COFFEE', '-4.50'],
+  ], { date: 0, description: 1, amount: 2, notes: null });
+  assert.equal(us.errors.length, 0);
+  assert.deepEqual(us.parsed.map(r => r.amount), [1850, 4.5]);
+});
+
 // ── Duplicate fingerprint ────────────────────────────────────────────────────
 
 test('fingerprint matches the backend formula (date|abs-2dp|lowercased desc)', () => {
@@ -133,6 +178,31 @@ test('eu-semicolon.csv: sniffs ";" and European dates map to ISO', async () => {
   assert.equal(errors.length, 0);
   assert.deepEqual(parsed.map(r => r.date), ['2026-01-15', '2026-01-16', '2026-01-17']);
   assert.deepEqual(parsed.map(r => r.tx_type), ['expense', 'income', 'expense']);
+});
+
+test('debit-credit.csv: split columns auto-detect and direction follows the column', async () => {
+  const t = await parseFile('debit-credit.csv', loadFixture('debit-credit.csv'));
+  const d = detectColumns(t.headers, t.rows);
+  assert.deepEqual([d.amount, d.debit, d.credit], [null, 2, 3]);
+  const { parsed, errors } = applyMapping(t.rows, d);
+  assert.equal(errors.length, 0);
+  // Every debit-column row is an expense — including the signed one — and
+  // the credit row is income. The old single-amount reading imported the
+  // positive debits as income.
+  assert.deepEqual(parsed.map(r => [r.tx_type, r.amount]), [
+    ['expense', 61.2], ['income', 2100], ['expense', 4.5], ['expense', 12],
+  ]);
+});
+
+test('eu-decimal.csv: comma-decimal amounts land at full value end to end', async () => {
+  const t = await parseFile('eu-decimal.csv', loadFixture('eu-decimal.csv'));
+  assert.deepEqual(t.headers, ['Datum', 'Beschreibung', 'Betrag']);
+  const { parsed, errors } = applyMapping(t.rows, { date: 0, description: 1, amount: 2, notes: null });
+  assert.equal(errors.length, 0);
+  // "-1.234,00" is one thousand two hundred thirty-four — not 1.234.
+  assert.deepEqual(parsed.map(r => [r.tx_type, r.amount]), [
+    ['expense', 1234], ['expense', 87.63], ['income', 3500],
+  ]);
 });
 
 test('pipe-delimited.txt and tab-delimited.tsv sniff their delimiters', async () => {
@@ -247,9 +317,26 @@ test('rejections: .xls, PDF, and NUL-ridden binaries fail with guidance', async 
 
 // ── Column detection ─────────────────────────────────────────────────────────
 
-test('detectColumns: fuzzy header names win first', () => {
+test('detectColumns: fuzzy header names win first; a lone Debit column stays the single amount', () => {
   const d = detectColumns(['Posting Date', 'Transaction Details', 'Debit Amount', 'Reference'], []);
-  assert.deepEqual(d, { date: 0, description: 1, amount: 2, notes: 3 });
+  assert.deepEqual(d, { date: 0, description: 1, amount: 2, debit: null, credit: null, notes: 3 });
+});
+
+test('detectColumns: separate Debit/Credit columns become a split mapping', () => {
+  const d = detectColumns(['Date', 'Description', 'Debit', 'Credit', 'Balance'], []);
+  assert.deepEqual(d, { date: 0, description: 1, amount: null, debit: 2, credit: 3, notes: null });
+});
+
+test('detectColumns: Withdrawal/Deposit headers count as the split pair', () => {
+  const d = detectColumns(['Posted Date', 'Payee', 'Withdrawal Amount', 'Deposit Amount'], []);
+  assert.deepEqual(d, { date: 0, description: 1, amount: null, debit: 2, credit: 3, notes: null });
+});
+
+test('detectColumns: a combined Amount column beats the Debit/Credit pair', () => {
+  const d = detectColumns(['Date', 'Description', 'Amount', 'Debit', 'Credit'], []);
+  assert.equal(d.amount, 2);
+  assert.equal(d.debit, null);
+  assert.equal(d.credit, null);
 });
 
 test('detectColumns: data-shape fallback rescues anonymous headers', () => {
@@ -285,12 +372,41 @@ test('applyMapping: per-row errors carry human row numbers; valid rows pass thro
   assert.equal(errors[2].reason, 'empty description');
 });
 
+test('applyMapping: split Debit/Credit columns set direction by column, not sign', () => {
+  const rows = [
+    ['2026-01-05', 'GROCERY',  '61.20',  ''],        // debit, positive → expense
+    ['2026-01-06', 'PAYCHECK', '',       '2100.00'], // credit → income
+    ['2026-01-07', 'FEE',      '4.00',   '0.00'],    // zero in credit is filler
+    ['2026-01-08', 'PARKING',  '-12.00', ''],        // signed debit → still expense
+    ['2026-01-09', 'VOID',     '',       ''],        // no amount at all
+    ['2026-01-10', 'WEIRD',    '5.00',   '6.00'],    // both non-zero → ambiguous
+    ['2026-01-11', 'BAD',      'x',      ''],        // unparseable
+  ];
+  const mapping = { date: 0, description: 1, amount: null, debit: 2, credit: 3, notes: null };
+  const { parsed, errors } = applyMapping(rows, mapping);
+  assert.deepEqual(parsed.map(r => [r.tx_type, r.amount]),
+    [['expense', 61.2], ['income', 2100], ['expense', 4], ['expense', 12]]);
+  assert.deepEqual(errors.map(e => e.row), [6, 7, 8]);
+  assert.equal(errors[0].reason, 'empty amount');
+  assert.match(errors[1].reason, /both debit and credit/);
+  assert.match(errors[2].reason, /unparseable amount/);
+});
+
+test('applyMapping: a debit-only split mapping imports every row as an expense', () => {
+  const { parsed, errors } = applyMapping(
+    [['2026-02-01', 'CARD PURCHASE', '19.99']],
+    { date: 0, description: 1, amount: null, debit: 2, credit: null, notes: null }
+  );
+  assert.equal(errors.length, 0);
+  assert.deepEqual(parsed.map(r => [r.tx_type, r.amount]), [['expense', 19.99]]);
+});
+
 // ── Full pipeline (what the UI actually runs) ────────────────────────────────
 
 test('pipeline: parseFile → detectColumns → applyMapping on a messy CSV', async () => {
   const t = await parseFile('chase-style.csv', loadFixture('chase-style.csv'));
   const d = detectColumns(t.headers, t.rows);
-  assert.deepEqual(d, { date: 0, description: 1, amount: 2, notes: null });
+  assert.deepEqual(d, { date: 0, description: 1, amount: 2, debit: null, credit: null, notes: null });
   const { parsed, errors } = applyMapping(t.rows, d);
   assert.equal(errors.length, 0);
   assert.deepEqual(parsed[0], {

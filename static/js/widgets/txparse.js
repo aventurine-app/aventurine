@@ -416,16 +416,35 @@
     const RX_AMOUNT = /amount|debit|credit|sum|total/i;
     const RX_DESC   = /desc(?:ription)?|merchant|payee|memo|narrative|detail|name/i;
     const RX_NOTES  = /notes?|comment|remark|reference|ref/i;
+    // Split-amount headers: money out and money in as two separate columns
+    // ("Debit"/"Credit", "Withdrawal Amount"/"Deposit Amount"). Only a header
+    // matching exactly one side counts — "Debit/Credit" matches both and is
+    // treated as a single signed column.
+    const RX_DEBIT  = /debit|withdrawal|money\s*out|paid\s*out/i;
+    const RX_CREDIT = /credit|deposit|money\s*in|paid\s*in/i;
 
     function detectColumns(headers, rows) {
-        const d = { date: null, description: null, amount: null, notes: null };
+        const d = { date: null, description: null, amount: null, debit: null, credit: null, notes: null };
 
         headers.forEach((h, i) => {
+            const isDebit  = RX_DEBIT.test(h)  && !RX_CREDIT.test(h);
+            const isCredit = RX_CREDIT.test(h) && !RX_DEBIT.test(h);
             if (d.date        === null && RX_DATE.test(h))   d.date        = i;
-            if (d.amount      === null && RX_AMOUNT.test(h)) d.amount      = i;
+            if (d.debit       === null && isDebit)           d.debit       = i;
+            if (d.credit      === null && isCredit)          d.credit      = i;
+            if (d.amount === null && RX_AMOUNT.test(h) && !isDebit && !isCredit) d.amount = i;
             if (d.description === null && RX_DESC.test(h))   d.description = i;
             if (d.notes       === null && RX_NOTES.test(h))  d.notes       = i;
         });
+
+        // Split (Debit/Credit) mode only when BOTH sides exist and no combined
+        // Amount column does — a file with a real Amount column usually signs
+        // it, and a lone "Debit Amount" header falls back to being the single
+        // amount column (its rows then direction by sign, as before).
+        if (d.amount !== null || d.debit === null || d.credit === null) {
+            if (d.amount === null) d.amount = d.debit ?? d.credit;
+            d.debit = d.credit = null;
+        }
 
         // Data-shape fallbacks for unmatched required fields.
         if (rows.length > 0) {
@@ -440,8 +459,8 @@
                 // amount — date strings like "2026-01-01" pass parseAmount
                 // (parseFloat reads the leading year), so without this guard
                 // an anonymous-header file pre-selects the same column for
-                // both fields.
-                if (d.amount === null && i !== d.date) {
+                // both fields. Split mode (debit set) needs no amount at all.
+                if (d.amount === null && d.debit === null && i !== d.date) {
                     const hits = vals.filter(v => !Number.isNaN(parseAmount(v))).length;
                     if (hits / vals.length > 0.8) d.amount = i;
                 }
@@ -451,7 +470,8 @@
             if (d.description === null) {
                 let best = null, bestAvg = 0;
                 headers.forEach((h, i) => {
-                    if (i === d.date || i === d.amount || i === d.notes) return;
+                    if (i === d.date || i === d.amount || i === d.notes
+                        || i === d.debit || i === d.credit) return;
                     const avg = rows.reduce((s, r) => s + (r[i] || '').length, 0) / rows.length;
                     if (avg > bestAvg) { bestAvg = avg; best = i; }
                 });
@@ -513,15 +533,57 @@
         return null;
     }
 
-    // Strips currency symbols, commas, whitespace; understands accountant
-    // parentheses ("(12.34)" → -12.34). Returns float or NaN.
-    function parseAmount(s) {
+    // Which decimal convention an amount column uses: 'dot' (US "1,234.56")
+    // or 'comma' (European "1.234,56"). Votes are cast only by unambiguous
+    // values — both separators present (the last one is the decimal), or a
+    // lone separator followed by 1-2 trailing digits. Grouped-only values
+    // like "1.234" abstain: applyMapping infers ONE convention per file so
+    // the decisive rows carry the ambiguous ones. Ties fall back to 'dot'.
+    function detectDecimalStyle(values) {
+        let comma = 0, dot = 0;
+        for (const raw of values) {
+            let s = String(raw ?? '').trim();
+            const m = s.match(/^\((.*)\)$/);
+            if (m) s = m[1];
+            s = s.replace(/[$£€\s]/g, '');
+            const hasDot = s.includes('.'), hasComma = s.includes(',');
+            if (hasDot && hasComma) {
+                if (s.lastIndexOf(',') > s.lastIndexOf('.')) comma++; else dot++;
+            } else if (hasComma && /,\d{1,2}$/.test(s)) {
+                comma++;                       // decimal comma: "12,5" / "12,50"
+            } else if (hasDot && /\.\d{1,2}$/.test(s)) {
+                dot++;                         // decimal dot: "12.5" / "12.50"
+            }
+        }
+        return comma > dot ? 'comma' : 'dot';
+    }
+
+    // Strips currency symbols, grouping separators, whitespace; understands
+    // accountant parentheses ("(12.34)" → -12.34) and European decimal commas
+    // ("1.234,56" → 1234.56 — stripping the comma as grouping would corrupt
+    // the amount 100×). `style` is the file-level convention from
+    // detectDecimalStyle; without it the value's own shape decides (both
+    // separators → the last one is the decimal; a lone comma with 1-2
+    // trailing digits is a decimal comma; anything else reads as US).
+    // Returns float or NaN.
+    function parseAmount(s, style = null) {
         if (s === null || s === undefined) return NaN;
         s = String(s).trim();
         let neg = false;
         const m = s.match(/^\((.*)\)$/);
         if (m) { neg = true; s = m[1]; }
-        const v = parseFloat(s.replace(/[$£€,\s]/g, ''));
+        s = s.replace(/[$£€\s]/g, '');
+        if (style === null) {
+            if (s.includes('.') && s.includes(',')) {
+                style = s.lastIndexOf(',') > s.lastIndexOf('.') ? 'comma' : 'dot';
+            } else {
+                style = /,\d{1,2}$/.test(s) ? 'comma' : 'dot';
+            }
+        }
+        s = style === 'comma'
+            ? s.replace(/\./g, '').replace(/,/g, '.')
+            : s.replace(/,/g, '');
+        const v = parseFloat(s);
         return neg ? -v : v;
     }
 
@@ -534,31 +596,90 @@
     // ── Apply a column mapping → validated row objects ───────────────────────
     // firstRowNum is what "row N" means in error messages: 2 for tabular
     // files (row 1 is the header line), 1 for record formats like OFX/QIF.
+    //
+    // Two amount shapes: a single signed column (mapping.amount — direction by
+    // sign, the bank convention) or split Debit/Credit columns (mapping.debit/
+    // mapping.credit — direction by WHICH column holds the value, since banks
+    // list positive magnitudes in both). Either split side may be unmapped.
     function applyMapping(rawRows, mapping, firstRowNum = 2) {
+        const split = mapping.debit != null || mapping.credit != null;
+
+        // One decimal convention per file, inferred over every amount cell
+        // (both columns in split mode), so an ambiguous grouped value like
+        // "1.234" is read under the same convention as the decisive rows.
+        const amountCells = [];
+        for (const row of rawRows) {
+            if (split) {
+                if (mapping.debit  != null) amountCells.push(row[mapping.debit]  ?? '');
+                if (mapping.credit != null) amountCells.push(row[mapping.credit] ?? '');
+            } else {
+                amountCells.push(row[mapping.amount] ?? '');
+            }
+        }
+        const style = detectDecimalStyle(amountCells);
+
         const parsed = [], errors = [];
         rawRows.forEach((row, i) => {
+            const rowNum   = i + firstRowNum;
             const dateRaw  = row[mapping.date]        ?? '';
             const descRaw  = (row[mapping.description] ?? '').trim();
-            const amtRaw   = row[mapping.amount]       ?? '';
             const notesRaw = mapping.notes !== null ? (row[mapping.notes] ?? '').trim() : '';
 
-            const date   = parseIsoDate(dateRaw);
-            const amount = parseAmount(amtRaw);
-
+            const date = parseIsoDate(dateRaw);
             if (!date) {
-                errors.push({ row: i + firstRowNum, reason: `unparseable date "${dateRaw}"` });
+                errors.push({ row: rowNum, reason: `unparseable date "${dateRaw}"` });
                 return;
             }
-            if (Number.isNaN(amount)) {
-                errors.push({ row: i + firstRowNum, reason: `unparseable amount "${amtRaw}"` });
-                return;
+
+            let amount, tx_type;
+            if (split) {
+                // null = side unmapped or cell blank; {bad} = present but
+                // unparseable; {value} = a parsed number.
+                const readSide = (idx) => {
+                    if (idx == null) return null;
+                    const raw = String(row[idx] ?? '').trim();
+                    if (raw === '') return null;
+                    const v = parseAmount(raw, style);
+                    return Number.isNaN(v) ? { raw, bad: true } : { raw, value: v };
+                };
+                const deb = readSide(mapping.debit);
+                const cre = readSide(mapping.credit);
+                if (deb?.bad || cre?.bad) {
+                    errors.push({ row: rowNum, reason: `unparseable amount "${(deb?.bad ? deb : cre).raw}"` });
+                    return;
+                }
+                if (deb && cre && deb.value !== 0 && cre.value !== 0) {
+                    // Direction would be a guess — refuse rather than pick.
+                    errors.push({ row: rowNum, reason: 'both debit and credit have values' });
+                    return;
+                }
+                // The non-zero side wins; a lone zero cell still carries its
+                // column's direction (a zero in the other column is filler).
+                const side = (deb && deb.value !== 0) ? 'debit'
+                           : (cre && cre.value !== 0) ? 'credit'
+                           : deb ? 'debit' : cre ? 'credit' : null;
+                if (side === null) {
+                    errors.push({ row: rowNum, reason: 'empty amount' });
+                    return;
+                }
+                amount  = Math.abs(side === 'debit' ? deb.value : cre.value);
+                tx_type = side === 'debit' ? 'expense' : 'income';
+            } else {
+                const amtRaw = row[mapping.amount] ?? '';
+                const v = parseAmount(amtRaw, style);
+                if (Number.isNaN(v)) {
+                    errors.push({ row: rowNum, reason: `unparseable amount "${amtRaw}"` });
+                    return;
+                }
+                amount  = Math.abs(v);
+                tx_type = v >= 0 ? 'income' : 'expense';
             }
+
             if (!descRaw) {
-                errors.push({ row: i + firstRowNum, reason: 'empty description' });
+                errors.push({ row: rowNum, reason: 'empty description' });
                 return;
             }
-            const tx_type = amount >= 0 ? 'income' : 'expense';
-            parsed.push({ date, description: descRaw, tx_type, amount: Math.abs(amount), notes: notesRaw });
+            parsed.push({ date, description: descRaw, tx_type, amount, notes: notesRaw });
         });
         return { parsed, errors };
     }
@@ -567,7 +688,7 @@
         parseFile,
         parseDelimited, detectDelimiter, parseOFX, parseQIF, parseJSONTable, parseXLSX,
         detectColumns, applyMapping,
-        parseIsoDate, parseAmount, fingerprint,
+        parseIsoDate, parseAmount, detectDecimalStyle, fingerprint,
         decodeText, unescapeXml,
     };
 

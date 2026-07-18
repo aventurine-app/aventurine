@@ -137,6 +137,17 @@
         function showMappingModal(headers, rows, detected, onContinue) {
             const { body, close } = buildModal('Map Columns');
 
+            // Live selection state, seeded from detectColumns' guesses and
+            // harvested from the selects before every re-render, so switching
+            // amount modes never loses what the user already picked.
+            const current = { ...detected };
+            // Split mode: money out / money in as two separate columns
+            // (Debit/Credit, Withdrawal/Deposit) instead of one signed Amount
+            // — direction then comes from the column, not the sign (banks list
+            // positive magnitudes in both). Auto-detected from the headers; the
+            // link under the form switches either way when the guess is wrong.
+            let split = detected.debit !== null && detected.credit !== null;
+
             // Preview of first 3 raw rows so the user can visually verify the mapping.
             const previewHtml = `
             <p class="tx-import-hint">Match the columns in your file to the transaction fields below.</p>
@@ -155,10 +166,10 @@
 
             // Build one <select> row per required/optional field.
             function mapSelect(label, field, required) {
-                const detectedIdx = detected[field];
+                const selectedIdx = current[field];
                 const opts = (required ? '' : '<option value="">— skip —</option>') +
                     headers.map((h, i) =>
-                        `<option value="${i}"${i === detectedIdx ? ' selected' : ''}>${esc(h)}</option>`
+                        `<option value="${i}"${i === selectedIdx ? ' selected' : ''}>${esc(h)}</option>`
                     ).join('');
                 return `
                 <div class="tx-import-map-row">
@@ -168,37 +179,80 @@
             `;
             }
 
-            body.innerHTML = previewHtml + `
-            <div class="tx-import-section-label">Column mapping</div>
-            <div class="tx-import-map-form">
-                ${mapSelect('Date *',        'date',        true)}
-                ${mapSelect('Description *', 'description', true)}
-                ${mapSelect('Amount *',      'amount',      true)}
-                ${mapSelect('Notes',         'notes',       false)}
-            </div>
-            <div class="tx-import-footer">
-                <span class="tx-import-row-count">${rows.length} row${rows.length !== 1 ? 's' : ''} in file</span>
-                <button class="button-primary tx-import-continue-btn">Continue →</button>
-            </div>
-        `;
+            // Read the rendered selects back into `current` (only the fields
+            // of the active mode exist in the DOM at any given time).
+            function harvest() {
+                body.querySelectorAll('.tx-import-map-select').forEach(sel => {
+                    current[sel.dataset.field] = sel.value === '' ? null : parseInt(sel.value, 10);
+                });
+            }
 
-            body.querySelector('.tx-import-continue-btn').addEventListener('click', () => {
-                const get = (field) => {
-                    const v = body.querySelector(`[data-field="${field}"]`)?.value;
-                    return (v !== '' && v !== undefined && v !== null) ? parseInt(v, 10) : null;
-                };
-                const mapping = {
-                    date:        get('date'),
-                    description: get('description'),
-                    amount:      get('amount'),
-                    notes:       get('notes'),
-                };
-                if (mapping.date        === null) { alert('Please select the Date column.');        return; }
-                if (mapping.description === null) { alert('Please select the Description column.'); return; }
-                if (mapping.amount      === null) { alert('Please select the Amount column.');      return; }
-                close();
-                onContinue(mapping);
-            });
+            function render() {
+                const amountRows = split
+                    ? mapSelect('Money out (Debit)',  'debit',  false)
+                      + mapSelect('Money in (Credit)', 'credit', false)
+                    : mapSelect('Amount *', 'amount', true);
+                const modeLabel = split
+                    ? 'My file has one signed Amount column'
+                    : 'My file has separate Debit / Credit columns';
+
+                body.innerHTML = previewHtml + `
+                <div class="tx-import-section-label">Column mapping</div>
+                <div class="tx-import-map-form">
+                    ${mapSelect('Date *',        'date',        true)}
+                    ${mapSelect('Description *', 'description', true)}
+                    ${amountRows}
+                    ${mapSelect('Notes',         'notes',       false)}
+                </div>
+                <button type="button" class="tx-import-map-mode">${modeLabel}</button>
+                <div class="tx-import-footer">
+                    <span class="tx-import-row-count">${rows.length} row${rows.length !== 1 ? 's' : ''} in file</span>
+                    <button class="button-primary tx-import-continue-btn">Continue →</button>
+                </div>
+            `;
+
+                body.querySelector('.tx-import-map-mode').addEventListener('click', () => {
+                    harvest();
+                    split = !split;
+                    render();
+                });
+
+                body.querySelector('.tx-import-continue-btn').addEventListener('click', () => {
+                    harvest();
+                    if (current.date        === null) { alert('Please select the Date column.');        return; }
+                    if (current.description === null) { alert('Please select the Description column.'); return; }
+                    let mapping;
+                    if (split) {
+                        // At least one side must be mapped (a debit-only export
+                        // is legitimate); both on the same column would leave
+                        // every row's direction ambiguous.
+                        if (current.debit === null && current.credit === null) {
+                            alert('Please select the Money out and/or Money in columns.');
+                            return;
+                        }
+                        if (current.debit !== null && current.debit === current.credit) {
+                            alert('Money out and Money in must be different columns.');
+                            return;
+                        }
+                        mapping = {
+                            date: current.date, description: current.description,
+                            amount: null, debit: current.debit, credit: current.credit,
+                            notes: current.notes,
+                        };
+                    } else {
+                        if (current.amount === null) { alert('Please select the Amount column.'); return; }
+                        mapping = {
+                            date: current.date, description: current.description,
+                            amount: current.amount, debit: null, credit: null,
+                            notes: current.notes,
+                        };
+                    }
+                    close();
+                    onContinue(mapping);
+                });
+            }
+
+            render();
         }
 
         // ── Step 2: Preview modal ─────────────────────────────────────────────────
