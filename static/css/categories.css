@@ -96,8 +96,8 @@
 
 /* Per-type accent — same palette as the Budget groups / Transactions ledger
    so a category type means the same colour everywhere in the app. */
-.cat-group[data-type="income"]    { --cat-accent: var(--accent-gain); }
-.cat-group[data-type="expense"]   { --cat-accent: var(--accent-tertiary); }
+.cat-group[data-type="income"]    { --cat-accent: var(--accent-positive); }
+.cat-group[data-type="expense"]   { --cat-accent: var(--accent-negative); }
 .cat-group[data-type="savings"]   { --cat-accent: var(--accent-secondary); }
 .cat-group[data-type="investing"] { --cat-accent: var(--accent-quatenary); }
 
@@ -305,8 +305,8 @@
 .cat-icon-btn svg { width: 12px; height: 12px; }
 
 .cat-icon-btn.cat-delete:hover {
-  color: var(--accent-tertiary);
-  background: color-mix(in srgb, var(--accent-tertiary) 15%, transparent);
+  color: var(--accent-negative);
+  background: color-mix(in srgb, var(--accent-negative) 15%, transparent);
 }
 
 /* ─── Add-category row ───────────────────────────────────────────────────────
@@ -364,7 +364,7 @@
 }
 
 .cat-error {
-  color: var(--accent-tertiary);
+  color: var(--accent-negative);
   font-family: var(--font-h3);
   font-size: var(--size-small);
   padding: 6px 2px;

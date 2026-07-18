@@ -29,7 +29,7 @@
     --cc-good:   #5fad7e;
     --cc-ok:     var(--warning);
     --cc-high:   #ef8354;
-    --cc-bad:    var(--accent-tertiary);
+    --cc-bad:    var(--accent-negative);
 }
 
 .cc-empty {
@@ -91,16 +91,16 @@
     height: 26px;
     border: none;
     border-radius: 6px;
-    background: color-mix(in srgb, var(--accent-tertiary) 15%, transparent);
-    color: var(--accent-tertiary);
+    background: color-mix(in srgb, var(--accent-negative) 15%, transparent);
+    color: var(--accent-negative);
     font-size: var(--size-h3);
     line-height: 1;
     cursor: pointer;
 }
 
 .cc-remove-btn:hover {
-    background: color-mix(in srgb, var(--accent-tertiary) 25%, transparent);
-    color: var(--accent-tertiary);
+    background: color-mix(in srgb, var(--accent-negative) 25%, transparent);
+    color: var(--accent-negative);
 }
 
 
@@ -237,7 +237,7 @@
 .cc-util-fill.cc-util-bad   { background: var(--cc-bad); }
 
 .cc-gain-positive { color: var(--cc-good); }
-.cc-gain-negative { color: var(--accent-tertiary); }
+.cc-gain-negative { color: var(--accent-negative); }
 
 .cc-stats-hint {
     color: var(--text-tertiary);

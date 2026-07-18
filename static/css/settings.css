@@ -42,25 +42,25 @@
 }
 
 /* Danger zone — a destructive action fenced off in a red-outlined card so it
-   reads as separate from the ordinary settings above it. --accent-tertiary is
+   reads as separate from the ordinary settings above it. --accent-negative is
    the app's canonical red (the same loss/expense token). */
 .settings-card-danger {
-  border-color: var(--accent-tertiary);
+  border-color: var(--accent-negative);
   margin-top: 16px;
 }
 
 .db-btn-danger {
   background: transparent;
-  border-color: var(--accent-tertiary);
-  color: var(--accent-tertiary);
+  border-color: var(--accent-negative);
+  color: var(--accent-negative);
 }
 
 /* Matches the negation shape of dbmodal.css's generic .db-btn hover so this
    wins on equal specificity (settings.css loads after dbmodal.css); otherwise
    the generic rule would repaint the fill to --surface3. */
 .db-btn-danger:not(:disabled):not(.db-btn-link):not(.db-btn-primary):hover {
-  background: var(--accent-tertiary);
-  border-color: var(--accent-tertiary);
+  background: var(--accent-negative);
+  border-color: var(--accent-negative);
   color: #fff;
 }
 
@@ -553,12 +553,12 @@
 .enc-warning {
     font-size: var(--size-small);
     line-height: var(--lh-relaxed);
-    color: var(--accent-tertiary);
+    color: var(--accent-negative);
 }
 
 .enc-error {
     font-size: var(--size-small);
-    color: var(--accent-tertiary);
+    color: var(--accent-negative);
 }
 
 /* ── About modal ───────────────────────────────────────────────────────── */

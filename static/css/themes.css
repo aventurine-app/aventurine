@@ -44,7 +44,7 @@ html[data-theme="dark"],
 
     /* Accents — the page/UI accent: primary actions, links, focus,
        active/selected states. Uses the --color-accent ramp (defined once in
-       style.css), distinct from the gain green (--accent-gain, style.css) so
+       style.css), distinct from the gain green (--accent-positive, style.css) so
        UI chrome recolours independently of the gain/income indicators. */
     --accent-primary: var(--color-accent-400);   /* base — buttons, links, focus, selection, hover/active fills */
 
@@ -52,9 +52,8 @@ html[data-theme="dark"],
     --button-text:    var(--color-base-900);
 
     --accent-secondary: #c5ac63;
-    --accent-tertiary:  #e2585b;
+    --accent-negative:  #e2585b;
     --accent-quatenary: #4a8f8f;
-    --accent-quinary: #794a8f;
 
     /* Neutral charcoal for secondary buttons (see style.css). A dark charcoal
        line would vanish on the dark background, so the idle line steps up to a

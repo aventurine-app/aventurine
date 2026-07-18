@@ -357,7 +357,7 @@
     border: 1px solid currentColor;
     border-radius: 50%;
 }
-.tx-filter-clear:hover { color: var(--accent-tertiary); }
+.tx-filter-clear:hover { color: var(--accent-negative); }
 
 /* Keyboard focus rings. The label ring is inset so the chip's rounded border
    doesn't clip it; the × ring hugs its circle. */
@@ -632,12 +632,12 @@
 }
 
 /* Amount colour follows sign: money in (income) reads green, money out
-   (expense / savings / investing) reads red — the same --accent-gain /
-   --accent-tertiary pair as the Report Card verdicts. */
-.tx-row td.tx-amount-income    { color: var(--accent-gain); }
-.tx-row td.tx-amount-expense   { color: var(--accent-tertiary); }
-.tx-row td.tx-amount-savings   { color: var(--accent-tertiary); }
-.tx-row td.tx-amount-investing { color: var(--accent-tertiary); }
+   (expense / savings / investing) reads red — the same --accent-positive /
+   --accent-negative pair as the Report Card verdicts. */
+.tx-row td.tx-amount-income    { color: var(--accent-positive); }
+.tx-row td.tx-amount-expense   { color: var(--accent-negative); }
+.tx-row td.tx-amount-savings   { color: var(--accent-negative); }
+.tx-row td.tx-amount-investing { color: var(--accent-negative); }
 
 
 /* ─── 4. Edit-mode + new-row (floating bordered inputs) ──────────────────── */
@@ -1355,14 +1355,14 @@
 /* Delete is destructive — red outline that fills in on hover, the page-action
    counterpart to the red row-delete treatment used elsewhere. */
 .tx-delete-btn:not(:disabled) {
-    color: var(--accent-tertiary);
-    border-color: var(--accent-tertiary);
+    color: var(--accent-negative);
+    border-color: var(--accent-negative);
 }
 
 .tx-delete-btn:not(:disabled):hover {
-    background: var(--accent-tertiary);
+    background: var(--accent-negative);
     color: var(--button-text);
-    border-color: var(--accent-tertiary);
+    border-color: var(--accent-negative);
 }
 
 

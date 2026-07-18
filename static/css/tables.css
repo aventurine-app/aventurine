@@ -787,9 +787,9 @@
 /* Delete × wears the shared destructive treatment — dark-red glyph on a
    light-red expense-pill tint (matches .cat-delete), deepening on hover. */
 .col-row-delete {
-    background: color-mix(in srgb, var(--accent-tertiary) 15%, transparent);
+    background: color-mix(in srgb, var(--accent-negative) 15%, transparent);
     border: none;
-    color: var(--accent-tertiary);
+    color: var(--accent-negative);
     font-size: var(--size-h3);
     cursor: pointer;
     padding: 2px 5px;
@@ -800,8 +800,8 @@
 }
 
 .col-row-delete:hover {
-    color: var(--accent-tertiary);
-    background: color-mix(in srgb, var(--accent-tertiary) 25%, transparent);
+    color: var(--accent-negative);
+    background: color-mix(in srgb, var(--accent-negative) 25%, transparent);
 }
 
 .col-manager-add {

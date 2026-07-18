@@ -212,7 +212,7 @@
     font-variant-numeric: tabular-nums;
 }
 
-.forecast-stat-value.neg { color: var(--accent-tertiary); }
+.forecast-stat-value.neg { color: var(--accent-negative); }
 
 .forecast-source {
     color: var(--text-tertiary);
@@ -224,7 +224,7 @@
 }
 
 .forecast-warning {
-    color: var(--accent-tertiary);
+    color: var(--accent-negative);
     font-family: var(--font-menu);
     font-size: var(--size-small);
     font-weight: var(--weight-semibold);
@@ -238,7 +238,7 @@
 }
 
 .forecast-chart .chart-zero {
-    stroke: var(--accent-tertiary);
+    stroke: var(--accent-negative);
     stroke-width: 1;
     stroke-dasharray: 5 4;
     opacity: 0.65;
@@ -271,7 +271,7 @@
 
 .forecast-chart .chart-dot:hover { r: 6; }
 .forecast-chart .chart-dot-low { stroke: var(--text-primary); stroke-width: 1.5; }
-.forecast-chart .chart-dot-neg { fill: var(--accent-tertiary) !important; }
+.forecast-chart .chart-dot-neg { fill: var(--accent-negative) !important; }
 
 @keyframes fc-draw { to { stroke-dashoffset: 0; } }
 @keyframes fc-fade { to { opacity: 1; } }
@@ -409,7 +409,7 @@
     border-radius: 50%;
 }
 .planned-flow-income  { background: var(--accent-secondary); }
-.planned-flow-expense { background: var(--accent-tertiary); }
+.planned-flow-expense { background: var(--accent-negative); }
 
 .planned-text {
     flex: 1;
@@ -464,7 +464,7 @@
     padding: 2px 4px;
 }
 .planned-actions button:hover { color: var(--text-primary); }
-.planned-delete:hover { color: var(--accent-tertiary) !important; }
+.planned-delete:hover { color: var(--accent-negative) !important; }
 
 /* Add/edit form — one responsive row of inputs above the list. */
 .planned-form {
@@ -531,7 +531,7 @@
 .pf-error {
     flex: 1 0 100%;
     margin: 0;
-    color: var(--accent-tertiary);
+    color: var(--accent-negative);
     font-family: var(--font-menu);
     font-size: var(--size-small);
 }

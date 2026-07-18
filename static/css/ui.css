@@ -497,7 +497,7 @@
 }
 
 .ui-toast-error {
-    border-color: color-mix(in srgb, var(--accent-tertiary) 55%, transparent);
+    border-color: color-mix(in srgb, var(--accent-negative) 55%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {
