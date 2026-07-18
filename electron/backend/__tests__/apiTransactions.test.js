@@ -187,7 +187,7 @@ test('keyword-tier categorization names nothing (kind, not identity)', (t) => {
   const c = makeClient(t);
   const raw = 'SQ *BLUE BOTTLE COFFEE 866-123-4567 CA';
   const result = importRows(c, [raw]);
-  assert.equal(result.auto_categorized, 1); // 'coffee' keyword → dining
+  assert.equal(result.auto_categorized, 1); // 'coffee' keyword → food
   assert.equal(txByDesc(c, raw)[0].display_name, null);
 });
 
@@ -720,16 +720,16 @@ test('cards: update fields round and validate', (t) => {
 test('cards: category assignment rules', (t) => {
   const c = makeClient(t);
   const card = makeCard(c);
-  const groceries = categoryByKey(c, 'groceries');
+  const food = categoryByKey(c, 'food');
   const income = categoryByKey(c, 'income');
 
   assert.equal(c.put(`/api/credit-cards/${card.id}`, { category_id: income.id }).status, 400);
   assert.equal(c.put(`/api/credit-cards/${card.id}`, { category_id: 999999 }).status, 404);
-  assert.equal(c.put(`/api/credit-cards/${card.id}`, { category_id: 'groceries' }).status, 400);
+  assert.equal(c.put(`/api/credit-cards/${card.id}`, { category_id: 'food' }).status, 400);
 
-  let r = c.put(`/api/credit-cards/${card.id}`, { category_id: groceries.id });
+  let r = c.put(`/api/credit-cards/${card.id}`, { category_id: food.id });
   assert.equal(r.status, 200);
-  assert.equal(r.body.card.category_id, groceries.id);
+  assert.equal(r.body.card.category_id, food.id);
 
   r = c.put(`/api/credit-cards/${card.id}`, { category_id: null });
   assert.equal(r.status, 200);
@@ -757,24 +757,24 @@ test('cards: category delete unlinks card', (t) => {
 
 test('cards: manual entries average when no transactions exist', (t) => {
   const c = makeClient(t);
-  const groceries = categoryByKey(c, 'groceries');
-  addEntry(c, 2026, 'January', 'groceries', 300);
-  addEntry(c, 2026, 'February', 'groceries', 100);
-  addEntry(c, 2026, 'March', 'groceries', 0); // no spend -> skipped
-  assert.equal(ccData(c).monthly_spend[String(groceries.id)], 200.0);
+  const food = categoryByKey(c, 'food');
+  addEntry(c, 2026, 'January', 'food', 300);
+  addEntry(c, 2026, 'February', 'food', 100);
+  addEntry(c, 2026, 'March', 'food', 0); // no spend -> skipped
+  assert.equal(ccData(c).monthly_spend[String(food.id)], 200.0);
 });
 
 test('cards: cells compute from transactions; an entry overrides its one cell', (t) => {
   const c = makeClient(t);
-  const groceries = categoryByKey(c, 'groceries');
-  addTx(c, '2026-01-05', 100, { catId: groceries.id });
-  addTx(c, '2026-01-20', 50, { catId: groceries.id });
-  addTx(c, '2026-03-02', 250, { catId: groceries.id });
-  assert.equal(ccData(c).monthly_spend[String(groceries.id)], 200.0); // (150 + 250) / 2
+  const food = categoryByKey(c, 'food');
+  addTx(c, '2026-01-05', 100, { catId: food.id });
+  addTx(c, '2026-01-20', 50, { catId: food.id });
+  addTx(c, '2026-03-02', 250, { catId: food.id });
+  assert.equal(ccData(c).monthly_spend[String(food.id)], 200.0); // (150 + 250) / 2
 
   // Overriding January replaces that cell's computed 150 outright.
-  addEntry(c, 2026, 'January', 'groceries', 350);
-  assert.equal(ccData(c).monthly_spend[String(groceries.id)], 300.0); // (350 + 250) / 2
+  addEntry(c, 2026, 'January', 'food', 350);
+  assert.equal(ccData(c).monthly_spend[String(food.id)], 300.0); // (350 + 250) / 2
 });
 
 test('cards: uncategorized expense bucket', (t) => {
@@ -796,9 +796,9 @@ const getData = (c) => {
 
 test('data: cells compute from transactions with zero configuration', (t) => {
   const c = makeClient(t);
-  const groceries = categoryByKey(c, 'groceries');
-  addTx(c, '2026-01-05', 100, { catId: groceries.id });
-  addTx(c, '2026-01-20', 50, { catId: groceries.id });
+  const food = categoryByKey(c, 'food');
+  addTx(c, '2026-01-05', 100, { catId: food.id });
+  addTx(c, '2026-01-20', 50, { catId: food.id });
   // Uncategorized expense — a distinct description so the rules learned from
   // the categorized rows above don't auto-match it.
   assert.equal(
@@ -809,34 +809,34 @@ test('data: cells compute from transactions with zero configuration', (t) => {
   );
 
   const d = getData(c);
-  assert.equal(d.entries['2026'].January.groceries, 150);
+  assert.equal(d.entries['2026'].January.food, 150);
   assert.equal(d.entries['2026'].February.uncat_expense, 40);
   // The layers ship alongside the blend, for the statement UI's provenance
   // styling and computed-shadow tooltips.
-  assert.equal(d.computed['2026'].January.groceries, 150);
+  assert.equal(d.computed['2026'].January.food, 150);
   assert.equal(d.manual['2026'], undefined);
 });
 
 test('data: a manual entry overrides its one cell; deleting it reverts to computed', (t) => {
   const c = makeClient(t);
-  const groceries = categoryByKey(c, 'groceries');
-  addTx(c, '2026-01-05', 100, { catId: groceries.id });
-  addTx(c, '2026-02-08', 60, { catId: groceries.id });
+  const food = categoryByKey(c, 'food');
+  addTx(c, '2026-01-05', 100, { catId: food.id });
+  addTx(c, '2026-02-08', 60, { catId: food.id });
 
-  addEntry(c, 2026, 'January', 'groceries', 9999);
+  addEntry(c, 2026, 'January', 'food', 9999);
   let d = getData(c);
-  assert.equal(d.entries['2026'].January.groceries, 9999); // override wins its cell
-  assert.equal(d.entries['2026'].February.groceries, 60); // sibling cell still computed
-  assert.equal(d.computed['2026'].January.groceries, 100); // shadow value still shipped
-  assert.equal(d.manual['2026'].January.groceries, 9999);
+  assert.equal(d.entries['2026'].January.food, 9999); // override wins its cell
+  assert.equal(d.entries['2026'].February.food, 60); // sibling cell still computed
+  assert.equal(d.computed['2026'].January.food, 100); // shadow value still shipped
+  assert.equal(d.manual['2026'].January.food, 9999);
 
   // Clearing the entry releases the cell back to the computed value.
   assert.equal(
-    c.del('/api/entry', { year: 2026, month: 'January', category: 'groceries' }).status,
+    c.del('/api/entry', { year: 2026, month: 'January', category: 'food' }).status,
     200
   );
   d = getData(c);
-  assert.equal(d.entries['2026'].January.groceries, 100);
+  assert.equal(d.entries['2026'].January.food, 100);
   assert.equal(d.manual['2026'], undefined);
 });
 
@@ -851,22 +851,22 @@ test('data: manual bookkeeping works with no transactions at all', (t) => {
 
 test('data: transactions in a year with no year-table contribute nothing', (t) => {
   const c = makeClient(t);
-  const groceries = categoryByKey(c, 'groceries');
-  addTx(c, '2019-05-05', 75, { catId: groceries.id }); // 2019 is not an active year
+  const food = categoryByKey(c, 'food');
+  addTx(c, '2019-05-05', 75, { catId: food.id }); // 2019 is not an active year
   const d = getData(c);
   assert.ok(!d.years.includes(2019));
   assert.equal(d.entries['2019'], undefined);
   // Creating the year-table is all it takes for the activity to appear.
   assert.equal(c.post('/api/year', { year: 2019 }).status, 200);
-  assert.equal(getData(c).entries['2019'].May.groceries, 75);
+  assert.equal(getData(c).entries['2019'].May.food, 75);
 });
 
 test('data: deleting a year drops its entries and its computed cells', (t) => {
   const c = makeClient(t);
-  const groceries = categoryByKey(c, 'groceries');
+  const food = categoryByKey(c, 'food');
   c.post('/api/year', { year: 2030 });
-  addTx(c, '2030-04-01', 10, { catId: groceries.id });
-  addEntry(c, 2030, 'May', 'groceries', 20);
+  addTx(c, '2030-04-01', 10, { catId: food.id });
+  addEntry(c, 2030, 'May', 'food', 20);
   assert.equal(c.del('/api/year/2030').status, 200);
   const d = getData(c);
   assert.ok(!d.years.includes(2030));
@@ -875,20 +875,20 @@ test('data: deleting a year drops its entries and its computed cells', (t) => {
 
 test('data: duplicating a year copies the manual overrides only', (t) => {
   const c = makeClient(t);
-  const groceries = categoryByKey(c, 'groceries');
-  addTx(c, '2026-01-05', 100, { catId: groceries.id }); // computed in 2026
-  addEntry(c, 2026, 'March', 'groceries', 77); // manual override in 2026
+  const food = categoryByKey(c, 'food');
+  addTx(c, '2026-01-05', 100, { catId: food.id }); // computed in 2026
+  addEntry(c, 2026, 'March', 'food', 77); // manual override in 2026
 
   assert.equal(c.post('/api/year/2026/duplicate', { target_year: 2027 }).status, 200);
   const d = getData(c);
   // The override travels; the computed cell recomputes from 2027's (empty) ledger.
-  assert.equal(d.entries['2027'].March.groceries, 77);
+  assert.equal(d.entries['2027'].March.food, 77);
   assert.equal(d.entries['2027'].January, undefined);
 });
 
 test('data: the retired per-year sync endpoint is gone', (t) => {
   const c = makeClient(t);
-  assert.equal(c.post('/api/year/2026/sync', { category: 'groceries', sync: true }).status, 404);
+  assert.equal(c.post('/api/year/2026/sync', { category: 'food', sync: true }).status, 404);
   assert.ok(!('sync' in getData(c)));
 });
 
@@ -917,14 +917,14 @@ test('import: auto-creates year-tables for the years it touches', (t) => {
 
 test('import: never disturbs manual overrides in an existing year', (t) => {
   const c = makeClient(t);
-  addEntry(c, 2026, 'February', 'groceries', 500); // manual override
-  const groceries = categoryByKey(c, 'groceries');
+  addEntry(c, 2026, 'February', 'food', 500); // manual override
+  const food = categoryByKey(c, 'food');
   const r = c.post('/api/transactions/import', {
-    rows: [{ date: '2026-02-02', description: 'zzqx gamma', tx_type: 'expense', amount: 3, category_id: groceries.id }],
+    rows: [{ date: '2026-02-02', description: 'zzqx gamma', tx_type: 'expense', amount: 3, category_id: food.id }],
   });
   assert.equal(r.status, 200);
   // The override still wins its cell; the import's row is in the computed shadow.
   const d = getData(c);
-  assert.equal(d.entries['2026'].February.groceries, 500);
-  assert.equal(d.computed['2026'].February.groceries, 3);
+  assert.equal(d.entries['2026'].February.food, 500);
+  assert.equal(d.computed['2026'].February.food, 3);
 });

@@ -6,7 +6,7 @@
 // per-user MatchRules exist. It ships in the binary — no network, no telemetry.
 //
 // Mapped categories use the stable default category keys from seed.js
-// (groceries, dining, automobile, utilities, …). categorize.js resolves a key
+// (food, automobile, utilities, …). categorize.js resolves a key
 // to this DB's category row at runtime and skips any key the user deleted, so a
 // customised taxonomy never breaks.
 //
@@ -54,91 +54,91 @@ const NOISE_PATTERNS = [
 // description, longest needle first. High confidence — named brands with a
 // single obvious category.
 const MERCHANTS = [
-  // ── Groceries — supermarkets & grocery delivery ──
-  ['whole foods', 'groceries'], ['trader joe', 'groceries'], ['safeway', 'groceries'],
-  ['kroger', 'groceries'], ['aldi', 'groceries'], ['publix', 'groceries'],
-  ['wegmans', 'groceries'], ['sprouts', 'groceries'], ['instacart', 'groceries'],
-  ['food lion', 'groceries'], ['harris teeter', 'groceries'], ['giant eagle', 'groceries'],
-  ['stop & shop', 'groceries'], ['shoprite', 'groceries'], ['meijer', 'groceries'],
-  ['ralphs', 'groceries'], ['vons', 'groceries'], ['albertsons', 'groceries'],
-  ['winco', 'groceries'], ['hy-vee', 'groceries'], ['grocery outlet', 'groceries'],
-  ['fresh market', 'groceries'], ['save mart', 'groceries'], ['food 4 less', 'groceries'],
-  ['fred meyer', 'groceries'], ['lidl', 'groceries'], ['market basket', 'groceries'],
-  ['smart & final', 'groceries'],
+  // ── Food — supermarkets & grocery delivery ──
+  ['whole foods', 'food'], ['trader joe', 'food'], ['safeway', 'food'],
+  ['kroger', 'food'], ['aldi', 'food'], ['publix', 'food'],
+  ['wegmans', 'food'], ['sprouts', 'food'], ['instacart', 'food'],
+  ['food lion', 'food'], ['harris teeter', 'food'], ['giant eagle', 'food'],
+  ['stop & shop', 'food'], ['shoprite', 'food'], ['meijer', 'food'],
+  ['ralphs', 'food'], ['vons', 'food'], ['albertsons', 'food'],
+  ['winco', 'food'], ['hy-vee', 'food'], ['grocery outlet', 'food'],
+  ['fresh market', 'food'], ['save mart', 'food'], ['food 4 less', 'food'],
+  ['fred meyer', 'food'], ['lidl', 'food'], ['market basket', 'food'],
+  ['smart & final', 'food'],
   // Regional chains & delivery — the long tail of the median grocery run.
-  ['jewel-osco', 'groceries'], ['jewel osco', 'groceries'], ['acme markets', 'groceries'],
-  ['pavilions', 'groceries'], ['king soopers', 'groceries'], ['city market', 'groceries'],
-  ['dillons', 'groceries'], ['pick n save', 'groceries'], ['metro market', 'groceries'],
-  ['price chopper', 'groceries'], ['hannaford', 'groceries'], ['star market', 'groceries'],
-  ['schnucks', 'groceries'], ['dierbergs', 'groceries'], ['tops markets', 'groceries'],
-  ['weis markets', 'groceries'], ['ingles market', 'groceries'], ["raley's", 'groceries'],
-  ['raleys', 'groceries'], ['bashas', 'groceries'], ['brookshire', 'groceries'],
-  ['cub foods', 'groceries'], ['piggly wiggly', 'groceries'], ['h mart', 'groceries'],
-  ['hmart', 'groceries'], ['99 ranch', 'groceries'], ['food city', 'groceries'],
-  ['natural grocers', 'groceries'], ["gelson's", 'groceries'], ['gelsons', 'groceries'],
-  ['amazon fresh', 'groceries'], ['freshdirect', 'groceries'], ['fresh direct', 'groceries'],
-  ['thrive market', 'groceries'], ['gopuff', 'groceries'], ['lowes foods', 'groceries'],
-  ["lowe's foods", 'groceries'], ['qfc', 'groceries'], ['grocery', 'groceries'],
-  ['supermarket', 'groceries'],
+  ['jewel-osco', 'food'], ['jewel osco', 'food'], ['acme markets', 'food'],
+  ['pavilions', 'food'], ['king soopers', 'food'], ['city market', 'food'],
+  ['dillons', 'food'], ['pick n save', 'food'], ['metro market', 'food'],
+  ['price chopper', 'food'], ['hannaford', 'food'], ['star market', 'food'],
+  ['schnucks', 'food'], ['dierbergs', 'food'], ['tops markets', 'food'],
+  ['weis markets', 'food'], ['ingles market', 'food'], ["raley's", 'food'],
+  ['raleys', 'food'], ['bashas', 'food'], ['brookshire', 'food'],
+  ['cub foods', 'food'], ['piggly wiggly', 'food'], ['h mart', 'food'],
+  ['hmart', 'food'], ['99 ranch', 'food'], ['food city', 'food'],
+  ['natural grocers', 'food'], ["gelson's", 'food'], ['gelsons', 'food'],
+  ['amazon fresh', 'food'], ['freshdirect', 'food'], ['fresh direct', 'food'],
+  ['thrive market', 'food'], ['gopuff', 'food'], ['lowes foods', 'food'],
+  ["lowe's foods", 'food'], ['qfc', 'food'], ['grocery', 'food'],
+  ['supermarket', 'food'],
 
-  // ── Dining — restaurants, fast food, coffee, food delivery ──
-  ['uber eats', 'dining'], ['ubereats', 'dining'], ['doordash', 'dining'],
-  ['grubhub', 'dining'], ['postmates', 'dining'], ['seamless', 'dining'],
-  ['caviar', 'dining'], ['mcdonald', 'dining'], ['starbucks', 'dining'],
-  ['chipotle', 'dining'], ['taco bell', 'dining'], ['del taco', 'dining'],
-  ['burger king', 'dining'], ['wendys', 'dining'], ["wendy's", 'dining'],
-  ['subway', 'dining'], ['dunkin', 'dining'], ['panera', 'dining'],
-  ['chick-fil-a', 'dining'], ['chick fil a', 'dining'], ['popeyes', 'dining'],
-  ['dominos', 'dining'], ["domino's", 'dining'], ['pizza hut', 'dining'],
-  ['little caesars', 'dining'], ['papa john', 'dining'], ['blaze pizza', 'dining'],
-  ['mod pizza', 'dining'], ['kfc', 'dining'], ['sonic drive', 'dining'],
-  ['arbys', 'dining'], ["arby's", 'dining'], ['jack in the box', 'dining'],
-  ['in-n-out', 'dining'], ['in n out', 'dining'], ['five guys', 'dining'],
-  ['shake shack', 'dining'], ['whataburger', 'dining'], ['culvers', 'dining'],
-  ["culver's", 'dining'], ['raising cane', 'dining'], ['panda express', 'dining'],
+  // ── Food — restaurants, fast food, coffee, food delivery ──
+  ['uber eats', 'food'], ['ubereats', 'food'], ['doordash', 'food'],
+  ['grubhub', 'food'], ['postmates', 'food'], ['seamless', 'food'],
+  ['caviar', 'food'], ['mcdonald', 'food'], ['starbucks', 'food'],
+  ['chipotle', 'food'], ['taco bell', 'food'], ['del taco', 'food'],
+  ['burger king', 'food'], ['wendys', 'food'], ["wendy's", 'food'],
+  ['subway', 'food'], ['dunkin', 'food'], ['panera', 'food'],
+  ['chick-fil-a', 'food'], ['chick fil a', 'food'], ['popeyes', 'food'],
+  ['dominos', 'food'], ["domino's", 'food'], ['pizza hut', 'food'],
+  ['little caesars', 'food'], ['papa john', 'food'], ['blaze pizza', 'food'],
+  ['mod pizza', 'food'], ['kfc', 'food'], ['sonic drive', 'food'],
+  ['arbys', 'food'], ["arby's", 'food'], ['jack in the box', 'food'],
+  ['in-n-out', 'food'], ['in n out', 'food'], ['five guys', 'food'],
+  ['shake shack', 'food'], ['whataburger', 'food'], ['culvers', 'food'],
+  ["culver's", 'food'], ['raising cane', 'food'], ['panda express', 'food'],
   // Full brand form only. An abbreviated "NOODLES & CO" loses its trailing " co"
   // to the state-abbreviation strip and can't match this needle; the 'noodle'
   // keyword catches that form (without the clean display name).
-  ['noodles & company', 'dining'],
-  ['qdoba', 'dining'], ['olive garden', 'dining'],
-  ['applebee', 'dining'], ['chilis', 'dining'], ["chili's", 'dining'],
-  ['outback steak', 'dining'], ['red lobster', 'dining'], ['ihop', 'dining'],
-  ['denny', 'dining'], ['waffle house', 'dining'], ['cracker barrel', 'dining'],
-  ['buffalo wild wings', 'dining'], ['wingstop', 'dining'], ['jersey mike', 'dining'],
-  ['jimmy john', 'dining'], ['firehouse subs', 'dining'], ['baskin robbins', 'dining'],
-  ['dairy queen', 'dining'], ['krispy kreme', 'dining'], ['el pollo loco', 'dining'],
-  ['carls jr', 'dining'], ["carl's jr", 'dining'], ['hardees', 'dining'],
-  ['bojangles', 'dining'], ['zaxby', 'dining'], ['white castle', 'dining'],
-  ['steak n shake', 'dining'], ['portillo', 'dining'], ['sweetgreen', 'dining'],
-  ['cava grill', 'dining'], ['peets coffee', 'dining'], ["peet's coffee", 'dining'],
-  ['caribou coffee', 'dining'], ['tim hortons', 'dining'], ['dutch bros', 'dining'],
-  ['philz coffee', 'dining'], ['la colombe', 'dining'],
+  ['noodles & company', 'food'],
+  ['qdoba', 'food'], ['olive garden', 'food'],
+  ['applebee', 'food'], ['chilis', 'food'], ["chili's", 'food'],
+  ['outback steak', 'food'], ['red lobster', 'food'], ['ihop', 'food'],
+  ['denny', 'food'], ['waffle house', 'food'], ['cracker barrel', 'food'],
+  ['buffalo wild wings', 'food'], ['wingstop', 'food'], ['jersey mike', 'food'],
+  ['jimmy john', 'food'], ['firehouse subs', 'food'], ['baskin robbins', 'food'],
+  ['dairy queen', 'food'], ['krispy kreme', 'food'], ['el pollo loco', 'food'],
+  ['carls jr', 'food'], ["carl's jr", 'food'], ['hardees', 'food'],
+  ['bojangles', 'food'], ['zaxby', 'food'], ['white castle', 'food'],
+  ['steak n shake', 'food'], ['portillo', 'food'], ['sweetgreen', 'food'],
+  ['cava grill', 'food'], ['peets coffee', 'food'], ["peet's coffee", 'food'],
+  ['caribou coffee', 'food'], ['tim hortons', 'food'], ['dutch bros', 'food'],
+  ['philz coffee', 'food'], ['la colombe', 'food'],
   // Casual/full-service chains, more QSR, smoothies/sweets/bakery.
-  ['texas roadhouse', 'dining'], ['longhorn steak', 'dining'], ['cheesecake factory', 'dining'],
-  ['pf changs', 'dining'], ["p.f. chang", 'dining'], ['red robin', 'dining'],
-  ['tgi fridays', 'dining'], ['golden corral', 'dining'],
-  ['bob evans', 'dining'], ['village inn', 'dining'],
-  ['perkins restaurant', 'dining'], ['ruth chris', 'dining'],
-  ["ruth's chris", 'dining'], ['texas de brazil', 'dining'], ['benihana', 'dining'],
-  ['yard house', 'dining'], ['cheddars', 'dining'], ['bahama breeze', 'dining'],
-  ['maggiano', 'dining'], ['famous dave', 'dining'],
+  ['texas roadhouse', 'food'], ['longhorn steak', 'food'], ['cheesecake factory', 'food'],
+  ['pf changs', 'food'], ["p.f. chang", 'food'], ['red robin', 'food'],
+  ['tgi fridays', 'food'], ['golden corral', 'food'],
+  ['bob evans', 'food'], ['village inn', 'food'],
+  ['perkins restaurant', 'food'], ['ruth chris', 'food'],
+  ["ruth's chris", 'food'], ['texas de brazil', 'food'], ['benihana', 'food'],
+  ['yard house', 'food'], ['cheddars', 'food'], ['bahama breeze', 'food'],
+  ['maggiano', 'food'], ['famous dave', 'food'],
   // Qualified forms below — bare 'dickey'/'rubio'/'wetzel'/'captain d' are all
   // surnames or substrings of one (see lexicon-hazards.json).
-  ['dickey barbecue', 'dining'], ["dickey's barbecue", 'dining'], ['dickeys bbq', 'dining'],
-  ['hooters', 'dining'], ['twin peaks restaurant', 'dining'],
-  ['church chicken', 'dining'], ["church's chicken", 'dining'], ['pollo tropical', 'dining'],
-  ["captain d's", 'dining'], ['captain ds seafood', 'dining'], ['long john silver', 'dining'],
-  ['moe southwest', 'dining'], ["moe's southwest", 'dining'],
-  ["rubio's", 'dining'], ['rubios coastal', 'dining'], ['torchy', 'dining'], ['freddys frozen', 'dining'],
-  ["freddy's frozen", 'dining'], ['cook out', 'dining'], ['checkers drive', 'dining'],
-  ['sbarro', 'dining'], ['auntie anne', 'dining'], ['cinnabon', 'dining'],
-  ["wetzel's", 'dining'], ['wetzels pretzel', 'dining'], ['jamba juice', 'dining'], ['smoothie king', 'dining'],
-  ['tropical smoothie', 'dining'], ['cold stone', 'dining'], ['menchie', 'dining'],
-  ['yogurtland', 'dining'], ['crumbl', 'dining'], ['insomnia cookies', 'dining'],
-  ['nothing bundt', 'dining'], ['corner bakery', 'dining'], ['einstein bros', 'dining'],
-  ['bruegger', 'dining'], ['au bon pain', 'dining'], ['pret a manger', 'dining'],
-  ['nekter', 'dining'], ['bonchon', 'dining'], ['pei wei', 'dining'],
-  ['boba guys', 'dining'], ['gong cha', 'dining'], ['kung fu tea', 'dining'],
+  ['dickey barbecue', 'food'], ["dickey's barbecue", 'food'], ['dickeys bbq', 'food'],
+  ['hooters', 'food'], ['twin peaks restaurant', 'food'],
+  ['church chicken', 'food'], ["church's chicken", 'food'], ['pollo tropical', 'food'],
+  ["captain d's", 'food'], ['captain ds seafood', 'food'], ['long john silver', 'food'],
+  ['moe southwest', 'food'], ["moe's southwest", 'food'],
+  ["rubio's", 'food'], ['rubios coastal', 'food'], ['torchy', 'food'], ['freddys frozen', 'food'],
+  ["freddy's frozen", 'food'], ['cook out', 'food'], ['checkers drive', 'food'],
+  ['sbarro', 'food'], ['auntie anne', 'food'], ['cinnabon', 'food'],
+  ["wetzel's", 'food'], ['wetzels pretzel', 'food'], ['jamba juice', 'food'], ['smoothie king', 'food'],
+  ['tropical smoothie', 'food'], ['cold stone', 'food'], ['menchie', 'food'],
+  ['yogurtland', 'food'], ['crumbl', 'food'], ['insomnia cookies', 'food'],
+  ['nothing bundt', 'food'], ['corner bakery', 'food'], ['einstein bros', 'food'],
+  ['bruegger', 'food'], ['au bon pain', 'food'], ['pret a manger', 'food'],
+  ['nekter', 'food'], ['bonchon', 'food'], ['pei wei', 'food'],
+  ['boba guys', 'food'], ['gong cha', 'food'], ['kung fu tea', 'food'],
 
   // ── Auto & Transport — fuel, rideshare, parts, service ──
   // 'shell' bare hides in "shelly"/"seashell" (see lexicon-hazards.json), so
@@ -485,18 +485,18 @@ const MERCHANTS = [
 // "gas"/"store"/"market"/"bar"/"taco"/"tire"/"deli" — each hides inside an
 // unrelated word or spans categories.
 const KEYWORDS = [
-  // Dining
-  ['restaurant', 'dining'], ['coffee', 'dining'], ['espresso', 'dining'],
-  ['cafe', 'dining'], ['diner', 'dining'], ['grill', 'dining'],
-  ['kitchen', 'dining'], ['bistro', 'dining'], ['eatery', 'dining'],
-  ['tavern', 'dining'], ['brewery', 'dining'], ['brewing', 'dining'],
-  ['pizzeria', 'dining'], ['pizza', 'dining'], ['taqueria', 'dining'],
-  ['burrito', 'dining'], ['bakery', 'dining'], ['donut', 'dining'],
-  ['doughnut', 'dining'], ['creamery', 'dining'], ['steakhouse', 'dining'],
-  ['sushi', 'dining'], ['ramen', 'dining'], ['noodle', 'dining'],
-  ['sandwich', 'dining'], ['barbecue', 'dining'], ['bbq', 'dining'],
-  // Groceries
-  ['farmers market', 'groceries'], ['food mart', 'groceries'],
+  // Food — restaurant/cafe terms
+  ['restaurant', 'food'], ['coffee', 'food'], ['espresso', 'food'],
+  ['cafe', 'food'], ['diner', 'food'], ['grill', 'food'],
+  ['kitchen', 'food'], ['bistro', 'food'], ['eatery', 'food'],
+  ['tavern', 'food'], ['brewery', 'food'], ['brewing', 'food'],
+  ['pizzeria', 'food'], ['pizza', 'food'], ['taqueria', 'food'],
+  ['burrito', 'food'], ['bakery', 'food'], ['donut', 'food'],
+  ['doughnut', 'food'], ['creamery', 'food'], ['steakhouse', 'food'],
+  ['sushi', 'food'], ['ramen', 'food'], ['noodle', 'food'],
+  ['sandwich', 'food'], ['barbecue', 'food'], ['bbq', 'food'],
+  // Food — grocery terms
+  ['farmers market', 'food'], ['food mart', 'food'],
   // Auto & Transport
   // Bare 'toll' hides in "toll house"/"tolleson"; only road-shaped forms.
   ['parking', 'automobile'], ['toll road', 'automobile'], ['toll plaza', 'automobile'],
@@ -582,7 +582,7 @@ const DISPLAY_OVERRIDES = {
   'direct deposit': null,
   hospitality: null,
 
-  // Groceries
+  // Food — grocery brands
   'trader joe': "Trader Joe's",
   raleys: "Raley's",
   gelsons: "Gelson's",
@@ -600,7 +600,7 @@ const DISPLAY_OVERRIDES = {
   bashas: "Bashas'",
   'ingles market': 'Ingles',
 
-  // Dining
+  // Food — restaurant & coffee brands
   ubereats: 'Uber Eats',
   doordash: 'DoorDash',
   mcdonald: "McDonald's",

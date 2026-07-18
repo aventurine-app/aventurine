@@ -144,9 +144,9 @@
       years: [year],
       entries: {
         [String(year)]: {
-          January:  { income: 4200, rent: 1500, groceries: 520, savings: 400 },
-          February: { income: 4200, rent: 1500, groceries: 487, savings: 400 },
-          March:    { income: 4350, rent: 1500, groceries: 552, savings: 450 },
+          January:  { income: 4200, rent: 1500, food: 520, savings: 400 },
+          February: { income: 4200, rent: 1500, food: 487, savings: 400 },
+          March:    { income: 4350, rent: 1500, food: 552, savings: 450 },
         },
       },
       columns: [
@@ -154,28 +154,28 @@
         { key: 'other_income',  label: 'Other Income',       type: 'income'    },
         { key: 'uncat_income',  label: 'Uncategorized',      type: 'income'    },
         { key: 'rent',          label: 'Rent / Mortgage',    type: 'expense'   },
-        { key: 'groceries',     label: 'Groceries',          type: 'expense'   },
+        { key: 'food',     label: 'Food',          type: 'expense'   },
         { key: 'uncat_expense', label: 'Uncategorized',      type: 'expense'   },
         { key: 'savings',       label: 'Primary Savings',    type: 'savings'   },
         { key: 'investing',     label: 'Investment Account', type: 'investing' },
       ],
       // Provenance layers — entries above is the blend (manual ?? computed).
-      // income/groceries cells read as transaction-computed except March
-      // groceries, which carries a manual override; rent/savings are plain
+      // income/food cells read as transaction-computed except March
+      // food, which carries a manual override; rent/savings are plain
       // hand-entered — so pure-UI work shows every cell state (computed
       // styling, override + ↺ affordance, plain manual).
       computed: {
         [String(year)]: {
-          January:  { income: 4200, groceries: 520 },
-          February: { income: 4200, groceries: 487 },
-          March:    { income: 4350, groceries: 610 },
+          January:  { income: 4200, food: 520 },
+          February: { income: 4200, food: 487 },
+          March:    { income: 4350, food: 610 },
         },
       },
       manual: {
         [String(year)]: {
           January:  { rent: 1500, savings: 400 },
           February: { rent: 1500, savings: 400 },
-          March:    { rent: 1500, savings: 450, groceries: 552 },
+          March:    { rent: 1500, savings: 450, food: 552 },
         },
       },
     },

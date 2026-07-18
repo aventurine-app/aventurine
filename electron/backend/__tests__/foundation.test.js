@@ -27,7 +27,7 @@ test('fresh DB: baseline schema + seed', () => {
   assert.equal(db.pragma('user_version', { simple: true }), SCHEMA_VERSION);
 
   const cats = db.prepare('SELECT * FROM categories ORDER BY position').all();
-  assert.equal(cats.length, 18, 'eighteen default categories');
+  assert.equal(cats.length, 17, 'seventeen default categories');
 
   const yr = new Date().getFullYear();
   assert.ok(db.prepare('SELECT 1 FROM active_years WHERE year=?').get(yr));
@@ -54,7 +54,7 @@ test('seed is idempotent', () => {
   bootstrapSchema(db);
   seedDefaults(db);
   seedDefaults(db);
-  assert.equal(db.prepare('SELECT COUNT(*) c FROM categories').get().c, 18);
+  assert.equal(db.prepare('SELECT COUNT(*) c FROM categories').get().c, 17);
   assert.equal(db.prepare('SELECT COUNT(*) c FROM portfolio_accounts').get().c, 1);
   db.close();
 });
@@ -66,10 +66,10 @@ test('seed does not resurrect a deleted default category', () => {
   // The user deletes a seeded category; reopening the DB (which re-runs
   // seedDefaults) must NOT bring it back — defaults are a starting template,
   // not an enforced set.
-  db.prepare('DELETE FROM categories WHERE "key" = ?').run('groceries');
+  db.prepare('DELETE FROM categories WHERE "key" = ?').run('food');
   seedDefaults(db);
-  assert.equal(db.prepare('SELECT 1 FROM categories WHERE "key" = ?').get('groceries'), undefined);
-  assert.equal(db.prepare('SELECT COUNT(*) c FROM categories').get().c, 17);
+  assert.equal(db.prepare('SELECT 1 FROM categories WHERE "key" = ?').get('food'), undefined);
+  assert.equal(db.prepare('SELECT COUNT(*) c FROM categories').get().c, 16);
   db.close();
 });
 
@@ -107,7 +107,7 @@ test('seed heals a drifted system bucket (name + type), leaves the rest alone', 
   db.prepare(
     "UPDATE categories SET name = 'UNc', cat_type = 'income', position = 99 WHERE \"key\" = 'uncat_expense'"
   ).run();
-  db.prepare("UPDATE categories SET name = 'Eating Out' WHERE \"key\" = 'dining'").run();
+  db.prepare("UPDATE categories SET name = 'Eating Out' WHERE \"key\" = 'food'").run();
 
   seedDefaults(db);
 
@@ -117,7 +117,7 @@ test('seed heals a drifted system bucket (name + type), leaves the rest alone', 
   assert.equal(uncat.position, 99); // reordering system buckets is allowed
   // User renames of ordinary categories survive.
   assert.equal(
-    db.prepare('SELECT name FROM categories WHERE "key" = ?').get('dining').name,
+    db.prepare('SELECT name FROM categories WHERE "key" = ?').get('food').name,
     'Eating Out'
   );
   db.close();
@@ -130,9 +130,9 @@ test('bootstrapSchema is a no-op on an already-initialised DB', () => {
   seedDefaults(db);
   // Drop a category so we can prove a second bootstrap does NOT recreate the
   // baseline (which would re-add tables / reset state).
-  db.prepare("DELETE FROM categories WHERE \"key\" = 'groceries'").run();
+  db.prepare("DELETE FROM categories WHERE \"key\" = 'food'").run();
   bootstrapSchema(db);
-  assert.equal(db.prepare('SELECT COUNT(*) c FROM categories').get().c, 17);
+  assert.equal(db.prepare('SELECT COUNT(*) c FROM categories').get().c, 16);
   db.close();
 });
 

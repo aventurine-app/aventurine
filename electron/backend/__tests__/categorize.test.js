@@ -31,7 +31,7 @@ test('normaliseMerchant strips processor prefixes, masks, store/phone numbers, s
 
 test('categorize: named merchant beats keyword and a longer needle beats a prefix', () => {
   assert.equal(categorize('NETFLIX.COM').categoryKey, 'entertainment');
-  assert.equal(categorize('UBER EATS 123 MAIN').categoryKey, 'dining'); // not "uber" -> automobile
+  assert.equal(categorize('UBER EATS 123 MAIN').categoryKey, 'food'); // not "uber" -> automobile
   assert.equal(categorize('CVS/PHARMACY #1').source, 'merchant');       // cvs (merchant) over pharmacy (keyword)
 });
 
@@ -83,6 +83,6 @@ test('corpus: precision is perfect, coverage clears 90%, breadth across categori
   const coverage = covered / categorizable;
   assert.ok(coverage >= 0.9, `coverage ${(coverage * 100).toFixed(1)}% should be >= 90%`);
 
-  // Breadth: the lexicon must work across the taxonomy, not just dining/shopping.
+  // Breadth: the lexicon must work across the taxonomy, not just food/shopping.
   assert.ok(coveredCats.size >= 9, `covered ${coveredCats.size} categories, expected >= 9`);
 });

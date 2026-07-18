@@ -70,12 +70,12 @@ function addNoise(rng, merchant) {
 // merchant it has never seen ("COASTAL DERMATOLOGY GROUP" -> health via
 // "dermatology"). Deliberately broader than the precision-first KEYWORDS list.
 const DESCRIPTORS = {
-  dining: ['grill', 'grille', 'kitchen', 'bistro', 'diner', 'eatery', 'cantina', 'taqueria',
+  food: ['grill', 'grille', 'kitchen', 'bistro', 'diner', 'eatery', 'cantina', 'taqueria',
     'trattoria', 'osteria', 'brasserie', 'gastropub', 'pizzeria', 'ristorante', 'steakhouse',
     'sushi', 'ramen', 'noodle house', 'creamery', 'bakery', 'roasters', 'coffeehouse',
     'taphouse', 'alehouse', 'smokehouse', 'grillhouse', 'churrascaria', 'pho', 'dumpling house',
-    'burrito co', 'taco shop', 'donuts', 'ice cream', 'gelato', 'patisserie'],
-  groceries: ['market', 'grocery', 'grocers', 'supermarket', 'mercado', 'carniceria',
+    'burrito co', 'taco shop', 'donuts', 'ice cream', 'gelato', 'patisserie',
+    'market', 'grocery', 'grocers', 'supermarket', 'mercado', 'carniceria',
     'foods', 'produce', 'food mart', 'marketplace', 'fresh foods', 'natural foods'],
   automobile: ['automotive', 'auto repair', 'auto parts', 'tire', 'tires', 'lube center',
     'collision', 'transmission', 'muffler', 'brakes', 'autobody', 'car wash', 'service station',

@@ -13,8 +13,9 @@ const { SYSTEM_CATEGORY_KEYS, insertPos } = require('./services/categories');
 // shipped by default. Users layer their own categories on top (POST /api/categories)
 // and may rename/delete these — keys are stable slugs, so renames don't break
 // references. The built-in import categorizer (services/merchantCategories.js)
-// targets these keys; finer buckets here (groceries vs. dining, a real Insurance/
-// Travel category) directly raise auto-categorization usefulness. The two
+// targets these keys; recognizable buckets here (a single Food bucket for
+// groceries + restaurants, a real Insurance/Travel category) directly raise
+// auto-categorization usefulness. The two
 // uncat_* buckets are system buckets (NULL-category sums) — see
 // handlers/incomeExpenses.js NULL_SYNC_KEYS — and must not be removed.
 const DEFAULT_CATEGORIES = [
@@ -23,19 +24,18 @@ const DEFAULT_CATEGORIES = [
   ['uncat_income',   'Uncategorized',       'income',    2],
   ['rent',           'Rent / Mortgage',     'expense',   3],
   ['utilities',      'Utilities',           'expense',   4],
-  ['groceries',      'Groceries',           'expense',   5],
-  ['dining',         'Dining & Restaurants','expense',   6],
-  ['automobile',     'Auto & Transport',    'expense',   7],
-  ['health',         'Health & Wellness',   'expense',   8],
-  ['entertainment',  'Entertainment',       'expense',   9],
-  ['shopping',       'Shopping',            'expense',   10],
-  ['travel',         'Travel',              'expense',   11],
-  ['insurance',      'Insurance',           'expense',   12],
-  ['general',        'General',             'expense',   13],
-  ['uncat_expense',  'Uncategorized',       'expense',   14],
-  ['savings',        'Primary Savings',     'savings',   15],
-  ['emergency_fund', 'Emergency Fund',      'savings',   16],
-  ['investing',      'Investment Account',  'investing', 17],
+  ['food',           'Food',                'expense',   5],
+  ['automobile',     'Auto & Transport',    'expense',   6],
+  ['health',         'Health & Wellness',   'expense',   7],
+  ['entertainment',  'Entertainment',       'expense',   8],
+  ['shopping',       'Shopping',            'expense',   9],
+  ['travel',         'Travel',              'expense',   10],
+  ['insurance',      'Insurance',           'expense',   11],
+  ['general',        'General',             'expense',   12],
+  ['uncat_expense',  'Uncategorized',       'expense',   13],
+  ['savings',        'Primary Savings',     'savings',   14],
+  ['emergency_fund', 'Emergency Fund',      'savings',   15],
+  ['investing',      'Investment Account',  'investing', 16],
 ];
 
 // (key, label, col_type, position)
