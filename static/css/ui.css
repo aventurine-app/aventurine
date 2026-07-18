@@ -411,36 +411,15 @@
     gap: 4px;
 }
 
-.stepper-btn {
-    background: var(--accent-primary);
-    border: 0px solid var(--accent-color-400);
-    border-radius: 6px;
-    color: var(--button-text);
-    font-family: var(--font-menu);
+/* The arrows wear .button-primary (buttons.css) for fill/hover/press/disabled;
+ * this override only squares the box and sizes the ‹ › glyph, undoing the
+ * eyebrow padding/typography. Compound selector so it outranks .button-primary,
+ * which loads later. */
+.stepper-btn.button-primary {
+    width: var(--control-height);
+    padding: 0;
     font-size: var(--size-body);
     line-height: 1;
-    width: var(--control-height);
-    height: var(--control-height);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-
-.stepper-btn:hover:not(:disabled) {
-    background: var(--color-accent-300);
-    border-color: var(--accent-primary);
-}
-
-.stepper-btn:focus-visible {
-    outline: 2px solid var(--accent-primary);
-    outline-offset: 2px;
-}
-
-.stepper-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
 }
 
 /* The label keeps the range-selector type treatment and a fixed minimum so

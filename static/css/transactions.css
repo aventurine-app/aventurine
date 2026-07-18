@@ -256,7 +256,7 @@
 /* ── Filter chips ──────────────────────────────────────────────────────────
    The chip is the visual unit; its two child buttons (clear ×, label) sit
    transparently inside the shared border. Inactive → dotted outline, grayed,
-   just the field name. Active → solid neutral-charcoal identity with the leading
+   just the field name. Active → solid accent-green identity with the leading
    × revealed and the " : value" half shown. */
 .tx-filter-chip {
     position: relative;
@@ -279,16 +279,16 @@
     background: var(--frost-2);
 }
 
-/* Active → neutral charcoal: tinted fill, solid charcoal border + text. */
+/* Active → accent ramp: light accent fill, solid deep-accent border + text. */
 .tx-filter-chip.is-active {
     border-style: solid;
-    border-color: var(--accent-neutral);
-    background: color-mix(in srgb, var(--accent-neutral) 14%, transparent);
-    color: var(--accent-neutral);
+    border-color: var(--color-accent-700);
+    background: var(--color-accent-200);
+    color: var(--color-accent-700);
 }
 
 .tx-filter-chip.is-active:hover {
-    background: color-mix(in srgb, var(--accent-neutral) 22%, transparent);
+    background: var(--color-accent-300);
 }
 
 /* The label button: field name, then a full-height divider + value once active. */

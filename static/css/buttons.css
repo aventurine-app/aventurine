@@ -44,7 +44,7 @@
 .forecast-add-btn:not(:disabled):active,
 .tx-action-btn:not(:disabled):active,
 .p-menu-btn:not(:disabled):active {
-    transform: translateY(1px);
+    transform: translateY(0px);
 }
 
 /* ── Disabled affordance ────────────────────────────────────────────────────
@@ -133,10 +133,10 @@
 /* Accent fill — the primary call-to-action (Add Year, Add Account, Export …) */
 .button-primary {
     background: var(--accent-primary);
-    border: 0px solid var(--accent-color-400);
+    border: 0px solid var(--accent-primary);
     color: var(--button-text);
 }
 .button-primary:not(:disabled):hover {
-    background: var(--color-accent-300);
+    background: var(--color-accent-500);
     border-color: var(--accent-primary);
 }
