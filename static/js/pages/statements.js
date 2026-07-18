@@ -52,9 +52,7 @@ const balanceTable = bootstrapYearTablePage({
     ],
     typeSectionSuffix:     ' Accounts',
     includeTotals:         false,
-    defaultAddType:        'cash',
-    addLayout:             'stacked',
-    addInputPlaceholder:   'Account name',
+    itemNoun:              'account',   // "Add account", "3 accounts", …
     containerSelector:     '#stmt-tables-balance',
     addYearBtnSelector:    null,   // page-owned: Add New Year fills BOTH datasets
     manageColsBtnSelector: null,   // page-owned: lives in the ⋮ menu
@@ -198,10 +196,12 @@ const balanceTable = bootstrapYearTablePage({
     // The Cash Flow columns ARE the categories, but they're managed by the
     // shared categories editor (settingsCategories.js) — not the year-table
     // column manager — because category edits also drive the Transactions
-    // ledger dropdown. The modal shell mirrors showColumnManager (tables.js):
-    // toggle if already open, close on × or backdrop, and the editor mounts
-    // into a [data-categories-editor] root. Closing reloads the Cash Flow
-    // tables so renames/reorders/deletes land in the columns immediately.
+    // ledger dropdown. The Balance Sheet's showColumnManager (tables.js)
+    // builds this same .cat-manager shell + .cat-* editor markup, so the two
+    // ⋮-menu managers look identical. Same shell behavior too: toggle if
+    // already open, close on × or backdrop; the editor mounts into a
+    // [data-categories-editor] root. Closing reloads the Cash Flow tables so
+    // renames/reorders/deletes land in the columns immediately.
     function showCategoriesManager() {
         const existing = document.querySelector('.cat-manager-overlay');
         if (existing) { existing.remove(); return; }

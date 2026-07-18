@@ -13,7 +13,7 @@
      5. Status colours — direction-of-change indicators
      6. Base layout — body, page shell, scrollbars
      7. Shared modal primitives — frame/header/close/title/body shared by the
-        DB, Preferences and column-manager modals
+        DB, Preferences and Statements-manager (.cat-manager) modals
    ============================================================================ */
 
 /* Self-hosted fonts. CSP is default-src 'self', so font files must live under
@@ -368,8 +368,8 @@
        shapes are padding-driven and land at ~32px; pinning controls to the
        same value (with box-sizing:border-box) keeps inputs and buttons the
        same height. NOT applied to in-cell table editors (.db-input/.p-input —
-       their height is owned by the spreadsheet row), the dense column-manager
-       inline editor (.col-row-input), or borderless inline-rename inputs. */
+       their height is owned by the spreadsheet row) or borderless
+       inline-rename inputs (.cat-name). */
     --control-height: 32px;
 
     /* Empty space framing every main page's content inside the .page scroll
@@ -584,12 +584,13 @@ div.page::-webkit-scrollbar-thumb:hover {
 
 /* ─── 7. Shared modal primitives ───────────────────────────────────────────
  * Dialog chrome shared by the app's modals: the DB modal (dbmodal.css), the
- * Preferences / Categories modal (settings.css) and the column manager
- * (tables.css). Each component file used to redeclare the full frame / header /
- * close / title; the identical declarations live here once and each file keeps
- * only its deltas (mostly just `width`). This lives in style.css because it's
- * the one stylesheet loaded on every page, so a global modal (DB / Settings)
- * and a per-page one (column manager) can both reach it. */
+ * Preferences modal (settings.css) and the .cat-manager shell (categories.css)
+ * that hosts BOTH Statements managers — Manage Categories and the Balance
+ * Sheet's Manage Columns. Each component file used to redeclare the full
+ * frame / header / close / title; the identical declarations live here once
+ * and each file keeps only its deltas (mostly just `width`). This lives in
+ * style.css because it's the one stylesheet loaded on every page, so a global
+ * modal (DB / Settings) and a per-page one (.cat-manager) can both reach it. */
 
 /* Backdrop scrim + centering. Per-overlay deltas — scrim opacity, z-index,
    blur, padding — stay in each component file. */
@@ -609,7 +610,6 @@ div.page::-webkit-scrollbar-thumb:hover {
 /* Modal frame — only `width` differs between the three. */
 .db-modal,
 .settings-modal,
-.col-manager,
 .cat-manager {
     background: var(--surface1);
     border: var(--border-width) solid var(--border);
@@ -625,7 +625,6 @@ div.page::-webkit-scrollbar-thumb:hover {
 /* Header row — title on the left, × on the right, divider beneath. */
 .db-modal-header,
 .settings-modal-header,
-.col-manager-header,
 .cat-manager-header {
     display: flex;
     justify-content: space-between;
@@ -637,7 +636,6 @@ div.page::-webkit-scrollbar-thumb:hover {
 /* Title text. */
 .db-modal-title,
 .settings-modal-title,
-.col-manager-header > span,
 .cat-manager-header > span {
     color: var(--text-primary);
     font-family: var(--font-h2);
@@ -649,7 +647,6 @@ div.page::-webkit-scrollbar-thumb:hover {
 /* × close button. */
 .db-modal-close,
 .settings-modal-close,
-.col-manager-close,
 .cat-manager-close {
     background: transparent;
     border: none;
@@ -665,7 +662,6 @@ div.page::-webkit-scrollbar-thumb:hover {
 
 .db-modal-close:hover,
 .settings-modal-close:hover,
-.col-manager-close:hover,
 .cat-manager-close:hover {
     background: var(--surface3);
     color: var(--text-primary);
@@ -675,27 +671,23 @@ div.page::-webkit-scrollbar-thumb:hover {
    The two bodies that use this were byte-identical; each keeps only its own
    padding / gap / layout in its component file. */
 .settings-modal-body,
-.col-manager-body,
 .cat-manager-body {
     scrollbar-width: thin;
     scrollbar-color: var(--surface4) var(--surface1);
 }
 
 .settings-modal-body::-webkit-scrollbar,
-.col-manager-body::-webkit-scrollbar,
 .cat-manager-body::-webkit-scrollbar {
     width: 10px;
 }
 
 .settings-modal-body::-webkit-scrollbar-track,
-.col-manager-body::-webkit-scrollbar-track,
 .cat-manager-body::-webkit-scrollbar-track {
     background: var(--surface1);
     border-radius: 5px;
 }
 
 .settings-modal-body::-webkit-scrollbar-thumb,
-.col-manager-body::-webkit-scrollbar-thumb,
 .cat-manager-body::-webkit-scrollbar-thumb {
     background: var(--surface4);
     border-radius: 5px;
@@ -704,7 +696,6 @@ div.page::-webkit-scrollbar-thumb:hover {
 }
 
 .settings-modal-body::-webkit-scrollbar-thumb:hover,
-.col-manager-body::-webkit-scrollbar-thumb:hover,
 .cat-manager-body::-webkit-scrollbar-thumb:hover {
     background: var(--text-tertiary);
     background-clip: padding-box;

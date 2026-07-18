@@ -32,9 +32,9 @@
     const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
     // Six-dot "grip" glyph shown as the drag handle on each column-manager row.
-    // The handle (not the whole row) is the draggable element, so click-to-rename
-    // and the × delete button keep working without the drag interaction stealing
-    // their pointer events.
+    // The handle (not the whole row) is the draggable element, so the rename
+    // input and the × delete button keep working without the drag interaction
+    // stealing their pointer events.
     const _GRIP = `<svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor" aria-hidden="true"><circle cx="2.5" cy="3" r="1.4"/><circle cx="7.5" cy="3" r="1.4"/><circle cx="2.5" cy="8" r="1.4"/><circle cx="7.5" cy="8" r="1.4"/><circle cx="2.5" cy="13" r="1.4"/><circle cx="7.5" cy="13" r="1.4"/></svg>`;
 
     /**
@@ -44,7 +44,7 @@
      * just below the cursor. Used to live-reorder the DOM during dragover.
      */
     function _dragAfterRow(listEl, y) {
-        const rows = [...listEl.querySelectorAll('.col-row:not(.col-row-dragging)')];
+        const rows = [...listEl.querySelectorAll('.cat-row:not(.cat-dragging)')];
         let closest = { offset: -Infinity, el: null };
         for (const row of rows) {
             const box = row.getBoundingClientRect();
@@ -205,9 +205,8 @@
     //     types               → null OR [{key, label}, ...] of column types
     //     typeSectionSuffix   → string appended to type labels in section headers
     //     includeTotals       → bool — render a totals tfoot?
-    //     defaultAddType      → which type the "Add column" toggle starts on
-    //     addLayout           → 'flat' | 'inline-toggle' | 'stacked'
-    //     addInputPlaceholder → placeholder text for the "Add column" name input
+    //     itemNoun            → what one column is called in the Manage Columns
+    //                           modal's copy ('column' | 'account')
     //
     //   Mutable state (rewritten by reloadYearTables):
     //     columns             → [{key, label, type?}, ...]
@@ -779,17 +778,40 @@
 
     // ─── Column Manager modal ───────────────────────────────────────────────────
 
+    // Icons for the manager's search / cards / rows — same glyphs as the
+    // categories editor (settingsCategories.js) so the two Statements managers
+    // read identically.
+    const _ICON_X       = '<svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    const _ICON_PLUS    = '<svg viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    const _ICON_SEARCH  = '<svg class="cat-search-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+    const _ICON_CHEVRON = '<svg class="cat-group-chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
     /**
-     * Open (or close, if already open) the "Manage Columns" modal. The modal
-     * lists every column with reorder arrows, an inline rename input, a
-     * per-column type chip (when ctx.types is set), and a delete button. The
-     * footer holds an "Add column" row whose layout depends on ctx.addLayout.
+     * Open (or close, if already open) the "Manage Columns" modal — the Balance
+     * Sheet's column editor. It deliberately wears the SAME design as the Cash
+     * Flow tab's "Manage Categories" modal: the shell and every control reuse
+     * the .cat-* styles (categories.css + the shared modal primitives in
+     * style.css §7), so the two Statements managers look identical and the
+     * modal styles live in one place. Only the data layer differs — rows here
+     * are ctx.columns, driven through the /columns endpoints.
      *
-     * The whole modal is rebuilt from scratch (`buildManager()`) on every
-     * change — adds, deletes, renames, reorderings, type cycles — so we don't
-     * have to surgically update individual rows after each backend call. This
-     * costs us very little (the modal is small and rare to interact with) and
-     * eliminates a lot of bookkeeping bugs.
+     * Layout: a search field above one collapsible card per column type
+     * ("Cash Accounts" … "Debt Accounts"). The cards are an accordion — all
+     * collapsed on open, expanding one collapses the rest; during a drag a
+     * collapsed card springs open so cross-type moves keep a drop target.
+     * Rows keep the established interactions: borderless inline rename, an
+     * always-visible quiet delete ×, and grip-handle drag-and-drop to reorder
+     * (or retype, by dropping into another card). A quiet "Add …" row closes
+     * each open card: it creates the column immediately with a placeholder
+     * name — the card fixes the type — and focuses the rename input, so there
+     * is no separate name/type form.
+     *
+     * The whole modal is rebuilt from scratch (`buildManager()`) after every
+     * data change — adds, deletes, reorderings — so we don't have to surgically
+     * update individual rows after each backend call. This costs us very little
+     * (the modal is small and rare to interact with) and eliminates a lot of
+     * bookkeeping bugs. Renames skip the rebuild: nothing else in the modal
+     * shows the label, so the input the user just typed in is already correct.
      *
      * SECURITY: every user-controlled value (col.key, col.label, type labels)
      * is escapeHtml'd before being interpolated into the innerHTML template.
@@ -798,146 +820,210 @@
         const existing = document.querySelector('.col-manager-overlay');
         if (existing) { existing.remove(); return; }
 
-        const overlay = document.createElement('div');
-        overlay.className = 'confirm-overlay col-manager-overlay';
-        document.body.appendChild(overlay);
+        // What one column is called in the modal's copy — "column" for a
+        // generic dataset; the Balance Sheet passes "account" (opts.itemNoun)
+        // so every string here talks about accounts.
+        const noun    = ctx.itemNoun;
+        const nounCap = noun.charAt(0).toUpperCase() + noun.slice(1);
 
-        // The currently-selected type for the "Add column" widget. For typed
-        // pages (I&E, Balance Sheet) this comes from ctx.defaultAddType; for
-        // the type-less Savings page it stays null and the add request omits
-        // the type field entirely.
-        let addType = ctx.defaultAddType;
+        const tip = `${nounCap}s are the columns of this statement, grouped by `
+            + 'type. Drag one by its handle to reorder it — the order here sets '
+            + 'the column order — or drop it under another type to move it.'
+            + '\n\nDeleting one that still holds saved values asks for '
+            + 'confirmation first.';
+
+        const overlay = document.createElement('div');
+        // .cat-manager-overlay carries the shared visual treatment;
+        // .col-manager-overlay is purely the query hook for the open/close
+        // toggle above (and keeps this overlay distinct from the categories
+        // editor's own, which statements.js queries the same way).
+        overlay.className = 'confirm-overlay cat-manager-overlay col-manager-overlay';
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+        // View state for this open of the modal: the search query plus which
+        // type card is expanded (accordion — at most one true at a time). Both
+        // survive the full rebuilds below.
+        const openState = {};
+        (ctx.types || []).forEach(t => { openState[t.key] = false; });
+        let query = '';
+        let root  = null;   // the .cat-editor element, recreated by buildManager
+
+        const metaText = (n) => `${n} ${n === 1 ? noun : `${noun}s`}`;
+
+        // Placeholder name for a freshly added column, uniquified so clicking
+        // "Add" twice before renaming still reads unambiguously.
+        const uniqueDefaultLabel = () => {
+            const base   = `New ${nounCap}`;
+            const labels = new Set(ctx.columns.map(c => c.label));
+            if (!labels.has(base)) return base;
+            let n = 2;
+            while (labels.has(`${base} ${n}`)) n++;
+            return `${base} ${n}`;
+        };
+
+        // Re-evaluate the search query against the rendered rows. Pure view
+        // logic — no server round-trip — so it runs on every keystroke and at
+        // the end of every rebuild. A live query hides non-matching rows, drops
+        // cards with no hits entirely, forces matching cards open, and pauses
+        // add/drag (both depend on the full, unfiltered order being visible).
+        const applyFilter = () => {
+            const q = query.trim().toLowerCase();
+            const searching = q.length > 0;
+            root.classList.toggle('cat-searching', searching);
+
+            let anyVisible = false;
+            root.querySelectorAll('.cat-group').forEach(section => {
+                let matches = 0;
+                section.querySelectorAll('.cat-row').forEach(row => {
+                    const name = (row.querySelector('.cat-name')?.value || '').toLowerCase();
+                    const hit = !searching || name.includes(q);
+                    row.hidden = !hit;
+                    if (hit) matches++;
+                });
+
+                section.hidden = searching && matches === 0;
+                if (!section.hidden) anyVisible = true;
+
+                // The type-less variant has no head — its single card is always
+                // open and the accordion state doesn't apply.
+                const head = section.querySelector('.cat-group-head');
+                if (head) {
+                    const open = searching ? true : !!openState[section.dataset.type];
+                    head.setAttribute('aria-expanded', String(open));
+                    const body = section.querySelector('.cat-group-body');
+                    if (open) body.removeAttribute('hidden');
+                    else      body.setAttribute('hidden', '');
+                }
+
+                const addBtn = section.querySelector('.cat-add-row');
+                if (addBtn) addBtn.hidden = searching;
+            });
+
+            root.querySelector('.cat-no-match').hidden = anyVisible;
+        };
 
         const buildManager = () => {
-            // ── Render one column row (grip handle + rename input + ×) ─────────
+            // ── One row per column: grip handle + rename input + quiet × ───────
             // Only the grip is draggable; the row itself stays a normal flow
             // element so the rename input and × button keep their pointer events.
             const renderRow = (col) => `
-                <div class="col-row" data-key="${escapeHtml(col.key)}">
-                    <span class="col-row-grip" draggable="true" aria-label="Drag ${escapeHtml(col.label)} to reorder">${_GRIP}</span>
-                    <span class="col-row-label">${escapeHtml(col.label)}</span>
-                    <input class="col-row-input" value="${escapeHtml(col.label)}" style="display:none" aria-label="Rename ${escapeHtml(col.label)}">
-                    <button class="col-row-delete" aria-label="Delete ${escapeHtml(col.label)}">×</button>
+                <div class="cat-row" data-key="${escapeHtml(col.key)}">
+                    <span class="cat-grip" draggable="true" aria-label="Drag ${escapeHtml(col.label)} to reorder">${_GRIP}</span>
+                    <input type="text" class="cat-name" value="${escapeHtml(col.label)}" maxlength="50"
+                           aria-label="Rename ${escapeHtml(col.label)}">
+                    <button class="cat-icon-btn cat-delete" title="Delete ${escapeHtml(noun)}" aria-label="Delete ${escapeHtml(col.label)}">${_ICON_X}</button>
                 </div>`;
-            const renderRows = (items) => items.map(renderRow).join('');
+            const renderRows = (items) => items.map(renderRow).join('')
+                || `<div class="cat-empty" data-placeholder>No ${escapeHtml(noun)}s yet</div>`;
 
-            // ── Render the list section(s): per-type when typed, flat when not ─
-            // Each list carries data-type so a drop into it can reassign the
-            // dragged column's type; the empty placeholder is data-placeholder so
-            // the dragover handler can yank it out before inserting a row.
+            // ── One collapsible card per type (flat, always-open card when the
+            //    dataset is type-less). Each list carries data-type so a drop
+            //    into it retypes the dragged column. ─────────────────────────────
             let sectionsHtml;
             if (ctx.types) {
                 sectionsHtml = ctx.types.map(t => {
-                    const cols = ctx.columns.filter(c => c.type === t.key);
+                    const cols    = ctx.columns.filter(c => c.type === t.key);
                     const heading = t.label + (ctx.typeSectionSuffix || '');
+                    const open    = !!openState[t.key];
+                    const bodyId  = `col-group-body-${escapeHtml(t.key)}`;
                     return `
-                    <div class="col-manager-section">
-                        <div class="col-type-label">${escapeHtml(heading)}</div>
-                        <div class="col-manager-list" data-type="${escapeHtml(t.key)}">
-                            ${cols.length ? renderRows(cols) : '<div class="col-empty" data-placeholder>None</div>'}
+                    <section class="cat-group" data-type="${escapeHtml(t.key)}">
+                        <button type="button" class="cat-group-head"
+                                aria-expanded="${open}" aria-controls="${bodyId}">
+                            <span class="cat-group-dot" aria-hidden="true"></span>
+                            <span class="cat-group-title">${escapeHtml(heading)}</span>
+                            <span class="cat-group-meta">${metaText(cols.length)}</span>
+                            ${_ICON_CHEVRON}
+                        </button>
+                        <div class="cat-group-body" id="${bodyId}"${open ? '' : ' hidden'}>
+                            <div class="cat-list" data-type="${escapeHtml(t.key)}">${renderRows(cols)}</div>
+                            <button type="button" class="cat-add-row" data-type="${escapeHtml(t.key)}"
+                                    aria-label="Add ${escapeHtml(heading)} ${escapeHtml(noun)}">${_ICON_PLUS} Add ${escapeHtml(noun)}</button>
                         </div>
-                    </div>`;
+                    </section>`;
                 }).join('');
             } else {
                 sectionsHtml = `
-                <div class="col-manager-section">
-                    <div class="col-manager-list">
-                        ${ctx.columns.length ? renderRows(ctx.columns) : '<div class="col-empty" data-placeholder>No columns yet</div>'}
+                <section class="cat-group">
+                    <div class="cat-group-body">
+                        <div class="cat-list">${renderRows(ctx.columns)}</div>
+                        <button type="button" class="cat-add-row"
+                                aria-label="Add ${escapeHtml(noun)}">${_ICON_PLUS} Add ${escapeHtml(noun)}</button>
                     </div>
-                </div>`;
-            }
-
-            // ── Render the "Add column" widget. Shape depends on addLayout. ────
-            let addHtml;
-            const placeholder = escapeHtml(ctx.addInputPlaceholder || 'Column name');
-            const typeToggleBtns = ctx.types
-                ? ctx.types.map(t =>
-                    `<button class="type-toggle-btn${addType === t.key ? ' active' : ''}" data-type="${escapeHtml(t.key)}">${escapeHtml(t.label)}</button>`
-                  ).join('')
-                : '';
-
-            if (ctx.addLayout === 'stacked') {
-                // Balance Sheet — input + add ABOVE, four type-toggle buttons BELOW.
-                // Used when there are too many types to fit comfortably inline.
-                addHtml = `
-                <div class="col-manager-add-stacked">
-                    <div class="col-manager-add">
-                        <input type="text" class="col-name-input" placeholder="${placeholder}" maxlength="50">
-                        <button class="col-add-btn">Add</button>
-                    </div>
-                    <div class="col-type-toggle">${typeToggleBtns}</div>
-                </div>`;
-            } else if (ctx.addLayout === 'inline-toggle') {
-                // I&E — [Expense | Income] [input] [Add]. Compact layout because
-                // there are only two types so the toggle fits inline.
-                addHtml = `
-                <div class="col-manager-add">
-                    <div class="col-type-toggle">${typeToggleBtns}</div>
-                    <input type="text" class="col-name-input" placeholder="${placeholder}" maxlength="50">
-                    <button class="col-add-btn">Add</button>
-                </div>`;
-            } else {
-                // Savings — [input] [Add]. No type system at all.
-                addHtml = `
-                <div class="col-manager-add">
-                    <input type="text" class="col-name-input" placeholder="${placeholder}" maxlength="50">
-                    <button class="col-add-btn">Add</button>
-                </div>`;
+                </section>`;
             }
 
             overlay.innerHTML = `
-            <div class="col-manager">
-                <div class="col-manager-header">
-                    <span>Manage Columns</span>
-                    <button class="col-manager-close">×</button>
+            <div class="cat-manager">
+                <div class="cat-manager-header">
+                    <span>Manage Columns<span class="fc-info" tabindex="0" role="note"
+                        aria-label="${escapeHtml(tip)}" data-tip="${escapeHtml(tip)}">i</span></span>
+                    <button class="cat-manager-close" aria-label="Close">×</button>
                 </div>
-                <div class="col-manager-body">
-                    ${sectionsHtml}
-                </div>
-                <div class="col-manager-footer">
-                    ${addHtml}
+                <div class="cat-manager-body">
+                    <div class="cat-editor">
+                        <div class="cat-search">
+                            ${_ICON_SEARCH}
+                            <input type="text" class="cat-search-input" placeholder="Search ${escapeHtml(noun)}s"
+                                   aria-label="Search ${escapeHtml(noun)}s" value="${escapeHtml(query)}">
+                        </div>
+                        <div class="cat-groups">${sectionsHtml}</div>
+                        <p class="cat-no-match" hidden>No ${escapeHtml(noun)}s match your search.</p>
+                    </div>
                 </div>
             </div>`;
 
-            // ── Wire up modal close (× button or backdrop click) ───────────────
-            overlay.querySelector('.col-manager-close').addEventListener('click', () => overlay.remove());
-            overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+            root = overlay.querySelector('.cat-editor');
+            overlay.querySelector('.cat-manager-close').addEventListener('click', () => overlay.remove());
 
-            // ── Inline rename: click label → swap in input → save on blur/Enter ─
-            overlay.querySelectorAll('.col-row').forEach(row => {
-                const key       = row.dataset.key;
-                const labelSpan = row.querySelector('.col-row-label');
-                const input     = row.querySelector('.col-row-input');
+            // ── Search — filter on every keystroke, no round-trip ──────────────
+            const searchInput = overlay.querySelector('.cat-search-input');
+            searchInput.addEventListener('input', () => {
+                query = searchInput.value;
+                applyFilter();
+            });
 
-                labelSpan.addEventListener('click', () => {
-                    labelSpan.style.display = 'none';
-                    input.style.display = '';
-                    input.focus();
-                    input.select();
+            // ── Card headers — accordion expand/collapse: opening a card
+            // collapses the others. A live search forces matching cards open
+            // (applyFilter wins), so the stored state only takes effect once
+            // the query is cleared. ────────────────────────────────────────────
+            overlay.querySelectorAll('.cat-group-head').forEach(head => {
+                head.addEventListener('click', () => {
+                    const type     = head.closest('.cat-group').dataset.type;
+                    const willOpen = !openState[type];
+                    Object.keys(openState).forEach(k => { openState[k] = false; });
+                    if (willOpen) openState[type] = true;
+                    applyFilter();
                 });
+            });
 
-                const saveRename = async () => {
+            // ── Inline rename — commits on blur/Enter; Escape cancels. Blank or
+            // unchanged values revert without an API call. No rebuild on
+            // success, so focus stays where the user left it. ───────────────────
+            overlay.querySelectorAll('.cat-row .cat-name').forEach(input => {
+                const key = input.closest('.cat-row').dataset.key;
+                input.addEventListener('blur', async () => {
                     const newLabel = input.value.trim();
-                    if (!newLabel || newLabel === labelSpan.textContent) {
-                        // Either blank or unchanged — revert without an API call.
-                        labelSpan.style.display = '';
-                        input.style.display = 'none';
+                    if (!newLabel || newLabel === input.defaultValue) {
+                        input.value = input.defaultValue;
                         return;
                     }
-                    await ctx.api.updateColumn(key, { label: newLabel });
+                    const result = await ctx.api.updateColumn(key, { label: newLabel });
+                    if (!result.ok) {          // wrapWrite already announced the failure
+                        input.value = input.defaultValue;
+                        return;
+                    }
+                    input.defaultValue = newLabel;
                     const col = ctx.columns.find(c => c.key === key);
                     if (col) col.label = newLabel;
                     renderYearTables(ctx);
-                    buildManager();
-                };
-
-                input.addEventListener('blur', saveRename);
+                });
                 input.addEventListener('keydown', e => {
-                    if (e.key === 'Enter') input.blur();          // commits via blur handler
-                    if (e.key === 'Escape') {                      // cancels — restore label
-                        input.value = labelSpan.textContent;
-                        labelSpan.style.display = '';
-                        input.style.display = 'none';
+                    if (e.key === 'Enter') input.blur();     // commits via blur handler
+                    if (e.key === 'Escape') {                 // cancels — restore label
+                        input.value = input.defaultValue;
+                        input.blur();
                     }
                 });
             });
@@ -947,16 +1033,15 @@
             // (dimmed) during the drag; an accent drop-indicator line shows where
             // the column will land instead of live-shuffling the rows. On dragend
             // we move the row to the indicator's slot, then read the final DOM
-            // order across every section — for typed pages a row's section dictates
-            // its new type — and push the whole ordering to the backend in one call.
-            const manager   = overlay.querySelector('.col-manager');
+            // order across every card — a row's card dictates its new type — and
+            // push the whole ordering to the backend in one call.
             let draggingRow = null;
             let indicator   = null;   // the accent line element, reparented as it moves
 
             const placeIndicator = (list, before) => {
                 if (!indicator) {
                     indicator = document.createElement('div');
-                    indicator.className = 'col-drop-indicator';
+                    indicator.className = 'cat-drop-indicator';
                 }
                 if (before) list.insertBefore(indicator, before);
                 else list.appendChild(indicator);
@@ -964,9 +1049,9 @@
 
             const commitOrder = async () => {
                 const order = [];
-                overlay.querySelectorAll('.col-manager-list').forEach(list => {
-                    const type = list.dataset.type;   // undefined on type-less pages
-                    list.querySelectorAll('.col-row').forEach(row => {
+                overlay.querySelectorAll('.cat-list').forEach(list => {
+                    const type = list.dataset.type;   // undefined on type-less datasets
+                    list.querySelectorAll('.cat-row').forEach(row => {
                         order.push(ctx.types ? { key: row.dataset.key, type } : { key: row.dataset.key });
                     });
                 });
@@ -980,19 +1065,22 @@
                 buildManager();
             };
 
-            overlay.querySelectorAll('.col-row-grip').forEach(grip => {
-                const row = grip.closest('.col-row');
+            overlay.querySelectorAll('.cat-grip').forEach(grip => {
+                const row = grip.closest('.cat-row');
                 grip.addEventListener('dragstart', e => {
+                    // A filtered list shows a partial order — reordering it would
+                    // commit positions the user can't see. Clear the search first.
+                    if (query.trim()) { e.preventDefault(); return; }
                     draggingRow = row;
                     e.dataTransfer.effectAllowed = 'move';
                     e.dataTransfer.setData('text/plain', row.dataset.key); // Firefox needs payload
                     e.dataTransfer.setDragImage(row, 12, 12);
                     // Defer the dimming + drag mode so the drag image isn't the
-                    // faded row. `dragging` on the manager hides the empty-section
-                    // placeholders (CSS) so the accent line is the only cue.
+                    // faded row. `dragging` on the editor root hides the empty-
+                    // card placeholders (CSS) so the accent line is the only cue.
                     requestAnimationFrame(() => {
-                        row.classList.add('col-row-dragging');
-                        manager.classList.add('dragging');
+                        row.classList.add('cat-dragging');
+                        root.classList.add('dragging');
                     });
                 });
                 grip.addEventListener('dragend', () => {
@@ -1002,32 +1090,52 @@
                     }
                     indicator?.remove();
                     indicator = null;
-                    row.classList.remove('col-row-dragging');
-                    manager.classList.remove('dragging');
+                    row.classList.remove('cat-dragging');
+                    root.classList.remove('dragging');
+                    // Reconcile the accordion after any spring-loaded expansions:
+                    // the card the row landed in becomes the open one.
+                    const landedType = row.closest('.cat-list')?.dataset.type;
+                    if (landedType !== undefined) {
+                        Object.keys(openState).forEach(k => { openState[k] = false; });
+                        openState[landedType] = true;
+                    }
+                    applyFilter();
                     draggingRow = null;
                     commitOrder();
                 });
             });
 
-            overlay.querySelectorAll('.col-manager-list').forEach(list => {
-                list.addEventListener('dragover', e => {
-                    if (!draggingRow) return;
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = 'move';
-                    // Show the accent line at the insertion point. _dragAfterRow
-                    // ignores the dimmed source row, so hovering near it resolves
-                    // cleanly. The indicator has pointer-events:none so it never
-                    // steals this dragover from the list.
-                    placeIndicator(list, _dragAfterRow(list, e.clientY));
-                });
-                list.addEventListener('drop', e => e.preventDefault());
+            // Delegated dragover: spring a collapsed card open when the drag
+            // hovers it (the accordion never has two cards open at once, so a
+            // cross-type move would otherwise have no drop target), then place
+            // the accent line at the insertion point. Spring-opening is view-
+            // only — dragend reconciles the accordion. The indicator has
+            // pointer-events:none so it never steals this dragover.
+            root.addEventListener('dragover', e => {
+                if (!draggingRow) return;
+                const group = e.target.closest?.('.cat-group');
+                if (group) {
+                    const body = group.querySelector('.cat-group-body');
+                    if (body?.hasAttribute('hidden')) {
+                        body.removeAttribute('hidden');
+                        group.querySelector('.cat-group-head')?.setAttribute('aria-expanded', 'true');
+                    }
+                }
+                const list = e.target.closest?.('.cat-list');
+                if (!list) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                // _dragAfterRow ignores the dimmed source row, so hovering near
+                // it resolves cleanly.
+                placeIndicator(list, _dragAfterRow(list, e.clientY));
             });
+            root.addEventListener('drop', e => { if (draggingRow) e.preventDefault(); });
 
             // ── Delete column. If the column has saved data the backend refuses
             // and we re-confirm with confirmColumnDelete before forcing. ───────
-            overlay.querySelectorAll('.col-row-delete').forEach(btn => {
+            overlay.querySelectorAll('.cat-delete').forEach(btn => {
                 btn.addEventListener('click', async () => {
-                    const key    = btn.closest('.col-row').dataset.key;
+                    const key    = btn.closest('.cat-row').dataset.key;
                     const col    = ctx.columns.find(c => c.key === key);
                     const result = await ctx.api.deleteColumn(key);
                     if (!result.ok) {
@@ -1053,36 +1161,24 @@
                 });
             });
 
-            // ── Type toggle for the NEW column being added (typed pages only) ──
-            if (ctx.types) {
-                overlay.querySelectorAll('.type-toggle-btn').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        addType = btn.dataset.type;
-                        overlay.querySelectorAll('.type-toggle-btn').forEach(b =>
-                            b.classList.toggle('active', b.dataset.type === addType));
-                    });
-                });
-            }
-
-            // ── Add column. Body shape varies by typed/typeless. ───────────────
-            const nameInput = overlay.querySelector('.col-name-input');
-            const addBtn    = overlay.querySelector('.col-add-btn');
-
-            const tryAdd = async () => {
-                const label = nameInput.value.trim();
-                if (!label) { nameInput.classList.add('invalid'); return; }
-                const body   = ctx.types ? { label, type: addType } : { label };
-                const result = await ctx.api.addColumn(body);
-                if (result.ok) {
+            // ── Add — the quiet row closing each open card. Creates the column
+            // immediately with a unique placeholder name (the card fixes the
+            // type), then focuses the fresh row's rename input. ────────────────
+            overlay.querySelectorAll('.cat-add-row').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const label  = uniqueDefaultLabel();
+                    const body   = ctx.types ? { label, type: btn.dataset.type } : { label };
+                    const result = await ctx.api.addColumn(body);
+                    if (!result.ok) return;   // wrapWrite already announced the failure
                     await reloadYearTables(ctx);
-                    nameInput.value = '';
                     buildManager();
-                }
-            };
+                    const input = result.column && overlay.querySelector(
+                        `.cat-row[data-key="${result.column.key}"] .cat-name`);
+                    if (input) { input.focus(); input.select(); }
+                });
+            });
 
-            nameInput.addEventListener('input', () => nameInput.classList.remove('invalid'));
-            nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') tryAdd(); });
-            addBtn.addEventListener('click', tryAdd);
+            applyFilter();
         };
 
         buildManager();
@@ -1101,9 +1197,9 @@
      *   typeSectionSuffix   string? — appended to type labels in section headers
      *                                 (e.g. ' Accounts' → "Cash Accounts")
      *   includeTotals       bool    — render a totals tfoot per table
-     *   defaultAddType      string? — default selection for "Add column" type
-     *   addLayout           string  — 'flat' | 'inline-toggle' | 'stacked'
-     *   addInputPlaceholder string? — placeholder for the "Add column" name input
+     *   itemNoun            string? — what one column is called in the Manage
+     *                                 Columns modal's copy (default 'column';
+     *                                 the Balance Sheet passes 'account')
      *   hideColumnManager   bool    — when true, the per-page Manage Columns
      *                                 button + its modal are skipped entirely.
      *                                 Used by Income & Expenses, whose columns
@@ -1137,9 +1233,7 @@
             types:               opts.types || null,
             typeSectionSuffix:   opts.typeSectionSuffix || '',
             includeTotals:       !!opts.includeTotals,
-            defaultAddType:      opts.defaultAddType ?? opts.types?.[0]?.key ?? null,
-            addLayout:           opts.addLayout || 'flat',
-            addInputPlaceholder: opts.addInputPlaceholder || 'Column name',
+            itemNoun:            opts.itemNoun || 'column',
             hideColumnManager:   !!opts.hideColumnManager,
             // Mutable state — populated by reloadYearTables() in init below.
             columns:   [],

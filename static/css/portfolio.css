@@ -64,7 +64,7 @@
 
 /* == Rename-account dialog input ==
    The textbox shown by renameAccountDialog() in portfolio.js. Wider and
-   chunkier than the .col-row-input used inside the column manager because
+   chunkier than the borderless inline-rename inputs (.cat-name) because
    this is a primary dialog input, not an inline edit. */
 .p-rename-input {
     width: 100%;

@@ -6,8 +6,7 @@
        Modals, settings, inline Browse/Cancel.  Defined in dbmodal.css.
      • Action button   (.button-primary / -secondary) — uppercase micro "eyebrow".
        The page call-to-action (Add Year, Export, Add Card …) plus a tail of
-       page-specific aliases (forecast-add, budget-copy, cat-add,
-       col-add) that share this shape.
+       page-specific aliases (forecast-add) that share this shape.
 
    The per-shape fill/size still lives in each component file for now; what this
    file owns is the CROSS-CUTTING INTERACTION STATES — keyboard focus ring,
@@ -26,10 +25,8 @@
 .button-primary:focus-visible,
 .button-secondary:focus-visible,
 .tx-add-btn:focus-visible,
-.cat-add-btn:focus-visible,
 .forecast-add-btn:focus-visible,
 .budget-nav-btn:focus-visible,
-.col-add-btn:focus-visible,
 /* icon / close buttons — these all lacked a focus ring entirely */
 .tx-action-btn:focus-visible,
 .cat-icon-btn:focus-visible,
@@ -44,9 +41,7 @@
    A 1px nudge on active press. Skipped for disabled buttons. */
 .button-primary:not(:disabled):active,
 .button-secondary:not(:disabled):active,
-.cat-add-btn:not(:disabled):active,
 .forecast-add-btn:not(:disabled):active,
-.col-add-btn:not(:disabled):active,
 .tx-action-btn:not(:disabled):active,
 .p-menu-btn:not(:disabled):active {
     transform: translateY(1px);
@@ -59,9 +54,7 @@
 .button-primary:disabled,
 .button-secondary:disabled,
 .tx-add-btn:disabled,
-.cat-add-btn:disabled,
 .forecast-add-btn:disabled,
-.col-add-btn:disabled,
 .tx-action-btn:disabled {
     cursor: not-allowed;
     opacity: 0.6;
@@ -79,8 +72,7 @@
    the --button-text colour on accent fills. Per-page LAYOUT (flex sizing) stays
    in the page file; only the button SHAPE moved here. */
 .button-primary, .button-secondary,
-.forecast-add-btn,
-.cat-add-btn, .col-add-btn {
+.forecast-add-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -111,8 +103,7 @@
    hidden attribute (import/export progress states hide their action button
    with it) would silently do nothing without this. */
 .button-primary[hidden], .button-secondary[hidden],
-.forecast-add-btn[hidden],
-.cat-add-btn[hidden], .col-add-btn[hidden] {
+.forecast-add-btn[hidden] {
     display: none;
 }
 
@@ -140,14 +131,12 @@
 }
 
 /* Accent fill — the primary call-to-action (Add Year, Add Account, Export …) */
-.button-primary, .cat-add-btn, .col-add-btn {
+.button-primary {
     background: var(--accent-primary);
     border: 0px solid var(--accent-color-400);
     color: var(--button-text);
 }
-.button-primary:not(:disabled):hover,
-.cat-add-btn:not(:disabled):hover,
-.col-add-btn:not(:disabled):hover {
+.button-primary:not(:disabled):hover {
     background: var(--color-accent-300);
     border-color: var(--accent-primary);
 }
