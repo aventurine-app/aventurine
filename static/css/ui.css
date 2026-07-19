@@ -228,7 +228,7 @@
     background: var(--background);
     border: var(--border-width) solid var(--border);
     border-radius: 6px;
-    box-shadow: var(--shadow-card);
+    box-shadow: var(--shadow-menu);
     display: flex;
     flex-direction: column;
 }
@@ -271,19 +271,35 @@
     background: var(--surface2);
     border: var(--border-width) solid var(--border);
     border-radius: 5px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--shadow-menu);
     z-index: 500;
     min-width: 160px;
-    max-height: 320px;
-    overflow-y: auto;
-    padding: 4px 0;
+    padding: 4px;
 }
 
-/* Stepper pickers are left-anchored — open the menu into the page, not off its
- * left edge under the sidebar. See the note on .p-table-dropdown above. */
+/* Inner scroller (ui.js builds it) — same structure as .tx-pop-options in the
+   Transactions filter popover: the scrolling element is inset by the menu's
+   padding so the bar gets breathing room instead of hugging the rounded edge.
+   Thin frosted thumb on a transparent track (set explicitly: the menu is
+   mounted into whatever parent its anchor button has, so it can't rely on
+   inheriting the page's scrollbar-color — and the surface1 track that
+   inheritance would bring reads as a stripe on this surface2 menu). */
+.p-dropdown-scroll {
+    max-height: 320px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+
+/* Stepper pickers open centered under the ‹ label › cluster: the opener is the
+ * middle label button, flanked by equal arrow buttons, so centering on the
+ * stepper container lands the menu dead-center below the label. (Also avoids
+ * the right-aligned default spilling off the .page scroll box's left edge —
+ * see the note on .p-table-dropdown above.) */
 .stepper .p-table-dropdown {
     right: auto;
-    left: 0;
+    left: 50%;
+    transform: translateX(-50%);
 }
 
 .p-dropdown-item {
@@ -291,6 +307,9 @@
     width: 100%;
     background: none;
     border: none;
+    /* Rounded hover fill — the item is inset by the menu's padding now, same
+       treatment as .tx-pop-option in the filter popover. */
+    border-radius: 6px;
     text-align: left;
     padding: 9px 16px;
     color: var(--text-secondary);

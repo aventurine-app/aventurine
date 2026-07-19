@@ -403,7 +403,7 @@
     background: var(--dialog-surface);
     border: var(--border-width) solid var(--dialog-stroke);
     border-radius: 10px;
-    box-shadow: var(--shadow-card);
+    box-shadow: var(--shadow-menu);
 }
 
 .tx-pop-field {
@@ -438,6 +438,13 @@
     gap: 2px;
     max-height: 280px;
     overflow-y: auto;
+    /* Thin frosted scrollbar, stated explicitly (not left to inheritance from
+       .page) so every dropdown list scrolls with the same bar — see
+       .p-dropdown-scroll in ui.css. Transparent track: the inherited surface1
+       track only looked trackless because --dialog-surface happens to equal
+       surface1; make that intent literal so it survives theme changes. */
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
     /* Let the option hover fill reach the popover's padding edge. */
     margin: -2px;
     padding: 2px;

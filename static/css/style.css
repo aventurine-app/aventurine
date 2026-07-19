@@ -393,6 +393,12 @@
        modals keep their heavier overlay shadow. Theme-independent — shadows are
        black in both light and dark. */
     --shadow-card: 0 0px 0px rgba(0, 0, 0, 0.2);
+
+    /* Elevation drop shadow shared by every dropdown menu / popover (titlebar
+       File menu, ⋮ table menus, range pickers, Transactions filter popovers).
+       Floats above the page, so it reads heavier than --shadow-card but
+       lighter than a modal. Theme-independent, like --shadow-card. */
+    --shadow-menu: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
 /* Compact display density (Settings → Appearance). Tightens the spreadsheet

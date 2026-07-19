@@ -112,6 +112,12 @@
             document.querySelector('.p-table-dropdown')?.remove();
             const menu = document.createElement('div');
             menu.className = 'p-table-dropdown';
+            // Items go in an inner scroller (same structure as the Transactions
+            // filter popover) so the scrollbar sits inset from the menu's
+            // padded edge instead of hugging the rounded border.
+            const scroller = document.createElement('div');
+            menu.appendChild(scroller);
+            scroller.className = 'p-dropdown-scroll';
             items.forEach(({ label, action, danger, selected }) => {
                 const item = document.createElement('button');
                 item.className = 'p-dropdown-item'
@@ -120,7 +126,7 @@
                 item.textContent = label;
                 if (selected) item.setAttribute('aria-current', 'true');
                 item.addEventListener('click', () => { menu.remove(); action(); });
-                menu.appendChild(item);
+                scroller.appendChild(item);
             });
             const anchor = anchorBtn.parentElement;
             if (getComputedStyle(anchor).position === 'static') {
