@@ -147,7 +147,7 @@
         return `
             <div class="cat-row" data-id="${c.id}">
                 <span class="cat-grip" draggable="true" aria-label="Drag ${esc(c.name)} to reorder or recategorize">${ICON_GRIP}</span>
-                <input type="text" class="cat-name" value="${esc(c.name)}" maxlength="100"
+                <input type="text" class="cat-name" value="${esc(c.name)}" maxlength="18"
                        data-action="rename" aria-label="Category name">
                 <button class="cat-icon-btn cat-delete" data-action="delete" title="Delete category" aria-label="Delete ${esc(c.name)}">${ICON_X}</button>
             </div>

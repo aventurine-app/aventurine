@@ -4,6 +4,11 @@
 // functions (ctx, {params, query, body}); ctx is the conn manager.
 
 const { bad, cleanLabel } = require('../validate');
+
+// Category names are hard-capped well below cleanLabel's generic 100 so they
+// never wrap in the Cash Flow headers / transaction pills (the UI renders them
+// nowrap). Every seeded default fits ("Investment Account" is exactly 18).
+const MAX_CATEGORY_NAME_LEN = 18;
 const {
   VALID_CAT_TYPES,
   SYSTEM_CATEGORY_KEYS,
@@ -26,6 +31,7 @@ function create(ctx, { body }) {
   const data = body || {};
   const name = cleanLabel(data.name);
   if (!name) bad('name required');
+  if (name.length > MAX_CATEGORY_NAME_LEN) bad('name too long (max 18 characters)');
   if (!VALID_CAT_TYPES.includes(data.cat_type)) bad('invalid cat_type');
   if (db.prepare('SELECT 1 FROM categories WHERE name = ?').get(name)) {
     bad('category already exists', 409);
@@ -62,6 +68,7 @@ function update(ctx, { params, body }) {
       if (locked) bad('category is locked', 409);
       const name = cleanLabel(data.name);
       if (!name) bad('invalid name');
+      if (name.length > MAX_CATEGORY_NAME_LEN) bad('name too long (max 18 characters)');
       const existing = db.prepare('SELECT id FROM categories WHERE name = ?').get(name);
       if (existing && existing.id !== cat.id) bad('category already exists', 409);
       cat.name = name;
