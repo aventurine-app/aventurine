@@ -185,7 +185,7 @@ test('import names lexicon merchants; description keeps the raw string', (t) => 
 
 test('keyword-tier categorization names nothing (kind, not identity)', (t) => {
   const c = makeClient(t);
-  const raw = 'SQ *BLUE BOTTLE COFFEE 866-123-4567 CA';
+  const raw = 'SQ *RIVERBEND COFFEE 866-123-4567 CA';
   const result = importRows(c, [raw]);
   assert.equal(result.auto_categorized, 1); // 'coffee' keyword → food
   assert.equal(txByDesc(c, raw)[0].display_name, null);
