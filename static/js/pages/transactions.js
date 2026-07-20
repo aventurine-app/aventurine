@@ -466,6 +466,18 @@
     // the Cash Flow deep-link sets (and the chip collapses it to just the year).
     const TX_DATE_PRESETS = [['week', 'This week'], ['month', 'This month'], ['year', 'This year']];
 
+    // Quick thresholds offered in the Amount popover, mirroring the Date presets.
+    // '<' fills only Max (amount ≤ n); '>' fills only Min (amount ≥ n). Labels are
+    // rendered with formatCurrency so they honour the user's currency/format.
+    const TX_AMOUNT_PRESETS = [['<', 50], ['<', 100], ['>', 100]];
+
+    // The { amountMin, amountMax } a preset sets. Also used to mark it selected.
+    function txAmountPresetRange(cmp, n) {
+        return cmp === '>'
+            ? { amountMin: String(n), amountMax: '' }
+            : { amountMin: '', amountMax: String(n) };
+    }
+
     // [dateFrom, dateTo] for a preset key. The week's first day follows the
     // Preferences → Format "Week Starts On" setting (Sunday by default).
     function txDatePresetRange(preset) {
@@ -687,7 +699,16 @@
             </label>`;
             txWirePopoverInputs(wrap);
         } else if (key === 'amount') {
+            // Quick-threshold pills first (the common case), the free Min/Max inputs
+            // below — same shape as the Date popover. A pill whose bounds are the
+            // active filter reads as selected; picking one applies and closes.
+            const presets = TX_AMOUNT_PRESETS.map(([cmp, n], i) => {
+                const { amountMin, amountMax } = txAmountPresetRange(cmp, n);
+                const sel = String(f.amountMin) === amountMin && String(f.amountMax) === amountMax;
+                return `<button type="button" class="tx-pop-preset${sel ? ' is-selected' : ''}" aria-pressed="${sel}" data-preset="${i}">${cmp} ${formatCurrency(n, true)}</button>`;
+            }).join('');
             wrap.innerHTML = `
+            <div class="tx-pop-presets" role="group" aria-label="Quick amount ranges">${presets}</div>
             <div class="tx-pop-row">
                 <label class="tx-pop-field">
                     <span class="tx-pop-label">Min</span>
@@ -699,6 +720,13 @@
                 </label>
             </div>`;
             txWirePopoverInputs(wrap);
+            wrap.querySelectorAll('.tx-pop-preset').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const [cmp, n] = TX_AMOUNT_PRESETS[Number(btn.dataset.preset)];
+                    txCloseFilterPopover();
+                    txSetFilter(txAmountPresetRange(cmp, n));
+                });
+            });
         } else if (key === 'type') {
             wrap.appendChild(txBuildOptionList('type', [
                 ['', 'All'], ['income', 'Income'], ['expense', 'Expense'], ['savings', 'Savings'], ['investing', 'Investing'],
