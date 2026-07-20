@@ -107,6 +107,8 @@
     wirePrefRadios('symbol_position', 'symbol_position', 'prefix', (v) => setSymbolPosition(v));
     wirePrefRadios('hide_cents', 'hide_cents', '', (v) => setHideCents(v === '1'));
     wirePrefRadios('negative_style', 'negative_style', 'minus', (v) => setNegativeStyle(v));
+    // Read at use time by the Transactions date-filter quick ranges ("This week").
+    wirePrefRadios('week_start', 'week_start', 'sunday', (v) => localStorage.setItem('week_start', v));
 
     // Format selects (number grouping + date style). Same shape: seed from
     // localStorage, persist via the currency.js setter, keep instances in sync.
@@ -174,7 +176,8 @@
 
     const PREF_KEYS = [
         'color-theme', 'ui-density', 'currency_symbol', 'number_format',
-        'symbol_position', 'hide_cents', 'negative_style', 'date_format', 'zoom_level',
+        'symbol_position', 'hide_cents', 'negative_style', 'date_format', 'week_start',
+        'zoom_level',
     ];
 
     async function restoreDefaults() {

@@ -461,6 +461,32 @@
         category: ['category'],
     };
 
+    // Quick ranges offered in the Date popover. Each resolves to the full calendar
+    // period containing today, so "This year" produces the same Jan 1 – Dec 31 range
+    // the Cash Flow deep-link sets (and the chip collapses it to just the year).
+    const TX_DATE_PRESETS = [['week', 'This week'], ['month', 'This month'], ['year', 'This year']];
+
+    // [dateFrom, dateTo] for a preset key. The week's first day follows the
+    // Preferences → Format "Week Starts On" setting (Sunday by default).
+    function txDatePresetRange(preset) {
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        if (preset === 'week') {
+            const daysBack = localStorage.getItem('week_start') === 'monday'
+                ? (now.getDay() + 6) % 7
+                : now.getDay();
+            const from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysBack);
+            const to   = new Date(from.getFullYear(), from.getMonth(), from.getDate() + 6);
+            return [iso(from), iso(to)];
+        }
+        if (preset === 'month') {
+            return [iso(new Date(now.getFullYear(), now.getMonth(), 1)),
+                    iso(new Date(now.getFullYear(), now.getMonth() + 1, 0))];
+        }
+        return [`${now.getFullYear()}-01-01`, `${now.getFullYear()}-12-31`];
+    }
+
     // Short date for the Date chip; a clean full-calendar-year range (what the Cash
     // Flow deep-link sets) collapses to just the year.
     function txFilterDateText() {
@@ -627,7 +653,16 @@
         const f = txState.filters;
 
         if (key === 'date') {
+            // Quick-range pills first (the common case), the free From/To inputs
+            // below. A pill whose range is the active filter reads as selected;
+            // picking one applies and closes, like the Type/Category options.
+            const presets = TX_DATE_PRESETS.map(([preset, label]) => {
+                const [from, to] = txDatePresetRange(preset);
+                const sel = f.dateFrom === from && f.dateTo === to;
+                return `<button type="button" class="tx-pop-preset${sel ? ' is-selected' : ''}" aria-pressed="${sel}" data-preset="${preset}">${label}</button>`;
+            }).join('');
             wrap.innerHTML = `
+            <div class="tx-pop-presets" role="group" aria-label="Quick date ranges">${presets}</div>
             <label class="tx-pop-field">
                 <span class="tx-pop-label">From</span>
                 <input type="date" class="tx-input tx-input-date" data-k="dateFrom" value="${txEsc(f.dateFrom)}">
@@ -637,6 +672,13 @@
                 <input type="date" class="tx-input tx-input-date" data-k="dateTo" value="${txEsc(f.dateTo)}">
             </label>`;
             txWirePopoverInputs(wrap);
+            wrap.querySelectorAll('.tx-pop-preset').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const [dateFrom, dateTo] = txDatePresetRange(btn.dataset.preset);
+                    txCloseFilterPopover();
+                    txSetFilter({ dateFrom, dateTo });
+                });
+            });
         } else if (key === 'name') {
             wrap.innerHTML = `
             <label class="tx-pop-field">

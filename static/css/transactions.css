@@ -422,6 +422,36 @@
     text-transform: uppercase;
 }
 
+/* Quick-range pills at the top of the Date popover: three equal ghost pills;
+   the one matching the active filter takes the accent, like a selected option. */
+.tx-pop-presets { display: flex; gap: 8px; }
+.tx-pop-preset {
+    flex: 1 1 auto;
+    height: 28px;
+    padding: 0 12px;
+    border: var(--border-width) solid var(--border);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.tx-pop-preset:hover { background: var(--frost-3); color: var(--text-primary); }
+/* Selected wears the same accent ramp as an active filter chip. */
+.tx-pop-preset.is-selected {
+    border-color: var(--color-accent-700);
+    background: var(--color-accent-200);
+    color: var(--color-accent-700);
+}
+.tx-pop-preset.is-selected:hover { background: var(--color-accent-300); }
+.tx-pop-preset:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: -2px;
+}
+
 /* Min/Max amount inputs side by side. */
 .tx-pop-row { display: flex; gap: 8px; }
 .tx-pop-row .tx-pop-field { flex: 1 1 0; min-width: 0; }
