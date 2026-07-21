@@ -474,7 +474,7 @@
 }
 
 /* Hovering a bar spotlights it by dimming the rest — the same affordance as
-   the Capital Profile donut. :has() scopes the dim to actual bar hovers, so
+   the Capital Snapshot donut. :has() scopes the dim to actual bar hovers, so
    sweeping the empty plot area doesn't grey the whole chart. The dim targets
    only the non-hovered bars (:not(:hover)); dimming *all* bars and then
    re-lighting the hovered one would fail, because :has() lifts the dim rule's

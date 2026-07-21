@@ -8,7 +8,7 @@
 //   1. Monthly Cash Flow (horizontal bars: the month's income / expenses /
 //      savings / investing totals, from the Cash Flow statement — /api/data)
 //   2. Spending (bar chart: the month's expense total per category, same data)
-//   3. Capital Profile (donut by account type, latest known balances)
+//   3. Capital Snapshot (donut by account type, latest known balances)
 //
 // "Over Time" — the long-run view:
 //   4. Net worth over time (line chart from balance data)
@@ -91,7 +91,7 @@
     // liability rather than an asset.
 
     /** Pull the four slice colours from the accent-derived --chart-* tokens so the
-     *  capital-profile pie follows the UI accent and retones on a palette/theme swap.
+     *  Capital Snapshot pie follows the UI accent and retones on a palette/theme swap.
      *  Four well-separated stops keep the slices distinguishable within the single-hue
      *  accent family; the green/red tokens stay reserved for the numeric figures. */
     function getAccountsPieColors() {
@@ -123,7 +123,7 @@
             legendEl.innerHTML = hasAnyData ? UI.emptyState({
                 icon: 'donut', compact: true,
                 title: `No balances by ${homeMonthLabel()}`,
-                desc: 'Your first recorded balance is in a later month — step forward to see your capital profile.',
+                desc: 'Your first recorded balance is in a later month — step forward to see your capital snapshot.',
             }) : UI.emptyState({
                 icon: 'donut', compact: true,
                 title: 'No capital to show yet',
@@ -159,7 +159,7 @@
             legendEl.innerHTML = UI.emptyState({
                 icon: 'donut', compact: true,
                 title: 'All balances are zero',
-                desc: 'Enter some non-zero account balances to see your capital profile.',
+                desc: 'Enter some non-zero account balances to see how your assets and debts split.',
             });
             return;
         }
@@ -241,7 +241,7 @@
      * Each populated month's value carries every column's most recent value
      * forward (the running `latest` map), so a month that only updates one
      * account still reports net worth across all accounts instead of dropping
-     * to that single entry — the same carry-forward the Capital Profile pie uses
+     * to that single entry — the same carry-forward the Capital Snapshot pie uses
      * (latestValueByColumn). A column contributes nothing until its first entry.
      */
     function computeNetWorth(data) {
@@ -1251,7 +1251,7 @@
         const month = sliceStatementMonth(data);
         renderMonthlyCashflow(month.totals);
         renderSpendingChart(month.categories);
-        // The Capital Profile donut is month-scoped too. Balance data isn't in
+        // The Capital Snapshot donut is month-scoped too. Balance data isn't in
         // yet on the first call from init() — that path renders the pie itself
         // once the fetch lands.
         if (appData) renderAccountsPie(appData);

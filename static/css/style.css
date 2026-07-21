@@ -175,7 +175,7 @@
    --accent-info-light: #4177ff;
 
    /* ── Chart series palette ───────────────────────────────────────────────
-    * Every graph — net-worth, forecast, income/expense, capital-profile pie,
+    * Every graph — net-worth, forecast, income/expense, Capital Snapshot pie,
     * account balances, Trends, the cash-flow Sankey — draws its line/slice/
     * node colours from these tokens so the charts FOLLOW THE UI ACCENT and
     * retone whenever the accent is swapped. They are deliberately separate

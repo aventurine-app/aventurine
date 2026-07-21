@@ -1,7 +1,7 @@
 /* == Menu Styles == */
 /* Uses --surface1, --border */
 div.menu {
-    background-color: var(--background);
+    background-color: var(--surface1);
     /*border-right: var(--border-width) solid var(--border); */
     margin: 0px;
     padding: var(--space-12);       /* The space between the left and right edges of the menu and the items */
