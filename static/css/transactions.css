@@ -950,6 +950,15 @@
     max-width: 420px;
 }
 
+/* Full row-preview step — the shell hugs the content-fit row table (each column
+   shrinks to its widest value with one uniform gap between them), growing only as
+   wide as it needs to and scrolling if the columns exceed the viewport. */
+.tx-import-dialog--preview {
+    width: fit-content;
+    min-width: 520px;
+    max-width: 92vw;
+}
+
 .tx-import-dialog-header {
     display: flex;
     align-items: center;
@@ -1052,11 +1061,44 @@
 .tx-import-preview-table tbody tr:hover td,
 .tx-similar-table tbody tr:hover td { background: var(--frost-2); }
 
-/* Full preview table (step 2) — checkboxes + wider */
-.tx-import-preview-full { min-width: 520px; }
+/* Full preview table (step 2) — a fixed column layout so every gutter stays even
+   regardless of row content: a long description truncates rather than stretching
+   its column and crowding the amount beside it. The widths sum under the ~850px
+   preview width, leaving the flexible description column the remainder. */
+.tx-import-preview-full { table-layout: auto; width: 100%; min-width: 0; }
+.tx-import-preview-full th,
+.tx-import-preview-full td {
+    padding: 8px 14px;
+    vertical-align: middle;
+}
 .tx-import-preview-full td:first-child,
-.tx-import-preview-full th:first-child { width: 36px; text-align: center; padding: 7px 8px; }
-.tx-import-col-amount { text-align: right; font-family: var(--font-numeric); font-variant-numeric: tabular-nums; }
+.tx-import-preview-full th:first-child { text-align: center; }
+.tx-import-col-amount { font-family: var(--font-numeric); font-variant-numeric: tabular-nums; }
+
+/* Description + Notes are the only unbounded columns, so they carry a cap that
+   truncates with an ellipsis — otherwise a long value would stretch the column
+   and throw off the otherwise-uniform gaps. The cap lives on an inner block
+   (reliable in auto table-layout), so the column still shrinks to fit shorter
+   values. Flex lives on the inner wrapper, NOT the <td> (a display:flex cell
+   drops out of the table's column layout). The "duplicate" badge is a flex
+   sibling that never clips and keeps a steady gap from the text. */
+.tx-import-desc-inner { display: flex; align-items: center; gap: 8px; max-width: 320px; }
+.tx-import-desc-text {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.tx-import-desc-inner .tx-import-dup-badge { flex: 0 0 auto; margin-left: 0; }
+.tx-import-note-text {
+    display: inline-block;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+}
 
 /* Duplicate rows — dimmed + unchecked by default */
 .tx-import-row-dup td { color: var(--text-tertiary); }

@@ -36,7 +36,7 @@ html[data-theme="dark"],
     --background: var(--color-base-950);
     --surface1:   var(--color-base-900);
     --surface2:   var(--color-base-900);
-    --surface3:   var(--color-base-700);
+    --surface3:   var(--color-base-800);
     --surface4:   var(--color-base-600);
 
     /* Borders / dividers — one neutral grey used across cards, inputs, menus. */

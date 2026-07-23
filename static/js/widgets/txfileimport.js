@@ -453,6 +453,9 @@
         `;
 
             const dialog = body.closest('.tx-import-dialog');
+            // Widen the shell for the full row table so every column fits without
+            // a horizontal scroll; the column-mapping step keeps the narrow width.
+            dialog.classList.add('tx-import-dialog--preview');
             dialog.append(footer);
 
             // Account bar — ALWAYS shown: every import is tagged with the
@@ -491,9 +494,9 @@
                                 <tr class="${r._dup ? 'tx-import-row-dup' : ''}">
                                     <td><input type="checkbox" class="tx-import-row-check" data-idx="${r._idx}"${checked.has(r._idx) ? ' checked' : ''}></td>
                                     <td>${esc(r.date)}</td>
-                                    <td>${esc(r.description)}${r._dup ? ' <span class="tx-import-dup-badge">duplicate</span>' : ''}</td>
+                                    <td class="tx-import-col-desc"><div class="tx-import-desc-inner"><span class="tx-import-desc-text" title="${esc(r.description)}">${esc(r.description)}</span>${r._dup ? '<span class="tx-import-dup-badge">duplicate</span>' : ''}</div></td>
                                     <td class="tx-import-col-amount">${esc(fmtAmt(r.amount))}</td>
-                                    <td>${esc(r.notes)}</td>
+                                    <td>${r.notes ? `<span class="tx-import-note-text" title="${esc(r.notes)}">${esc(r.notes)}</span>` : ''}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
