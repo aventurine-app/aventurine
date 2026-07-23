@@ -176,7 +176,23 @@
             // MEMO is promoted to the description instead of duplicating.
             rows.push([date, name || memo, field(chunk, 'TRNAMT'), name ? memo : '']);
         }
-        return { headers: ['Date', 'Description', 'Amount', 'Notes'], rows, fixed: true };
+
+        // Closing balance: <LEDGERBAL> carries the account's book balance
+        // (<BALAMT>) as of <DTASOF>. It feeds the Balance Sheet, not the ledger,
+        // so it rides alongside the rows rather than in them. AVAILBAL (funds
+        // available now, minus holds) is deliberately ignored — it isn't the
+        // month-end book balance. LEDGERBAL is an aggregate tag, closed in both
+        // OFX flavours; fall back to an open-ended slice if a writer omitted it.
+        let ledgerBalance = null;
+        const balMatch = text.match(/<LEDGERBAL>([\s\S]*?)(?:<\/LEDGERBAL>|<AVAILBAL>|$)/i);
+        if (balMatch) {
+            const amtRaw = field(balMatch[1], 'BALAMT');
+            const asOf = field(balMatch[1], 'DTASOF').match(/\d{8}/);
+            const value = parseAmount(amtRaw, 'dot');  // OFX amounts are dot-decimal
+            const date = asOf ? parseIsoDate(asOf[0]) : null;
+            if (date && Number.isFinite(value)) ledgerBalance = { date, value };
+        }
+        return { headers: ['Date', 'Description', 'Amount', 'Notes'], rows, fixed: true, ledgerBalance };
     }
 
     // ── QIF parser ───────────────────────────────────────────────────────────
@@ -422,17 +438,26 @@
     // treated as a single signed column.
     const RX_DEBIT  = /debit|withdrawal|money\s*out|paid\s*out/i;
     const RX_CREDIT = /credit|deposit|money\s*in|paid\s*in/i;
+    // Running/ledger balance column ("Balance", "Running Balance", "Ledger
+    // Balance"). "Available Balance" is excluded — it's the spendable figure
+    // (minus holds), not the month-end book balance the Balance Sheet wants.
+    const RX_BALANCE = /balance/i;
 
     function detectColumns(headers, rows) {
-        const d = { date: null, description: null, amount: null, debit: null, credit: null, notes: null };
+        const d = { date: null, description: null, amount: null, debit: null, credit: null, notes: null, balance: null };
 
         headers.forEach((h, i) => {
             const isDebit  = RX_DEBIT.test(h)  && !RX_CREDIT.test(h);
             const isCredit = RX_CREDIT.test(h) && !RX_DEBIT.test(h);
+            const isBalance = RX_BALANCE.test(h) && !/avail/i.test(h);
             if (d.date        === null && RX_DATE.test(h))   d.date        = i;
             if (d.debit       === null && isDebit)           d.debit       = i;
             if (d.credit      === null && isCredit)          d.credit      = i;
-            if (d.amount === null && RX_AMOUNT.test(h) && !isDebit && !isCredit) d.amount = i;
+            // A balance column is numeric but is NOT the transaction amount;
+            // claim it first so the amount rules and the numeric fallback below
+            // both skip it.
+            if (d.balance     === null && isBalance)         d.balance     = i;
+            if (d.amount === null && RX_AMOUNT.test(h) && !isDebit && !isCredit && !isBalance) d.amount = i;
             if (d.description === null && RX_DESC.test(h))   d.description = i;
             if (d.notes       === null && RX_NOTES.test(h))  d.notes       = i;
         });
@@ -460,7 +485,9 @@
                 // (parseFloat reads the leading year), so without this guard
                 // an anonymous-header file pre-selects the same column for
                 // both fields. Split mode (debit set) needs no amount at all.
-                if (d.amount === null && d.debit === null && i !== d.date) {
+                // A mapped balance column is numeric too — exclude it so it is
+                // never mistaken for the transaction amount.
+                if (d.amount === null && d.debit === null && i !== d.date && i !== d.balance) {
                     const hits = vals.filter(v => !Number.isNaN(parseAmount(v))).length;
                     if (hits / vals.length > 0.8) d.amount = i;
                 }
@@ -471,7 +498,7 @@
                 let best = null, bestAvg = 0;
                 headers.forEach((h, i) => {
                     if (i === d.date || i === d.amount || i === d.notes
-                        || i === d.debit || i === d.credit) return;
+                        || i === d.debit || i === d.credit || i === d.balance) return;
                     const avg = rows.reduce((s, r) => s + (r[i] || '').length, 0) / rows.length;
                     if (avg > bestAvg) { bestAvg = avg; best = i; }
                 });
@@ -679,15 +706,64 @@
                 errors.push({ row: rowNum, reason: 'empty description' });
                 return;
             }
-            parsed.push({ date, description: descRaw, tx_type, amount, notes: notesRaw });
+
+            // Optional running/ledger balance for this row (same currency, so
+            // the file's decimal convention applies). A blank or unparseable
+            // balance is simply absent — it never fails the row, since the
+            // transaction is valid regardless. deriveBalances reduces these to
+            // one month-end reading per month.
+            let balance = null;
+            if (mapping.balance != null) {
+                const braw = String(row[mapping.balance] ?? '').trim();
+                if (braw !== '') {
+                    const bv = parseAmount(braw, style);
+                    if (!Number.isNaN(bv)) balance = bv;
+                }
+            }
+
+            parsed.push({ date, description: descRaw, tx_type, amount, notes: notesRaw, balance });
         });
         return { parsed, errors };
+    }
+
+    // ── Reduce parsed rows + an OFX ledger balance → month-end readings ───────
+    // A balance is a point in time, but the Balance Sheet holds ONE figure per
+    // month. For each calendar month we keep the balance of the latest-dated
+    // reading in that month (ties broken by file order — the later row wins,
+    // since bank exports list a day's transactions in posting order). An OFX
+    // <LEDGERBAL> is folded in as one more reading (authoritative, so it wins a
+    // same-date tie). The account it belongs to is chosen in the UI and attached
+    // at commit time, so this stays pure. Returns [{ date, value, source }],
+    // oldest month first.
+    function deriveBalances(parsedRows, ledgerBalance = null) {
+        const readings = [];
+        parsedRows.forEach((r, i) => {
+            if (r && r.balance != null && r.date) {
+                readings.push({ date: r.date, value: r.balance, source: 'file', order: i });
+            }
+        });
+        if (ledgerBalance && ledgerBalance.date && Number.isFinite(ledgerBalance.value)) {
+            // order: Infinity → the ledger balance wins any same-date tie.
+            readings.push({ date: ledgerBalance.date, value: ledgerBalance.value, source: 'ofx', order: Infinity });
+        }
+
+        const byMonth = new Map();  // 'YYYY-MM' → winning reading
+        for (const rd of readings) {
+            const ym = rd.date.slice(0, 7);
+            const cur = byMonth.get(ym);
+            if (!cur || rd.date > cur.date || (rd.date === cur.date && rd.order >= cur.order)) {
+                byMonth.set(ym, rd);
+            }
+        }
+        return [...byMonth.values()]
+            .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+            .map(({ date, value, source }) => ({ date, value, source }));
     }
 
     const TxParse = {
         parseFile,
         parseDelimited, detectDelimiter, parseOFX, parseQIF, parseJSONTable, parseXLSX,
-        detectColumns, applyMapping,
+        detectColumns, applyMapping, deriveBalances,
         parseIsoDate, parseAmount, detectDecimalStyle, fingerprint,
         decodeText, unescapeXml,
     };

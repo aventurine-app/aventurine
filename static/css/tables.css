@@ -269,9 +269,8 @@
 .db-table th[data-type="cash"]::after       { background: var(--accent-positive); }
 .db-table th[data-type="expense"]::after,
 .db-table th[data-type="debt"]::after       { background: var(--accent-negative); }
-.db-table th[data-type="savings"]::after,
+.db-table th[data-type="transfer"]::after,
 .db-table th[data-type="retirement"]::after { background: var(--accent-secondary); }
-.db-table th[data-type="investing"]::after,
 .db-table th[data-type="investment"]::after { background: var(--accent-quatenary); }
 
 /* == Month/Year first-column header cell == */

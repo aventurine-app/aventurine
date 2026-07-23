@@ -168,11 +168,11 @@ test('forecast API: default shape, fresh DB', (t) => {
   // ordered by position), each with its latest balance (null until any entry exists).
   assert.deepStrictEqual(r.body.accounts.map((a) => a.key), ['checking', 'savings']);
   assert.ok(r.body.accounts.every((a) => a.type === 'cash' && a.balance === null));
-  assert.equal(r.body.include_savings, true); // savings/investing counted by default
+  assert.equal(r.body.include_transfers, true); // transfers counted by default
   assert.deepStrictEqual(r.body.planned, []);
 });
 
-test('forecast API: savings/investing flows can be excluded from the projection', (t) => {
+test('forecast API: transfer flows can be excluded from the projection', (t) => {
   const c = makeClient(t);
   // Three monthly transfers to savings in the trailing window (uncategorized
   // rows keep their explicit tx_type). The 15th of each of the last 3 complete
@@ -182,18 +182,18 @@ test('forecast API: savings/investing flows can be excluded from the projection'
   for (const back of [1, 2, 3]) {
     c.post('/api/transactions', {
       date: `${month(back)}-15`, description: 'Transfer to savings',
-      tx_type: 'savings', amount: 500,
+      tx_type: 'transfer', amount: 500,
     });
   }
 
   // Included (default): the transfers register as outflows in the typical month.
   const inc = c.get('/api/forecast');
-  assert.equal(inc.body.include_savings, true);
+  assert.equal(inc.body.include_transfers, true);
   assert.ok(inc.body.summary.avgExpense > 0, JSON.stringify(inc.body.summary));
 
   // Excluded: nothing left to spend → a flat, higher line.
-  const exc = c.get('/api/forecast?include_savings=0');
-  assert.equal(exc.body.include_savings, false);
+  const exc = c.get('/api/forecast?include_transfers=0');
+  assert.equal(exc.body.include_transfers, false);
   assert.equal(exc.body.summary.avgExpense, 0);
   assert.ok(exc.body.summary.endBalance > inc.body.summary.endBalance);
 });

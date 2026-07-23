@@ -140,9 +140,9 @@ app.whenReady().then(async () => {
 
     // Category management lives in the Statements Cash Flow ⋮ menu — open
     // "Manage Categories" and prove the modal editor renders the search field,
-    // the four collapsible type groups, each group's "Add category" row, and
-    // the seeded category rows. The editor fills asynchronously after mount,
-    // so poll briefly like the tx table.
+    // the three collapsible type groups (Income / Expense / Transfer), each
+    // group's "Add category" row, and the seeded category rows. The editor
+    // fills asynchronously after mount, so poll briefly like the tx table.
     await win.loadURL('app://aventurine/statements');
     await evalJs('new Promise(res => setTimeout(res, 400))');
     await evalJs('document.getElementById("stmt-menu-btn").click()');
@@ -151,8 +151,8 @@ app.whenReady().then(async () => {
     check('Statements ⋮ → Manage Categories renders the editor modal', await evalJs(
       'new Promise(res => setTimeout(() => res('
         + '!!document.querySelector(".cat-manager-overlay .cat-manager")'
-        + ' && document.querySelectorAll("[data-categories-editor] .cat-group").length === 4'
-        + ' && document.querySelectorAll("[data-categories-editor] .cat-add-row").length === 4'
+        + ' && document.querySelectorAll("[data-categories-editor] .cat-group").length === 3'
+        + ' && document.querySelectorAll("[data-categories-editor] .cat-add-row").length === 3'
         + ' && !!document.querySelector("[data-categories-editor] .cat-search-input")'
         + ' && document.querySelectorAll("[data-categories-editor] .cat-row").length > 0'
         + '), 800))'

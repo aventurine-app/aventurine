@@ -104,17 +104,18 @@ li {
     color: var(--text-primary);
 }
 
-/* Uncategorized-count badge next to the Transactions link. Pill on a vivid
-   primary blue so it reads as an attention-drawing notification. margin-left:auto
-   pushes it to the right edge of the link, past the flex-grown label. Hidden
-   while the count is zero (the [hidden] attribute is toggled by nav.js). */
+/* Uncategorized-count badge next to the Transactions link. Pill on a warning
+   amber so it reads as an attention-drawing "needs review" notification.
+   margin-left:auto pushes it to the right edge of the link, past the flex-grown
+   label. Hidden while the count is zero (the [hidden] attribute is toggled by
+   nav.js). */
 .nav-badge {
     margin-left: auto;
     min-width: 1.25em;
     padding: 1px 7px;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--accent-info) 18%, transparent);
-    color: var(--accent-info);
+    background: color-mix(in srgb, var(--warning) 18%, transparent);
+    color: var(--warning);
     font-size: var(--size-small);
     font-weight: var(--weight-semibold);
     line-height: 1.5;

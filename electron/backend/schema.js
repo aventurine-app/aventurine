@@ -17,7 +17,7 @@
 //   - the v_* views pre-join the normalized tables into human-readable,
 //     chronologically-sortable shapes for ad-hoc querying.
 
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 11;
 
 // Months persist as 1-12 integers so `ORDER BY year, month` sorts
 // chronologically (the app translates to/from English names at its API
@@ -87,7 +87,7 @@ const DDL = [
      "key" VARCHAR(50) NOT NULL,
      name VARCHAR(100) NOT NULL,
      cat_type VARCHAR(20) NOT NULL
-       CHECK (cat_type IN ('income', 'expense', 'savings', 'investing')),
+       CHECK (cat_type IN ('income', 'expense', 'transfer')),
      position INTEGER DEFAULT 0 NOT NULL,
      PRIMARY KEY (id),
      UNIQUE ("key")
@@ -160,9 +160,14 @@ const DDL = [
      amount FLOAT DEFAULT 0 NOT NULL CHECK (amount >= 0),
      notes VARCHAR(500) DEFAULT '' NOT NULL,
      tx_type VARCHAR(10) DEFAULT 'expense' NOT NULL
-       CHECK (tx_type IN ('income', 'expense', 'savings', 'investing')),
+       CHECK (tx_type IN ('income', 'expense', 'transfer')),
+     account_key VARCHAR(50),  -- source account these rows were imported from (a
+                               -- balance_columns."key"); NULL = unassigned. One
+                               -- import = one account; powers dedup scoping and
+                               -- per-account spend (e.g. the Credit Cards tool).
      PRIMARY KEY (id),
-     FOREIGN KEY (category_id) REFERENCES categories (id)
+     FOREIGN KEY (category_id) REFERENCES categories (id),
+     FOREIGN KEY (account_key) REFERENCES balance_columns ("key")
    )`,
   `CREATE TABLE forecast_planned (
      -- Planned one-off future income/expenses for the Cash Flow Forecast.
@@ -177,7 +182,7 @@ const DDL = [
   `CREATE TABLE budget_amounts (
      -- Budget envelopes: ONE recurring monthly target per category, applied to
      -- every month (not stored per-month). category is a categories."key" (an
-     -- expense/savings/investing category) and is the primary key, so a category
+     -- expense or transfer category) and is the primary key, so a category
      -- has at most one budget. Actual spend is computed from transactions per
      -- month at read time, never stored here.
      category VARCHAR(50) NOT NULL,
@@ -205,8 +210,8 @@ const DDL = [
      -- direction: a categorized row takes tx_type from the category (so it is
      -- correct even if the stored tx_type predates a category re-type); an
      -- uncategorized row keeps its stored tx_type. signed_amount is a cash-flow
-     -- convention — income positive, every outflow (expense/savings/investing)
-     -- negative.
+     -- convention — income positive, every outflow (expense, and transfers out
+     -- of the cash account) negative.
      SELECT
        t.id,
        t.date,
@@ -219,9 +224,12 @@ const DDL = [
        t.category_id,
        c."key" AS category_key,
        c.name  AS category_name,
+       t.account_key,
+       bc.label AS account_name,
        t.notes
      FROM transactions t
-     LEFT JOIN categories c ON c.id = t.category_id`,
+     LEFT JOIN categories c ON c.id = t.category_id
+     LEFT JOIN balance_columns bc ON bc."key" = t.account_key`,
 
   `CREATE VIEW v_cash_flow AS
      -- Cash Flow manual entries (per-cell overrides of the transaction-computed

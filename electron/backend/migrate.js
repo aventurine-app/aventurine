@@ -142,6 +142,94 @@ const MIGRATIONS = [
     db.exec('DROP VIEW IF EXISTS v_cash_flow');
     db.exec(DDL.find((s) => s.includes('CREATE VIEW v_cash_flow')));
   }],
+  // v10 — Transactions gain account_key: the source account an import came from
+  // (a balance_columns."key"). Every import now tags its rows with one account,
+  // scoping dedup and enabling per-account spend (the Credit Cards tool). ADD
+  // COLUMN is not idempotent, so guard on the column already existing. Existing
+  // rows stay NULL (unassigned) — pre-migration imports carried no account.
+  // v_transactions is recreated from the baseline text so a migrated DB's view
+  // exposes account_key/account_name exactly like a fresh DB's.
+  [10, (db) => {
+    const hasCol = db.pragma('table_info(transactions)').some((c) => c.name === 'account_key');
+    if (!hasCol) {
+      db.exec('ALTER TABLE transactions ADD COLUMN account_key VARCHAR(50)');
+    }
+    db.exec('DROP VIEW IF EXISTS v_transactions');
+    db.exec(DDL.find((s) => s.includes('CREATE VIEW v_transactions')));
+  }],
+  // v11 — Retire the 'savings' and 'investing' directions: categories and
+  // transactions now carry only 'income', 'expense', or 'transfer'. Money moved
+  // to savings/brokerage accounts is a transfer (excluded from income/spend
+  // surfaces), not a spend kind of its own. Existing savings/investing rows are
+  // CONVERTED to transfer in place. A CHECK constraint can't be altered, so each
+  // table is rebuilt from its baseline shape (foreign_keys is OFF at the
+  // connection level — referential rules live in the handlers — so dropping a
+  // referenced table is safe). The …_new guards make a re-run after a partial
+  // failure harmless; the whole climb runs once per DB via user_version.
+  [11, (db) => {
+    // Drop every view that reads the two tables first: ALTER TABLE … RENAME
+    // reparses all views to fix up references, and it would trip over a view
+    // pointing at `categories` in the window before the rebuilt table is back.
+    // They are recreated from the baseline DDL at the end.
+    db.exec('DROP VIEW IF EXISTS v_transactions');
+    db.exec('DROP VIEW IF EXISTS v_cash_flow');
+    db.exec('DROP VIEW IF EXISTS v_budget');
+
+    // categories: same shape, new cat_type CHECK, savings/investing → transfer.
+    db.exec('DROP TABLE IF EXISTS categories_new');
+    db.exec(`CREATE TABLE categories_new (
+       id INTEGER NOT NULL,
+       "key" VARCHAR(50) NOT NULL,
+       name VARCHAR(100) NOT NULL,
+       cat_type VARCHAR(20) NOT NULL
+         CHECK (cat_type IN ('income', 'expense', 'transfer')),
+       position INTEGER DEFAULT 0 NOT NULL,
+       PRIMARY KEY (id),
+       UNIQUE ("key")
+     )`);
+    db.exec(`INSERT INTO categories_new (id, "key", name, cat_type, position)
+             SELECT id, "key", name,
+                    CASE WHEN cat_type IN ('savings', 'investing') THEN 'transfer'
+                         ELSE cat_type END,
+                    position
+               FROM categories`);
+    db.exec('DROP TABLE categories');
+    db.exec('ALTER TABLE categories_new RENAME TO categories');
+
+    // transactions: same shape, new tx_type CHECK, savings/investing → transfer.
+    db.exec('DROP TABLE IF EXISTS transactions_new');
+    db.exec(`CREATE TABLE transactions_new (
+       id INTEGER NOT NULL,
+       date DATE NOT NULL,
+       description VARCHAR(200) DEFAULT '' NOT NULL,
+       display_name VARCHAR(200),
+       category_id INTEGER,
+       amount FLOAT DEFAULT 0 NOT NULL CHECK (amount >= 0),
+       notes VARCHAR(500) DEFAULT '' NOT NULL,
+       tx_type VARCHAR(10) DEFAULT 'expense' NOT NULL
+         CHECK (tx_type IN ('income', 'expense', 'transfer')),
+       account_key VARCHAR(50),
+       PRIMARY KEY (id),
+       FOREIGN KEY (category_id) REFERENCES categories (id),
+       FOREIGN KEY (account_key) REFERENCES balance_columns ("key")
+     )`);
+    db.exec(`INSERT INTO transactions_new
+               (id, date, description, display_name, category_id, amount, notes, tx_type, account_key)
+             SELECT id, date, description, display_name, category_id, amount, notes,
+                    CASE WHEN tx_type IN ('savings', 'investing') THEN 'transfer'
+                         ELSE tx_type END,
+                    account_key
+               FROM transactions`);
+    db.exec('DROP TABLE transactions');
+    db.exec('ALTER TABLE transactions_new RENAME TO transactions');
+    db.exec('CREATE INDEX IF NOT EXISTS ix_transactions_category_id ON transactions (category_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS ix_transactions_date ON transactions (date)');
+
+    // Recreate the dropped views from the baseline text.
+    db.exec(DDL.find((s) => s.includes('CREATE VIEW v_transactions')));
+    db.exec(DDL.find((s) => s.includes('CREATE VIEW v_cash_flow')));
+    db.exec(DDL.find((s) => s.includes('CREATE VIEW v_budget')));
+  }],
 ];
 
 function bootstrapSchema(db) {

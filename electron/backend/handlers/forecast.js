@@ -82,11 +82,11 @@ function resolveStart(accounts, accountKey) {
 /** Split transactions into income/expense the same way /api/transactions and
  *  the predictions card do: a categorized row's direction follows its
  *  Category.cat_type; an uncategorized row keeps its stored tx_type. With
- *  `includeSavings`, savings- and investing-typed rows are folded into the
- *  expense (outflow) bucket — money moved out of the cash account on its way to
- *  savings/investments; with it off they're dropped, so the projection shows the
- *  balance as if that money had stayed put. */
-function directionSplit(db, includeSavings) {
+ *  `includeTransfers`, transfer-typed rows are folded into the expense (outflow)
+ *  bucket — money moved out of the cash account on its way to savings/a
+ *  brokerage; with it off they're dropped, so the projection shows the balance
+ *  as if that money had stayed put. */
+function directionSplit(db, includeTransfers) {
   const catTypes = new Map(
     db.prepare('SELECT id, cat_type FROM categories').all().map((c) => [c.id, c.cat_type])
   );
@@ -96,7 +96,7 @@ function directionSplit(db, includeSavings) {
     const dir = t.category_id != null ? catTypes.get(t.category_id) ?? t.tx_type : t.tx_type;
     if (dir === 'income') income.push(t);
     else if (dir === 'expense') expense.push(t);
-    else if (includeSavings && (dir === 'savings' || dir === 'investing')) expense.push(t);
+    else if (includeTransfers && dir === 'transfer') expense.push(t);
   }
   return { income, expense };
 }
@@ -114,12 +114,12 @@ function getForecast(ctx, { query }) {
   const startAccount = resolveStart(accounts, query.account);
   const startBalance = startAccount && startAccount.balance != null ? startAccount.balance : 0;
 
-  // Savings/investing transfers are treated as outflows by default (they leave
-  // the cash account); ?include_savings=0 leaves them out so the projection
-  // reflects only spendable income vs expenses.
-  const includeSavings = query.include_savings !== '0' && query.include_savings !== 'false';
+  // Transfers are treated as outflows by default (they leave the cash account
+  // on their way to savings/a brokerage); ?include_transfers=0 leaves them out
+  // so the projection reflects only spendable income vs expenses.
+  const includeTransfers = query.include_transfers !== '0' && query.include_transfers !== 'false';
 
-  const { income, expense } = directionSplit(db, includeSavings);
+  const { income, expense } = directionSplit(db, includeTransfers);
   const planned = plannedList(db);
 
   const result = forecast({ startBalance, income, expense, planned, months });
@@ -129,7 +129,7 @@ function getForecast(ctx, { query }) {
     start_balance: startBalance,
     start_account: startAccount ? startAccount.key : null,
     accounts,
-    include_savings: includeSavings,
+    include_transfers: includeTransfers,
     series: result.series,
     summary: result.summary,
     planned,

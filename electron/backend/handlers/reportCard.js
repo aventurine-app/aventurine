@@ -1,10 +1,11 @@
 'use strict';
 
 // Yearly Report Card (Reports) blueprint. Read-only: aggregates each year's
-// Cash Flow (Income & Expenses) activity into income / expense / savings +
-// investing totals, plus the latest Balance-Sheet debt snapshot, then hands the
-// per-year totals to services/reportCard.js for the year-over-year changes,
-// ratios, and goal outcomes.
+// Cash Flow (Income & Expenses) activity into income / expense totals, plus the
+// latest Balance-Sheet debt snapshot, then hands the per-year totals to
+// services/reportCard.js for the year-over-year changes, ratios, and goal
+// outcomes. Transfer categories feed no bucket — money moved to savings or a
+// brokerage is excluded from the income/spend surfaces the Report Card grades.
 //
 // "Relevant years" are the years on the Cash Flow statement (the `active_years`
 // table) — so every year the user tracks gets a card, even one with no activity
@@ -15,22 +16,20 @@
 const { computedCells, manualCells, blendCells } = require('./incomeExpenses');
 const { buildReportCards } = require('../services/reportCard');
 
-// cat_type → which headline bucket a category feeds. savings and investing are
-// reported as one combined "savings & investing" figure.
+// cat_type → which headline bucket a category feeds. Transfer categories map to
+// nothing: money moved to savings/brokerage is excluded from income and spend.
 const BUCKET_BY_CAT_TYPE = {
   income: 'income',
   expense: 'expenses',
-  savings: 'savings',
-  investing: 'savings',
 };
 
 /**
- * Per-year { income, expenses, savings } from the Cash Flow statement. Mirrors
+ * Per-year { income, expenses } from the Cash Flow statement. Mirrors
  * incomeExpenses.dataGet's data sourcing exactly: every active year is seeded
  * (so empty years still get a card), and each cell contributes its blended
  * value — the transaction sum unless a manual Entry overrides that cell. A
  * category key maps to a bucket by its cat_type (the uncat_* buckets are real
- * categories); cells for unknown/typeless keys are skipped.
+ * categories); cells for transfer/unknown/typeless keys are skipped.
  */
 function yearlyTotals(db) {
   const bucketByKey = new Map();
@@ -39,10 +38,10 @@ function yearlyTotals(db) {
     if (bucket) bucketByKey.set(c.key, bucket);
   }
 
-  const totals = new Map(); // year -> { income, expenses, savings }
+  const totals = new Map(); // year -> { income, expenses }
   const ensure = (year) => {
     let t = totals.get(year);
-    if (!t) { t = { income: 0, expenses: 0, savings: 0 }; totals.set(year, t); }
+    if (!t) { t = { income: 0, expenses: 0 }; totals.set(year, t); }
     return t;
   };
 
@@ -105,7 +104,6 @@ function reportCardGet(ctx) {
     year,
     income: t.income,
     expenses: t.expenses,
-    savings: t.savings,
     debt: debt.has(year) ? debt.get(year) : null,
   }));
 

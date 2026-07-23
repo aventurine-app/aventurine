@@ -136,8 +136,8 @@
     cursor: default;
 }
 
-/* Savings/investing toggle — same chip styling as the range button. */
-.forecast-savings {
+/* Transfers toggle — same chip styling as the range button. */
+.forecast-transfers {
     display: inline-flex;
     align-items: center;
     gap: 6px;

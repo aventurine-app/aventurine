@@ -93,7 +93,7 @@ test('seed re-creates a missing system bucket at the end of its type block', () 
   const cats = db.prepare('SELECT cat_type, position FROM categories ORDER BY position').all();
   assert.deepEqual(cats.map((c) => c.position), cats.map((_, i) => i));
   const runs = cats.map((c) => c.cat_type).filter((tp, i, a) => i === 0 || tp !== a[i - 1]);
-  assert.deepEqual(runs, ['income', 'expense', 'savings', 'investing']);
+  assert.deepEqual(runs, ['income', 'expense', 'transfer']);
   db.close();
 });
 

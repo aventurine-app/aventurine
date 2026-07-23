@@ -33,9 +33,12 @@ const DEFAULT_CATEGORIES = [
   ['insurance',      'Insurance',           'expense',   11],
   ['general',        'General',             'expense',   12],
   ['uncat_expense',  'Uncategorized',       'expense',   13],
-  ['savings',        'Primary Savings',     'savings',   14],
-  ['emergency_fund', 'Emergency Fund',      'savings',   15],
-  ['investing',      'Investment Account',  'investing', 16],
+  // Transfers: money moved between the user's own accounts (savings, brokerage).
+  // Excluded from every income/spend surface. Keys are unchanged so the import
+  // categorizer's merchant lexicon (which targets these keys) keeps landing here.
+  ['savings',        'Primary Savings',     'transfer',  14],
+  ['emergency_fund', 'Emergency Fund',      'transfer',  15],
+  ['investing',      'Investment Account',  'transfer',  16],
 ];
 
 // (key, label, col_type, position)

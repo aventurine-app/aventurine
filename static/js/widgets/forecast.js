@@ -23,7 +23,7 @@
   const state = {
     months: 3,
     account: null,        // selected Balance-Sheet account key; null = server default
-    includeSavings: true, // count savings/investing transfers as outflows
+    includeTransfers: true, // count transfers (money moved out) as outflows
     data: null,           // last /api/forecast payload
     editing: null,        // planned-item id being edited, or null
   };
@@ -55,7 +55,7 @@
   async function load() {
     let url = `/api/forecast?months=${state.months}`;
     if (state.account !== null) url += `&account=${encodeURIComponent(state.account)}`;
-    if (!state.includeSavings) url += '&include_savings=0';
+    if (!state.includeTransfers) url += '&include_transfers=0';
     const res = await apiFetch(url);
     if (!res.ok) return;
     state.data = await res.json();
@@ -106,7 +106,7 @@
   function renderSummary() {
     const el = document.getElementById('forecast-summary');
     if (!el || !state.data) return;
-    const { summary, series, accounts, start_account, include_savings } = state.data;
+    const { summary, series, accounts, start_account, include_transfers } = state.data;
     if (!series.length) {
       el.innerHTML = UI.emptyState({
         icon: 'forecast',
@@ -129,8 +129,8 @@
     const historyNote = months > 0
       ? `typical month from your last ${months} month${months > 1 ? 's' : ''} of transactions`
       : 'not enough transaction history yet — add a few months for a meaningful trend';
-    const savingsNote = include_savings === false ? ' · savings & investing excluded' : '';
-    const sourceNote = `${startNote} · ${historyNote}${savingsNote}`;
+    const transfersNote = include_transfers === false ? ' · transfers excluded' : '';
+    const sourceNote = `${startNote} · ${historyNote}${transfersNote}`;
 
     const stats = [
       ['Typical monthly net', months > 0 ? fmtMoney(typicalNet) : '—', typicalNet < 0 ? 'neg' : '',
@@ -444,13 +444,13 @@
     el.addEventListener('change', commitAccount);
   }
 
-  function wireSavingsToggle() {
-    const btn = document.getElementById('forecast-savings-toggle');
+  function wireTransfersToggle() {
+    const btn = document.getElementById('forecast-transfers-toggle');
     if (!btn) return;
     btn.addEventListener('click', () => {
-      state.includeSavings = !state.includeSavings;
-      btn.setAttribute('aria-pressed', String(state.includeSavings));
-      btn.classList.toggle('active', state.includeSavings);
+      state.includeTransfers = !state.includeTransfers;
+      btn.setAttribute('aria-pressed', String(state.includeTransfers));
+      btn.classList.toggle('active', state.includeTransfers);
       load();
     });
   }
@@ -458,7 +458,7 @@
   document.addEventListener('DOMContentLoaded', () => {
     wireRangePicker();
     wireAccountSelect();
-    wireSavingsToggle();
+    wireTransfersToggle();
     document.getElementById('planned-add-btn').addEventListener('click', () => openForm(null));
     load();
     // Re-render currency-bearing UI if the symbol changes in Settings.

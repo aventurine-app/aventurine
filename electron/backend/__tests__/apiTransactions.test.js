@@ -90,19 +90,18 @@ test('uncategorized-count reflects NULL-category rows', (t) => {
 test('new category lands at the end of its own type block, not the global end', (t) => {
   const c = makeClient(t);
   // Cash Flow columns and the ledger dropdown render in flat position order,
-  // so a global MAX+1 append would park a new income category past Investing.
+  // so a global MAX+1 append would park a new income category past the transfers.
   const ids = {
     income: makeCategory(c, 'Freelance', 'income'),
     expense: makeCategory(c, 'Pets', 'expense'),
-    savings: makeCategory(c, 'Vacation Fund', 'savings'),
-    investing: makeCategory(c, 'Crypto', 'investing'),
+    transfer: makeCategory(c, 'Vacation Fund', 'transfer'),
   };
 
   const cats = c.get('/api/categories').body.categories; // ORDER BY position
   // Type blocks stay contiguous, in canonical order.
   const types = cats.map((x) => x.cat_type);
   const runs = types.filter((tp, i) => i === 0 || tp !== types[i - 1]);
-  assert.deepEqual(runs, ['income', 'expense', 'savings', 'investing']);
+  assert.deepEqual(runs, ['income', 'expense', 'transfer']);
   // Each new category is the last row of its own block.
   for (const [tp, id] of Object.entries(ids)) {
     const ofType = cats.filter((x) => x.cat_type === tp);
@@ -120,14 +119,14 @@ test('new category lands at the end of its own type block, not the global end', 
   );
 
   // Fallback: a type with no rows left inserts after the nearest earlier block.
-  for (const cat of cats.filter((x) => x.cat_type === 'savings')) {
+  for (const cat of cats.filter((x) => x.cat_type === 'transfer')) {
     assert.equal(c.del(`/api/categories/${cat.id}`).status, 200);
   }
-  makeCategory(c, 'Rainy Day', 'savings');
+  makeCategory(c, 'Rainy Day', 'transfer');
   const after = c.get('/api/categories').body.categories.map((x) => x.cat_type);
   assert.deepEqual(
     after.filter((tp, i) => i === 0 || tp !== after[i - 1]),
-    ['income', 'expense', 'savings', 'investing']
+    ['income', 'expense', 'transfer']
   );
 });
 
@@ -513,14 +512,14 @@ test('built-in categorization respects the direction guard and the on/off settin
   assert.equal(txByDesc(c, 'SHELL OIL REFUND')[0].category_id, null);
 
   // Within the outflow family the guard permits refining the KIND: an imported
-  // debit (sign says 'expense') to a named brokerage is an investing
-  // contribution, and the row's tx_type follows the category.
+  // debit (sign says 'expense') to a named brokerage is a transfer (a
+  // contribution), and the row's tx_type follows the category.
   const investingId = getCategories(c).find((x) => x.key === 'investing').id;
   result = importRows(c, ['ROBINHOOD FUNDS 4412']);
   assert.equal(result.auto_categorized, 1);
   const rh = txByDesc(c, 'ROBINHOOD FUNDS 4412')[0];
   assert.equal(rh.category_id, investingId);
-  assert.equal(rh.tx_type, 'investing');
+  assert.equal(rh.tx_type, 'transfer');
 
   // But an INFLOW from a brokerage is a withdrawal, not income — it must stay
   // blank rather than cross the inflow/outflow line.
@@ -927,4 +926,101 @@ test('import: never disturbs manual overrides in an existing year', (t) => {
   const d = getData(c);
   assert.equal(d.entries['2026'].February.food, 500);
   assert.equal(d.computed['2026'].February.food, 3);
+});
+
+// ── account_key: every import is tagged with its source account ──────────────
+
+test('import stamps every row with the chosen account, exposed on each tx', (t) => {
+  const c = makeClient(t);
+  const r = c.post('/api/transactions/import', {
+    account_key: 'checking',
+    rows: [
+      { date: '2026-01-05', description: 'zzqx one', tx_type: 'expense', amount: 5 },
+      { date: '2026-01-06', description: 'zzqx two', tx_type: 'expense', amount: 7 },
+    ],
+  });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const rows = c.get('/api/transactions').body.transactions
+    .filter((x) => x.description.startsWith('zzqx'));
+  assert.equal(rows.length, 2);
+  assert.ok(rows.every((x) => x.account_key === 'checking'));
+});
+
+test('an import with no account_key leaves rows unassigned (account_key null)', (t) => {
+  const c = makeClient(t);
+  const r = c.post('/api/transactions/import', {
+    rows: [{ date: '2026-01-05', description: 'zzqx none', tx_type: 'expense', amount: 5 }],
+  });
+  assert.equal(r.status, 200);
+  const [row] = c.get('/api/transactions').body.transactions
+    .filter((x) => x.description === 'zzqx none');
+  assert.equal(row.account_key, null);
+});
+
+test('an account_key that names no account is a bad request (typo cannot silently drop it)', (t) => {
+  const c = makeClient(t);
+  const r = c.post('/api/transactions/import', {
+    account_key: 'no_such_account',
+    rows: [{ date: '2026-01-05', description: 'zzqx bad', tx_type: 'expense', amount: 5 }],
+  });
+  assert.equal(r.status, 400);
+  // Nothing was written.
+  assert.equal(
+    c.get('/api/transactions').body.transactions.filter((x) => x.description === 'zzqx bad').length,
+    0
+  );
+});
+
+test('the account is captured alongside a balance-seeding import, on the same account', (t) => {
+  const c = makeClient(t);
+  const r = c.post('/api/transactions/import', {
+    account_key: 'savings',
+    rows: [{ date: '2026-02-15', description: 'zzqx both', tx_type: 'expense', amount: 9 }],
+    balances: [{ account_key: 'savings', date: '2026-02-28', value: 3200, source: 'file' }],
+  });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.balances_applied, 1);
+  const [row] = c.get('/api/transactions').body.transactions
+    .filter((x) => x.description === 'zzqx both');
+  assert.equal(row.account_key, 'savings');
+});
+
+// The Transactions add row / bulk-edit modal set and change account_key on the
+// create and update endpoints — the surface behind "edit the Account".
+test('a hand-created transaction can name its account', (t) => {
+  const c = makeClient(t);
+  const r = c.post('/api/transactions', {
+    date: '2026-03-01', description: 'zzqx new', tx_type: 'expense', amount: 3, account_key: 'checking',
+  });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.transaction.account_key, 'checking');
+});
+
+test('editing a transaction can change its account and clear it back to none', (t) => {
+  const c = makeClient(t);
+  const tx = createTx(c, 'zzqx move');
+  assert.equal(tx.account_key, null); // manual entries start unassigned
+
+  let r = c.put(`/api/transactions/${tx.id}`, { account_key: 'checking' });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.transaction.account_key, 'checking');
+
+  r = c.put(`/api/transactions/${tx.id}`, { account_key: 'savings' });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.transaction.account_key, 'savings');
+
+  // "No account" in the select sends null, which unassigns the row.
+  r = c.put(`/api/transactions/${tx.id}`, { account_key: null });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.transaction.account_key, null);
+});
+
+test('editing with an account that names no account is rejected', (t) => {
+  const c = makeClient(t);
+  const tx = createTx(c, 'zzqx bad edit');
+  const r = c.put(`/api/transactions/${tx.id}`, { account_key: 'no_such_account' });
+  assert.equal(r.status, 400);
+  // The row is untouched.
+  assert.equal(c.get('/api/transactions').body.transactions
+    .find((x) => x.id === tx.id).account_key, null);
 });
