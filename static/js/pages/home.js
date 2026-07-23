@@ -6,7 +6,8 @@
 // "This Month" — the monthly view, defaulting to the current month with a
 // panel-level stepper to look back at earlier months:
 //   1. Monthly Cash Flow (horizontal bars: the month's income / expenses /
-//      transfers totals, from the Cash Flow statement — /api/data)
+//      transfers totals, each bar subdivided into its categories, from the
+//      Cash Flow statement — /api/data)
 //   2. Spending (bar chart: the month's expense total per category, same data)
 //   3. Capital Snapshot (donut by account type, latest known balances)
 //
@@ -1019,7 +1020,17 @@
      * end, so the month's statement reads without hovering. Height comes from the
      * fixed row count, not the width.
      *
-     *   rows: [{ label, color, value }] — values ≥ 0, fixed label set.
+     * Each bar is subdivided into its categories: `segments` tile the bar in
+     * proportion to their share of the type, shaded from the type's base colour
+     * (nearest the axis) fading outward, separated by a hairline gap — little
+     * per-category bars within the flow-type bar. Each segment carries its own
+     * value tooltip; the row's total is still annotated at the end.
+     *
+     *   rows: [{ label, color, value, segments: [{ name, value }] }]
+     *         — values ≥ 0; segments optional (a bare bar is drawn without them).
+     *
+     * SECURITY: segment names are user-controlled category labels — escaped in
+     * the <title> tooltip.
      */
     function buildHBarChartSVG({ rows, W, animate = true }) {
         if (rows.length === 0) return null;
@@ -1045,23 +1056,49 @@
             svg += `<text class="chart-label" x="${f2(x)}" y="${plotBottom + 18}" text-anchor="middle">${fmtAxis(v)}</text>`;
         }
 
+        // Bar corners: rounded right end only — the bar must sit flat on the axis.
+        const RR  = Math.min(4, BAR / 2);
+        const GAP = 2;                         // hairline gap between category segments
+
         rows.forEach((r, i) => {
             const yMid = PT + BAND * (i + 0.5);
+            const y    = yMid - BAR / 2;
             svg += `<text class="chart-label" x="${PL - 10}" y="${f2(yMid)}" text-anchor="end" dominant-baseline="middle">${escapeHtml(r.label)}</text>`;
 
             const len = xScale(r.value) - PL;
+            // Split the bar into its category segments; fall back to a single
+            // segment (labelled with the flow type) when none are supplied.
+            const segs = (r.segments && r.segments.length)
+                ? r.segments
+                : (r.value > 0 ? [{ name: r.label, value: r.value }] : []);
+            const segSum = segs.reduce((s, x) => s + x.value, 0) || 1;
+
             if (len > 0) {
-                const y = yMid - BAR / 2;
-                // Rounded right end only — the bar must sit flat on the axis.
-                const rr = Math.min(4, BAR / 2, len);
-                const d  = `M ${PL} ${f2(y)} L ${f2(PL + len - rr)} ${f2(y)}`
-                         + ` Q ${f2(PL + len)} ${f2(y)} ${f2(PL + len)} ${f2(y + rr)}`
-                         + ` L ${f2(PL + len)} ${f2(y + BAR - rr)}`
-                         + ` Q ${f2(PL + len)} ${f2(y + BAR)} ${f2(PL + len - rr)} ${f2(y + BAR)}`
-                         + ` L ${PL} ${f2(y + BAR)} Z`;
-                svg += `<path class="chart-hbar" d="${d}" fill="${r.color}" style="animation-delay:${i * 80}ms">
-                <title>${escapeHtml(r.label)}: ${fmtTooltip(r.value)}</title>
+                let cum = 0;
+                segs.forEach((seg, j) => {
+                    const x0 = PL + (cum / segSum) * len;
+                    cum += seg.value;
+                    const x1   = PL + (cum / segSum) * len;
+                    const last = j === segs.length - 1;
+                    // Inset every segment but the last by the gap; the last keeps
+                    // the bar's true end so the rounded cap lands on the axis value.
+                    const xe = last ? x1 : Math.max(x0, x1 - GAP);
+                    const w  = xe - x0;
+                    if (w < 0.5) return;
+                    const fill  = segmentShade(r.color, j, segs.length);
+                    const round = last && w > RR;
+                    const d = round
+                        ? `M ${f2(x0)} ${f2(y)} L ${f2(xe - RR)} ${f2(y)}`
+                          + ` Q ${f2(xe)} ${f2(y)} ${f2(xe)} ${f2(y + RR)}`
+                          + ` L ${f2(xe)} ${f2(y + BAR - RR)}`
+                          + ` Q ${f2(xe)} ${f2(y + BAR)} ${f2(xe - RR)} ${f2(y + BAR)}`
+                          + ` L ${f2(x0)} ${f2(y + BAR)} Z`
+                        : `M ${f2(x0)} ${f2(y)} L ${f2(xe)} ${f2(y)}`
+                          + ` L ${f2(xe)} ${f2(y + BAR)} L ${f2(x0)} ${f2(y + BAR)} Z`;
+                    svg += `<path class="chart-hbar" d="${d}" fill="${fill}" style="animation-delay:${i * 80 + j * 40}ms">
+                <title>${escapeHtml(seg.name)}: ${fmtTooltip(seg.value)}</title>
             </path>`;
+                });
             }
 
             svg += `<text class="chart-bar-value" x="${f2(PL + Math.max(len, 0) + 8)}" y="${f2(yMid)}" dominant-baseline="middle" style="animation-delay:${i * 80 + 350}ms">${fmtValue(r.value)}</text>`;
@@ -1071,8 +1108,20 @@
         return svg;
     }
 
-    /** Render the Monthly Cash Flow card from the month's per-type totals. */
-    function renderMonthlyCashflow(totals) {
+    /** Shade for the j-th of n category segments within one flow-type bar: the
+     *  type's base colour at full strength for the segment nearest the axis,
+     *  fading toward the page background outward, so a bar reads as its own
+     *  colour subdivided into little category bars. Nested color-mix is valid —
+     *  the base token (--chart-2/-4) is itself a color-mix expression. */
+    function segmentShade(base, j, n) {
+        if (n <= 1) return base;
+        const pct = Math.round(100 - (j / (n - 1)) * 45);   // 100% (axis) → 55% (outer)
+        return `color-mix(in srgb, ${base} ${pct}%, var(--background))`;
+    }
+
+    /** Render the Monthly Cash Flow card from the month's per-type totals, each
+     *  bar split into its categories (`segments`, keyed by flow type). */
+    function renderMonthlyCashflow(totals, segments) {
         const container = document.getElementById('mcf-chart');
         if (!container) return;
 
@@ -1081,6 +1130,7 @@
             label: r.label,
             color: cs.getPropertyValue(r.token).trim() || r.fallback,
             value: (totals && totals[r.key]) || 0,
+            segments: (segments && segments[r.key]) || [],
         }));
 
         if (!rows.some(r => r.value > 0)) {
@@ -1209,16 +1259,22 @@
     function sliceStatementMonth(data) {
         const cells = ((data.entries || {})[String(homeMonth.year)] || {})[MONTHS[homeMonth.monthIdx]] || {};
         const totals = { income: 0, expense: 0, transfer: 0 };
+        // Per-type category breakdown (positive cells only, in column order) so
+        // each Monthly Cash Flow bar can be drawn as its categories stacked.
+        const segments = { income: [], expense: [], transfer: [] };
         const categories = [];
         for (const col of data.columns || []) {
             const val = cells[col.key];
             if (typeof val !== 'number') continue;
-            if (col.type in totals) totals[col.type] += val;
+            if (col.type in totals) {
+                totals[col.type] += val;
+                if (val > 0) segments[col.type].push({ key: col.key, name: col.label, value: val });
+            }
             if (col.type === 'expense' && val > 0) {
                 categories.push({ key: col.key, name: col.label, total: val });
             }
         }
-        return { totals, categories };
+        return { totals, segments, categories };
     }
 
     async function renderMonthSection() {
@@ -1248,7 +1304,7 @@
         }
 
         const month = sliceStatementMonth(data);
-        renderMonthlyCashflow(month.totals);
+        renderMonthlyCashflow(month.totals, month.segments);
         renderSpendingChart(month.categories);
         // The Capital Snapshot donut is month-scoped too. Balance data isn't in
         // yet on the first call from init() — that path renders the pie itself
