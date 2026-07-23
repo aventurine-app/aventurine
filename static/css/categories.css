@@ -103,15 +103,14 @@
 
 /* Per-type accent — same palette as the Budget groups / Transactions ledger
    so a category type means the same colour everywhere in the app. */
-.cat-group[data-type="income"]    { --cat-accent: var(--accent-positive); }
-.cat-group[data-type="expense"]   { --cat-accent: var(--accent-negative); }
-.cat-group[data-type="savings"]   { --cat-accent: var(--accent-secondary); }
-.cat-group[data-type="investing"] { --cat-accent: var(--accent-quatenary); }
+.cat-group[data-type="income"]   { --cat-accent: var(--accent-positive); }
+.cat-group[data-type="expense"]  { --cat-accent: var(--accent-negative); }
+.cat-group[data-type="transfer"] { --cat-accent: var(--accent-secondary); }
 
 /* Balance Sheet account types (Manage Columns modal) — each borrows the
    accent of its Cash Flow counterpart: cash earns like income, debt costs
-   like expense, retirement is long-term like savings, investment matches
-   investing. */
+   like expense, retirement and investment read as transfers (money set
+   aside). */
 .cat-group[data-type="cash"]       { --cat-accent: var(--accent-positive); }
 .cat-group[data-type="debt"]       { --cat-accent: var(--accent-negative); }
 .cat-group[data-type="retirement"] { --cat-accent: var(--accent-secondary); }

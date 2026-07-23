@@ -39,7 +39,7 @@
         const esc = escapeHtml;
 
         // The pure parsing core (txparse.js) — see the header comment.
-        const { parseFile, detectColumns, applyMapping, fingerprint } = TxParse;
+        const { parseFile, detectColumns, applyMapping, deriveBalances, fingerprint } = TxParse;
 
         // ── API ───────────────────────────────────────────────────────────────────
         async function fetchHashes(since) {
@@ -53,15 +53,72 @@
             }
         }
 
-        async function commitRows(rows) {
+        async function commitRows(rows, accountKey, balances) {
+            // Every import is tagged with the account it came from (`accountKey`,
+            // a balance_columns key). `balances` (optional) carries month-end
+            // balances read from the statement, seeded into that same account's
+            // Balance Sheet cells; omitted when the file had none or the user
+            // chose not to apply them.
+            const body = { rows };
+            if (accountKey) body.account_key = accountKey;
+            if (balances && balances.length) body.balances = balances;
             const r = await apiFetch('/api/transactions/import', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ rows }),
+                body: JSON.stringify(body),
             });
             const data = await r.json().catch(() => ({}));
             if (!r.ok) throw new Error(data.error || 'import failed');
-            return data; // { ok, inserted, skipped }
+            return data; // { ok, inserted, skipped, balances_applied }
+        }
+
+        // Balance Sheet accounts (the columns) the detected balance can be
+        // applied to. Reuses the year-table column endpoints the Balance Sheet
+        // tab already exposes.
+        async function fetchBalanceColumns() {
+            try {
+                const r = await apiFetch('/api/balance/columns');
+                if (!r.ok) return [];
+                return await r.json().catch(() => []);
+            } catch {
+                return [];
+            }
+        }
+
+        async function createBalanceColumn(label, type) {
+            const r = await apiFetch('/api/balance/columns', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ label, type }),
+            });
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(data.error || 'could not create the account');
+            return data.column; // { key, label, type }
+        }
+
+        // Remember which account a given file shape's balance went to, so a
+        // recurring statement pre-selects it next time. Keyed by the header
+        // signature (OFX/QIF have a fixed schema → a stable 'ofx'/'qif' key).
+        const BAL_ACCT_MEMORY_KEY = 'balance-import-accounts';
+        function balanceSignature(table) {
+            if (table.fixed) return table.ledgerBalance ? 'ofx' : 'fixed';
+            return 'cols:' + (table.headers || []).join('|').toLowerCase();
+        }
+        function rememberedAccount(sig) {
+            try {
+                return JSON.parse(localStorage.getItem(BAL_ACCT_MEMORY_KEY) || '{}')[sig] || null;
+            } catch {
+                return null;
+            }
+        }
+        function rememberAccount(sig, key) {
+            try {
+                const m = JSON.parse(localStorage.getItem(BAL_ACCT_MEMORY_KEY) || '{}');
+                m[sig] = key;
+                localStorage.setItem(BAL_ACCT_MEMORY_KEY, JSON.stringify(m));
+            } catch {
+                // best-effort — memory is a nicety, not required for import
+            }
         }
 
         // ── Modal shell ───────────────────────────────────────────────────────────
@@ -203,6 +260,7 @@
                     ${mapSelect('Description *', 'description', true)}
                     ${amountRows}
                     ${mapSelect('Notes',         'notes',       false)}
+                    ${mapSelect('Balance',       'balance',     false)}
                 </div>
                 <button type="button" class="tx-import-map-mode">${modeLabel}</button>
                 <div class="tx-import-footer">
@@ -237,14 +295,14 @@
                         mapping = {
                             date: current.date, description: current.description,
                             amount: null, debit: current.debit, credit: current.credit,
-                            notes: current.notes,
+                            notes: current.notes, balance: current.balance,
                         };
                     } else {
                         if (current.amount === null) { alert('Please select the Amount column.'); return; }
                         mapping = {
                             date: current.date, description: current.description,
                             amount: current.amount, debit: null, credit: null,
-                            notes: current.notes,
+                            notes: current.notes, balance: current.balance,
                         };
                     }
                     close();
@@ -255,8 +313,121 @@
             render();
         }
 
+        // Type-group labels + order for the account picker, matching the
+        // Balance Sheet's own column types.
+        const BAL_TYPE_LABELS = { cash: 'Cash', investment: 'Investment', retirement: 'Retirement', debt: 'Debt' };
+
+        // Build the account bar for the review modal. Every import is tagged
+        // with the account it came from, so the picker is ALWAYS shown (existing
+        // account or a new one) — that association scopes dedup and powers
+        // per-account spend (the Credit Cards tool), independent of the Balance
+        // Sheet. When the file ALSO carries month-end balances, a secondary
+        // Yes/No lets the user seed those into the same account's Balance Sheet
+        // cells (a bonus, off by default). Returns the element plus an async
+        // resolve() yielding { accountKey, applyBalances }; resolve() throws if a
+        // new account is chosen without a name (the caller keeps the user on the
+        // preview) — the import must always land in some account.
+        function buildAccountBar(readings, sig) {
+            const n = readings.length;
+            const hasBalances = n > 0;
+            const many = n !== 1;
+            const el = document.createElement('div');
+            el.className = 'tx-import-balance-bar';
+            el.innerHTML = `
+                <div class="tx-import-account-row">
+                    <span class="tx-import-account-label">Which account is this import for?</span>
+                    <select class="tx-select tx-import-balance-account" aria-label="Account for these transactions"></select>
+                    <span class="tx-import-balance-new" hidden>
+                        <input type="text" class="tx-input tx-import-balance-name" placeholder="New account name" maxlength="100">
+                        <select class="tx-select tx-import-balance-type" aria-label="New account type">
+                            ${Object.entries(BAL_TYPE_LABELS).map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}
+                        </select>
+                    </span>
+                </div>
+                ${hasBalances ? `
+                <div class="tx-import-balance-prompt">
+                    <span class="tx-import-balance-label">This file also includes ${many ? `${n} month-end balances` : 'a balance'}. Auto-fill your Balance Sheet with ${many ? 'them' : 'it'}?</span>
+                    <span class="tx-import-balance-choice" role="group" aria-label="Auto-fill the Balance Sheet">
+                        <button type="button" class="tx-import-balance-yes" aria-pressed="false">Yes</button>
+                        <button type="button" class="tx-import-balance-no" aria-pressed="false">No</button>
+                    </span>
+                </div>` : ''}`;
+
+            const sel       = el.querySelector('.tx-import-balance-account');
+            const newEl     = el.querySelector('.tx-import-balance-new');
+            const nameInput = el.querySelector('.tx-import-balance-name');
+            const yesBtn    = el.querySelector('.tx-import-balance-yes');
+            const noBtn     = el.querySelector('.tx-import-balance-no');
+
+            // Optional balance toggle. `applyBalances` starts null (unanswered →
+            // treated as No), so a user who ignores it never seeds the Balance
+            // Sheet. Absent entirely when the file carried no balance.
+            let applyBalances = null;
+            if (hasBalances) {
+                const setApply = (v) => {
+                    applyBalances = v;
+                    yesBtn.setAttribute('aria-pressed', String(v === true));
+                    noBtn.setAttribute('aria-pressed', String(v === false));
+                    yesBtn.classList.toggle('is-active', v === true);
+                    noBtn.classList.toggle('is-active', v === false);
+                };
+                yesBtn.addEventListener('click', () => setApply(true));
+                noBtn.addEventListener('click', () => setApply(false));
+            }
+
+            // The name + type fields only make sense when creating a new account;
+            // reveal them on "+ New account…" and focus the name.
+            sel.addEventListener('change', () => {
+                const isNew = sel.value === '__new__';
+                newEl.hidden = !isNew;
+                if (isNew) nameInput.focus();
+                else nameInput.value = '';
+            });
+
+            // Populate the account options once the columns load. The default
+            // selection prefers the account this file shape last went to, else
+            // the first cash account, so a recurring statement is one click.
+            fetchBalanceColumns().then((cols) => {
+                const byType = {};
+                for (const c of cols) (byType[c.type] ??= []).push(c);
+                let optsHtml = '';
+                for (const type of Object.keys(BAL_TYPE_LABELS)) {
+                    const group = byType[type];
+                    if (!group || !group.length) continue;
+                    optsHtml += `<optgroup label="${BAL_TYPE_LABELS[type]}">`
+                        + group.map(c => `<option value="${esc(c.key)}">${esc(c.label)}</option>`).join('')
+                        + '</optgroup>';
+                }
+                optsHtml += '<option value="__new__">+ New account…</option>';
+                sel.innerHTML = optsHtml;
+
+                const remembered = rememberedAccount(sig);
+                const firstCash = (byType.cash || [])[0];
+                if (!cols.length) { sel.value = '__new__'; newEl.hidden = false; }
+                else if (remembered && cols.some(c => c.key === remembered)) sel.value = remembered;
+                else sel.value = (firstCash || cols[0]).key;
+            });
+
+            async function resolve() {
+                let accountKey = sel.value;
+                if (accountKey === '__new__') {
+                    const name = nameInput.value.trim();
+                    if (!name) {
+                        nameInput.focus();
+                        throw new Error('Please name the account this import is for.');
+                    }
+                    const col = await createBalanceColumn(name, el.querySelector('.tx-import-balance-type').value);
+                    accountKey = col.key;
+                }
+                rememberAccount(sig, accountKey);
+                return { accountKey, applyBalances: hasBalances && applyBalances === true };
+            }
+
+            return { el, resolve };
+        }
+
         // ── Step 2: Preview modal ─────────────────────────────────────────────────
-        function showPreviewModal(parsed, errors, dupeSet) {
+        function showPreviewModal(parsed, errors, dupeSet, balanceReadings = [], table = null) {
             const { body, close, setClosable } = buildModal('Review Import');
 
             // Augment each row with a stable index, fingerprint, and dup flag.
@@ -281,7 +452,17 @@
             <button class="button-primary tx-import-do-btn" disabled>Import</button>
         `;
 
-            body.closest('.tx-import-dialog').append(footer);
+            const dialog = body.closest('.tx-import-dialog');
+            dialog.append(footer);
+
+            // Account bar — ALWAYS shown: every import is tagged with the
+            // account it came from. It also carries the optional Balance-Sheet
+            // autofill toggle when the file supplied month-end balances. Lives
+            // outside the scrolling body, above the footer, so it survives
+            // renderTable's innerHTML rewrites and stays visible while the list
+            // scrolls.
+            const accountBar = buildAccountBar(balanceReadings, table ? balanceSignature(table) : 'unknown');
+            dialog.insertBefore(accountBar.el, footer);
 
             function updateFooter() {
                 const n = checked.size;
@@ -347,30 +528,55 @@
                     .filter(r => checked.has(r._idx))
                     .map(({ date, description, tx_type, amount, notes }) => ({ date, description, tx_type, amount, notes }));
 
+                // Resolve the target account BEFORE tearing down the table, so a
+                // failed "+ New account" create (or an unnamed new account)
+                // leaves the user on the preview to fix it. The account is
+                // required; balances are only sent when the user opted in.
+                let accountKey, applyBalances;
+                try {
+                    ({ accountKey, applyBalances } = await accountBar.resolve());
+                } catch (err) {
+                    alert(err.message);
+                    return;
+                }
+                const balances = applyBalances
+                    ? balanceReadings.map(b => ({
+                        account_key: accountKey, date: b.date, value: b.value, source: b.source,
+                    }))
+                    : null;
+
                 // Swap the table for an indeterminate bar while the commit POST
                 // writes to the database — the wait reads as work, not a hang.
                 const tableView = [...body.children];
                 body.replaceChildren(progressBar(`Importing ${toSend.length} transaction${toSend.length !== 1 ? 's' : ''}…`));
                 footer.style.display = 'none';
+                accountBar.el.style.display = 'none';
                 setClosable(false);
 
                 try {
-                    const result = await commitRows(toSend);
+                    const result = await commitRows(toSend, accountKey, balances);
                     setClosable(true);
                     close();
                     const msg = `Imported ${result.inserted} transaction${result.inserted !== 1 ? 's' : ''}.`
                         + (result.auto_categorized ? ` ${result.auto_categorized} categorized automatically.` : '')
+                        + (result.balances_applied ? ` ${result.balances_applied} monthly balance${result.balances_applied !== 1 ? 's' : ''} added to the Balance Sheet.` : '')
                         + (result.skipped?.length ? ` ${result.skipped.length} skipped.` : '');
                     alert(msg);
                     // Imported rows change the computed Cash Flow cells the
                     // dashboards render from the shared Store cache — drop it
-                    // so they refetch instead of showing stale data.
-                    if (window.Store) window.Store.invalidate('ie');
+                    // so they refetch instead of showing stale data. Applied
+                    // balances feed the Balance Sheet's computed layer, so drop
+                    // that dataset too.
+                    if (window.Store) {
+                        window.Store.invalidate('ie');
+                        if (result.balances_applied) window.Store.invalidate('balance');
+                    }
                     window.dispatchEvent(new Event('transactions:reload'));
                 } catch (err) {
                     // Put the preview back so the user can retry or deselect rows.
                     body.replaceChildren(...tableView);
                     footer.style.display = '';
+                    accountBar.el.style.display = '';
                     setClosable(true);
                     alert('Import failed: ' + err.message);
                 }
@@ -431,13 +637,18 @@
                         return;
                     }
 
+                    // Reduce any per-row balances (+ an OFX ledger balance) to
+                    // one month-end reading per month — the Balance Sheet's
+                    // computed layer. Empty for files that carry no balance.
+                    const balanceReadings = deriveBalances(parsed, table.ledgerBalance);
+
                     // Fetch existing fingerprints for dup detection, bounded to the
                     // date range in the file so we don't scan the full history.
                     const minDate = parsed.reduce((min, r) => (r.date < min ? r.date : min), parsed[0].date);
                     const dupeSet = await fetchHashes(minDate);
 
                     busy.close();
-                    showPreviewModal(parsed, errors, dupeSet);
+                    showPreviewModal(parsed, errors, dupeSet, balanceReadings, table);
                 };
 
                 if (table.fixed) {

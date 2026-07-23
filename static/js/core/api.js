@@ -109,7 +109,7 @@
     }
     return {
       ok: true, months: 3, start_balance: startBalance, start_account: 'cash',
-      include_savings: true,
+      include_transfers: true,
       accounts: [
         { key: 'cash',     label: 'Cash',     type: 'cash', balance: startBalance },
         { key: 'checking', label: 'Checking', type: 'cash', balance: 2480 },
@@ -139,7 +139,7 @@
       encryption_available: true,
     },
     // static/js/pages/home.js and the Statements page (income/expense side)
-    // — monthly income/expense/savings/investing grid, one row per month.
+    // — monthly income/expense/transfer grid, one row per month.
     '/api/data': {
       years: [year],
       entries: {
@@ -156,8 +156,8 @@
         { key: 'rent',          label: 'Rent / Mortgage',    type: 'expense'   },
         { key: 'food',     label: 'Food',          type: 'expense'   },
         { key: 'uncat_expense', label: 'Uncategorized',      type: 'expense'   },
-        { key: 'savings',       label: 'Primary Savings',    type: 'savings'   },
-        { key: 'investing',     label: 'Investment Account', type: 'investing' },
+        { key: 'savings',       label: 'Primary Savings',    type: 'transfer'  },
+        { key: 'investing',     label: 'Investment Account', type: 'transfer'  },
       ],
       // Provenance layers — entries above is the blend (manual ?? computed).
       // income/food cells read as transaction-computed except March
@@ -216,17 +216,17 @@
     },
     // static/js/shell/settingsCategories.js and any page with a category
     // picker (transactions, home) — the full category taxonomy, keyed by
-    // cat_type (income/expense/savings/investing) and ordered by position.
+    // cat_type (income/expense/transfer) and ordered by position.
     '/api/categories': {
       categories: [
-        { id: 1, key: 'income',     name: 'Primary Income',    cat_type: 'income',    position: 0 },
-        { id: 2, key: 'side',       name: 'Side Income',       cat_type: 'income',    position: 1 },
-        { id: 4, key: 'rent',       name: 'Rent / Mortgage',   cat_type: 'expense',   position: 0 },
-        { id: 5, key: 'food',       name: 'Food',              cat_type: 'expense',   position: 1 },
-        { id: 6, key: 'utilities',  name: 'Utilities',         cat_type: 'expense',   position: 2 },
-        { id: 7, key: 'savings',    name: 'Emergency Fund',    cat_type: 'savings',   position: 0 },
-        { id: 8, key: 'investing',  name: 'Brokerage',         cat_type: 'investing', position: 0 },
-        { id: 9, key: 'retirement', name: 'Retirement',        cat_type: 'investing', position: 1 },
+        { id: 1, key: 'income',     name: 'Primary Income',    cat_type: 'income',   position: 0 },
+        { id: 2, key: 'side',       name: 'Side Income',       cat_type: 'income',   position: 1 },
+        { id: 4, key: 'rent',       name: 'Rent / Mortgage',   cat_type: 'expense',  position: 0 },
+        { id: 5, key: 'food',       name: 'Food',              cat_type: 'expense',  position: 1 },
+        { id: 6, key: 'utilities',  name: 'Utilities',         cat_type: 'expense',  position: 2 },
+        { id: 7, key: 'savings',    name: 'Emergency Fund',    cat_type: 'transfer', position: 0 },
+        { id: 8, key: 'investing',  name: 'Brokerage',         cat_type: 'transfer', position: 1 },
+        { id: 9, key: 'retirement', name: 'Retirement',        cat_type: 'transfer', position: 2 },
       ],
     },
     // static/js/pages/portfolio.js — brokerage accounts and holdings.
@@ -263,37 +263,34 @@
     },
     // static/js/widgets/forecast.js — see forecastFixture above.
     '/api/forecast': forecastFixture,
-    // static/js/pages/reportcard.js — year-over-year income/expense/savings
-    // summary plus pass/fail goal checks.
+    // static/js/pages/reportcard.js — year-over-year income/expense summary
+    // plus pass/fail goal checks.
     '/api/report-card': {
       ok: true,
       years: [
         {
-          year, income: 72000, expenses: 45000, savings: 12000, debt: 9000,
+          year, income: 72000, expenses: 45000, debt: 9000,
           changes: {
             income:   { abs: 6000,  pct: 0.0909 },
             expenses: { abs: -1000, pct: -0.0217 },
-            savings:  { abs: 3000,  pct: 0.3333 },
           },
-          metrics: { expenseToIncome: 0.625, debtToIncome: 0.125, cashFlowMargin: 0.2083 },
+          metrics: { expenseToIncome: 0.625, debtToIncome: 0.125, cashFlowMargin: 0.375 },
           goals: [
-            { key: 'expense_ratio',   label: 'Expenses under 70% of income',          value: 0.625,   status: 'met' },
-            { key: 'savings_rate',    label: 'Saving & investing over 15% of income', value: 0.1667,  status: 'met' },
-            { key: 'debt_to_income',  label: 'Total debt under 25% of income',        value: 0.125,   status: 'met' },
-            { key: 'spending_trend',  label: 'Spending down from last year',          value: -0.0217, status: 'met' },
-            { key: 'income_trend',    label: 'Income up from last year',              value: 0.0909,  status: 'met' },
+            { key: 'expense_ratio',   label: 'Expenses under 70% of income',   value: 0.625,   status: 'met' },
+            { key: 'debt_to_income',  label: 'Total debt under 25% of income', value: 0.125,   status: 'met' },
+            { key: 'spending_trend',  label: 'Spending down from last year',   value: -0.0217, status: 'met' },
+            { key: 'income_trend',    label: 'Income up from last year',       value: 0.0909,  status: 'met' },
           ],
         },
         {
-          year: year - 1, income: 66000, expenses: 46000, savings: 9000, debt: 12000,
-          changes: { income: null, expenses: null, savings: null },
-          metrics: { expenseToIncome: 0.697, debtToIncome: 0.1818, cashFlowMargin: 0.1667 },
+          year: year - 1, income: 66000, expenses: 46000, debt: 12000,
+          changes: { income: null, expenses: null },
+          metrics: { expenseToIncome: 0.697, debtToIncome: 0.1818, cashFlowMargin: 0.303 },
           goals: [
-            { key: 'expense_ratio',  label: 'Expenses under 70% of income',          value: 0.697,  status: 'met' },
-            { key: 'savings_rate',   label: 'Saving & investing over 15% of income', value: 0.1364, status: 'miss' },
-            { key: 'debt_to_income', label: 'Total debt under 25% of income',        value: 0.1818, status: 'met' },
-            { key: 'spending_trend', label: 'Spending down from last year',          value: null,   status: 'na' },
-            { key: 'income_trend',   label: 'Income up from last year',              value: null,   status: 'na' },
+            { key: 'expense_ratio',  label: 'Expenses under 70% of income',   value: 0.697,  status: 'met' },
+            { key: 'debt_to_income', label: 'Total debt under 25% of income', value: 0.1818, status: 'met' },
+            { key: 'spending_trend', label: 'Spending down from last year',   value: null,   status: 'na' },
+            { key: 'income_trend',   label: 'Income up from last year',       value: null,   status: 'na' },
           ],
         },
       ],

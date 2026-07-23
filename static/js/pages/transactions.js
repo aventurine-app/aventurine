@@ -33,18 +33,22 @@
     const txState = {
         rows:        [],
         categories:  [],
+        accountsByKey: {},   // balance_columns key -> label, for the Account column
         editingId:   null,
         selectedIds: new Set(),
         revealedIds: new Set(),
         page:        1,   // 1-based; clamped to the visible-row count on every render
+        // Ordered to mirror the table columns (Date · Name · Type · Category ·
+        // Account · Amount), the same order the filter chips render in.
         filters: {
             dateFrom:  '',
             dateTo:    '',
             name:      '',
-            amountMin: '',
-            amountMax: '',
             type:      '',
             category:  '',   // '' all | 'none' uncategorized | category id
+            account:   '',   // '' all | 'none' unassigned | account_key
+            amountMin: '',
+            amountMax: '',
         },
     };
 
@@ -87,6 +91,20 @@
         const r = await apiFetch('/api/transactions');
         if (!r.ok) throw new Error('failed to list transactions');
         return r.json();
+    }
+
+    // The accounts a transaction can belong to are the Balance Sheet columns
+    // (accounts and Balance Sheet columns are one list — see the account_key
+    // schema). Fetched alongside the ledger to resolve each row's account_key to
+    // a name for the Account column. A failure just leaves the column blank.
+    async function txApiBalanceColumns() {
+        try {
+            const r = await apiFetch('/api/balance/columns');
+            if (!r.ok) return [];
+            return await r.json().catch(() => []);
+        } catch {
+            return [];
+        }
     }
 
     async function txApiCreate(payload) {
@@ -139,6 +157,13 @@
         return txCategoryById(id)?.name ?? null;
     }
 
+    // The account (Balance Sheet column) label a row belongs to, or null when the
+    // row is unassigned or its account was since deleted.
+    function txAccountName(key) {
+        if (!key) return null;
+        return txState.accountsByKey[key] ?? null;
+    }
+
     function txCategoryType(id) {
         return txCategoryById(id)?.cat_type ?? null;
     }
@@ -152,10 +177,9 @@
             : `<span class="tx-category-pill tx-category-empty">Uncategorized</span>`;
 
         const TYPE_META = {
-            income:    { label: 'Income',    cls: 'tx-type-income',    amtCls: 'tx-amount-income',    sign: '+ ' },
-            expense:   { label: 'Expense',   cls: 'tx-type-expense',   amtCls: 'tx-amount-expense',   sign: '- ' },
-            savings:   { label: 'Savings',   cls: 'tx-type-savings',   amtCls: 'tx-amount-savings',   sign: '- ' },
-            investing: { label: 'Investing', cls: 'tx-type-investing', amtCls: 'tx-amount-investing', sign: '- ' },
+            income:   { label: 'Income',   cls: 'tx-type-income',   amtCls: 'tx-amount-income',   sign: '+ ' },
+            expense:  { label: 'Expense',  cls: 'tx-type-expense',  amtCls: 'tx-amount-expense',  sign: '- ' },
+            transfer: { label: 'Transfer', cls: 'tx-type-transfer', amtCls: 'tx-amount-transfer', sign: '- ' },
         };
         const meta        = TYPE_META[t.tx_type] || TYPE_META.expense;
         const amountClass = meta.amtCls;
@@ -179,6 +203,11 @@
             <div class="tx-desc-original">${txEsc(t.description)}</div>` : ''}`;
         }
 
+        const acctName = txAccountName(t.account_key);
+        const acctCell = acctName
+            ? `<span class="tx-account-tag">${txEsc(acctName)}</span>`
+            : `<span class="tx-account-tag tx-account-empty">—</span>`;
+
         const selected = txState.selectedIds.has(t.id);
         return `
         <tr class="tx-row${selected ? ' tx-selected' : ''}" data-id="${t.id}">
@@ -187,6 +216,7 @@
             <td class="tx-col-description">${descCell}</td>
             <td class="tx-col-type"><span class="tx-type-pill ${typeClass}">${typeLabel}</span></td>
             <td class="tx-col-category">${catCell}</td>
+            <td class="tx-col-account">${acctCell}</td>
             <td class="tx-col-amount ${amountClass}">${sign}${txFmtAmount(t.amount)}</td>
             <td class="tx-col-notes">${txEsc(t.notes)}</td>
         </tr>
@@ -197,8 +227,8 @@
     // led by an "Uncategorized" sentinel (backend treats null category_id as
     // Uncategorized). Shared by the inline add row and the bulk-edit modal.
     function txCategoryOptions(selectedId) {
-        const TYPE_ORDER = ['income', 'expense', 'savings', 'investing'];
-        const TYPE_LABELS = { income: 'Income', expense: 'Expense', savings: 'Savings', investing: 'Investing' };
+        const TYPE_ORDER = ['income', 'expense', 'transfer'];
+        const TYPE_LABELS = { income: 'Income', expense: 'Expense', transfer: 'Transfer' };
         const groups = {};
         TYPE_ORDER.forEach(k => { groups[k] = []; });
         txState.categories.forEach(c => {
@@ -220,12 +250,34 @@
             })).join('');
     }
 
-    // The six editable field cells (date / description / type / category / amount /
-    // notes) for one transaction. Each input carries a data-field so txReadFields()
-    // can read it back. Used both as <td>s in the inline add row and (re-tagged by
-    // the caller's container) as cells in the bulk-edit modal.
+    // <option> markup for the Account edit control: a "No account" sentinel
+    // (the backend treats a null account_key as unassigned) followed by every
+    // Balance Sheet account, in column order. Mirrors txCategoryOptions. An
+    // account_key that names no current account (its column was deleted) simply
+    // isn't in the list and falls back to "No account" — the same way a deleted
+    // category falls back to Uncategorized.
+    function txAccountOptions(selectedKey) {
+        const opts = ['<option value="">No account</option>'];
+        for (const [key, label] of Object.entries(txState.accountsByKey)) {
+            const sel = key === selectedKey ? 'selected' : '';
+            opts.push(`<option value="${txEsc(key)}" ${sel}>${txEsc(label)}</option>`);
+        }
+        return opts.join('');
+    }
+
+    // The seven editable field cells (date / description / type / category /
+    // account / amount / notes) for one transaction. Each input carries a
+    // data-field so txReadFields() can read it back. Used both as <td>s in the
+    // inline add row and as cells in the bulk-edit modal.
     function txEditFieldsCells(t) {
         const txType = t.tx_type || 'expense';
+        // Account sits between Category and Amount, matching the ledger's column
+        // order; both the inline add row and the bulk-edit modal carry it, so a
+        // transaction's account can be set on creation and changed on edit.
+        const accountCell = `
+        <td class="tx-col-account">
+            <select class="tx-select tx-input-account" data-field="account_key">${txAccountOptions(t.account_key)}</select>
+        </td>`;
         return `
         <td class="tx-col-date">
             <input type="date" class="tx-input tx-input-date" data-field="date"
@@ -237,15 +289,15 @@
         </td>
         <td class="tx-col-type">
             <select class="tx-select tx-input-type" data-field="tx_type">
-                <option value="expense"  ${txType === 'expense'   ? 'selected' : ''}>Expense</option>
-                <option value="income"   ${txType === 'income'    ? 'selected' : ''}>Income</option>
-                <option value="savings"  ${txType === 'savings'   ? 'selected' : ''}>Savings</option>
-                <option value="investing"${txType === 'investing' ? 'selected' : ''}>Investing</option>
+                <option value="expense"  ${txType === 'expense'  ? 'selected' : ''}>Expense</option>
+                <option value="income"   ${txType === 'income'   ? 'selected' : ''}>Income</option>
+                <option value="transfer" ${txType === 'transfer' ? 'selected' : ''}>Transfer</option>
             </select>
         </td>
         <td class="tx-col-category">
             <select class="tx-select tx-input-category" data-field="category_id">${txCategoryOptions(t.category_id)}</select>
         </td>
+        ${accountCell}
         <td class="tx-col-amount">
             <input type="text" inputmode="decimal" class="tx-input tx-input-amount" data-field="amount"
                    value="${t.amount != null ? t.amount : ''}" placeholder="0.00">
@@ -289,7 +341,7 @@
                 desc: 'Import a statement from your bank, or add a transaction by hand to get started.',
                 action: { label: 'Import transactions', name: 'tx-import', icon: 'import', primary: true },
             });
-        return `<tr class="tx-empty-row"><td colspan="7">${inner}</td></tr>`;
+        return `<tr class="tx-empty-row"><td colspan="8">${inner}</td></tr>`;
     }
 
     // Skeleton placeholder rows shown while the ledger loads (cold fetch only).
@@ -298,7 +350,7 @@
         const cell = (w) => `<td><div class="skeleton skeleton-line sk-w-${w}"></div></td>`;
         const row = '<tr class="tx-row tx-skeleton-row">'
             + '<td class="tx-col-select"></td>'
-            + cell('75') + cell('90') + cell('50') + cell('60') + cell('50') + cell('40')
+            + cell('75') + cell('90') + cell('50') + cell('60') + cell('50') + cell('50') + cell('40')
             + '</tr>';
         return row.repeat(n);
     }
@@ -322,16 +374,21 @@
         if (name
             && !(t.description  || '').toLowerCase().includes(name)
             && !(t.display_name || '').toLowerCase().includes(name)) return false;
-        const min = txParseAmountFilter(f.amountMin);
-        const max = txParseAmountFilter(f.amountMax);
-        if (min !== null && t.amount < min) return false;
-        if (max !== null && t.amount > max) return false;
         if (f.type && t.tx_type !== f.type) return false;
         if (f.category === 'none') {
             if (t.category_id != null) return false;
         } else if (f.category) {
             if (t.category_id !== parseInt(f.category, 10)) return false;
         }
+        if (f.account === 'none') {
+            if (t.account_key != null) return false;
+        } else if (f.account) {
+            if (t.account_key !== f.account) return false;
+        }
+        const min = txParseAmountFilter(f.amountMin);
+        const max = txParseAmountFilter(f.amountMax);
+        if (min !== null && t.amount < min) return false;
+        if (max !== null && t.amount > max) return false;
         return true;
     }
 
@@ -428,13 +485,15 @@
         if (f.dateFrom)     out.date_from = f.dateFrom;
         if (f.dateTo)       out.date_to   = f.dateTo;
         if (f.name.trim())  out.description = f.name.trim();
+        if (f.type)         out.tx_type = f.type;
+        if (f.category === 'none')  out.category_id = null;
+        else if (f.category)        out.category_id = parseInt(f.category, 10);
+        if (f.account === 'none')   out.account_key = null;
+        else if (f.account)         out.account_key = f.account;
         const min = txParseAmountFilter(f.amountMin);
         const max = txParseAmountFilter(f.amountMax);
         if (min !== null)   out.amount_min = min;
         if (max !== null)   out.amount_max = max;
-        if (f.type)         out.tx_type = f.type;
-        if (f.category === 'none')  out.category_id = null;
-        else if (f.category)        out.category_id = parseInt(f.category, 10);
         return Object.keys(out).length ? out : null;
     }
 
@@ -448,17 +507,19 @@
     // the page; only their active class + value text are mutated (txSyncChips), so
     // an open popover and its focused input survive a live keystroke.
 
-    // Display labels for the field name and the Type values.
-    const TX_FILTER_LABELS = { date: 'Date', name: 'Name', amount: 'Amount', type: 'Type', category: 'Category' };
-    const TX_TYPE_LABELS   = { income: 'Income', expense: 'Expense', savings: 'Savings', investing: 'Investing' };
+    // Display labels for the field name and the Type values. Ordered to match
+    // the table columns (see the chip row in transactions.html).
+    const TX_FILTER_LABELS = { date: 'Date', name: 'Name', type: 'Type', category: 'Category', account: 'Account', amount: 'Amount' };
+    const TX_TYPE_LABELS   = { income: 'Income', expense: 'Expense', transfer: 'Transfer' };
 
     // Which txState.filters keys each chip owns (cleared together by its ×).
     const TX_FILTER_FIELDS = {
         date:     ['dateFrom', 'dateTo'],
         name:     ['name'],
-        amount:   ['amountMin', 'amountMax'],
         type:     ['type'],
         category: ['category'],
+        account:  ['account'],
+        amount:   ['amountMin', 'amountMax'],
     };
 
     // Quick ranges offered in the Date popover. Each resolves to the full calendar
@@ -538,6 +599,10 @@
                 if (f.category === '' || f.category == null) return null;
                 if (f.category === 'none') return 'Uncategorized';
                 return txCategoryName(parseInt(f.category, 10)) || 'Category';
+            case 'account':
+                if (f.account === '' || f.account == null) return null;
+                if (f.account === 'none') return 'No account';
+                return txAccountName(f.account) || 'Account';
             default: return null;
         }
     }
@@ -578,6 +643,14 @@
         const c = txState.filters.category;
         if (c === '' || c === 'none' || c == null) return;
         if (!txCategoryById(parseInt(c, 10))) txState.filters.category = '';
+    }
+
+    // Same for the account filter: a Balance Sheet column deleted since it was
+    // chosen leaves a key that names no account, so clear it. Called on (re)load.
+    function txReconcileAccountFilter() {
+        const a = txState.filters.account;
+        if (a === '' || a === 'none' || a == null) return;
+        if (!(a in txState.accountsByKey)) txState.filters.account = '';
     }
 
     // Clear one chip's filter (its leading ×).
@@ -729,7 +802,7 @@
             });
         } else if (key === 'type') {
             wrap.appendChild(txBuildOptionList('type', [
-                ['', 'All'], ['income', 'Income'], ['expense', 'Expense'], ['savings', 'Savings'], ['investing', 'Investing'],
+                ['', 'All'], ['income', 'Income'], ['expense', 'Expense'], ['transfer', 'Transfer'],
             ], f.type || ''));
         } else if (key === 'category') {
             // Grouped by cat_type under eyebrow headers. The locked uncat_*
@@ -746,6 +819,13 @@
                 cats.forEach(c => opts.push([String(c.id), c.name]));
             });
             wrap.appendChild(txBuildOptionList('category', opts, f.category || ''));
+        } else if (key === 'account') {
+            // Accounts are the Balance Sheet columns (txState.accountsByKey),
+            // listed in their column order. A row with no account renders as "—"
+            // in the table; the 'none' sentinel filters to exactly those.
+            const opts = [['', 'All'], ['none', 'No account']];
+            Object.entries(txState.accountsByKey).forEach(([acctKey, label]) => opts.push([acctKey, label]));
+            wrap.appendChild(txBuildOptionList('account', opts, f.account || ''));
         }
         return wrap;
     }
@@ -843,6 +923,7 @@
                 date:        txTodayIso(),
                 description: '',
                 category_id: defaultCatId,
+                account_key: null,
                 amount:      '',
                 notes:       '',
             }, { isNew: true }));
@@ -982,11 +1063,13 @@
         const rawAmount   = (get('amount') || '').toString().replace(/,/g, '').trim();
         const amount      = parseFloat(rawAmount);
         const categoryRaw = get('category_id');
+        const accountRaw  = get('account_key');
         return {
             date:        get('date'),
             description: (get('description') || '').trim(),
             tx_type:     get('tx_type') || 'expense',
             category_id: categoryRaw === '' ? null : parseInt(categoryRaw, 10),
+            account_key: accountRaw == null || accountRaw === '' ? null : accountRaw,
             amount:      Number.isFinite(amount) ? amount : NaN,
             notes:       (get('notes') || '').trim(),
         };
@@ -1110,6 +1193,7 @@
                                 <th class="tx-col-description">Description</th>
                                 <th class="tx-col-type">Type</th>
                                 <th class="tx-col-category">Category</th>
+                                <th class="tx-col-account">Account</th>
                                 <th class="tx-col-amount">Amount</th>
                                 <th class="tx-col-notes">Notes</th>
                             </tr>
@@ -1202,11 +1286,12 @@
         // The fields whose old → new values the review step reports.
         const FIELD_LABELS = {
             date: 'Date', description: 'Description', tx_type: 'Type',
-            category_id: 'Category', amount: 'Amount', notes: 'Notes',
+            category_id: 'Category', account_key: 'Account', amount: 'Amount', notes: 'Notes',
         };
 
         function fieldDisplay(field, value) {
             if (field === 'category_id') return value == null ? 'Uncategorized' : (txCategoryName(value) ?? '—');
+            if (field === 'account_key') return value == null || value === '' ? 'No account' : (txAccountName(value) ?? '—');
             if (field === 'amount')      return txFmtAmount(value);
             if (field === 'date')        return txFmtDate(value);
             if (field === 'tx_type')     return TX_TYPE_LABELS[value] || value;
@@ -1562,9 +1647,10 @@
     // Shared by the initial load and the post-import reload.
     async function txLoad() {
         try {
-            const data = await txApiList();
-            txState.rows       = data.transactions || [];
-            txState.categories = data.categories   || [];
+            const [data, cols] = await Promise.all([txApiList(), txApiBalanceColumns()]);
+            txState.rows          = data.transactions || [];
+            txState.categories    = data.categories   || [];
+            txState.accountsByKey = Object.fromEntries((cols || []).map(c => [c.key, c.label]));
             txSortRows();
         } catch (err) {
             console.error(err);
@@ -1579,6 +1665,7 @@
         await txLoad();
         cancelSkeleton();
         txReconcileCategoryFilter();
+        txReconcileAccountFilter();
         txRender();
 
         const tbody = document.getElementById('tx-tbody');
@@ -1616,6 +1703,7 @@
         txState.page = 1;
         await txLoad();
         txReconcileCategoryFilter();
+        txReconcileAccountFilter();
         txSyncChips();
         txRender();
     });

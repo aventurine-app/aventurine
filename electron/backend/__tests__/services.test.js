@@ -108,11 +108,11 @@ test('applyTxFields: direction owned by category; explicit tx_type only when unc
   // uncategorized: explicit tx_type applies
   const u = newTx();
   assert.equal(
-    applyTxFields(db, u, { date: '2026-06-02', description: 'misc', amount: 5, tx_type: 'savings' },
+    applyTxFields(db, u, { date: '2026-06-02', description: 'misc', amount: 5, tx_type: 'transfer' },
       { requireAll: true }),
     null
   );
-  assert.equal(u.tx_type, 'savings');
+  assert.equal(u.tx_type, 'transfer');
 
   // validation failures return the exact Flask error strings
   assert.equal(applyTxFields(db, newTx(), { date: 'nope' }, { requireAll: true }),

@@ -2,7 +2,7 @@
 
 // Category serialisation — port of services/categories.py.
 
-const VALID_CAT_TYPES = ['income', 'expense', 'savings', 'investing'];
+const VALID_CAT_TYPES = ['income', 'expense', 'transfer'];
 
 // The two seeded "Uncategorized" buckets — their `key` is hardcoded elsewhere
 // (NULL_SYNC_KEYS in handlers/incomeExpenses.js, reportCard.js, creditCards.js,

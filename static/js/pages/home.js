@@ -6,7 +6,7 @@
 // "This Month" — the monthly view, defaulting to the current month with a
 // panel-level stepper to look back at earlier months:
 //   1. Monthly Cash Flow (horizontal bars: the month's income / expenses /
-//      savings / investing totals, from the Cash Flow statement — /api/data)
+//      transfers totals, from the Cash Flow statement — /api/data)
 //   2. Spending (bar chart: the month's expense total per category, same data)
 //   3. Capital Snapshot (donut by account type, latest known balances)
 //
@@ -1004,13 +1004,12 @@
 
     // Monthly Cash Flow rows, in display order. Income leads on the base accent
     // and expenses take the high-contrast shade — the same pairing as the Income
-    // & Expenses line chart (getIEColors) — with savings and investing on the
-    // intermediate accent stops.
+    // & Expenses line chart (getIEColors) — with transfers on an intermediate
+    // accent stop.
     const MCF_ROWS = [
-        { key: 'income',    label: 'Income',    token: '--chart-1', fallback: '#8fb088' },
-        { key: 'expense',   label: 'Expenses',  token: '--chart-4', fallback: '#33402d' },
-        { key: 'savings',   label: 'Savings',   token: '--chart-2', fallback: '#5c7152' },
-        { key: 'investing', label: 'Investing', token: '--chart-3', fallback: '#a9c1a4' },
+        { key: 'income',   label: 'Income',    token: '--chart-1', fallback: '#8fb088' },
+        { key: 'expense',  label: 'Expenses',  token: '--chart-4', fallback: '#33402d' },
+        { key: 'transfer', label: 'Transfers', token: '--chart-2', fallback: '#5c7152' },
     ];
 
     /**
@@ -1090,7 +1089,7 @@
             container.innerHTML = UI.emptyState({
                 icon: 'chart', compact: true,
                 title: isCurrentHomeMonth() ? 'No activity this month yet' : `Nothing in ${homeMonthLabel()}`,
-                desc: 'Transactions you import and figures you enter on your Cash Flow statement show up here as income, expenses, savings, and investing.',
+                desc: 'Transactions you import and figures you enter on your Cash Flow statement show up here as income, expenses, and transfers.',
             });
             return;
         }
@@ -1209,7 +1208,7 @@
      */
     function sliceStatementMonth(data) {
         const cells = ((data.entries || {})[String(homeMonth.year)] || {})[MONTHS[homeMonth.monthIdx]] || {};
-        const totals = { income: 0, expense: 0, savings: 0, investing: 0 };
+        const totals = { income: 0, expense: 0, transfer: 0 };
         const categories = [];
         for (const col of data.columns || []) {
             const val = cells[col.key];

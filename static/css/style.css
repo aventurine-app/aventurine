@@ -157,7 +157,7 @@
     --accent-primary:   var(--color-accent-600);
     --accent-secondary: #1e87b8;
     --accent-quatenary: #a74fc2;
-    --warning:          #ff9100;
+    --warning:          #dd9e00;
 
    /* Gain green — the green that means "gain / income / in your favor",
       paired with --accent-negative red wherever a number or verdict carries
@@ -165,7 +165,7 @@
       .stat-change-up / .roi-positive deltas, and the income category swatch.
       Split from --accent-primary so it stays green whatever the UI accent;
       same value in both themes (charts draw from --chart-*, not this). */
-   --accent-positive:  #5ba672;
+   --accent-positive:  #22a64a;
    --accent-negative:  #c44448;
 
 

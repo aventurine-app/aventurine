@@ -84,16 +84,15 @@
     // layout. Each group's list is a drop target; a row's group dictates its
     // type.
 
-    const TYPE_ORDER = ['income', 'expense', 'savings', 'investing'];
+    const TYPE_ORDER = ['income', 'expense', 'transfer'];
     const TYPE_LABEL = {
-        income:    'Income',
-        expense:   'Expense',
-        savings:   'Savings',
-        investing: 'Investing',
+        income:   'Income',
+        expense:  'Expense',
+        transfer: 'Transfer',
     };
 
     function groupByType(rows) {
-        const groups = { income: [], expense: [], savings: [], investing: [] };
+        const groups = { income: [], expense: [], transfer: [] };
         for (const c of rows) {
             (groups[c.cat_type] ||= []).push(c);
         }
@@ -194,7 +193,7 @@
             // Everything starts collapsed; the groups behave as an accordion
             // (opening one closes the rest — see the toggle handler), so at
             // most one is open at a time. A live search overrides both.
-            u = { query: '', open: { income: false, expense: false, savings: false, investing: false } };
+            u = { query: '', open: { income: false, expense: false, transfer: false } };
             uiByRoot.set(rootEl, u);
         }
         return u;

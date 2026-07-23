@@ -6,7 +6,7 @@
 
 const { isFiniteNumber, parseIsoDate, round2 } = require('../validate');
 
-const TX_TYPES = ['income', 'expense', 'savings', 'investing'];
+const TX_TYPES = ['income', 'expense', 'transfer'];
 
 /**
  * Shape a transaction row for JSON output (mirror of _serialise_tx).
@@ -28,7 +28,15 @@ function serialiseTx(t, catTypeById = null) {
     tx_type: txType,
     amount: t.amount,
     notes: t.notes,
+    account_key: t.account_key ?? null,
   };
+}
+
+/** True when `key` names an existing Balance Sheet account (balance_columns).
+ *  A transaction's account_key references that same list — accounts are not a
+ *  separate entity (see the v10 migration). */
+function accountExists(db, key) {
+  return !!db.prepare('SELECT 1 FROM balance_columns WHERE "key" = ?').get(key);
 }
 
 /**
@@ -85,6 +93,14 @@ function applyTxFields(db, t, data, { requireAll }) {
     if (typeof val !== 'string') return 'invalid notes';
     t.notes = val.slice(0, 500);
   }
+  if ('account_key' in data) {
+    const val = data.account_key;
+    if (val !== null) {
+      if (typeof val !== 'string') return 'invalid account_key';
+      if (!accountExists(db, val)) return 'unknown account_key';
+    }
+    t.account_key = val;
+  }
   return null;
 }
 
@@ -97,8 +113,8 @@ function insertTx(db, t) {
   let stmt = insertStmts.get(db);
   if (!stmt) {
     stmt = db.prepare(
-      `INSERT INTO transactions (date, description, display_name, category_id, tx_type, amount, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO transactions (date, description, display_name, category_id, tx_type, amount, notes, account_key)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     );
     insertStmts.set(db, stmt);
   }
@@ -109,7 +125,8 @@ function insertTx(db, t) {
       t.category_id ?? null,
       t.tx_type ?? 'expense',
       t.amount ?? 0,
-      t.notes ?? ''
+      t.notes ?? '',
+      t.account_key ?? null
     );
   t.id = info.lastInsertRowid;
   return t;
@@ -119,9 +136,9 @@ function insertTx(db, t) {
 function updateTx(db, t) {
   db.prepare(
     `UPDATE transactions
-        SET date = ?, description = ?, display_name = ?, category_id = ?, tx_type = ?, amount = ?, notes = ?
+        SET date = ?, description = ?, display_name = ?, category_id = ?, tx_type = ?, amount = ?, notes = ?, account_key = ?
       WHERE id = ?`
-  ).run(t.date, t.description, t.display_name ?? null, t.category_id, t.tx_type, t.amount, t.notes, t.id);
+  ).run(t.date, t.description, t.display_name ?? null, t.category_id, t.tx_type, t.amount, t.notes, t.account_key ?? null, t.id);
 }
 
 /** Fresh tx object with the model's column defaults (mirror of Transaction()). */
@@ -135,7 +152,8 @@ function newTx() {
     tx_type: 'expense',
     amount: 0,
     notes: '',
+    account_key: null,
   };
 }
 
-module.exports = { TX_TYPES, serialiseTx, applyTxFields, insertTx, updateTx, newTx };
+module.exports = { TX_TYPES, serialiseTx, applyTxFields, insertTx, updateTx, newTx, accountExists };

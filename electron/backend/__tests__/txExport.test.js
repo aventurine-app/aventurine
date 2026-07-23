@@ -19,9 +19,10 @@ const { exportHeader, exportBody, exportFooter } = require('../services/txExport
 const firstCat = (c, catType) =>
   c.get('/api/transactions').body.categories.find((x) => x.cat_type === catType);
 
-function createTx(c, desc, { catId = null, amount = 10.0, txType = 'expense', d = '2026-06-01', notes = '' } = {}) {
+function createTx(c, desc, { catId = null, amount = 10.0, txType = 'expense', d = '2026-06-01', notes = '', account = null } = {}) {
   const payload = { date: d, description: desc, tx_type: txType, amount, notes };
   if (catId !== null) payload.category_id = catId;
+  if (account !== null) payload.account_key = account;
   const r = c.post('/api/transactions', payload);
   assert.equal(r.status, 200, JSON.stringify(r.body));
   return r.body.transaction;
@@ -212,6 +213,26 @@ test('export with filters writes only the matching rows', (t) => {
   assert.match(ofx, /<BALAMT>-22.50/);
 });
 
+test('export filters by account_key (a specific account, and the unassigned rows)', (t) => {
+  const c = makeClient(t);
+  // Two accounts are seeded (checking, savings); a hand-entered row has none.
+  createTx(c, 'Grocery Run', { amount: 42, d: '2026-04-01', account: 'checking' });
+  createTx(c, 'Fuel Stop', { amount: 30, d: '2026-04-02', account: 'savings' });
+  createTx(c, 'Cash Tip', { amount: 5, d: '2026-04-03' }); // account_key null
+
+  // A named account exports only its rows.
+  let dest = path.join(c.dir, 'checking.csv');
+  let body = exportAll(c, dest, 'csv', { filters: { account_key: 'checking' } });
+  assert.equal(body.exported, 1);
+  assert.match(fs.readFileSync(dest, 'utf8'), /Grocery Run/);
+
+  // account_key: null (the "No account" chip) exports only the unassigned rows.
+  dest = path.join(c.dir, 'noacct.csv');
+  body = exportAll(c, dest, 'csv', { filters: { account_key: null } });
+  assert.equal(body.exported, 1);
+  assert.match(fs.readFileSync(dest, 'utf8'), /Cash Tip/);
+});
+
 test('export validates filters', (t) => {
   const c = makeClient(t);
   const dest = path.join(c.dir, 'x.csv');
@@ -230,13 +251,17 @@ test('export validates filters', (t) => {
   assert.equal(r.status, 400);
   assert.match(r.body.error, /amount_min must be a number/);
 
-  r = post({ tx_type: 'transfer' });
+  r = post({ tx_type: 'savings' }); // retired type — no longer accepted
   assert.equal(r.status, 400);
   assert.match(r.body.error, /tx_type must be one of/);
 
   r = post({ category_id: 'Groceries' });
   assert.equal(r.status, 400);
   assert.match(r.body.error, /category_id must be an integer or null/);
+
+  r = post({ account_key: 42 }); // must be a string key or null
+  assert.equal(r.status, 400);
+  assert.match(r.body.error, /account_key must be a string or null/);
 
   // Empty filters object behaves exactly like no filters.
   createTx(c, 'Something');

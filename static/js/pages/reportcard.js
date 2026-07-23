@@ -3,8 +3,8 @@
 (function () {
   // ─── Yearly Report Card (Reports) ─────────────────────────────────────────────
   // One card per year of activity (newest first). Each card shows the year's
-  // income / expenses / saving & investing with year-over-year change pills, three
-  // derived ratios, and the five goal outcomes (met or missed).
+  // income / expenses with year-over-year change pills, three derived ratios,
+  // and the four goal outcomes (met or missed).
   //
   // All computation is server-side (GET /api/report-card); this page only formats
   // and lays out the response.
@@ -42,7 +42,7 @@
   // ─── Pieces ─────────────────────────────────────────────────────────────────────
 
   /** A year-over-year change pill under a headline figure. `goodWhenUp` colours
-   *  an increase green (income, savings) or red (expenses). */
+   *  an increase green (income) or red (expenses). */
   function changePill(change, goodWhenUp) {
     if (!change) return '<span class="rc-change rc-change-none">first year</span>';
     // pct null with a real change → grew from zero ("new").
@@ -100,7 +100,6 @@
     <div class="rc-figures">
       ${figure('Income', y.income, y.changes.income, true)}
       ${figure('Expenses', y.expenses, y.changes.expenses, false)}
-      ${figure('Saving & Investing', y.savings, y.changes.savings, true)}
     </div>
 
     <div class="rc-metrics">
@@ -109,7 +108,7 @@
       ${metric('Debt-to-Income', y.metrics.debtToIncome,
         'Total debt from your Balance Sheet (latest month this year) divided by the year’s income. Shows N/A when you track no debt. Under 25% earns full marks.')}
       ${metric('Cash Flow Margin', y.metrics.cashFlowMargin,
-        'The share of income left after every tracked outflow — expenses, saving and investing.')}
+        'The share of income left after expenses. Transfers to savings or a brokerage are money moved, not spent, so they don’t reduce it.')}
     </div>
 
     <div class="rc-goals-wrap">

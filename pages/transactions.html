@@ -17,8 +17,9 @@
              
 <div class="db-page tx-page">
     <!-- Chip row above the table — no container background. The left group is
-         one filter chip per search field (Date / Name / Amount / Type /
-         Category) plus a Clear all; the right group holds the action chips
+         one filter chip per search field (Date / Name / Type / Category /
+         Account / Amount — same order as the table columns) plus a Clear all;
+         the right group holds the action chips
          (icon chips for Edit / Delete / Add, labeled primary buttons for
          Import / Export). Inactive filter chips read as a
          dotted outline with just the field name; clicking one drops a popover of
@@ -43,14 +44,6 @@
                     <span class="tx-filter-name">Name</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
                 </button>
             </div>
-            <div class="tx-filter-chip" data-filter="amount">
-                <button class="tx-filter-clear" type="button" aria-label="Clear amount filter">
-                    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-                </button>
-                <button class="tx-filter-main" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Filter by Amount">
-                    <span class="tx-filter-name">Amount</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
-                </button>
-            </div>
             <div class="tx-filter-chip" data-filter="type">
                 <button class="tx-filter-clear" type="button" aria-label="Clear type filter">
                     <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
@@ -65,6 +58,22 @@
                 </button>
                 <button class="tx-filter-main" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Filter by Category">
                     <span class="tx-filter-name">Category</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
+                </button>
+            </div>
+            <div class="tx-filter-chip" data-filter="account">
+                <button class="tx-filter-clear" type="button" aria-label="Clear account filter">
+                    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+                </button>
+                <button class="tx-filter-main" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Filter by Account">
+                    <span class="tx-filter-name">Account</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
+                </button>
+            </div>
+            <div class="tx-filter-chip" data-filter="amount">
+                <button class="tx-filter-clear" type="button" aria-label="Clear amount filter">
+                    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+                </button>
+                <button class="tx-filter-main" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Filter by Amount">
+                    <span class="tx-filter-name">Amount</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
                 </button>
             </div>
             <button class="tx-clear-all" type="button" id="tx-clear-all" hidden>Clear all</button>
@@ -102,6 +111,7 @@
                     <th class="tx-col-description">Description</th>
                     <th class="tx-col-type">Type</th>
                     <th class="tx-col-category">Category</th>
+                    <th class="tx-col-account">Account</th>
                     <th class="tx-col-amount">Amount</th>
                     <th class="tx-col-notes">Notes</th>
                 </tr>
@@ -112,7 +122,7 @@
                  fits on a single page. -->
             <tfoot>
                 <tr class="tx-footer-row" id="tx-footer-row" hidden>
-                    <td colspan="7">
+                    <td colspan="8">
                         <div class="tx-pagination" id="tx-pagination"></div>
                     </td>
                 </tr>

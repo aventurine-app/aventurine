@@ -32,8 +32,7 @@ const cashflowTable = bootstrapYearTablePage({
     types: [
         { key: 'income',    label: 'Income' },
         { key: 'expense',   label: 'Expense' },
-        { key: 'savings',   label: 'Savings' },
-        { key: 'investing', label: 'Investing' },
+        { key: 'transfer',  label: 'Transfer' },
     ],
     includeTotals:      true,
     hideColumnManager:  true,

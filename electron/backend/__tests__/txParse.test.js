@@ -19,7 +19,7 @@ const path = require('path');
 const TxParse = require('../../../static/js/widgets/txparse.js');
 const {
   parseFile, parseDelimited, detectDelimiter, detectColumns, applyMapping,
-  parseIsoDate, parseAmount, fingerprint,
+  parseIsoDate, parseAmount, fingerprint, deriveBalances,
 } = TxParse;
 
 const FIX = path.join(__dirname, 'fixtures', 'import');
@@ -268,7 +268,7 @@ test('sample.qif: apostrophe dates, T/U amounts, L-category fallback, no trailin
   assert.equal(errors.length, 0);
   assert.deepEqual(parsed[0], {
     date: '2026-01-15', description: 'SHELL OIL 5701', tx_type: 'expense',
-    amount: 32.5, notes: 'CARD PURCHASE',
+    amount: 32.5, notes: 'CARD PURCHASE', balance: null,
   });
   // U amount honoured; category label used as the notes fallback.
   assert.deepEqual([parsed[1].amount, parsed[1].tx_type, parsed[1].notes], [850, 'expense', 'Rent']);
@@ -319,17 +319,18 @@ test('rejections: .xls, PDF, and NUL-ridden binaries fail with guidance', async 
 
 test('detectColumns: fuzzy header names win first; a lone Debit column stays the single amount', () => {
   const d = detectColumns(['Posting Date', 'Transaction Details', 'Debit Amount', 'Reference'], []);
-  assert.deepEqual(d, { date: 0, description: 1, amount: 2, debit: null, credit: null, notes: 3 });
+  assert.deepEqual(d, { date: 0, description: 1, amount: 2, debit: null, credit: null, notes: 3, balance: null });
 });
 
-test('detectColumns: separate Debit/Credit columns become a split mapping', () => {
+test('detectColumns: separate Debit/Credit columns become a split mapping (+ a Balance column)', () => {
   const d = detectColumns(['Date', 'Description', 'Debit', 'Credit', 'Balance'], []);
-  assert.deepEqual(d, { date: 0, description: 1, amount: null, debit: 2, credit: 3, notes: null });
+  // A running-balance column is detected but never mistaken for the amount.
+  assert.deepEqual(d, { date: 0, description: 1, amount: null, debit: 2, credit: 3, notes: null, balance: 4 });
 });
 
 test('detectColumns: Withdrawal/Deposit headers count as the split pair', () => {
   const d = detectColumns(['Posted Date', 'Payee', 'Withdrawal Amount', 'Deposit Amount'], []);
-  assert.deepEqual(d, { date: 0, description: 1, amount: null, debit: 2, credit: 3, notes: null });
+  assert.deepEqual(d, { date: 0, description: 1, amount: null, debit: 2, credit: 3, notes: null, balance: null });
 });
 
 test('detectColumns: a combined Amount column beats the Debit/Credit pair', () => {
@@ -363,7 +364,7 @@ test('applyMapping: per-row errors carry human row numbers; valid rows pass thro
   const { parsed, errors } = applyMapping(rows, { date: 0, description: 1, amount: 2, notes: null });
   assert.equal(parsed.length, 1);
   assert.deepEqual(parsed[0], {
-    date: '2026-01-01', description: 'OK ROW', tx_type: 'income', amount: 10, notes: '',
+    date: '2026-01-01', description: 'OK ROW', tx_type: 'income', amount: 10, notes: '', balance: null,
   });
   // firstRowNum defaults to 2 (row 1 is the header line in the source file).
   assert.deepEqual(errors.map(e => e.row), [3, 4, 5]);
@@ -406,13 +407,64 @@ test('applyMapping: a debit-only split mapping imports every row as an expense',
 test('pipeline: parseFile → detectColumns → applyMapping on a messy CSV', async () => {
   const t = await parseFile('chase-style.csv', loadFixture('chase-style.csv'));
   const d = detectColumns(t.headers, t.rows);
-  assert.deepEqual(d, { date: 0, description: 1, amount: 2, debit: null, credit: null, notes: null });
+  assert.deepEqual(d, { date: 0, description: 1, amount: 2, debit: null, credit: null, notes: null, balance: 3 });
   const { parsed, errors } = applyMapping(t.rows, d);
   assert.equal(errors.length, 0);
   assert.deepEqual(parsed[0], {
     date: '2026-01-05', description: 'AMAZON MKTP US*2Y4RT, Seattle WA',
-    tx_type: 'expense', amount: 23.45, notes: '',
+    tx_type: 'expense', amount: 23.45, notes: '', balance: 1240.10,
   });
   // Fingerprints of the parsed rows are ready for the dup-detection set.
   assert.equal(fingerprint(parsed[0]), '2026-01-05|23.45|amazon mktp us*2y4rt, seattle wa');
+});
+
+// ── Imported balances (Balance Sheet's computed layer) ───────────────────────
+
+test('parseOFX: <LEDGERBAL> is captured (date + amount); <AVAILBAL> is ignored', async () => {
+  const t = await parseFile('sample-sgml.ofx', loadFixture('sample-sgml.ofx'));
+  // The book balance, not the spendable AVAILBAL (3100.00), rides alongside.
+  assert.deepEqual(t.ledgerBalance, { date: '2026-02-28', value: 3218.45 });
+});
+
+test('detectColumns: a lone "Running Balance" column is claimed as balance, not amount', () => {
+  const d = detectColumns(['Date', 'Description', 'Amount', 'Running Balance'], []);
+  assert.equal(d.amount, 2);
+  assert.equal(d.balance, 3);
+});
+
+test('detectColumns: "Available Balance" is NOT treated as a month-end balance', () => {
+  const d = detectColumns(['Date', 'Description', 'Amount', 'Available Balance'], []);
+  assert.equal(d.balance, null);
+});
+
+test('deriveBalances: keeps the latest-dated reading per month; earlier days are superseded', async () => {
+  // running-balance.csv: Jan has two rows (10th → 950, 25th → 2450), no Feb
+  // row, one Mar row. The month-end figure is the last-dated reading in each
+  // month; the empty month contributes nothing (stays blank on the sheet).
+  const t = await parseFile('running-balance.csv', loadFixture('running-balance.csv'));
+  const d = detectColumns(t.headers, t.rows);
+  const { parsed } = applyMapping(t.rows, d);
+  assert.deepEqual(deriveBalances(parsed, t.ledgerBalance), [
+    { date: '2026-01-25', value: 2450, source: 'file' },
+    { date: '2026-03-05', value: 1250, source: 'file' },
+  ]);
+});
+
+test('deriveBalances: a same-date tie is broken by file order (later row wins)', () => {
+  const rows = [
+    { date: '2026-01-31', balance: 100 },
+    { date: '2026-01-31', balance: 175 },   // later in the file → the day's close
+  ];
+  assert.deepEqual(deriveBalances(rows), [{ date: '2026-01-31', value: 175, source: 'file' }]);
+});
+
+test('deriveBalances: an OFX ledger balance rides in as its own reading and wins a same-date tie', () => {
+  const rows = [{ date: '2026-02-28', balance: 900 }];
+  const out = deriveBalances(rows, { date: '2026-02-28', value: 3218.45 });
+  assert.deepEqual(out, [{ date: '2026-02-28', value: 3218.45, source: 'ofx' }]);
+});
+
+test('deriveBalances: rows without a balance (and files with none) yield nothing', () => {
+  assert.deepEqual(deriveBalances([{ date: '2026-01-01' }, { date: '2026-01-02', balance: null }]), []);
+  assert.deepEqual(deriveBalances([]), []);
 });

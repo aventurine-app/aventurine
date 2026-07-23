@@ -6,7 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { bad, parseIsoDate, isFiniteNumber, validateYear } = require('../validate');
+const { bad, parseIsoDate, isFiniteNumber, validateYear, round2 } = require('../validate');
 const { ensureActiveYear } = require('./incomeExpenses');
 const { normalisePath } = require('./database');
 const { EXPORT_FORMATS, exportHeader, exportBody, exportFooter } = require('../services/txExport');
@@ -16,6 +16,7 @@ const {
   insertTx,
   updateTx,
   newTx,
+  accountExists,
 } = require('../services/transactions');
 const { serialiseCategory } = require('../services/categories');
 const {
@@ -231,10 +232,59 @@ function hashes(ctx, { query }) {
   };
 }
 
+const BALANCE_SOURCES = new Set(['file', 'ofx']);
+
+/**
+ * Validate the optional `balances` array an import may carry — the month-end
+ * account balances read from the statement (a mapped CSV/XLSX balance column or
+ * an OFX <LEDGERBAL>). Each raw item is { account_key, date, value, source };
+ * the (year, month) the reading lands in is DERIVED from its date here, never
+ * trusted from the client, so a cell only ever fills the month its reading
+ * actually falls in. Unknown accounts and malformed items are dropped (the
+ * transactions still import) rather than failing the whole import. Returns the
+ * clean, cents-rounded rows ready to upsert.
+ */
+function validateBalances(db, raw) {
+  if (raw == null) return [];
+  if (!Array.isArray(raw)) bad('balances must be an array');
+  if (!raw.length) return [];
+
+  const known = new Set(
+    db.prepare('SELECT "key" FROM balance_columns').all().map((c) => c.key)
+  );
+  const clean = [];
+  for (const b of raw) {
+    if (!b || typeof b !== 'object' || Array.isArray(b)) continue;
+    if (typeof b.account_key !== 'string' || !known.has(b.account_key)) continue;
+    const date = parseIsoDate(b.date);
+    if (!date) continue;
+    if (!isFiniteNumber(b.value)) continue;
+    if (!BALANCE_SOURCES.has(b.source)) continue;
+    const year = parseInt(date.slice(0, 4), 10);
+    const month = parseInt(date.slice(5, 7), 10);
+    if (!validateYear(year)) continue;
+    clean.push({ account_key: b.account_key, year, month, date, value: round2(b.value), source: b.source });
+  }
+  return clean;
+}
+
 function importRows(ctx, { body }) {
   const db = ctx.db();
   const rows = (body || {}).rows;
   if (!Array.isArray(rows) || !rows.length) bad('rows must be a non-empty array');
+  const balances = validateBalances(db, (body || {}).balances);
+
+  // The account every row in this import belongs to — the UI always asks. A
+  // missing/absent key is tolerated (imports predating this, or a caller that
+  // omits it) and leaves the rows unassigned rather than failing the import;
+  // an explicit key that names no account IS an error so a typo can't silently
+  // drop the association.
+  const rawAccount = (body || {}).account_key;
+  let accountKey = null;
+  if (rawAccount != null) {
+    if (typeof rawAccount !== 'string' || !accountExists(db, rawAccount)) bad('unknown account_key');
+    accountKey = rawAccount;
+  }
 
   const inserted = [];
   const skipped = [];
@@ -251,6 +301,7 @@ function importRows(ctx, { body }) {
       skipped.push({ row: i, reason: err });
       continue;
     }
+    t.account_key = accountKey;
     inserted.push(t);
   }
 
@@ -265,18 +316,38 @@ function importRows(ctx, { body }) {
   // (dictionary lookup only — the raw description is stored untouched and the
   // ledger keeps it one click away). Hand-entered rows never get one.
   applyDisplayNames(db, inserted);
-  if (inserted.length) {
+  if (inserted.length || balances.length) {
     db.transaction(() => {
       for (const t of inserted) insertTx(db, t);
-      // Auto-create the Cash Flow *and* Balance Sheet year-tables for every
-      // year this import touches, so imported history feeds the statement,
-      // Report Card, and Home with zero configuration (Cash Flow cells compute
-      // from transactions by default) and both /statements tabs stay in step —
-      // a year that appears in one must appear in the other.
+
+      // Write each imported month-end balance straight into the Balance Sheet
+      // as ordinary, hand-editable data (a balance_entries cell) — NOT a
+      // separate synced/computed layer. Automating the Balance Sheet as a
+      // derived layer hit design blockers twice; instead an import simply seeds
+      // the cells, and from then on they behave like any value the user typed
+      // (edit it, clear it, override it). One reading per (account, year, month)
+      // from deriveBalances; a re-import overwrites the cell with the newer file.
+      const upsertBalance = db.prepare(
+        `INSERT INTO balance_entries (year, month, category, value)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(year, month, category) DO UPDATE SET value = excluded.value`
+      );
+      for (const b of balances) upsertBalance.run(b.year, b.month, b.account_key, b.value);
+
+      // Auto-create the Cash Flow *and* Balance Sheet year-tables for every year
+      // this import touches (transaction years and balance-reading years alike),
+      // so imported history feeds the statement, Report Card, and Home with zero
+      // configuration (Cash Flow cells compute from transactions by default,
+      // Balance Sheet cells seeded from these readings) and both /statements tabs
+      // stay in step — a year that appears in one must appear in the other.
       const ensureBalanceYear = db.prepare(
         'INSERT OR IGNORE INTO balance_active_years (year) VALUES (?)'
       );
-      for (const year of new Set(inserted.map((t) => parseInt(t.date.slice(0, 4), 10)))) {
+      const touchedYears = new Set([
+        ...inserted.map((t) => parseInt(t.date.slice(0, 4), 10)),
+        ...balances.map((b) => b.year),
+      ]);
+      for (const year of touchedYears) {
         if (validateYear(year)) {
           ensureActiveYear(db, year);
           ensureBalanceYear.run(year);
@@ -290,6 +361,7 @@ function importRows(ctx, { body }) {
     inserted: inserted.length,
     skipped,
     auto_categorized: autoCategorized,
+    balances_applied: balances.length,
   };
 }
 
@@ -307,7 +379,7 @@ const EXPORT_CHUNK = 500;
 // the t/c aliases of the export queries' LEFT JOIN; tx_type compares the
 // DERIVED direction (COALESCE(c.cat_type, t.tx_type)), the same rule list()
 // and the renderer use, so the file matches what the table shows.
-const EXPORT_TX_TYPES = ['income', 'expense', 'savings', 'investing'];
+const EXPORT_TX_TYPES = ['income', 'expense', 'transfer'];
 
 function exportFilterSql(filters) {
   if (filters == null) return { where: '', args: [] };
@@ -364,6 +436,18 @@ function exportFilterSql(filters) {
       args.push(filters.category_id);
     } else {
       bad('filters.category_id must be an integer or null');
+    }
+  }
+  if ('account_key' in filters) {
+    // Explicit null means "unassigned only" (no Balance Sheet account); a
+    // string names one account; an absent key means no filter.
+    if (filters.account_key === null) {
+      conds.push('t.account_key IS NULL');
+    } else if (typeof filters.account_key === 'string') {
+      conds.push('t.account_key = ?');
+      args.push(filters.account_key);
+    } else {
+      bad('filters.account_key must be a string or null');
     }
   }
   return { where: conds.length ? ` WHERE ${conds.join(' AND ')}` : '', args };

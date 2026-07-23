@@ -61,10 +61,10 @@ html[data-theme="dark"],
 
     /* Status colours — system meaning, not brand. */
     --warning: #f5a524;
-    /* Vivid primary blue — attention/notification accent (Uncategorized pill,
-       nav uncategorized-count badge). Lightened on dark surfaces (mirrors the
+    /* Vivid primary blue — attention/notification accent (transfer Type pill,
+       computed-cell italics). Lightened on dark surfaces (mirrors the
        accent's dark-theme treatment) so it stays legible against the deep background. */
-    
+
     --accent-info: var(--accent-info-light);
 
     /* ── Frost layer tokens ──────────────────────────────────────────────

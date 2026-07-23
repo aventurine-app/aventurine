@@ -17,8 +17,8 @@
 // bar and only within the row's flow direction, so a built-in guess never
 // silently flips an inflow into an outflow (or vice versa) or miscategorizes a
 // refund. Within the outflow family a guess may refine the KIND — imported
-// debits arrive as 'expense' by sign, and a debit to a named brokerage is an
-// investing contribution, not spending.
+// debits arrive as 'expense' by sign, and a debit to a named brokerage is a
+// transfer (a contribution), not spending.
 
 const { MERCHANTS, KEYWORDS, merchantDisplayFor } = require('./merchantCategories');
 const { normaliseMerchant } = require('./textFeatures');
@@ -78,10 +78,10 @@ function categorize(description) {
  * exist in this DB; only confident matches; and only within the row's flow
  * direction — a guess never turns an inflow into an outflow or vice versa.
  * Within outflows it MAY refine the kind: imported debits arrive as 'expense'
- * (sign only), so a savings/investing category applying to one is a
- * refinement (a Robinhood debit is a contribution), not a flip. Inflows are
- * never refined: a deposit from a brokerage is a withdrawal, not income, so
- * it stays blank.
+ * (sign only), so a transfer category applying to one is a refinement (a
+ * Robinhood debit is a contribution to a brokerage — a transfer, not a spend),
+ * not a flip. Inflows are never refined: a deposit from a brokerage is a
+ * withdrawal, not income, so it stays blank.
  */
 function applyBuiltinCategorize(db, transactions) {
   if (!autoMatchEnabled(db)) return 0;
@@ -100,9 +100,9 @@ function applyBuiltinCategorize(db, transactions) {
     const cat = catByKey.get(hit.categoryKey);
     if (!cat) continue;
     // Direction guard: a guess may refine an outflow's kind (expense →
-    // savings/investing) but never cross the inflow/outflow line.
+    // transfer) but never cross the inflow/outflow line.
     const refinesOutflow =
-      t.tx_type === 'expense' && (cat.cat_type === 'savings' || cat.cat_type === 'investing');
+      t.tx_type === 'expense' && cat.cat_type === 'transfer';
     if (cat.cat_type !== t.tx_type && !refinesOutflow) continue;
     t.category_id = cat.id;
     t.tx_type = cat.cat_type;
