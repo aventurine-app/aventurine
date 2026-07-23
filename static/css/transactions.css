@@ -663,7 +663,9 @@
 }
 
 /* Uncategorized stands out like a Type pill, on the warning amber accent (matches
-   the nav uncategorized-count badge) so it reads as "needs review". */
+   the nav uncategorized-count badge) so it reads as "needs review". Applied to
+   every uncategorized row regardless of its backend tx_type — a blank category
+   always reads amber, never a direction tint. */
 .tx-category-pill.tx-category-empty {
     padding: 3px 9px;
     font-weight: var(--weight-semibold);
@@ -671,9 +673,28 @@
     color: var(--warning);
 }
 
-/* Account column — the source account a row was imported from. Rendered as the
-   same neutral grey pill as the Type and Category columns so the three read as
-   one family. Capped to one nowrap line, ellipsized if the account name is long.
+/* Direction tint for a categorized pill — the old Type column merged into this
+   colour. Income green, expense red, transfer blue: the same
+   --accent-positive / --accent-negative / --accent-info trio the amount uses, so
+   pill colour and amount colour agree on every row. Only the surface + text
+   colour change; padding/weight stay the base pill's so the shape is unchanged. */
+.tx-category-pill.tx-category-income {
+    background: color-mix(in srgb, var(--accent-positive) 15%, transparent);
+    color: var(--accent-positive);
+}
+.tx-category-pill.tx-category-expense {
+    background: color-mix(in srgb, var(--accent-negative) 15%, transparent);
+    color: var(--accent-negative);
+}
+.tx-category-pill.tx-category-transfer {
+    background: color-mix(in srgb, var(--accent-info) 15%, transparent);
+    color: var(--accent-info);
+}
+
+/* Account column — the source account a row was imported from. Rendered as a
+   neutral grey pill (the Category pill now carries a direction tint, so the grey
+   sets Account apart as the plain, non-financial tag).
+   Capped to one nowrap line, ellipsized if the account name is long.
    Unassigned rows (manual entries, pre-account imports) drop the pill and show a
    muted dash so an empty cell never looks like a filled tag. */
 .tx-account-tag {
@@ -699,37 +720,7 @@
     color: var(--text-tertiary);
 }
 
-/* Type pill — colour-coded badge in its own column. Each direction carries its
-   own tinted treatment (same 15% accent-on-transparent recipe as the
-   Uncategorized pill): income reads green, expense red, transfers blue — the
-   --accent-positive / --accent-negative / --accent-info trio used elsewhere for
-   money in / money out / money moved. The neutral grey below is only a fallback
-   for an unrecognised type. */
-.tx-type-pill {
-    display: inline-block;
-    padding: 3px 9px;
-    border-radius: 5px;
-    background: var(--surface2);
-    color: var(--text-primary);
-    font-family: var(--font-h3);
-    font-size: var(--size-small);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-normal);
-}
-.tx-type-pill.tx-type-income {
-    background: color-mix(in srgb, var(--accent-positive) 15%, transparent);
-    color: var(--accent-positive);
-}
-.tx-type-pill.tx-type-expense {
-    background: color-mix(in srgb, var(--accent-negative) 15%, transparent);
-    color: var(--accent-negative);
-}
-.tx-type-pill.tx-type-transfer {
-    background: color-mix(in srgb, var(--accent-info) 15%, transparent);
-    color: var(--accent-info);
-}
-
-/* Amount colour follows type, matching each row's Type pill: money in (income)
+/* Amount colour follows type, matching each row's Category pill: money in (income)
    reads green, money out (expense) reads red — the same --accent-positive /
    --accent-negative pair as the Report Card verdicts. Transfers are money moved,
    not earned or spent, so they read in the same info-blue as the transfer pill —

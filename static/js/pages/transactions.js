@@ -38,8 +38,9 @@
         selectedIds: new Set(),
         revealedIds: new Set(),
         page:        1,   // 1-based; clamped to the visible-row count on every render
-        // Ordered to mirror the table columns (Date · Name · Type · Category ·
-        // Account · Amount), the same order the filter chips render in.
+        // Ordered the same as the filter chips render. Type has no column of its
+        // own any more (it's merged into the Category pill's colour) but stays a
+        // filter, since a row's direction is still a useful thing to narrow by.
         filters: {
             dateFrom:  '',
             dateTo:    '',
@@ -171,21 +172,23 @@
     // ─── Row rendering ───────────────────────────────────────────────────────────
 
     function txRenderDisplayRow(t) {
+        // The Type column is merged into Category: a categorized row's pill is
+        // tinted by its (category-implied) direction — income green, expense red,
+        // transfer blue, the same trio the amount uses — so the colour carries the
+        // direction the Type pill used to spell out. An uncategorized row always
+        // reads amber ("needs review"), regardless of its backend tx_type.
         const catName = txCategoryName(t.category_id);
-        const catCell = catName
-            ? `<span class="tx-category-pill">${txEsc(catName)}</span>`
-            : `<span class="tx-category-pill tx-category-empty">Uncategorized</span>`;
-
         const TYPE_META = {
-            income:   { label: 'Income',   cls: 'tx-type-income',   amtCls: 'tx-amount-income',   sign: '+ ' },
-            expense:  { label: 'Expense',  cls: 'tx-type-expense',  amtCls: 'tx-amount-expense',  sign: '- ' },
-            transfer: { label: 'Transfer', cls: 'tx-type-transfer', amtCls: 'tx-amount-transfer', sign: '- ' },
+            income:   { catCls: 'tx-category-income',   amtCls: 'tx-amount-income',   sign: '+ ' },
+            expense:  { catCls: 'tx-category-expense',  amtCls: 'tx-amount-expense',  sign: '- ' },
+            transfer: { catCls: 'tx-category-transfer', amtCls: 'tx-amount-transfer', sign: '- ' },
         };
         const meta        = TYPE_META[t.tx_type] || TYPE_META.expense;
         const amountClass = meta.amtCls;
         const sign        = meta.sign;
-        const typeLabel   = meta.label;
-        const typeClass   = meta.cls;
+        const catCell = catName
+            ? `<span class="tx-category-pill ${meta.catCls}">${txEsc(catName)}</span>`
+            : `<span class="tx-category-pill tx-category-empty">Uncategorized</span>`;
 
         // Imported rows the merchant lexicon recognizes carry a canonical
         // display_name with the raw bank string one click away; manual entries
@@ -214,7 +217,6 @@
             <td class="tx-col-select"><input type="checkbox" class="tx-checkbox tx-row-cb" data-id="${t.id}" ${selected ? 'checked' : ''} aria-label="Select transaction"></td>
             <td class="tx-col-date">${txEsc(txFmtDate(t.date))}</td>
             <td class="tx-col-description">${descCell}</td>
-            <td class="tx-col-type"><span class="tx-type-pill ${typeClass}">${typeLabel}</span></td>
             <td class="tx-col-category">${catCell}</td>
             <td class="tx-col-account">${acctCell}</td>
             <td class="tx-col-amount ${amountClass}">${sign}${txFmtAmount(t.amount)}</td>
@@ -265,12 +267,26 @@
         return opts.join('');
     }
 
-    // The seven editable field cells (date / description / type / category /
+    // The editable field cells (date / description / [type] / category /
     // account / amount / notes) for one transaction. Each input carries a
     // data-field so txReadFields() can read it back. Used both as <td>s in the
     // inline add row and as cells in the bulk-edit modal.
-    function txEditFieldsCells(t) {
+    //
+    // `includeType` gates the Type <select>. The main ledger merged Type into the
+    // Category column, so the inline add row (which lives in that table and must
+    // stay column-aligned) omits it — a new row's direction follows the category
+    // it's given. The bulk-edit modal keeps its own table, so it retains the Type
+    // control: it's the one place to set direction on a row left uncategorized.
+    function txEditFieldsCells(t, { includeType = true } = {}) {
         const txType = t.tx_type || 'expense';
+        const typeCell = includeType ? `
+        <td class="tx-col-type">
+            <select class="tx-select tx-input-type" data-field="tx_type">
+                <option value="expense"  ${txType === 'expense'  ? 'selected' : ''}>Expense</option>
+                <option value="income"   ${txType === 'income'   ? 'selected' : ''}>Income</option>
+                <option value="transfer" ${txType === 'transfer' ? 'selected' : ''}>Transfer</option>
+            </select>
+        </td>` : '';
         // Account sits between Category and Amount, matching the ledger's column
         // order; both the inline add row and the bulk-edit modal carry it, so a
         // transaction's account can be set on creation and changed on edit.
@@ -287,13 +303,7 @@
             <input type="text" class="tx-input tx-input-description" data-field="description"
                    value="${txEsc(t.description || '')}" placeholder="Description">
         </td>
-        <td class="tx-col-type">
-            <select class="tx-select tx-input-type" data-field="tx_type">
-                <option value="expense"  ${txType === 'expense'  ? 'selected' : ''}>Expense</option>
-                <option value="income"   ${txType === 'income'   ? 'selected' : ''}>Income</option>
-                <option value="transfer" ${txType === 'transfer' ? 'selected' : ''}>Transfer</option>
-            </select>
-        </td>
+        ${typeCell}
         <td class="tx-col-category">
             <select class="tx-select tx-input-category" data-field="category_id">${txCategoryOptions(t.category_id)}</select>
         </td>
@@ -322,7 +332,7 @@
                     <button class="tx-action-btn tx-action-cancel" data-action="cancel" data-id="${rowId}" title="Cancel">${TX_ICONS.cross}</button>
                 </div>
             </td>
-            ${txEditFieldsCells(t)}
+            ${txEditFieldsCells(t, { includeType: false })}
         </tr>
     `;
     }
@@ -341,7 +351,7 @@
                 desc: 'Import a statement from your bank, or add a transaction by hand to get started.',
                 action: { label: 'Import transactions', name: 'tx-import', icon: 'import', primary: true },
             });
-        return `<tr class="tx-empty-row"><td colspan="8">${inner}</td></tr>`;
+        return `<tr class="tx-empty-row"><td colspan="7">${inner}</td></tr>`;
     }
 
     // Skeleton placeholder rows shown while the ledger loads (cold fetch only).
@@ -350,7 +360,7 @@
         const cell = (w) => `<td><div class="skeleton skeleton-line sk-w-${w}"></div></td>`;
         const row = '<tr class="tx-row tx-skeleton-row">'
             + '<td class="tx-col-select"></td>'
-            + cell('75') + cell('90') + cell('50') + cell('60') + cell('50') + cell('50') + cell('40')
+            + cell('75') + cell('90') + cell('60') + cell('50') + cell('50') + cell('40')
             + '</tr>';
         return row.repeat(n);
     }
