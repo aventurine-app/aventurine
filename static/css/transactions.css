@@ -279,16 +279,19 @@
     background: var(--frost-2);
 }
 
-/* Active → accent ramp: light accent fill, solid deep-accent border + text. */
+/* Active → the selected-chip accent (style.css/themes.css): a tinted fill with
+   a solid deeper border + label. Tokens, not raw ramp stops — the ramp is
+   declared once and never flips, so hard-coded stops kept the light theme's
+   pale mint on dark, where it glared. */
 .tx-filter-chip.is-active {
     border-style: solid;
-    border-color: var(--color-accent-700);
-    background: var(--color-accent-200);
-    color: var(--color-accent-700);
+    border-color: var(--chip-active-stroke);
+    background: var(--chip-active-bg);
+    color: var(--chip-active-text);
 }
 
 .tx-filter-chip.is-active:hover {
-    background: var(--color-accent-300);
+    background: var(--chip-active-bg-hover);
 }
 
 /* The label button: field name, then a full-height divider + value once active. */
@@ -442,11 +445,11 @@
 .tx-pop-preset:hover { background: var(--frost-3); color: var(--text-primary); }
 /* Selected wears the same accent ramp as an active filter chip. */
 .tx-pop-preset.is-selected {
-    border-color: var(--color-accent-700);
-    background: var(--color-accent-200);
-    color: var(--color-accent-700);
+    border-color: var(--chip-active-stroke);
+    background: var(--chip-active-bg);
+    color: var(--chip-active-text);
 }
-.tx-pop-preset.is-selected:hover { background: var(--color-accent-300); }
+.tx-pop-preset.is-selected:hover { background: var(--chip-active-bg-hover); }
 .tx-pop-preset:focus-visible {
     outline: 2px solid var(--accent-primary);
     outline-offset: -2px;

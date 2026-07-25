@@ -95,18 +95,26 @@ html[data-theme="dark"],
     --dialog-surface: rgb(38, 38, 40);
     --dialog-stroke:  rgba(255,255,255, 0.12);
 
-    /* Segmented control — raised must sit LIGHTER than the track on dark
-       (raised = lighter), so both rungs step up from the base-950 page. The
-       hairline does the lifting a drop shadow can't on dark surfaces. */
-    --segctl-track:         var(--color-base-900);
-    --segctl-raised:        var(--color-base-700);
-    --segctl-raised-stroke: var(--stroke-soft);
-    --segctl-raised-shadow: 0 1px 2px rgba(0,0,0, 0.35);
+    /* Segmented control — only hover needs a dark value. The track follows
+       --surface1 (the nav fill) and the stroke/active fill follow --border /
+       --accent-primary / --button-text, all of which flip above; hover has to
+       step the opposite way along the ramp (base-900 track → base-700) because
+       stepping off the track means going lighter on dark. */
+    --segctl-hover:         var(--color-base-700);
 
     /* Toolbar controls (stepper label, toolbar range picker) — same fill as
        card-header pickers here; the light theme lifts them a rung instead
        (see style.css). */
     --toolbar-control-bg:   var(--surface2);
 
+    /* Selected-chip accent — the ends of the accent ramp trade places against
+       the light theme (see style.css): the fill comes from the DARK end so it
+       sits as close to this page as accent-200 sits to the light one, and the
+       line/label come from the light end so they still read on it. Without this
+       the chip kept the light theme's pale mint and glared. */
+    --chip-active-bg:       var(--color-accent-800);
+    --chip-active-bg-hover: var(--color-accent-700);
+    --chip-active-stroke:   var(--color-accent-600);
+    --chip-active-text:     var(--color-accent-200);
 }
 

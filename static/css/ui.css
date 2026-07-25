@@ -178,87 +178,23 @@
  * to reach all three before this file existed for them). */
 .range-selector { position: relative; }
 
-.range-selector-btn {
-    background: var(--surface2);
-    border: var(--border-width) solid var(--border);
-    border-radius: 6px;
-    color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wider);
-    text-transform: uppercase;
-    padding: 6px 26px 6px 12px;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
-    /* Caret drawn via background-image so the button text stays clean.
-       A single conic-gradient triangle: the old two-linear-gradient recipe
-       drew the arrow as two abutting halves whose positions rounded to
-       device pixels independently, so they visibly split at fractional
-       zoom. One layer scales as a unit. */
-    background-image: conic-gradient(from -45deg at 50% 100%,
-                      currentColor 90deg, transparent 0);
-    background-position: calc(100% - 10px) 50%;
-    background-size: 8px 4px;
-    background-repeat: no-repeat;
-}
-
-.range-selector-btn:hover {
-    background-color: var(--surface3);
-    color: var(--text-primary);
-    border-color: var(--text-tertiary);
-}
-
-/* Caret flips to point up while the menu is open. Keyed off the sibling
-   menu's [hidden] state via :has() rather than a JS class so it stays in
-   sync with every open/close path (button toggle, item pick, outside
-   click) across the three wireRangePicker copies. */
-.range-selector:has(.range-selector-menu:not([hidden])) .range-selector-btn {
-    background-image: conic-gradient(from 135deg at 50% 0%,
-                      currentColor 90deg, transparent 0);
-}
-
-.range-selector-menu {
-    position: absolute;
-    top: calc(100% + 4px);
-    right: 0;
-    min-width: 140px;
-    z-index: 20;
-    padding: 4px 0;
-    background: var(--background);
-    border: var(--border-width) solid var(--border);
-    border-radius: 6px;
-    box-shadow: var(--shadow-menu);
-    display: flex;
-    flex-direction: column;
-}
-
+/* The range selector and the stepper label are the same widget — a button that
+   opens a list of choices — so they are ONE control now rather than two
+   lookalikes that drifted apart (different heights, fills, weights, tracking
+   and menu chrome). The trigger's shape/type/caret folds into .stepper-label,
+   and the menu + its items fold into .p-table-dropdown / .p-dropdown-item; both
+   sets of rules list this widget's class names alongside the stepper's.
+   What stays here is the one thing genuinely different: this picker keeps its
+   menu markup in the page and toggles [hidden] on it, where the stepper's menu
+   is built and destroyed by UI.openMenu. */
 .range-selector-menu[hidden] { display: none; }
-
-.range-selector-menu button {
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    font-weight: var(--weight-regular);
-    text-align: left;
-    padding: 8px 14px;
-    cursor: pointer;
-    transition: background 0.12s, color 0.12s;
-}
-
-.range-selector-menu button:hover {
-    background: var(--surface3);
-    color: var(--text-primary);
-}
 
 
 /* ─── Dropdown menu (UI.openMenu) ──────────────────────────────────────────
- * Anchored absolute into the opener's parent: the ⋮ table menus (tables.js)
- * and the stepper month/year pickers share it. Moved here from tables.css so
- * pages without tables (Home) get it too. */
-.p-table-dropdown {
+ * Anchored absolute into the opener's parent: the ⋮ table menus (tables.js),
+ * the stepper month/year pickers and the range selector share it. Moved here
+ * from tables.css so pages without tables (Home) get it too. */
+.p-table-dropdown, .range-selector-menu {
     position: absolute;
     top: calc(100% + 4px);
     right: 0;
@@ -302,7 +238,7 @@
     transform: translateX(-50%);
 }
 
-.p-dropdown-item {
+.p-dropdown-item, .range-selector-menu button {
     display: block;
     width: 100%;
     background: none;
@@ -321,7 +257,7 @@
     white-space: nowrap;
 }
 
-.p-dropdown-item:hover {
+.p-dropdown-item:hover, .range-selector-menu button:hover {
     background: var(--frost-2);
     color: var(--text-primary);
 }
@@ -341,8 +277,10 @@
  * Shared by Statements (.stmt-*), Home (.home-*), and Cash Flow Reports
  * (.cf-*). Moved here from statements.css when Home adopted it.
  *
- * The tabs are a segmented control: a grey track holding both labels, with
- * the active one lifted on a raised card. The track hugs its content.
+ * The tabs are a segmented control: a hairline-outlined grey track holding both
+ * labels, with the active one filled in the accent — the same fill/text pair
+ * .button-primary uses (buttons.css), so a selected tab reads as a sibling of
+ * the page's primary action. The track hugs its content.
  *
  * The toolbar row layouts differ per page and live in each page's stylesheet:
  * Statements (statements.css) pins its year stepper dead-center between the
@@ -359,8 +297,12 @@
     gap: 4px;
     padding: 4px;
     background: var(--segctl-track);
-    /* Inner card radius 8 + 4px track padding, so the curves stay concentric. */
-    border-radius: 12px;
+    /* The same 1px hairline every other bordered control wears, so the track
+       reads as one of them rather than a floating patch of grey. */
+    border: 1px solid var(--segctl-stroke);
+    /* Inner card radius 8 + 4px track padding + the 1px border, so the curves
+       stay concentric. */
+    border-radius: 13px;
 }
 
 /* Type + box tokens mirror the action-button shape (buttons.css) — same
@@ -369,8 +311,8 @@
 .stmt-tab, .home-tab, .cf-tab {
     appearance: none;
     background: transparent;
-    /* Transparent hairline reserves the active card's border so the label
-       never shifts when selection lands (buttons must stand still). */
+    /* Transparent hairline reserves the active tab's border so the label never
+       shifts when selection lands (buttons must stand still). */
     border: 1px solid transparent;
     border-radius: 8px;
     box-sizing: border-box;
@@ -384,29 +326,41 @@
     white-space: nowrap;
     padding: var(--space-8) var(--space-16);
     cursor: pointer;
-    transition: color 0.15s, background 0.15s, box-shadow 0.15s;
+    /* border-color rides the same 0.15s as the fill — left off this list it
+       snapped to the accent a beat ahead of the background on selection. (The
+       box-shadow that used to be here went with the raised-card active state.) */
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
 }
 
+/* One stop along the base ramp from the track, rather than a translucent frost
+   tint — an opaque rung reads the same wherever the toolbar sits. */
 .stmt-tab:hover, .home-tab:hover, .cf-tab:hover {
     color: var(--text-primary);
-    background: var(--frost-2);
+    background: var(--segctl-hover);
 }
 
 /* No weight bump on active — a bolder label is wider, and in a content-hugging
-   track that width change would shove the sibling tab sideways. The raised
-   card + primary text colour carry the selected state on their own. */
+   track that width change would shove the sibling tab sideways. The accent fill
+   carries the selected state on its own. */
 .stmt-tab.active, .stmt-tab[aria-selected="true"],
 .home-tab.active, .home-tab[aria-selected="true"],
 .cf-tab.active, .cf-tab[aria-selected="true"] {
-    color: var(--text-primary);
-    background: var(--segctl-raised);
-    border-color: var(--segctl-raised-stroke);
-    box-shadow: var(--segctl-raised-shadow);
+    color: var(--segctl-active-text);
+    background: var(--segctl-active);
+    border-color: var(--segctl-active);
 }
 
 .stmt-tab:focus-visible, .home-tab:focus-visible, .cf-tab:focus-visible {
     outline: 2px solid var(--color-accent-400);
     outline-offset: -2px;
+}
+
+/* Inset on an accent fill, the accent ring vanishes — draw the active tab's
+   ring in the label colour instead. */
+.stmt-tab.active:focus-visible, .stmt-tab[aria-selected="true"]:focus-visible,
+.home-tab.active:focus-visible, .home-tab[aria-selected="true"]:focus-visible,
+.cf-tab.active:focus-visible, .cf-tab[aria-selected="true"]:focus-visible {
+    outline-color: var(--segctl-active-text);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -421,9 +375,9 @@
 
 /* ─── Stepper (‹ label ›) ──────────────────────────────────────────────────
  * Prev/label/next picker — Home's month stepper and Statements' year stepper.
- * Same chrome family as the range-selector button above so the control
- * widgets read as one kit. Moved here from home.css when Statements adopted
- * it. The label is a button: clicking it opens a UI.openMenu picker. */
+ * Moved here from home.css when Statements adopted it. The label is a button:
+ * clicking it opens a UI.openMenu picker, and it shares its rules outright with
+ * the range selector (see below). */
 .stepper {
     display: flex;
     align-items: center;
@@ -441,18 +395,23 @@
     line-height: 1;
 }
 
-/* The label keeps the range-selector type treatment and a fixed minimum so
- * "May 2026" ↔ "September 2026" doesn't shift the arrows (--stepper-label-min
- * lets narrower content like a bare year tighten it). It's a real <button>
- * now — hover/focus affordances signal the picker behind it. */
-.stepper-label {
-    /* Theme-tuned fill (style.css/themes.css): matches .range-selector-btn's
-       surface2 on dark, one rung lighter on light where surface2 would
-       disappear into the page background. */
-    background: var(--toolbar-control-bg);
+/* THE menu-opener button, worn by both the stepper label and the range selector
+ * (.range-selector-btn — its own rules folded into these when the two drifted
+ * apart). A fixed minimum keeps "May 2026" ↔ "September 2026" from shifting the
+ * stepper arrows; --stepper-label-min lets narrower content like a bare year
+ * tighten it. Both are real <button>s — hover/focus affordances signal the
+ * picker behind them. */
+.stepper-label, .range-selector-btn {
+    /* Theme-tuned fill (style.css/themes.css): surface2 on dark, one rung
+       lighter on light where surface2 would disappear into the page
+       background. */
+    background-color: var(--toolbar-control-bg);
     border: var(--border-width) solid var(--border);
     border-radius: 6px;
-    padding: 0 var(--space-16);
+    /* Extra right padding clears the caret. The label stays text-align:center,
+       so its text centers 4px left of the box centre — which is where it looks
+       centred once the caret occupies the right edge. */
+    padding: 0 var(--space-24) 0 var(--space-16);
     height: var(--control-height);
     box-sizing: border-box;
     color: var(--text-primary);
@@ -467,14 +426,36 @@
     user-select: none;
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
+    /* The caret, drawn as background-image so the button text stays clean. One
+       conic-gradient triangle: the older two-linear-gradient recipe drew it as
+       two abutting halves whose positions rounded to device pixels
+       independently, so they visibly split at fractional zoom — one layer
+       scales as a unit. Every background rule on this control must stay
+       long-hand; the `background` shorthand would drop this layer. */
+    background-image: conic-gradient(from -45deg at 50% 100%,
+                      currentColor 90deg, transparent 0);
+    background-position: calc(100% - 10px) 50%;
+    background-size: 8px 4px;
+    background-repeat: no-repeat;
 }
 
-.stepper-label:hover {
-    background: var(--surface3);
+.stepper-label:hover, .range-selector-btn:hover {
+    background-color: var(--surface3);
     color: var(--text-primary);
 }
 
-.stepper-label:focus-visible {
+/* Caret flips to point up while the picker is open. Both halves key off the
+   menu's presence via :has() rather than a JS class, so they stay in sync with
+   every open/close path (button toggle, item pick, outside click): the stepper's
+   menu is appended into the anchor's parent by UI.openMenu and removed on close;
+   the range selector's lives in the page and toggles [hidden]. */
+.stepper:has(.p-table-dropdown) .stepper-label,
+.range-selector:has(.range-selector-menu:not([hidden])) .range-selector-btn {
+    background-image: conic-gradient(from 135deg at 50% 0%,
+                      currentColor 90deg, transparent 0);
+}
+
+.stepper-label:focus-visible, .range-selector-btn:focus-visible {
     outline: 2px solid var(--accent-primary);
     outline-offset: 2px;
 }

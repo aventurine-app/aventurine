@@ -237,20 +237,39 @@
    --dialog-surface:   var(--surface1);
    --dialog-stroke:    var(--border);
 
-   /* Segmented control (Statements tabs) — a grey track holding the options,
-      with the active one on a raised card. "Raised" is lighter-than-track in
-      BOTH themes, which no surface-N pair provides (the ramps run opposite
-      directions), hence dedicated tokens; dark values in themes.css. */
-   --segctl-track:         var(--color-base-200);
-   --segctl-raised:        var(--color-base-050);
-   --segctl-raised-stroke: var(--stroke-divider);
-   --segctl-raised-shadow: 0 1px 2px rgba(0,0,0, 0.10), 0 1px 1px rgba(0,0,0, 0.06);
+   /* Segmented control (Statements/Home/Reports tabs) — a grey track holding
+      the options, outlined with the same hairline as every other bordered
+      control, with the active option carrying the accent fill of a primary
+      button (.button-primary in buttons.css). The track takes the sidebar
+      nav's fill (--surface1, nav.css) so the two chrome surfaces match. Most
+      of these route through a token that already flips per theme, so the dark
+      theme redefines only one: hover is two stops along the base ramp from the
+      track (050 → 200 here), and dark has to step the other way — its track
+      sits at the dark end, so two stops off it is base-700. */
+   --segctl-track:         var(--surface1);
+   --segctl-hover:         var(--color-base-200);
+   --segctl-stroke:        var(--border);
+   --segctl-active:        var(--accent-primary);
+   --segctl-active-text:   var(--button-text);
 
    /* Toolbar controls (stepper label, Home's toolbar range picker) — these sit
       on the page background, where surface2 collides (both base-100), so they
       step one rung lighter to stay visible; dark keeps surface2 (themes.css).
       Card-header pickers keep surface2, which still contrasts on cards. */
    --toolbar-control-bg:   var(--color-base-050);
+
+   /* Selected-chip accent (Transactions filter chips + their popover presets) —
+      a tinted fill carrying a deeper line and label, rather than the solid
+      accent of a primary button. These call sites used to reach straight into
+      the raw --color-accent ramp, which is declared ONCE and never flips, so
+      the dark theme inherited the same pale mint fill and it glared against the
+      base-950 page. Routed through tokens instead: light takes its fill from
+      the light end of the ramp and its ink from the dark end, and themes.css
+      swaps the two ends over. */
+   --chip-active-bg:       var(--color-accent-200);
+   --chip-active-bg-hover: var(--color-accent-300);
+   --chip-active-stroke:   var(--color-accent-700);
+   --chip-active-text:     var(--color-accent-700);
 }
 
 
