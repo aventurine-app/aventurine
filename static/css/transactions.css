@@ -1189,9 +1189,11 @@
     cursor: not-allowed;
 }
 
-/* Balance bar — shown above the footer only when the file carried a balance.
-   Two stages: a Yes/No prompt to auto-fill the Balance Sheet, and — only on
-   "Yes" — the account picker. Pinned outside the scrolling body like the footer. */
+/* Account line — pinned above the footer, outside the scrolling body. It is a
+   STATEMENT, not a question: the account is settled before the file dialog opens
+   (the .acct-* chooser in onboarding.css), so the preview only reports where the
+   rows are going. Month-end balances in the file follow the same account without
+   asking — once the account is known there is nothing left to decide. */
 .tx-import-balance-bar {
     display: flex;
     flex-direction: column;
@@ -1201,7 +1203,6 @@
     flex-shrink: 0;
 }
 
-.tx-import-balance-prompt,
 .tx-import-account-row {
     display: flex;
     align-items: center;
@@ -1209,77 +1210,12 @@
     gap: 10px;
 }
 
-.tx-import-balance-label,
 .tx-import-account-label {
     color: var(--text-secondary);
     font-family: var(--font-menu);
     font-size: var(--size-small);
-}
-
-/* The always-shown account question takes the row and pushes its picker to the
-   end, mirroring the balance prompt's layout. */
-.tx-import-account-label {
     flex: 1 1 auto;
     min-width: 14ch;
-}
-
-/* Let the question take the row and push the Yes/No group to the end. */
-.tx-import-balance-label {
-    flex: 1 1 auto;
-    min-width: 14ch;
-}
-
-/* Yes / No — a small segmented toggle; the chosen side fills with the accent. */
-.tx-import-balance-choice {
-    display: inline-flex;
-    gap: 6px;
-    flex-shrink: 0;
-}
-
-.tx-import-balance-choice button {
-    font-family: var(--font-menu);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-superbold);
-    letter-spacing: var(--track-widest);
-    text-transform: uppercase;
-    padding: 6px 16px;
-    border-radius: 8px;
-    border: 1px solid var(--color-base-200);
-    background: transparent;
-    color: var(--accent-neutral);
-    cursor: pointer;
-    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.tx-import-balance-choice button:not(.is-active):hover {
-    background: var(--color-base-200);
-}
-
-.tx-import-balance-choice button.is-active {
-    background: var(--accent-primary);
-    border-color: var(--accent-primary);
-    color: var(--button-text);
-}
-
-.tx-import-account-row .tx-import-balance-account {
-    max-width: 220px;
-}
-
-.tx-import-balance-new {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-}
-
-/* The `hidden` attribute must win over the inline-flex above — otherwise the
-   new-account name/type fields show even for an existing-account choice (the
-   same display-vs-[hidden] footgun as buttons.css). */
-.tx-import-balance-new[hidden] {
-    display: none;
-}
-
-.tx-import-balance-new .tx-import-balance-name {
-    width: 160px;
 }
 
 

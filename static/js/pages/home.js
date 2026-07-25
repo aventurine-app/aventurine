@@ -1418,6 +1418,70 @@
         fill('accounts-legend', UI.skRows(3));
     }
 
+    // ── First run ─────────────────────────────────────────────────────────────
+    // On a database holding nothing the user put there, the dashboard has nothing
+    // to say, so it steps aside for a single invitation to import. The check is
+    // answered from data (GET /api/onboarding), which means it can neither
+    // interrupt someone with real history nor be permanently lost — it stops
+    // appearing the moment anything lands, or when the user waves it off.
+    //
+    // Skipping is honoured immediately and remembered server-side: the ordinary
+    // dashboard comes back with its own per-card empty states, each pointing at
+    // the surface it belongs to.
+    async function maybeOfferOnboarding() {
+        const hero = document.getElementById('home-firstrun');
+        if (!hero || !window.Onboarding) return;
+
+        let state;
+        try {
+            const r = await apiFetch('/api/onboarding');
+            if (!r.ok) return;
+            state = await r.json();
+        } catch {
+            return;   // never let a failed check hide a working dashboard
+        }
+        if (!state.fresh || state.dismissed) return;
+
+        const setHero = (on) => {
+            hero.hidden = !on;
+            // The stepper/tabs and both panels scope the dashboard; while the
+            // hero stands in for them they'd only offer controls over nothing.
+            document.querySelectorAll('.home-toolbar, .home-panel')
+                .forEach(el => el.classList.toggle('is-preempted', on));
+        };
+        setHero(true);
+
+        document.getElementById('home-firstrun-skip').addEventListener('click', async () => {
+            setHero(false);
+            try {
+                await apiFetch('/api/app-settings/onboarding_dismissed', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ value: 'on' }),
+                });
+            } catch {
+                // Worst case the invitation returns next launch; nothing breaks.
+            }
+        });
+
+        document.getElementById('home-firstrun-start').addEventListener('click', () => {
+            Onboarding.start({
+                onFinished: ({ imported }) => {
+                    setHero(false);
+                    if (!imported) return;
+                    // A completed import changes every dataset this page holds —
+                    // a new account, new transactions, and the Cash Flow cells
+                    // computed from them. Reload rather than re-run init(): the
+                    // dashboard's wiring (tabs, stepper, Store subscriptions) is
+                    // bound once per load and would double up on a second pass.
+                    Store.invalidate('balance');
+                    Store.invalidate('ie');
+                    location.reload();
+                },
+            });
+        });
+    }
+
     /** Fetch both datasets in parallel and render all dashboard sections. */
     async function init() {
         wireTabs();
@@ -1463,5 +1527,11 @@
         });
     }
 
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', () => {
+        init();
+        // Runs alongside the dashboard load, not in front of it: the hero reveals
+        // itself once the check resolves, and a database with data never waits on
+        // it. Bound once per page load (init() is not re-entered — see above).
+        maybeOfferOnboarding();
+    });
 }());

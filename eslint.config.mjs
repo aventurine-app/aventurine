@@ -80,6 +80,8 @@ const appGlobals = {
   TxParse: 'readonly',
   TxFileImport: 'readonly',
   TxFileExport: 'readonly',
+  // widgets/onboarding.js (first-run setup; loaded by Home only)
+  Onboarding: 'readonly',
   // electron/preload.js contextBridge surface (undefined in plain browsers;
   // code must feature-detect before use)
   electronWindow: 'readonly',

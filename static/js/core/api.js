@@ -156,8 +156,8 @@
         { key: 'rent',          label: 'Rent / Mortgage',    type: 'expense'   },
         { key: 'food',     label: 'Food',          type: 'expense'   },
         { key: 'uncat_expense', label: 'Uncategorized',      type: 'expense'   },
-        { key: 'savings',       label: 'Primary Savings',    type: 'transfer'  },
-        { key: 'investing',     label: 'Investment Account', type: 'transfer'  },
+        { key: 'savings',       label: 'Savings',            type: 'transfer'  },
+        { key: 'investing',     label: 'Investing',          type: 'transfer'  },
       ],
       // Provenance layers — entries above is the blend (manual ?? computed).
       // income/food cells read as transaction-computed except March

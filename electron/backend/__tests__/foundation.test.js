@@ -27,12 +27,21 @@ test('fresh DB: baseline schema + seed', () => {
   assert.equal(db.pragma('user_version', { simple: true }), SCHEMA_VERSION);
 
   const cats = db.prepare('SELECT * FROM categories ORDER BY position').all();
-  assert.equal(cats.length, 17, 'seventeen default categories');
+  assert.equal(cats.length, 16, 'sixteen default categories');
+  // The transfer block is two buckets — Emergency Fund was folded into Savings.
+  assert.deepStrictEqual(
+    cats.filter((c) => c.cat_type === 'transfer').map((c) => [c.key, c.name]),
+    [['savings', 'Savings'], ['investing', 'Investing']]
+  );
 
   const yr = new Date().getFullYear();
   assert.ok(db.prepare('SELECT 1 FROM active_years WHERE year=?').get(yr));
   assert.ok(db.prepare('SELECT 1 FROM balance_active_years WHERE year=?').get(yr));
-  assert.equal(db.prepare('SELECT COUNT(*) c FROM balance_columns').get().c, 5);
+  // Six starter accounts, every one of them HIDDEN: they exist as pre-named
+  // choices for onboarding / the import picker, and none is on the user's
+  // Balance Sheet until an import adopts it.
+  assert.equal(db.prepare('SELECT COUNT(*) c FROM balance_columns').get().c, 6);
+  assert.equal(db.prepare('SELECT COUNT(*) c FROM balance_columns WHERE hidden = 1').get().c, 6);
   assert.equal(db.prepare('SELECT COUNT(*) c FROM portfolio_accounts').get().c, 1);
   assert.equal(
     db.prepare('SELECT value FROM app_settings WHERE "key"=?').get('tx_auto_match').value,
@@ -54,7 +63,7 @@ test('seed is idempotent', () => {
   bootstrapSchema(db);
   seedDefaults(db);
   seedDefaults(db);
-  assert.equal(db.prepare('SELECT COUNT(*) c FROM categories').get().c, 17);
+  assert.equal(db.prepare('SELECT COUNT(*) c FROM categories').get().c, 16);
   assert.equal(db.prepare('SELECT COUNT(*) c FROM portfolio_accounts').get().c, 1);
   db.close();
 });
@@ -69,7 +78,7 @@ test('seed does not resurrect a deleted default category', () => {
   db.prepare('DELETE FROM categories WHERE "key" = ?').run('food');
   seedDefaults(db);
   assert.equal(db.prepare('SELECT 1 FROM categories WHERE "key" = ?').get('food'), undefined);
-  assert.equal(db.prepare('SELECT COUNT(*) c FROM categories').get().c, 16);
+  assert.equal(db.prepare('SELECT COUNT(*) c FROM categories').get().c, 15);
   db.close();
 });
 
@@ -132,7 +141,7 @@ test('bootstrapSchema is a no-op on an already-initialised DB', () => {
   // baseline (which would re-add tables / reset state).
   db.prepare("DELETE FROM categories WHERE \"key\" = 'food'").run();
   bootstrapSchema(db);
-  assert.equal(db.prepare('SELECT COUNT(*) c FROM categories').get().c, 16);
+  assert.equal(db.prepare('SELECT COUNT(*) c FROM categories').get().c, 15);
   db.close();
 });
 

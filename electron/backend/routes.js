@@ -19,6 +19,7 @@ const routes = [
   ...require('./handlers/trends').routes,
   ...require('./handlers/reportCard').routes,
   ...require('./handlers/appSettings').routes,
+  ...require('./handlers/onboarding').routes,
   ...require('./handlers/database').routes,
   // Balance Sheet — the one remaining year-table feature (mirrors the
   // register_year_table_feature call in app.py).
@@ -29,6 +30,9 @@ const routes = [
     colTable: 'balance_columns',
     typeOrder: ['cash', 'investment', 'retirement', 'debt'],
     columnKeyPrefix: 'bcol',
+    // Balance Sheet columns double as the app's accounts, so they carry the
+    // starter-account `hidden` flag (see seed.js DEFAULT_BALANCE_COLUMNS).
+    hasHidden: true,
   }),
 ];
 

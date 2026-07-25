@@ -5,6 +5,12 @@
     <title>Aventurine | Home</title>
     <!-- @include head -->
     <link rel="stylesheet" href="/static/css/home.css">
+    <!-- First-run setup runs the ordinary import flow inside its own modal, so
+         Home carries the import widget's styles too (transactions.css owns the
+         .tx-import-* modal shell; onboarding.css owns .onb-* and the shared
+         import-results digest). -->
+    <link rel="stylesheet" href="/static/css/transactions.css">
+    <link rel="stylesheet" href="/static/css/onboarding.css">
 </head>
 <body>
     <!-- @include chrome -->
@@ -15,6 +21,26 @@
         <div class="page">
 
 <div class="home-page">
+
+    <!-- First-run hero. Replaces the dashboard only while the database holds
+         nothing the user put there and they haven't waved setup off (both
+         answered by GET /api/onboarding). Hidden by default so a database with
+         data never flashes it before the check resolves; maybeOfferOnboarding()
+         in home.js reveals it. Skipping removes it and shows the ordinary
+         dashboard, whose own empty states lead into each surface. -->
+    <div class="home-firstrun" id="home-firstrun" hidden>
+        <div class="home-firstrun-card">
+            <h1 class="home-firstrun-title">Your dashboard is empty — let’s fix that</h1>
+            <p class="home-firstrun-sub">Point Aventurine at one transaction export and it
+                builds your ledger, statements, and charts from it. Everything is read and
+                categorized on this computer; nothing is uploaded.</p>
+            <div class="home-firstrun-actions">
+                <button type="button" class="button-primary" id="home-firstrun-start">Set up my accounts</button>
+                <button type="button" class="home-firstrun-skip" id="home-firstrun-skip">Skip for now</button>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Toolbar: month stepper far left, segmented view tabs far right
          (layout in home.css; the tab control itself is shared with Statements
@@ -141,6 +167,9 @@
     </div>
 
     <!-- @include scripts -->
+    <script src="/static/js/widgets/txparse.js"></script>
+    <script src="/static/js/widgets/txfileimport.js"></script>
+    <script src="/static/js/widgets/onboarding.js"></script>
     <script src="/static/js/pages/home.js"></script>
 </body>
 </html>

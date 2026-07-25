@@ -7,7 +7,7 @@ const { bad, cleanLabel } = require('../validate');
 
 // Category names are hard-capped well below cleanLabel's generic 100 so they
 // never wrap in the Cash Flow headers / transaction pills (the UI renders them
-// nowrap). Every seeded default fits ("Investment Account" is exactly 18).
+// nowrap). Every seeded default fits ("Health & Wellness", the longest, is 17).
 const MAX_CATEGORY_NAME_LEN = 18;
 const {
   VALID_CAT_TYPES,

@@ -77,7 +77,7 @@ function debtByYear(db) {
       `SELECT be.year AS year, be.month AS month, be.value AS value
          FROM balance_entries be
          JOIN balance_columns bc ON bc."key" = be.category
-        WHERE bc.col_type = 'debt'`
+        WHERE bc.col_type = 'debt' AND bc.hidden = 0`
     )
     .all();
 

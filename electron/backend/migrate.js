@@ -230,6 +230,22 @@ const MIGRATIONS = [
     db.exec(DDL.find((s) => s.includes('CREATE VIEW v_cash_flow')));
     db.exec(DDL.find((s) => s.includes('CREATE VIEW v_budget')));
   }],
+
+  // v12 — balance_columns.hidden: the starter-account flag onboarding needs. A
+  // fresh DB now seeds its default accounts hidden (seed.js) so the Balance
+  // Sheet starts as the user's own accounts rather than five generic columns.
+  // Existing databases default to 0: every account someone already has stays
+  // visible, because they adopted it by opening the app before this existed.
+  // ADD COLUMN is not idempotent, so guard on the column already existing (same
+  // shape as v8/v10).
+  [12, (db) => {
+    const hasCol = db.pragma('table_info(balance_columns)').some((c) => c.name === 'hidden');
+    if (!hasCol) {
+      db.exec(
+        'ALTER TABLE balance_columns ADD COLUMN hidden INTEGER DEFAULT 0 NOT NULL CHECK (hidden IN (0, 1))'
+      );
+    }
+  }],
 ];
 
 function bootstrapSchema(db) {

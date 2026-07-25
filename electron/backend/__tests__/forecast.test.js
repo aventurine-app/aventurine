@@ -160,16 +160,26 @@ test('forecast API: default shape, fresh DB', (t) => {
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.equal(r.body.months, 3);
   assert.equal(r.body.series.length, weekCount(today, horizonEnd(today, 3)));
-  // Default account is the seeded 'checking' column (first cash-type by
-  // position), with no entries yet → starts from 0.
-  assert.equal(r.body.start_account, 'checking');
+  // A fresh DB has no ADOPTED accounts (the starter accounts are seeded hidden),
+  // so there is nothing to offer or start from until the user imports.
+  assert.equal(r.body.start_account, null);
   assert.equal(r.body.start_balance, 0);
-  // The picker is fed the cash-type Balance-Sheet accounts only (seed ships two,
-  // ordered by position), each with its latest balance (null until any entry exists).
-  assert.deepStrictEqual(r.body.accounts.map((a) => a.key), ['checking', 'savings']);
-  assert.ok(r.body.accounts.every((a) => a.type === 'cash' && a.balance === null));
+  assert.deepStrictEqual(r.body.accounts, []);
   assert.equal(r.body.include_transfers, true); // transfers counted by default
   assert.deepStrictEqual(r.body.planned, []);
+});
+
+test('forecast API: adopted cash accounts become offerable', (t) => {
+  const c = makeClient(t);
+  c.adopt('checking');
+  c.adopt('savings');
+  const r = c.get('/api/forecast');
+  // Ordered by Balance Sheet position, each with its latest balance (null until
+  // any entry exists). Unadopted starters stay out of the picker entirely.
+  assert.deepStrictEqual(r.body.accounts.map((a) => a.key), ['checking', 'savings']);
+  assert.ok(r.body.accounts.every((a) => a.type === 'cash' && a.balance === null));
+  assert.equal(r.body.start_account, 'checking'); // first cash-type by position
+  assert.equal(r.body.start_balance, 0);
 });
 
 test('forecast API: transfer flows can be excluded from the projection', (t) => {
@@ -210,7 +220,8 @@ test('forecast API: months is clamped to {1,3,6}', (t) => {
 test('forecast API: only cash accounts are offered, and selectable', (t) => {
   const c = makeClient(t);
   const year = c.get('/api/balance/data').body.years[0];
-  // Seed ships two cash columns ('checking', 'savings'); give both data.
+  // Adopt the starter accounts this test needs, then give both cash ones data.
+  for (const k of ['checking', 'savings', 'investments']) c.adopt(k);
   c.post('/api/balance/entry', { year, month: 'January', category: 'checking', value: 1000 });
   c.post('/api/balance/entry', { year, month: 'January', category: 'savings', value: 7500 });
 
@@ -231,8 +242,9 @@ test('forecast API: only cash accounts are offered, and selectable', (t) => {
 
 test('forecast API: default account uses the latest balance of the first cash account', (t) => {
   const c = makeClient(t);
-  // Seed ships a 'checking' (col_type=cash, position 0) column; give it two months of data.
+  // 'checking' (col_type=cash, position 0) once adopted; give it two months of data.
   const year = c.get('/api/balance/data').body.years[0];
+  c.adopt('checking');
   c.post('/api/balance/entry', { year, month: 'January', category: 'checking', value: 1000 });
   c.post('/api/balance/entry', { year, month: 'February', category: 'checking', value: 1500.5 });
   const r = c.get('/api/forecast');
@@ -280,6 +292,7 @@ test('forecast API: planned-items validation + 404', (t) => {
 test('forecast API: a planned item dated today bends week 0', (t) => {
   const c = makeClient(t);
   const year = c.get('/api/balance/data').body.years[0];
+  c.adopt('checking');
   c.post('/api/balance/entry', { year, month: 'January', category: 'checking', value: 1000 });
   const today = localTodayIso();
   c.post('/api/forecast/planned', { label: 'Big bill', amount: 250, flow: 'expense', date: today });

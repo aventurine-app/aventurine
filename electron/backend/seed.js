@@ -36,18 +36,38 @@ const DEFAULT_CATEGORIES = [
   // Transfers: money moved between the user's own accounts (savings, brokerage).
   // Excluded from every income/spend surface. Keys are unchanged so the import
   // categorizer's merchant lexicon (which targets these keys) keeps landing here.
-  ['savings',        'Primary Savings',     'transfer',  14],
-  ['emergency_fund', 'Emergency Fund',      'transfer',  15],
-  ['investing',      'Investment Account',  'transfer',  16],
+  //
+  // Two buckets, not three: a separate Emergency Fund row split saving in half by
+  // PURPOSE, which is a distinction only the user can draw and most never do — the
+  // money leaves for the same place either way. Anyone who wants it back adds it as
+  // a custom category. (Renamed 2026-07-25; `savings` and `investing` keep their
+  // keys, so the lexicon and the trained classifier are untouched.)
+  ['savings',        'Savings',             'transfer',  14],
+  ['investing',      'Investing',           'transfer',  15],
 ];
 
 // (key, label, col_type, position)
+//
+// The starter accounts. Unlike the category taxonomy above, these are seeded
+// HIDDEN (see balance_columns.hidden): an account name is pure user identity —
+// there is no useful default, and five generic columns the user never chose make
+// their Balance Sheet read as someone else's spreadsheet. So they exist only as
+// stably-keyed, pre-named CHOICES for onboarding and the import account picker
+// ("Which account is this from?"), and each one appears in the app the moment
+// the user adopts it. Users who want something else name their own account,
+// which is born visible; this list is a shortcut, never a limit (two checking
+// accounts are perfectly legal).
+// Positions keep each col_type's run contiguous, in typeOrder — the invariant
+// yearTable.insertPos maintains and the Balance Sheet groups by. Presentation
+// order in the onboarding picker is a separate concern (Credit Card is one of
+// the most-imported accounts but sorts last here, under debt).
 const DEFAULT_BALANCE_COLUMNS = [
   ['checking',    'Checking',    'cash',       0],
   ['savings',     'Savings',     'cash',       1],
   ['investments', 'Investments', 'investment', 2],
   ['retirement',  'Retirement',  'retirement', 3],
-  ['debt',        'Debt',        'debt',       4],
+  ['credit_card', 'Credit Card', 'debt',       4],
+  ['debt',        'Loan',        'debt',       5],
 ];
 
 const DEFAULT_APP_SETTINGS = { tx_auto_match: 'on' };
@@ -98,9 +118,13 @@ function seedDefaults(db) {
   if (!db.prepare('SELECT 1 FROM balance_active_years LIMIT 1').get()) {
     db.prepare('INSERT INTO balance_active_years (year) VALUES (?)').run(year);
   }
+  // Seeded hidden (hidden = 1) — the starter accounts are offered as choices in
+  // onboarding and the import picker, and each becomes a real, visible account
+  // only when the user adopts it. A fresh Balance Sheet therefore starts with no
+  // columns at all rather than five the user never chose.
   if (!db.prepare('SELECT 1 FROM balance_columns LIMIT 1').get()) {
     const insCol = db.prepare(
-      'INSERT INTO balance_columns ("key", label, col_type, position) VALUES (?, ?, ?, ?)'
+      'INSERT INTO balance_columns ("key", label, col_type, position, hidden) VALUES (?, ?, ?, ?, 1)'
     );
     for (const [key, label, colType, pos] of DEFAULT_BALANCE_COLUMNS) {
       insCol.run(key, label, colType, pos);

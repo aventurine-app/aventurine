@@ -1024,3 +1024,96 @@ test('editing with an account that names no account is rejected', (t) => {
   assert.equal(c.get('/api/transactions').body.transactions
     .find((x) => x.id === tx.id).account_key, null);
 });
+
+// ── The import digest: "here's what we found" ────────────────────────────────
+// The import response carries a summary of what just landed, so the results
+// moment can show the user their own merchants sorted into their own categories
+// instead of a bare row count.
+
+test('import returns a digest: period, totals by direction, and categories hit', (t) => {
+  const c = makeClient(t);
+  const r = c.post('/api/transactions/import', {
+    account_key: 'checking',
+    rows: [
+      // Two lexicon-recognized merchants in one category, one in another, plus a
+      // deliberately unreadable row the categorizer abstains on.
+      { date: '2026-03-04', description: 'STARBUCKS #1234', tx_type: 'expense', amount: 6.5 },
+      { date: '2026-03-06', description: 'TRADER JOES 55', tx_type: 'expense', amount: 43.5 },
+      { date: '2026-03-02', description: 'SHELL OIL 4411', tx_type: 'expense', amount: 40 },
+      { date: '2026-03-09', description: 'ZZQX 8842 XQ', tx_type: 'expense', amount: 12 },
+    ],
+  });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const f = r.body.found;
+
+  // The period covered is derived from the rows, not from the file's order.
+  assert.equal(f.date_from, '2026-03-02');
+  assert.equal(f.date_to, '2026-03-09');
+  assert.equal(f.expense, 102);
+  assert.equal(f.income, 0);
+  assert.equal(f.transfer, 0);
+
+  // Categories come back biggest-first: the rundown is a "does this look
+  // right?" check, so the money leads.
+  const food = f.categories.find((x) => x.key === 'food');
+  assert.equal(food.count, 2);
+  assert.equal(food.total, 50);
+  assert.equal(f.categories[0].key, 'food', 'largest category first');
+  assert.ok(f.categories.some((x) => x.key === 'automobile'));
+
+  // The row the categorizer abstained on is counted, never guessed at.
+  assert.equal(f.uncategorized, 1);
+  assert.equal(
+    f.categories.reduce((n, x) => n + x.count, 0) + f.uncategorized,
+    4,
+    'every imported row accounted for exactly once'
+  );
+});
+
+test('import digest splits totals by direction', (t) => {
+  const c = makeClient(t);
+  const r = c.post('/api/transactions/import', {
+    account_key: 'checking',
+    rows: [
+      { date: '2026-04-01', description: 'ZZQX PAY', tx_type: 'income', amount: 2500 },
+      { date: '2026-04-03', description: 'ZZQX QQ', tx_type: 'expense', amount: 10 },
+    ],
+  });
+  const f = r.body.found;
+  assert.equal(f.income, 2500);
+  assert.equal(f.expense, 10);
+});
+
+// ── Onboarding state ─────────────────────────────────────────────────────────
+
+test('onboarding: a fresh DB is fresh; any user data ends that for good', (t) => {
+  const c = makeClient(t);
+  const s = c.get('/api/onboarding');
+  assert.equal(s.status, 200);
+  assert.deepStrictEqual(s.body, { fresh: true, dismissed: false });
+
+  c.post('/api/transactions/import', {
+    account_key: 'checking',
+    rows: [{ date: '2026-03-04', description: 'ZZQX', tx_type: 'expense', amount: 1 }],
+  });
+  assert.equal(c.get('/api/onboarding').body.fresh, false, 'data means never invite again');
+});
+
+test('onboarding: an adopted account alone ends freshness', (t) => {
+  const c = makeClient(t);
+  c.adopt('checking');
+  // No transactions and no cells — but the user has been here and made a
+  // choice, so first-run setup must not reintroduce itself.
+  assert.equal(c.get('/api/onboarding').body.fresh, false);
+});
+
+test('onboarding: skipping is sticky and independent of freshness', (t) => {
+  const c = makeClient(t);
+  assert.equal(c.put('/api/app-settings/onboarding_dismissed', { value: 'on' }).status, 200);
+  assert.deepStrictEqual(c.get('/api/onboarding').body, { fresh: true, dismissed: true });
+
+  // Undoable, and validated like every other setting.
+  c.put('/api/app-settings/onboarding_dismissed', { value: 'off' });
+  assert.equal(c.get('/api/onboarding').body.dismissed, false);
+  assert.equal(c.put('/api/app-settings/onboarding_dismissed', { value: 'maybe' }).status, 400);
+});
