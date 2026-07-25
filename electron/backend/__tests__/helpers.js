@@ -11,6 +11,7 @@ const path = require('node:path');
 
 const { createConn } = require('../conn');
 const { dispatch } = require('../routes');
+const { adoptAccount } = require('../services/accounts');
 
 function makeClient(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fl-api-'));
@@ -34,6 +35,10 @@ function makeClient(t) {
     post: (u, b) => call('POST', u, b),
     put: (u, b) => call('PUT', u, b),
     del: (u, b) => call('DELETE', u, b),
+    // Make one of the seeded starter accounts visible, as an import would (see
+    // services/accounts) — for the tests that need an account to exist without
+    // also wanting the transactions an import would bring with it.
+    adopt: (key) => adoptAccount(conn.db(), key),
   };
 }
 

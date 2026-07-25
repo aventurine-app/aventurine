@@ -624,7 +624,8 @@ div.page::-webkit-scrollbar-thumb:hover {
 .confirm-overlay,
 .tx-import-overlay,
 .tx-similar-overlay,
-.tx-edit-overlay {
+.tx-edit-overlay,
+.onb-overlay {
     position: fixed;
     inset: 0;
     display: flex;

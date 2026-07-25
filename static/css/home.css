@@ -35,6 +35,74 @@
     width: 100%;
 }
 
+/* ─── First-run hero ──────────────────────────────────────────────────────────
+   Shown INSTEAD of the dashboard while the database holds nothing the user put
+   there (home.js maybeOfferOnboarding). The dashboard's controls and panels are
+   marked .is-preempted rather than removed, so skipping restores them without a
+   reload — and so a database with data never has to wait on the check.
+
+   One card, one sentence, one obvious action: at this point the user has no data
+   to look at, and every empty chart behind it is noise. */
+.is-preempted { display: none !important; }
+
+.home-firstrun {
+    display: flex;
+    justify-content: center;
+    padding: clamp(16px, 6vh, 64px) 0;
+}
+
+/* The display:flex above outranks the UA's [hidden] rule, so the attribute
+   needs an explicit override (same trap buttons.css documents). Without this the
+   hero would render for every user, on every page load. */
+.home-firstrun[hidden] { display: none; }
+
+.home-firstrun-card {
+    max-width: 560px;
+    text-align: center;
+}
+
+.home-firstrun-title {
+    margin: 0 0 12px;
+    color: var(--text-primary);
+    font-family: var(--font-h1);
+    font-size: var(--size-h1);
+    font-weight: var(--weight-semibold);
+    line-height: var(--lh-snug);
+}
+
+.home-firstrun-sub {
+    margin: 0 auto;
+    max-width: 46ch;
+    color: var(--text-secondary);
+    font-family: var(--font-h3);
+    font-size: var(--size-body);
+    line-height: var(--lh-relaxed);
+}
+
+.home-firstrun-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 24px;
+}
+
+/* Skipping stays visible and cheap — an onboarding you can't leave contradicts
+   "five minutes a month, then it leaves you alone". */
+.home-firstrun-skip {
+    background: none;
+    border: none;
+    padding: 8px 4px;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    cursor: pointer;
+    border-radius: 4px;
+    transition: color 0.15s ease;
+}
+
+.home-firstrun-skip:hover { color: var(--text-primary); text-decoration: underline; }
+
 /* Toolbar row — month stepper (Month to Month) or range picker (Year to
    Year) far left, view tabs far right. The segmented tab control itself is
    shared with Statements via ui.css. margin-left:auto (not space-between)

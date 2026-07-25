@@ -17,21 +17,35 @@ function yearTableRoutes({
   colTable,
   typeOrder = null,
   columnKeyPrefix = 'col',
+  hasHidden = false,
 }) {
   const hasTypes = typeOrder !== null;
   const validTypes = hasTypes ? new Set(typeOrder) : null;
 
+  // Columns the app shows. With `hasHidden`, unadopted starter accounts
+  // (hidden = 1) are filtered out of every read path except the explicit
+  // ?include_hidden=true listing the onboarding / import pickers use — they are
+  // the one surface whose job is to offer a not-yet-adopted account.
+  const visibleClause = hasHidden ? ' WHERE hidden = 0' : '';
+
   /** Position where a newly added column should land (mirror of _insert_pos):
    *  typeless append; typed lands at the end of its type group, falling back
-   *  through earlier types so same-type columns stay contiguous. */
+   *  through earlier types so same-type columns stay contiguous.
+   *
+   *  Only VISIBLE columns are considered: unadopted starter accounts are not
+   *  part of the display order, so they must not push a real column past its
+   *  type group. Adopting one re-derives its position through here. */
   function insertPos(db, colType) {
     if (!hasTypes) {
-      const last = db.prepare(`SELECT position FROM ${colTable} ORDER BY position DESC`).get();
+      const last = db
+        .prepare(`SELECT position FROM ${colTable}${visibleClause} ORDER BY position DESC`)
+        .get();
       return last ? last.position + 1 : 0;
     }
+    const where = hasHidden ? 'WHERE hidden = 0 AND col_type = ?' : 'WHERE col_type = ?';
     const lastOfType = (t) =>
       db
-        .prepare(`SELECT position FROM ${colTable} WHERE col_type = ? ORDER BY position DESC`)
+        .prepare(`SELECT position FROM ${colTable} ${where} ORDER BY position DESC`)
         .get(t);
     const lastSame = lastOfType(colType);
     if (lastSame) return lastSame.position + 1;
@@ -43,9 +57,24 @@ function yearTableRoutes({
     return 0;
   }
 
+  /** Push unadopted starter accounts to positions at or after `from`, keeping
+   *  their relative order. Called after a write that renumbers the visible
+   *  columns from 0, so the two sets never collide on a position — hidden rows
+   *  always sort after visible ones, and adoption re-derives a real position
+   *  through insertPos anyway. No-op unless the feature has hidden columns. */
+  function parkHidden(db, from) {
+    if (!hasHidden) return;
+    const hidden = db
+      .prepare(`SELECT id FROM ${colTable} WHERE hidden = 1 ORDER BY position`)
+      .all();
+    const set = db.prepare(`UPDATE ${colTable} SET position = ? WHERE id = ?`);
+    hidden.forEach((c, i) => set.run(from + i, c.id));
+  }
+
   function columnPayload(col) {
     const d = { key: col.key, label: col.label };
     if (hasTypes) d.type = col.col_type;
+    if (hasHidden) d.hidden = !!col.hidden;
     return d;
   }
 
@@ -62,7 +91,7 @@ function yearTableRoutes({
       // Stored as 1-12; the response keys cells by month name.
       (months[monthName(e.month)] ??= {})[e.category] = e.value;
     }
-    const cols = db.prepare(`SELECT * FROM ${colTable} ORDER BY position`).all();
+    const cols = db.prepare(`SELECT * FROM ${colTable}${visibleClause} ORDER BY position`).all();
     return { years, entries, columns: cols.map(columnPayload) };
   }
 
@@ -122,9 +151,13 @@ function yearTableRoutes({
     return { ok: true, year: target };
   }
 
-  function apiGetColumns(ctx) {
+  /** Visible columns by default; ?include_hidden=true also lists unadopted
+   *  starter accounts, for the pickers that exist to offer them. */
+  function apiGetColumns(ctx, { query }) {
     const db = ctx.db();
-    return db.prepare(`SELECT * FROM ${colTable} ORDER BY position`).all().map(columnPayload);
+    const all = hasHidden && query.include_hidden === 'true';
+    const where = all ? '' : visibleClause;
+    return db.prepare(`SELECT * FROM ${colTable}${where} ORDER BY position`).all().map(columnPayload);
   }
 
   function apiAddColumn(ctx, { body }) {
@@ -204,9 +237,17 @@ function yearTableRoutes({
     if (direction !== 'up' && direction !== 'down') bad('invalid direction');
     const col = db.prepare(`SELECT * FROM ${colTable} WHERE "key" = ?`).get(params.key);
     if (!col) bad('not found', 404);
+    // The adjacent VISIBLE column, found by ordering rather than position ± 1:
+    // unadopted starter accounts sit at arbitrary positions, so the arithmetic
+    // form could "swap" a column with an account that isn't on screen.
+    const dir = direction === 'up' ? { cmp: '<', order: 'DESC' } : { cmp: '>', order: 'ASC' };
     const neighbor = db
-      .prepare(`SELECT * FROM ${colTable} WHERE position = ?`)
-      .get(col.position + (direction === 'up' ? -1 : 1));
+      .prepare(
+        `SELECT * FROM ${colTable} WHERE position ${dir.cmp} ?` +
+          (hasHidden ? ' AND hidden = 0' : '') +
+          ` ORDER BY position ${dir.order} LIMIT 1`
+      )
+      .get(col.position);
     if (neighbor) {
       // Type-lock: a typed feature only swaps with same-type neighbors.
       if (hasTypes && neighbor.col_type !== col.col_type) return { ok: true };
@@ -230,7 +271,9 @@ function yearTableRoutes({
   function apiReorderColumns(ctx, { body }) {
     const db = ctx.db();
     if (!body || !Array.isArray(body.order)) bad('invalid request');
-    const all = db.prepare(`SELECT * FROM ${colTable}`).all();
+    // Every VISIBLE column: unadopted starter accounts are invisible to the UI
+    // doing the dragging, so requiring them here would reject every reorder.
+    const all = db.prepare(`SELECT * FROM ${colTable}${visibleClause}`).all();
     if (body.order.length !== all.length) bad('order must list every column');
 
     const known = new Set(all.map((c) => c.key));
@@ -254,6 +297,7 @@ function yearTableRoutes({
           db.prepare(`UPDATE ${colTable} SET position = ? WHERE "key" = ?`).run(i, item.key);
         }
       });
+      parkHidden(db, body.order.length);
     })();
     return { ok: true };
   }

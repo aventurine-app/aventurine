@@ -5,13 +5,17 @@
 
 const { bad } = require('../validate');
 
-const ALLOWED_KEYS = new Set(['tx_auto_match']);
+const ALLOWED_KEYS = new Set(['tx_auto_match', 'onboarding_dismissed']);
 
 const VALID_VALUES = {
   tx_auto_match: ['on', 'off'],
+  // 'on' = the user has waved off first-run setup (see handlers/onboarding.js).
+  // Sticky, so skipping is respected on relaunch instead of nagging; the Home
+  // dashboard's ordinary empty states still lead the user to each surface.
+  onboarding_dismissed: ['on', 'off'],
 };
 
-const DEFAULTS = { tx_auto_match: 'on' };
+const DEFAULTS = { tx_auto_match: 'on', onboarding_dismissed: 'off' };
 
 function get(ctx) {
   const db = ctx.db();

@@ -17,7 +17,7 @@
 //   - the v_* views pre-join the normalized tables into human-readable,
 //     chronologically-sortable shapes for ad-hoc querying.
 
-const SCHEMA_VERSION = 11;
+const SCHEMA_VERSION = 12;
 
 // Months persist as 1-12 integers so `ORDER BY year, month` sorts
 // chronologically (the app translates to/from English names at its API
@@ -62,6 +62,13 @@ const DDL = [
      col_type VARCHAR(20) NOT NULL
        CHECK (col_type IN ('cash', 'investment', 'retirement', 'debt')),
      position INTEGER NOT NULL,
+     -- 1 = a starter account the user has not adopted yet: it exists so
+     -- onboarding and the import picker can offer a named, stably-keyed choice
+     -- ("Checking", "Credit Card"), but it is invisible everywhere else until
+     -- the user picks it. Adopting one (an import landing in it, or an explicit
+     -- unhide) flips this to 0 for good. Accounts the user creates are born
+     -- visible, so this only ever describes the shipped starter set.
+     hidden INTEGER DEFAULT 0 NOT NULL CHECK (hidden IN (0, 1)),
      PRIMARY KEY (id),
      UNIQUE ("key")
    )`,

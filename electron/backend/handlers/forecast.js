@@ -38,8 +38,9 @@ function plannedList(db) {
 function accountBalances(db) {
   const cols = db
     .prepare(
+      // hidden = 0: unadopted starter accounts are not offerable accounts.
       `SELECT "key", label, col_type, position FROM balance_columns
-        WHERE col_type = 'cash' ORDER BY position`
+        WHERE col_type = 'cash' AND hidden = 0 ORDER BY position`
     )
     .all();
 

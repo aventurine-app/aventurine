@@ -28,6 +28,7 @@ const {
   FUZZY_THRESHOLD_MAX,
 } = require('../services/matchRules');
 const { applyBuiltinCategorize, applyDisplayNames } = require('../services/categorize');
+const { adoptAccount } = require('../services/accounts');
 
 function list(ctx) {
   const db = ctx.db();
@@ -316,8 +317,16 @@ function importRows(ctx, { body }) {
   // (dictionary lookup only — the raw description is stored untouched and the
   // ledger keeps it one click away). Hand-entered rows never get one.
   applyDisplayNames(db, inserted);
+  let accountAdopted = false;
   if (inserted.length || balances.length) {
     db.transaction(() => {
+      // Adopting the target account happens HERE, at the storage boundary,
+      // rather than in the importer UI: an import landing in a starter account
+      // is exactly what makes it the user's, and doing it server-side means no
+      // caller can land rows in an account that stays invisible. Picking one in
+      // a picker and then abandoning the import adopts nothing.
+      if (accountKey) accountAdopted = adoptAccount(db, accountKey);
+
       for (const t of inserted) insertTx(db, t);
 
       // Write each imported month-end balance straight into the Balance Sheet
@@ -362,7 +371,55 @@ function importRows(ctx, { body }) {
     skipped,
     auto_categorized: autoCategorized,
     balances_applied: balances.length,
+    account_adopted: accountAdopted,
+    found: summariseImport(db, inserted),
   };
+}
+
+/**
+ * The "here's what we found" digest of a just-committed import: the period it
+ * covers, its totals by direction, and what it landed in each category. This is
+ * what makes the categorizer's work visible in the import-results moment — the
+ * user sees their own merchants sorted into their own categories instead of a
+ * bare row count. Read straight off the rows we inserted (they carry the
+ * category the three categorization passes assigned), so it costs one query.
+ *
+ * Amounts are stored as magnitudes with the direction in tx_type, so every
+ * total here is positive; `uncategorized` counts the rows the categorizer
+ * deliberately abstained on, which the user fills in from the ledger.
+ */
+function summariseImport(db, inserted) {
+  const found = {
+    date_from: null, date_to: null,
+    income: 0, expense: 0, transfer: 0,
+    categories: [], uncategorized: 0,
+  };
+  if (!inserted.length) return found;
+
+  const names = new Map();
+  for (const c of db.prepare('SELECT id, "key", name, cat_type FROM categories').all()) {
+    names.set(c.id, c);
+  }
+
+  const byCat = new Map();
+  for (const t of inserted) {
+    if (found.date_from === null || t.date < found.date_from) found.date_from = t.date;
+    if (found.date_to === null || t.date > found.date_to) found.date_to = t.date;
+    found[t.tx_type] = round2(found[t.tx_type] + t.amount);
+
+    if (t.category_id == null) { found.uncategorized++; continue; }
+    const cat = names.get(t.category_id);
+    if (!cat) { found.uncategorized++; continue; }
+    const acc = byCat.get(cat.id) || { key: cat.key, name: cat.name, cat_type: cat.cat_type, count: 0, total: 0 };
+    acc.count++;
+    acc.total = round2(acc.total + t.amount);
+    byCat.set(cat.id, acc);
+  }
+
+  // Biggest first: the rundown is a "does this look right?" check, and the
+  // categories carrying the most money are the ones worth checking.
+  found.categories = [...byCat.values()].sort((a, b) => b.total - a.total);
+  return found;
 }
 
 // ── Export ────────────────────────────────────────────────────────────────
