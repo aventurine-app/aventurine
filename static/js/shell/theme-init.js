@@ -8,9 +8,11 @@
 // Sets the data-theme attribute on <html> from localStorage so the saved
 // theme is the FIRST paint, with no flash of the default theme on nav.
 //
-// Stored 'color-theme' values: '' (light, the default), 'dark', or 'system'
-// (follow the OS). 'system' resolves to dark/light here so the OS preference
-// is honored pre-paint too. The live picker (settings.js) keeps it in sync
+// Stored 'color-theme' values: '' (light, the default), 'dark', 'colorful'
+// (light, with an accent sidebar — see themes.css), or 'system' (follow the OS).
+// 'system' is the only value that needs resolving; every other one IS the
+// data-theme, so adding a theme means adding a CSS block and a picker button,
+// not editing this file. The live picker (settings.js) keeps 'system' in sync
 // when the OS preference flips while the app is open.
 //
 // 'ui-density' = 'compact' tightens table row heights (else comfortable). Both
@@ -18,9 +20,10 @@
 
 (function () {
     const t = localStorage.getItem('color-theme');
-    const dark = t === 'dark'
-        || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    if (dark) document.documentElement.dataset.theme = 'dark';
+    const effective = t === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : '')
+        : t;
+    if (effective) document.documentElement.dataset.theme = effective;
 
     if (localStorage.getItem('ui-density') === 'compact') {
         document.documentElement.dataset.density = 'compact';

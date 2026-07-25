@@ -47,8 +47,10 @@
 
     const _prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
 
-    // 'system' follows the OS; '' is light, 'dark' is dark. resolveTheme turns
-    // the stored choice into the data-theme value actually painted.
+    // '' is light, 'dark' is dark, 'colorful' is light with an accent sidebar,
+    // 'system' follows the OS. resolveTheme turns the stored choice into the
+    // data-theme value actually painted — only 'system' needs resolving, so a
+    // new theme is a CSS block plus a picker button and nothing here.
     function resolveTheme(theme) {
         if (theme === 'system') return _prefersDark.matches ? 'dark' : '';
         return theme;

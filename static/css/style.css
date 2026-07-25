@@ -110,6 +110,7 @@
  * and every swatch follows automatically. */
 :root,
 .settings-theme-swatch[data-theme="light"],
+.settings-theme-swatch[data-theme="colorful"],   /* Colorful IS light outside the nav */
 [data-ds-theme="light"] {   /* style-free scoping hook — see themes.css dark block */
 
     /* Match native controls (range tracks, etc.) to the active theme rather

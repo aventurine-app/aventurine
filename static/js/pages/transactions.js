@@ -217,8 +217,8 @@
             <td class="tx-col-select"><input type="checkbox" class="tx-checkbox tx-row-cb" data-id="${t.id}" ${selected ? 'checked' : ''} aria-label="Select transaction"></td>
             <td class="tx-col-date">${txEsc(txFmtDate(t.date))}</td>
             <td class="tx-col-description">${descCell}</td>
-            <td class="tx-col-category">${catCell}</td>
             <td class="tx-col-account">${acctCell}</td>
+            <td class="tx-col-category">${catCell}</td>
             <td class="tx-col-amount ${amountClass}">${sign}${txFmtAmount(t.amount)}</td>
             <td class="tx-col-notes">${txEsc(t.notes)}</td>
         </tr>
@@ -267,8 +267,8 @@
         return opts.join('');
     }
 
-    // The editable field cells (date / description / [type] / category /
-    // account / amount / notes) for one transaction. Each input carries a
+    // The editable field cells (date / description / [type] / account /
+    // category / amount / notes) for one transaction. Each input carries a
     // data-field so txReadFields() can read it back. Used both as <td>s in the
     // inline add row and as cells in the bulk-edit modal.
     //
@@ -287,7 +287,7 @@
                 <option value="transfer" ${txType === 'transfer' ? 'selected' : ''}>Transfer</option>
             </select>
         </td>` : '';
-        // Account sits between Category and Amount, matching the ledger's column
+        // Account sits between Type and Category, matching the ledger's column
         // order; both the inline add row and the bulk-edit modal carry it, so a
         // transaction's account can be set on creation and changed on edit.
         const accountCell = `
@@ -304,10 +304,10 @@
                    value="${txEsc(t.description || '')}" placeholder="Description">
         </td>
         ${typeCell}
+        ${accountCell}
         <td class="tx-col-category">
             <select class="tx-select tx-input-category" data-field="category_id">${txCategoryOptions(t.category_id)}</select>
         </td>
-        ${accountCell}
         <td class="tx-col-amount">
             <input type="text" inputmode="decimal" class="tx-input tx-input-amount" data-field="amount"
                    value="${t.amount != null ? t.amount : ''}" placeholder="0.00">
@@ -1202,8 +1202,8 @@
                                 <th class="tx-col-date">Date</th>
                                 <th class="tx-col-description">Description</th>
                                 <th class="tx-col-type">Type</th>
-                                <th class="tx-col-category">Category</th>
                                 <th class="tx-col-account">Account</th>
+                                <th class="tx-col-category">Category</th>
                                 <th class="tx-col-amount">Amount</th>
                                 <th class="tx-col-notes">Notes</th>
                             </tr>

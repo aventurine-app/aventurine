@@ -255,15 +255,22 @@
 
 /* ── Filter chips ──────────────────────────────────────────────────────────
    The chip is the visual unit; its two child buttons (clear ×, label) sit
-   transparently inside the shared border. Inactive → dotted outline, grayed,
+   transparently inside the shared border. Inactive → dashed outline, grayed,
    just the field name. Active → solid accent-green identity with the leading
-   × revealed and the " : value" half shown. */
+   × revealed and the " : value" half shown.
+
+   The inactive outline is drawn by .tx-filter-dash (an SVG rect stroke), NOT by
+   this border: CSS `border-style: dashed` offers no control over dash length —
+   Chromium derives it from the border width, and at 1px the dashes are so tight
+   the chip reads as an almost solid line. The border stays in the box model as a
+   transparent 1px spacer so the chip's size never changes between states; the
+   active state is the one that paints it. */
 .tx-filter-chip {
     position: relative;
     display: inline-flex;
     align-items: stretch;
     height: 32px;
-    border: 1px dashed var(--text-tertiary);
+    border: 1px solid transparent;
     border-radius: 8px;
     background: transparent;
     color: var(--text-tertiary);
@@ -272,10 +279,36 @@
     transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
-/* Inactive hover lifts the text + border so the chip reads clickable. */
+/* The dashed outline, as a stroked rect inset half a stroke-width so the 1px
+   line lands inside the chip's own 1px border box. It inherits `color`, so the
+   hover/idle text colour below carries the outline with it — one colour to
+   change, never two. stroke-dasharray is the dash/gap knob: first number is the
+   dash length, second the gap between them. */
+.tx-filter-dash {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.tx-filter-dash rect {
+    width: calc(100% - 1px);
+    height: calc(100% - 1px);
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1;
+    stroke-dasharray: 4 4;
+}
+
+/* Active chips wear the solid accent border instead — drop the dashes. */
+.tx-filter-chip.is-active .tx-filter-dash { display: none; }
+
+/* Inactive hover lifts the text + outline so the chip reads clickable. The
+   outline follows via currentColor, so only `color` moves here. */
 .tx-filter-chip:not(.is-active):hover {
     color: var(--text-secondary);
-    border-color: var(--text-secondary);
     background: var(--frost-2);
 }
 
@@ -284,7 +317,6 @@
    declared once and never flips, so hard-coded stops kept the light theme's
    pale mint on dark, where it glared. */
 .tx-filter-chip.is-active {
-    border-style: solid;
     border-color: var(--chip-active-stroke);
     background: var(--chip-active-bg);
     color: var(--chip-active-text);
@@ -559,10 +591,10 @@
 .tx-col-date        { width: 140px; }
 .tx-col-description { width: auto;  min-width: 200px; }
 .tx-col-type        { width: 140px; }
+.tx-col-account     { width: 150px; }
 .tx-col-category    { width: 140px; }
 .tx-col-amount      { width: 140px; text-align: right; }
 .tx-col-notes       { width: auto;  min-width: 180px; }
-.tx-col-account     { width: 150px; }
 /* Leading selection cell — a centered checkbox (or, on the inline add row, the
    Save/Cancel buttons). Fixed narrow width keeps the column tight. */
 .tx-col-select      { width: 44px; text-align: center; }
@@ -715,6 +747,16 @@
     font-size: var(--size-small);
     font-weight: var(--weight-medium);
     letter-spacing: var(--track-normal);
+}
+
+/* Dark theme steps the tag one ramp rung up. --surface2 is the app's control
+   fill, but on dark it resolves to the same --color-base-900 as --surface1 —
+   which is the table's own background (.tx-wrapper) — so the pill was exactly
+   its backdrop and read as bare text, in dark only. --surface3 (base-800) is
+   the next rung and restores the tag shape. :not() keeps this off the empty
+   dash below, which must stay unfilled. */
+html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
+    background: var(--surface3);
 }
 
 .tx-account-tag.tx-account-empty {

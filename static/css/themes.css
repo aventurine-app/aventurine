@@ -118,3 +118,45 @@ html[data-theme="dark"],
     --chip-active-text:     var(--color-accent-200);
 }
 
+
+/* ─── Colorful ───────────────────────────────────────────────────────────────
+   The light theme with the sidebar nav flipped to the accent. It deliberately
+   declares NO page-level tokens: everything outside .menu falls through to the
+   light baseline (:root in style.css), so Colorful cannot drift from Light as
+   the light theme evolves — there is only one place to change either.
+
+   The recolour re-points the tokens the nav ALREADY consumes, scoped to the nav
+   subtree, instead of adding theme-specific rules to nav.css. nav.css keeps one
+   set of rules and stays theme-agnostic, and the icons follow for free (their
+   SVGs stroke currentColor). .db-modal-overlay is a SIBLING of .menu, not a
+   child, so none of this reaches the database modal. */
+html[data-theme="colorful"] div.menu {
+
+    /* Nav fill. The 700 rung, not --accent-primary (600): white labels clear
+       AA 4.5:1 on 700 (7.3:1) but only just on 600 (4.6:1), and the idle label
+       — which is most of the sidebar most of the time — falls to 3.8:1 there.
+       Same reasoning the active-chip tokens above already follow: pick the ramp
+       rung the text can actually live on. */
+    --surface1: var(--color-accent-700);
+
+    /* Labels + icons. Idle dims to 85% white (5.7:1); hover/active go pure
+       white (7.3:1); section titles sit at 72% (4.7:1). All clear AA. */
+    --text-secondary: rgba(255,255,255, 0.85);
+    --text-primary:   #fff;
+    --text-tertiary:  rgba(255,255,255, 0.72);
+
+    /* Hover/active fill + scrollbar. White-tinted like the dark theme's frost,
+       because the nav is a DARK surface now regardless of the light page it
+       sits next to — the light theme's black tints would vanish on it. */
+    --frost-3: rgba(255,255,255, 0.16);
+    --border:  rgba(255,255,255, 0.28);
+}
+
+/* The uncategorized-count badge rides on the accent now. Its 18%-amber tint
+   goes muddy over green and drops to 3.1:1, so it becomes a solid amber pill
+   with dark text (7.6:1) — louder than elsewhere, but it is a notification. */
+html[data-theme="colorful"] .nav-badge {
+    background: var(--warning);
+    color: var(--color-base-900);
+}
+

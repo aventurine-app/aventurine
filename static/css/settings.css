@@ -97,11 +97,13 @@
 }
 
 /* ── Color theme swatches ───────────────────────────────────────────────
-   Row of three clickable cards: colored preview + label. Active card gets
+   Row of clickable cards: colored preview + label. Active card gets
    an accent border; inline style custom properties drive the preview colors
-   so they're immune to the current theme. */
+   so they're immune to the current theme. Wraps so adding a theme can never
+   push a card out of the modal. */
 .settings-theme-options {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
 }
 
@@ -150,6 +152,17 @@
     bottom: 0; left: 0; right: 0;
     height: 7px;
     background-color: var(--sw-accent);
+}
+
+/* Colorful reads as light everywhere except the sidebar, so its swatch is the
+   light face plus a vertical accent band on the left — the nav. The band is a
+   background-image over --sw-surface, which puts it UNDER ::before (the top
+   background strip), and that is the real layout: the title bar spans the full
+   width and the sidebar starts below it. The accent rung matches the live nav
+   fill (themes.css), not --accent-primary. */
+.settings-theme-swatch[data-theme="colorful"] {
+    background-image: linear-gradient(to right,
+        var(--color-accent-700) 0 24%, transparent 24%);
 }
 
 .settings-theme-label {

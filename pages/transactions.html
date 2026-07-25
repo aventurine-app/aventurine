@@ -20,12 +20,12 @@
              
 <div class="db-page tx-page">
     <!-- Chip row above the table — no container background. The left group is
-         one filter chip per search field (Date / Name / Type / Category /
-         Account / Amount — same order as the table columns) plus a Clear all;
+         one filter chip per search field (Date / Name / Type / Account /
+         Category / Amount — same order as the table columns) plus a Clear all;
          the right group holds the action chips
          (icon chips for Edit / Delete / Add, labeled primary buttons for
          Import / Export). Inactive filter chips read as a
-         dotted outline with just the field name; clicking one drops a popover of
+         dashed outline with just the field name; clicking one drops a popover of
          options, and once a value is picked the chip fills with the primary
          accent and reads "Field : value" with a leading × to clear it. The
          option popovers are built on demand in transactions.js. -->
@@ -38,6 +38,7 @@
                 <button class="tx-filter-main" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Filter by Date">
                     <span class="tx-filter-name">Date</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
                 </button>
+                <svg class="tx-filter-dash" aria-hidden="true"><rect x="0.5" y="0.5" rx="7.5"></rect></svg>
             </div>
             <div class="tx-filter-chip" data-filter="name">
                 <button class="tx-filter-clear" type="button" aria-label="Clear name filter">
@@ -46,6 +47,7 @@
                 <button class="tx-filter-main" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Filter by Name">
                     <span class="tx-filter-name">Name</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
                 </button>
+                <svg class="tx-filter-dash" aria-hidden="true"><rect x="0.5" y="0.5" rx="7.5"></rect></svg>
             </div>
             <div class="tx-filter-chip" data-filter="type">
                 <button class="tx-filter-clear" type="button" aria-label="Clear type filter">
@@ -54,14 +56,7 @@
                 <button class="tx-filter-main" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Filter by Type">
                     <span class="tx-filter-name">Type</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
                 </button>
-            </div>
-            <div class="tx-filter-chip" data-filter="category">
-                <button class="tx-filter-clear" type="button" aria-label="Clear category filter">
-                    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-                </button>
-                <button class="tx-filter-main" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Filter by Category">
-                    <span class="tx-filter-name">Category</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
-                </button>
+                <svg class="tx-filter-dash" aria-hidden="true"><rect x="0.5" y="0.5" rx="7.5"></rect></svg>
             </div>
             <div class="tx-filter-chip" data-filter="account">
                 <button class="tx-filter-clear" type="button" aria-label="Clear account filter">
@@ -70,6 +65,16 @@
                 <button class="tx-filter-main" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Filter by Account">
                     <span class="tx-filter-name">Account</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
                 </button>
+                <svg class="tx-filter-dash" aria-hidden="true"><rect x="0.5" y="0.5" rx="7.5"></rect></svg>
+            </div>
+            <div class="tx-filter-chip" data-filter="category">
+                <button class="tx-filter-clear" type="button" aria-label="Clear category filter">
+                    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+                </button>
+                <button class="tx-filter-main" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Filter by Category">
+                    <span class="tx-filter-name">Category</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
+                </button>
+                <svg class="tx-filter-dash" aria-hidden="true"><rect x="0.5" y="0.5" rx="7.5"></rect></svg>
             </div>
             <div class="tx-filter-chip" data-filter="amount">
                 <button class="tx-filter-clear" type="button" aria-label="Clear amount filter">
@@ -78,6 +83,7 @@
                 <button class="tx-filter-main" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Filter by Amount">
                     <span class="tx-filter-name">Amount</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
                 </button>
+                <svg class="tx-filter-dash" aria-hidden="true"><rect x="0.5" y="0.5" rx="7.5"></rect></svg>
             </div>
             <button class="tx-clear-all" type="button" id="tx-clear-all" hidden>Clear all</button>
         </div>
@@ -112,8 +118,8 @@
                     <th class="tx-col-select"><input type="checkbox" id="tx-select-all" class="tx-checkbox" aria-label="Select all transactions"></th>
                     <th class="tx-col-date">Date</th>
                     <th class="tx-col-description">Description</th>
-                    <th class="tx-col-category">Category</th>
                     <th class="tx-col-account">Account</th>
+                    <th class="tx-col-category">Category</th>
                     <th class="tx-col-amount">Amount</th>
                     <th class="tx-col-notes">Notes</th>
                 </tr>
