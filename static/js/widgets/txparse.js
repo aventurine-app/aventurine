@@ -377,12 +377,18 @@
         }
 
         // Bank exports often put a title or metadata above the real table.
-        // Skip leading rows until one with at least two non-empty cells
-        // appears (a usable transaction table needs date + amount at
-        // minimum); that row becomes the headers — same convention as the
-        // delimited parser. Date cells stored as Excel serial numbers are
-        // handled later by parseIsoDate.
-        while (grid.length && grid[0].filter(c => c).length < 2) grid.shift();
+        // Skip leading rows that are NARROWER than the sheet's widest row — a
+        // title ("Account Statement") is one cell against a table's several;
+        // the first row that isn't becomes the headers, same convention as the
+        // delimited parser. The threshold is relative, capped at two: a flat
+        // "at least two non-empty cells" discarded every row of a sheet that
+        // is legitimately ONE column wide, and the whole file then read as
+        // empty. Date cells stored as Excel serial numbers are handled later
+        // by parseIsoDate.
+        const width = grid.reduce((w, r) => Math.max(w, r.filter(c => c).length), 0);
+        if (!width) return { headers: [], rows: [], fixed: false };
+        const minCells = Math.min(2, width);
+        while (grid.length && grid[0].filter(c => c).length < minCells) grid.shift();
         if (!grid.length) return { headers: [], rows: [], fixed: false };
         const headers = grid[0];
         const rows = grid.slice(1).filter(r => r.some(c => c));
@@ -443,6 +449,40 @@
     // (minus holds), not the month-end book balance the Balance Sheet wants.
     const RX_BALANCE = /balance/i;
 
+    // A genuine Debit/Credit pair never carries a real (non-zero) value on
+    // BOTH sides of the same row — that's the shape applyMapping itself
+    // already assumes (a same-row non-zero on both sides is refused as
+    // ambiguous; a zero on one side is filler). Used to recognise a split
+    // pair from data shape alone, for files whose headers give no clue.
+    // Ties break toward the earlier pair, which is usually Debit-before-
+    // Credit column order; if it guesses the sides backwards, either can
+    // still be repointed with its own dropdown — no toggle needed for that.
+    function findSplitPair(rows, candidates) {
+        const isFilled = (raw) => {
+            const s = String(raw ?? '').trim();
+            if (!s) return false;
+            const v = parseAmount(s);
+            return !Number.isNaN(v) && v !== 0;
+        };
+        for (let a = 0; a < candidates.length; a++) {
+            for (let b = a + 1; b < candidates.length; b++) {
+                const i = candidates[a], j = candidates[b];
+                let both = 0, iFilled = 0, jFilled = 0;
+                for (const r of rows) {
+                    const vi = isFilled(r[i]), vj = isFilled(r[j]);
+                    if (vi && vj) both++;
+                    if (vi) iFilled++;
+                    if (vj) jFilled++;
+                }
+                // Both sides must do real work — otherwise a column that's
+                // almost always blank could pair with any unrelated amount
+                // column and pass by having zero overlap trivially.
+                if (both === 0 && iFilled > 0 && jFilled > 0) return [i, j];
+            }
+        }
+        return null;
+    }
+
     function detectColumns(headers, rows) {
         const d = { date: null, description: null, amount: null, debit: null, credit: null, notes: null, balance: null };
 
@@ -473,25 +513,55 @@
 
         // Data-shape fallbacks for unmatched required fields.
         if (rows.length > 0) {
-            headers.forEach((h, i) => {
-                const vals = rows.map(r => (r[i] || '')).filter(Boolean);
-                if (!vals.length) return;
-                if (d.date === null) {
+            // Date runs alone first, so the amount/split detection below can
+            // rely on d.date being fully resolved regardless of column order
+            // (a single combined pass filled both in header order, so a date
+            // column appearing AFTER the amount column wasn't excluded yet
+            // when the amount column was being considered).
+            if (d.date === null) {
+                headers.forEach((h, i) => {
+                    if (d.date !== null) return;
+                    const vals = rows.map(r => (r[i] || '')).filter(Boolean);
+                    if (!vals.length) return;
                     const hits = vals.filter(v => parseIsoDate(v) !== null).length;
                     if (hits / vals.length > 0.8) d.date = i;
+                });
+            }
+
+            // A genuine but unlabeled Debit/Credit pair, tried BEFORE the
+            // single-column amount fallback below — otherwise that fallback
+            // would grab whichever side it reaches first and silently drop
+            // every row where that side happens to be blank (the other,
+            // equally real, column never gets mapped to anything).
+            if (d.amount === null && d.debit === null && d.credit === null) {
+                const numericCols = [];
+                headers.forEach((h, i) => {
+                    if (i === d.date || i === d.balance) return;
+                    const vals = rows.map(r => (r[i] || '')).filter(Boolean);
+                    if (!vals.length) return;
+                    const hits = vals.filter(v => !Number.isNaN(parseAmount(v))).length;
+                    if (hits / vals.length > 0.8) numericCols.push(i);
+                });
+                if (numericCols.length >= 2) {
+                    const pair = findSplitPair(rows, numericCols);
+                    if (pair) [d.debit, d.credit] = pair;
                 }
-                // A column already claimed as the date can't also be the
-                // amount — date strings like "2026-01-01" pass parseAmount
-                // (parseFloat reads the leading year), so without this guard
-                // an anonymous-header file pre-selects the same column for
-                // both fields. Split mode (debit set) needs no amount at all.
-                // A mapped balance column is numeric too — exclude it so it is
-                // never mistaken for the transaction amount.
-                if (d.amount === null && d.debit === null && i !== d.date && i !== d.balance) {
+            }
+
+            // Single combined Amount column — only reached when no split pair
+            // was found above. A column already claimed as the date can't
+            // also be the amount — date strings like "2026-01-01" pass
+            // parseAmount (it reads the leading year) — and a mapped balance
+            // column is numeric too, so both are excluded.
+            if (d.amount === null && d.debit === null) {
+                headers.forEach((h, i) => {
+                    if (d.amount !== null || i === d.date || i === d.balance) return;
+                    const vals = rows.map(r => (r[i] || '')).filter(Boolean);
+                    if (!vals.length) return;
                     const hits = vals.filter(v => !Number.isNaN(parseAmount(v))).length;
                     if (hits / vals.length > 0.8) d.amount = i;
-                }
-            });
+                });
+            }
 
             // Description fallback: longest average text, excluding claimed columns.
             if (d.description === null) {

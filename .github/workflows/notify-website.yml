@@ -1,0 +1,35 @@
+name: notify website
+
+# Tells aventurine-app.com to regenerate its release-notes page.
+#
+# This fires on `published`, NOT on release.yml finishing. release.yml creates
+# the GitHub Release as a DRAFT for review; drafts are not public and must not
+# reach the website. The ping happens when you click Publish on the draft, which
+# is the moment the release actually becomes something a visitor can see.
+#
+# SETUP — needs a repo secret named SITE_DISPATCH_TOKEN:
+#   a fine-grained personal access token scoped to the aventurine-app-com
+#   repository only, with the "Contents: read and write" permission (that is
+#   what a repository_dispatch requires). Nothing else. Add it under
+#   Settings → Secrets and variables → Actions in THIS repo.
+#
+# If the token is missing or expired this step fails loudly, which is correct:
+# the release itself is already published and unaffected, and the website has a
+# weekly scheduled rebuild that will pick the release up regardless.
+on:
+  release:
+    types: [published]
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask the website to rebuild its releases page
+        env:
+          GH_TOKEN: ${{ secrets.SITE_DISPATCH_TOKEN }}
+        run: |
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            repos/aventurine-app/aventurine-app.com/dispatches \
+            -f event_type=release-published

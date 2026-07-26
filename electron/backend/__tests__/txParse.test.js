@@ -303,6 +303,20 @@ test('title-above.xlsx: native zip/XML path — serials, shared+rich+inline stri
   assert.equal(parsed[0].date, '2026-03-04');
 });
 
+test('one-column.xlsx: a sheet one column wide survives the title-row skip', async () => {
+  // The title-skip rule used to demand two non-empty cells, which every row of
+  // a one-column sheet fails — the whole file then parsed as empty and the
+  // importer reported "no data rows", so the user never reached Map Columns.
+  // The threshold is relative to the sheet's width now.
+  const t = await parseFile('one-column.xlsx', loadFixture('one-column.xlsx'));
+  assert.deepEqual(t.headers, ['Transaction']);
+  assert.equal(t.rows.length, 3);
+  assert.deepEqual(t.rows[0], ['03/02/2026 ZZQX COFFEE ROASTERS -6.75']);
+  // Still one column, so every field the user maps points at it — that's the
+  // mapping step's business, not the parser's; the rows must simply survive.
+  assert.equal(detectColumns(t.headers, t.rows).date, 0);
+});
+
 test('cp1252.csv: invalid-UTF-8 bytes fall back to windows-1252, not U+FFFD', async () => {
   const t = await parseFile('cp1252.csv', loadFixture('cp1252.csv'));
   assert.equal(t.rows[0][1], 'CAFé “LE MONDE”');
@@ -350,6 +364,34 @@ test('detectColumns: data-shape fallback rescues anonymous headers', () => {
   assert.equal(d.date, 0);      // >80% of values parse as dates
   assert.equal(d.amount, 2);    // >80% parse as amounts
   assert.equal(d.description, 1); // longest average text among the rest
+});
+
+test('detectColumns: data-shape fallback recognises an unlabeled Debit/Credit pair', () => {
+  // No header names to go on, but two numeric columns that are never both
+  // filled on the same row — exactly the shape a real split export has.
+  const rows = [
+    ['2026-01-05', 'COFFEE SHOP DOWNTOWN', '4.50',    ''],
+    ['2026-01-06', 'GROCERY MARKET #12',   '61.20',   ''],
+    ['2026-01-07', 'PAYCHECK',             '',        '2100.00'],
+    ['2026-01-08', 'REFUND',               '',        '12.00'],
+  ];
+  const d = detectColumns(['A', 'B', 'C', 'D'], rows);
+  assert.equal(d.date, 0);
+  assert.equal(d.description, 1);
+  assert.deepEqual([d.amount, d.debit, d.credit], [null, 2, 3]);
+});
+
+test('detectColumns: two numeric columns that overlap on the same row are NOT mistaken for a Debit/Credit pair', () => {
+  // Check number + amount: both columns are numeric and always filled
+  // together, so this must NOT be read as a split pair.
+  const rows = [
+    ['2026-01-05', 'CHECK PAYMENT', '1042', '61.20'],
+    ['2026-01-06', 'CHECK PAYMENT', '1043', '84.12'],
+    ['2026-01-07', 'CHECK PAYMENT', '1044', '15.00'],
+  ];
+  const d = detectColumns(['A', 'B', 'C', 'D'], rows);
+  assert.equal(d.debit, null);
+  assert.equal(d.credit, null);
 });
 
 // ── applyMapping error reporting ─────────────────────────────────────────────

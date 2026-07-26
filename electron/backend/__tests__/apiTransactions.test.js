@@ -502,6 +502,31 @@ test('import cold-categorizes known merchants via the built-in lexicon (no learn
   assert.equal(txByDesc(c, 'ZZZ Unknown Corner Store')[0].category_id, null);
 });
 
+test('import dry_run reports the categorization digest without persisting anything', (t) => {
+  const c = makeClient(t);
+  const catId = (key) => getCategories(c).find((x) => x.key === key).id;
+
+  const rows = [
+    { date: '2026-06-05', description: 'NETFLIX.COM', tx_type: 'expense', amount: 15.0 },
+    { date: '2026-06-05', description: 'ZZZ Unknown Corner Store', tx_type: 'expense', amount: 20.0 },
+  ];
+  const r = c.post('/api/transactions/import', { rows, dry_run: true });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.dry_run, true);
+  // Nothing lands in `inserted` — that count is reserved for what actually
+  // got written — but `would_insert` and the categorization digest (`found`)
+  // report exactly what a real commit would do.
+  assert.equal(r.body.inserted, 0);
+  assert.equal(r.body.would_insert, 2);
+  assert.equal(r.body.auto_categorized, 1);
+  assert.equal(r.body.found.uncategorized, 1);
+  assert.equal(r.body.found.categories.find((x) => x.key === 'entertainment')?.count, 1);
+
+  // And, decisively, no row was written and no account was adopted.
+  assert.equal(txByDesc(c, 'NETFLIX.COM').length, 0);
+  assert.equal(getCategories(c).find((x) => x.key === 'entertainment').id, catId('entertainment'));
+});
+
 test('built-in categorization respects the direction guard and the on/off setting', (t) => {
   const c = makeClient(t);
 

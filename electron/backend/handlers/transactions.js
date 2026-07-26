@@ -273,7 +273,14 @@ function importRows(ctx, { body }) {
   const db = ctx.db();
   const rows = (body || {}).rows;
   if (!Array.isArray(rows) || !rows.length) bad('rows must be a non-empty array');
-  const balances = validateBalances(db, (body || {}).balances);
+
+  // A dry run runs the exact same row-building + categorization passes below
+  // (both read-only against the DB) but skips the transaction() block that
+  // actually persists anything — so the caller can show "here's what we
+  // found" (including the categorizer's real uncategorized count) BEFORE the
+  // user commits to the import, with zero trace left if they back out.
+  const dryRun = !!(body || {}).dry_run;
+  const balances = dryRun ? [] : validateBalances(db, (body || {}).balances);
 
   // The account every row in this import belongs to — the UI always asks. A
   // missing/absent key is tolerated (imports predating this, or a caller that
@@ -310,7 +317,9 @@ function importRows(ctx, { body }) {
   // confident ones, then everything commits together. Order matters: the
   // user's learned rules run first (they personalise and win), then the
   // built-in lexicon fills in still-uncategorized rows for a useful cold
-  // start. Both skip already-categorized rows, so they never fight.
+  // start. Both skip already-categorized rows, so they never fight. Neither
+  // pass writes to the DB (only reads match_rules/categories), so this is
+  // exactly as valid to run for a dry run as for a real commit.
   const autoCategorized =
     applyAutoMatch(db, inserted) + applyBuiltinCategorize(db, inserted);
   // Third pass: clean display names for rows the merchant lexicon recognizes
@@ -318,7 +327,7 @@ function importRows(ctx, { body }) {
   // ledger keeps it one click away). Hand-entered rows never get one.
   applyDisplayNames(db, inserted);
   let accountAdopted = false;
-  if (inserted.length || balances.length) {
+  if (!dryRun && (inserted.length || balances.length)) {
     db.transaction(() => {
       // Adopting the target account happens HERE, at the storage boundary,
       // rather than in the importer UI: an import landing in a starter account
@@ -367,10 +376,12 @@ function importRows(ctx, { body }) {
 
   return {
     ok: true,
-    inserted: inserted.length,
+    dry_run: dryRun,
+    inserted: dryRun ? 0 : inserted.length,
+    would_insert: inserted.length,
     skipped,
     auto_categorized: autoCategorized,
-    balances_applied: balances.length,
+    balances_applied: dryRun ? 0 : balances.length,
     account_adopted: accountAdopted,
     found: summariseImport(db, inserted),
   };

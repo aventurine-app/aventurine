@@ -1004,6 +1004,32 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     max-width: 92vw;
 }
 
+/* Step 4 — "Success!" in the standard title slot but set large, one line of
+   confirmation below it, and two buttons — so the 740px default shell would
+   dwarf it the same way the busy modal's would. Neither the header's usual
+   rule nor the footer's applies here: the screen reads as one unbroken block
+   instead of the header/body/footer chrome every other import modal needs
+   for a title bar and a scrolling table. */
+.tx-import-dialog--success { max-width: 480px; }
+.tx-import-dialog--success .tx-import-dialog-header {
+    border-bottom: none;
+}
+.tx-import-dialog--success .tx-import-dialog-title {
+    font-family: var(--font-h2);
+    font-size: var(--size-h1);
+    font-weight: var(--weight-semibold);
+}
+.tx-import-dialog--success .tx-import-footer {
+    border-top: none;
+}
+.tx-import-success-sub {
+    margin: 0;
+    color: var(--text-secondary);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    line-height: var(--lh-relaxed);
+}
+
 .tx-import-dialog-header {
     display: flex;
     align-items: center;
@@ -1106,6 +1132,14 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 .tx-import-preview-table tbody tr:hover td,
 .tx-similar-table tbody tr:hover td { background: var(--frost-2); }
 
+/* Map Columns' live preview before enough fields are chosen to parse anything. */
+.tx-import-preview-empty {
+    color: var(--text-tertiary);
+    text-align: center;
+    white-space: normal;
+}
+.tx-import-preview-table tbody tr:has(.tx-import-preview-empty):hover td { background: none; }
+
 /* Full preview table (step 2) — a fixed column layout so every gutter stays even
    regardless of row content: a long description truncates rather than stretching
    its column and crowding the amount beside it. The widths sum under the ~850px
@@ -1174,23 +1208,6 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 }
 .tx-import-map-select { flex: 1; }
 
-/* Amount-mode toggle: quiet text link swapping between one signed Amount
-   column and split Debit/Credit columns */
-.tx-import-map-mode {
-    align-self: flex-start;
-    margin-top: 8px;
-    padding: 0;
-    border: none;
-    background: none;
-    color: var(--accent-primary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    cursor: pointer;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-}
-.tx-import-map-mode:hover { color: var(--text-primary); }
-
 /* Parse-error banner (rows skipped during mapping) */
 .tx-import-errors-banner {
     background: rgba(255, 140, 0, 0.08);
@@ -1204,7 +1221,8 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     line-height: var(--lh-relaxed);
 }
 
-/* Footer — count + primary action, pinned below the scrollable body */
+/* Footer — a count/secondary action and a primary action, pinned below the
+   scrollable body; space-between puts exactly two children at opposite edges. */
 .tx-import-footer {
     display: flex;
     align-items: center;
@@ -1219,6 +1237,13 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     margin-top: 0;
 }
 
+/* The mapping modal's footer holds a single (primary) action — space-between
+   would otherwise leave it flush against the left edge, breaking from every
+   other modal's right-aligned primary action. */
+.tx-import-footer--mapping {
+    justify-content: flex-end;
+}
+
 .tx-import-row-count {
     color: var(--text-tertiary);
     font-family: var(--font-menu);
@@ -1231,11 +1256,10 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     cursor: not-allowed;
 }
 
-/* Account line — pinned above the footer, outside the scrolling body. It is a
-   STATEMENT, not a question: the account is settled before the file dialog opens
-   (the .acct-* chooser in onboarding.css), so the preview only reports where the
-   rows are going. Month-end balances in the file follow the same account without
-   asking — once the account is known there is nothing left to decide. */
+/* The static bar pinned above the footer, outside the scrolling body: on "Here
+   Is Your Import" it holds the uncategorized callout (.tx-found-note), which
+   stays put while the row table above it scrolls. Absent entirely when there's
+   nothing uncategorized to say. */
 .tx-import-balance-bar {
     display: flex;
     flex-direction: column;
@@ -1244,21 +1268,9 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     border-top: var(--border-width) solid var(--dialog-stroke);
     flex-shrink: 0;
 }
-
-.tx-import-account-row {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.tx-import-account-label {
-    color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    flex: 1 1 auto;
-    min-width: 14ch;
-}
+/* .tx-found-note's own margin-top assumes it follows other content in a
+   scrolling body; here it's the bar's only child, so that gap is redundant. */
+.tx-import-balance-bar .tx-found-note { margin-top: 0; }
 
 
 /* ─── 8. Similar-categorize modal ───────────────────────────────────────── */

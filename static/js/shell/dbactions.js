@@ -6,7 +6,12 @@
 // UI entry points — so the modal and the API calls live in exactly one place.
 //
 // One modal (#db-modal in pages/partials/sidebar.html), four modes:
-//   new    — choose a destination path, optionally encrypt with a password.
+//   new    — NAME the database; it lands in the folder the backend proposes
+//            (GET /api/db/status → default_dir), which the modal states and
+//            "Change…" overrides. Type a name, press Create — browsing is the
+//            exception, not a toll on every new database. Optionally encrypt
+//            with a password. If no folder was proposed (status unreachable)
+//            the mode falls back to the whole-path field the others use.
 //   saveas — choose a destination path; the active database is copied there
 //            (encryption + key preserved) and that copy becomes the working
 //            file. No password prompt: it inherits the current DB's.
@@ -18,9 +23,9 @@
 //            423 until unlocked — but "Open a different database…" offers
 //            the way out if the password is lost.
 //
-// Under Electron, the Browse… button opens native save/open dialogs
+// Under Electron, Browse… / Change… open native save/open dialogs
 // (window.electronFile from preload.js). In a plain browser — which cannot
-// reveal real filesystem paths — it opens an in-modal directory browser
+// reveal real filesystem paths — they open an in-modal directory browser
 // fed by GET /api/db/browse (the backend runs on the user's machine, so
 // it can walk the disk on the page's behalf). Manual entry always works.
 
@@ -32,6 +37,11 @@
     const hintEl     = document.getElementById('db-modal-hint');
     const errorEl    = document.getElementById('db-modal-error');
     const closeBtn   = document.getElementById('db-modal-close');
+    const nameRow    = document.getElementById('db-name-row');
+    const nameInput  = document.getElementById('db-name-input');
+    const locRow     = document.getElementById('db-location-row');
+    const locPath    = document.getElementById('db-location-path');
+    const locChange  = document.getElementById('db-location-change');
     const pathRow    = document.getElementById('db-path-row');
     const pathInput  = document.getElementById('db-path-input');
     const browseBtn  = document.getElementById('db-browse-btn');
@@ -64,6 +74,57 @@
         hintEl.hidden = !msg;
     }
 
+    // ── New Database: a name, in a folder we propose ──────────────────────
+    // newDir is that folder for the open modal — seeded from the backend's
+    // default_dir, replaced the moment the user changes it. Empty means we
+    // have no folder to offer and 'new' runs in the path-field fallback,
+    // which is exactly what `nameRow.hidden` reports; `named()` is that test.
+    let newDir = '';
+
+    const DB_EXT_RE = /\.(db|sqlite|sqlite3)$/i;
+    // Name → file name: everything outside letters, digits and a little plain
+    // punctuation becomes a space. A whitelist rather than a blacklist because
+    // it settles path separators, dot-segments, Windows' reserved characters
+    // and control characters in one pass — the user is naming a database, not
+    // writing a path, so nothing here should ever steer the write elsewhere.
+    const NAME_SAFE_RE = /[^\p{L}\p{N} ._'()&+-]/gu;
+
+    const named = () => mode === 'new' && !nameRow.hidden;
+
+    /** File name for a typed database name; '' when nothing usable survives. */
+    function fileNameFor(raw) {
+        const cleaned = String(raw)
+            .replace(NAME_SAFE_RE, ' ')
+            .replace(/\s+/g, ' ')
+            .replace(/^[. ]+/, '')     // no dotfiles, no '..'
+            .slice(0, 64)
+            .replace(/[. ]+$/, '');    // Windows drops trailing dots/spaces
+        if (!cleaned) return '';
+        return DB_EXT_RE.test(cleaned) ? cleaned : cleaned + '.db';
+    }
+
+    /** The path Create would write, or '' if the name isn't usable yet. */
+    function newPath() {
+        const file = fileNameFor(nameInput.value);
+        return file ? joinPath(newDir, file) : '';
+    }
+
+    /** Restate the destination. Without a usable name yet, the folder alone —
+     *  never a file name the user didn't type. */
+    function renderLocation() {
+        locPath.textContent = newPath() || (newDir + browserSep);
+    }
+
+    /** Adopt a whole path (from a dialog) back into folder + name. The '.db'
+     *  we add back is hidden; any other extension the user deliberately chose
+     *  stays visible, and fileNameFor keeps it. */
+    function adoptNewPath(p) {
+        newDir = dirName(p) || newDir;
+        const base = baseName(p);
+        nameInput.value = /\.db$/i.test(base) ? base.slice(0, -3) : base;
+        renderLocation();
+    }
+
     function showModal(newMode, opts = {}) {
         mode = newMode;
         setError('');
@@ -71,12 +132,17 @@
         passInput.value = '';
         confInput.value = '';
         encCheck.checked = false;
+        // Every open re-proposes the current default: the folder can change
+        // under us (a Save As, an Open) between one New Database and the next.
+        newDir = mode === 'new' ? _defaultDir : '';
 
         const dismissable = mode !== 'unlock';
         closeBtn.hidden   = !dismissable;
         cancelBtn.hidden  = !dismissable;
         switchBtn.hidden  = mode !== 'unlock';
-        pathRow.hidden    = mode === 'unlock';
+        nameRow.hidden    = mode !== 'new' || !newDir;
+        locRow.hidden     = nameRow.hidden;
+        pathRow.hidden    = mode === 'unlock' || named();
         browserPanel.hidden = true;
         encRow.hidden     = mode !== 'new' || opts.encryptionUnavailable;
         passRow.hidden    = mode === 'new' || mode === 'saveas' ||
@@ -87,7 +153,12 @@
         if (mode === 'new') {
             titleEl.textContent  = 'New Database';
             submitBtn.textContent = 'Create';
-            setHint('Choose where to store the new database file.');
+            setHint(named()
+                ? 'Name your new database. It is stored on this computer, nowhere else.'
+                : 'Choose where to store the new database file.');
+            // A starting point, not an answer: selected, so typing replaces it.
+            nameInput.value = 'Finances';
+            renderLocation();
         } else if (mode === 'saveas') {
             titleEl.textContent  = 'Save Database As';
             submitBtn.textContent = 'Save';
@@ -108,7 +179,22 @@
         }
 
         modal.hidden = false;
-        (pathRow.hidden ? passInput : pathInput).focus();
+        if (named()) {
+            nameInput.focus();
+            nameInput.select();
+        } else {
+            (pathRow.hidden ? passInput : pathInput).focus();
+            // No proposed folder yet — the status call is late or failed and
+            // this modal opened in its path-field fallback. Ask again, and if
+            // an answer arrives before the user has typed anything, reopen as
+            // the name flow they should have got.
+            if (mode === 'new') {
+                fetchStatus().then(() => {
+                    if (!modal.hidden && mode === 'new' && !named() &&
+                        _defaultDir && !pathInput.value.trim()) showModal('new', opts);
+                }).catch(() => { /* still unreachable — the fallback stands */ });
+            }
+        }
     }
 
     function hideModal() {
@@ -124,26 +210,36 @@
         if (on) passInput.focus();
     });
 
-    browseBtn.addEventListener('click', async () => {
+    // Both entry points to picking a location — "Browse…" beside the path
+    // field, "Change…" beside the proposed destination — are the same act.
+    async function chooseLocation() {
         if (fileApi) {
             const picker = (mode === 'new' || mode === 'saveas')
                 ? fileApi.chooseNewDbPath
                 : fileApi.chooseExistingDbPath;
             try {
-                const picked = await picker();
-                if (picked) pathInput.value = picked;
+                // Open the save dialog on the destination already shown, so
+                // "Change…" starts where the user is.
+                const picked = await picker(named() ? newPath() || newDir : undefined);
+                if (!picked) return;
+                if (named()) adoptNewPath(picked);
+                else pathInput.value = picked;
             } catch { /* dialog unavailable — manual entry still works */ }
             return;
         }
-        // Plain browser: toggle the in-modal directory browser. Seed it
-        // from the typed path's directory when there is one.
+        // Plain browser: toggle the in-modal directory browser. Seed it from
+        // the proposed folder, or the typed path's directory.
         if (!browserPanel.hidden) {
             browserPanel.hidden = true;
             return;
         }
         browserPanel.hidden = false;
-        loadBrowser(dirName(pathInput.value.trim()));
-    });
+        loadBrowser(named() ? newDir : dirName(pathInput.value.trim()));
+    }
+
+    browseBtn.addEventListener('click', chooseLocation);
+    locChange.addEventListener('click', chooseLocation);
+    nameInput.addEventListener('input', renderLocation);
 
     // ── In-modal filesystem browser (non-Electron) ────────────────────────
     let browserSep = '/';
@@ -170,9 +266,14 @@
             setError('');
             browserSep = data.sep;
             renderBrowser(data);
-            // In new/save-as mode the folder choice IS the answer — keep the
-            // path input pointing at <current folder>/<file name> as they browse.
-            if ((mode === 'new' || mode === 'saveas') && data.path !== 'drives') {
+            // In the write modes the folder on screen IS the answer as they
+            // browse: the name flow takes just the folder (the name field owns
+            // the file name), save-as keeps its whole path in step.
+            if (data.path === 'drives') return;
+            if (named()) {
+                newDir = data.path;
+                renderLocation();
+            } else if (mode === 'new' || mode === 'saveas') {
                 const fname = baseName(pathInput.value.trim()) || 'finance.db';
                 pathInput.value = joinPath(data.path, fname);
             }
@@ -190,7 +291,7 @@
             const li = document.createElement('li');
             li.textContent = label;
             li.className   = cls;
-            li.addEventListener('click', onPick);
+            if (onPick) li.addEventListener('click', onPick);
             browserList.appendChild(li);
         };
         if (data.parent !== null && data.parent !== undefined) {
@@ -202,9 +303,11 @@
             addItem(name, 'db-browser-dir', () => loadBrowser(target));
         });
         data.files.forEach(name => {
-            addItem(name, 'db-browser-file', () => {
-                pathInput.value = joinPath(data.path, name);
-            });
+            // In the name flow the file name comes from the Name field, so the
+            // databases already here are context only — shown (a collision is
+            // worth seeing coming) but not selectable.
+            addItem(name, named() ? 'db-browser-file db-browser-inert' : 'db-browser-file',
+                    named() ? null : () => { pathInput.value = joinPath(data.path, name); });
         });
         if (!browserList.children.length) {
             const li = document.createElement('li');
@@ -235,12 +338,21 @@
         if (busy) return;
         setError('');
 
-        const path     = pathInput.value.trim();
         const password = passInput.value;
-
-        if (mode !== 'unlock' && !path) {
-            setError('Enter a file location.');
-            return;
+        let path;
+        if (named()) {
+            path = newPath();
+            if (!path) {
+                setError('Give this database a name.');
+                nameInput.focus();
+                return;
+            }
+        } else {
+            path = pathInput.value.trim();
+            if (mode !== 'unlock' && !path) {
+                setError('Enter a file location.');
+                return;
+            }
         }
         if (mode === 'new' && encCheck.checked) {
             if (!password)                    { setError('Enter a password.'); return; }
@@ -277,6 +389,13 @@
                 setError('Incorrect password.');
                 passInput.select();
                 passInput.focus();
+            } else if (named() && status === 409) {
+                // The generic "a file already exists at that location" is about
+                // a path the user never typed — name the collision instead.
+                setError('There is already a database called ' + baseName(path) +
+                         ' in that folder.');
+                nameInput.focus();
+                nameInput.select();
             } else {
                 setError(data.error || ('Request failed (' + status + ')'));
             }
@@ -313,6 +432,22 @@
     });
 
     let _encryptionAvailable = true;
+    let _defaultDir = '';
+
+    /** Read the server's view of the active database: whether it's locked,
+     *  whether encryption is available, and the folder to propose for a new
+     *  one. Called on every page load, and again if a New Database modal opens
+     *  before the answer arrived. */
+    function fetchStatus() {
+        return apiFetch('/api/db/status')
+            .then(r => r.json())
+            .then(s => {
+                _encryptionAvailable = !!s.encryption_available;
+                if (typeof s.sep === 'string' && s.sep) browserSep = s.sep;
+                if (typeof s.default_dir === 'string') _defaultDir = s.default_dir;
+                return s;
+            });
+    }
 
     // Public entry points (title-bar File menu in titlebar.js; auto-lock uses
     // showUnlock to surface the prompt after an idle lock).
@@ -325,11 +460,7 @@
 
     // On every page load, ask the server whether the active DB is locked
     // (encrypted DB restored from the previous session, key not yet given).
-    apiFetch('/api/db/status')
-        .then(r => r.json())
-        .then(s => {
-            _encryptionAvailable = !!s.encryption_available;
-            if (s.locked) showModal('unlock', { path: s.path });
-        })
+    fetchStatus()
+        .then(s => { if (s.locked) showModal('unlock', { path: s.path }); })
         .catch(() => { /* server unreachable — nothing to do */ });
 }());

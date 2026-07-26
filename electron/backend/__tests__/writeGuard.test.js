@@ -69,6 +69,40 @@ test('guard: a dialog-issued (approved) path writes without prompting', (t) => {
   assert.equal(prompted.length, 0);
 });
 
+test('guard: a new database in the folder the app proposed writes without prompting', (t) => {
+  const c = makeClient(t);
+  const prompted = installGuard(c.conn, false); // would refuse if consulted
+  // What the New Database modal shows the user before they press Create.
+  const proposed = c.get('/api/db/status').body.default_dir;
+  const p = path.join(proposed, 'named-not-browsed.db');
+
+  const r = c.post('/api/db/create', { path: p });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.ok(fs.existsSync(p));
+  assert.equal(prompted.length, 0);
+});
+
+test('guard: the proposed folder waives nothing below it, and nothing but create', (t) => {
+  const c = makeClient(t);
+  const prompted = installGuard(c.conn, false);
+  const proposed = c.get('/api/db/status').body.default_dir;
+
+  // A subfolder is not the proposed folder — only its immediate children are.
+  const nested = path.join(proposed, 'sub', 'deep.db');
+  assert.equal(c.post('/api/db/create', { path: nested }).status, 403);
+  assert.ok(!fs.existsSync(nested));
+
+  // Nor does the waiver reach the routes that can overwrite an existing file:
+  // export is still confirmed even inside the proposed folder.
+  const dest = path.join(proposed, 'export.csv');
+  assert.equal(
+    c.post('/api/transactions/export', { format: 'csv', path: dest, offset: 0 }).status,
+    403
+  );
+  assert.ok(!fs.existsSync(dest));
+  assert.deepEqual(prompted, [path.resolve(nested), path.resolve(dest)]);
+});
+
 test('guard: export to a non-dialog path is gated, then chunk loop never re-prompts', (t) => {
   const c = makeClient(t);
   const prompted = installGuard(c.conn, true);

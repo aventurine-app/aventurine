@@ -1,9 +1,9 @@
 /* ─── onboarding.css ──────────────────────────────────────────────────────────
-   First-run setup (widgets/onboarding.js) plus the two pieces it SHARES with an
+   First-run setup (widgets/onboarding.js) plus the pieces it SHARES with an
    ordinary import, both rendered by widgets/txfileimport.js:
-     .acct-*    the account question — asked once, before the file dialog, in
-                identical words and shape in first-run and in a normal import
-     .tx-found-* the import-results digest ("here's what we found")
+     .acct-*      the account question — asked once, before the file dialog, in
+                  identical words and shape in first-run and in a normal import
+     .tx-found-*  the "Here Is Your Import" headline + uncategorized callout
    Both pages that can import (Home during first run, Transactions) load this.
 
    Deliberately quiet: this is the first thing a new user sees, so it reads as an
@@ -35,6 +35,25 @@
     border-radius: 10px;
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
 }
+
+/* The only way to dismiss the modal before an account is chosen (first-run has
+   no text link for it) — same mark, position and behaviour as the import
+   modals' own close button, so first-run doesn't look like a different app. */
+.onb-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: var(--size-h2);
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+.onb-close:hover { color: var(--text-primary); background: var(--frost-3); }
 
 .onb-head { margin-bottom: 20px; }
 
@@ -180,21 +199,24 @@
 
 .acct-custom .acct-custom-name { flex: 1; min-width: 0; }
 
+/* Negative side margins cancel .onb-dialog's own padding so the rule spans the
+   full modal width edge-to-edge, like every other modal's footer rule
+   (the import modals' footer is a sibling of the padded body, not a child of
+   it; this dialog has no such split, so the bleed is done with margins instead). */
 .onb-foot {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-top: 22px;
-    padding-top: 16px;
+    margin: 22px -26px 0;
+    padding: 16px 26px 0;
     border-top: var(--border-width) solid var(--dialog-stroke);
 }
 
 /* The skip / secondary action: present and reachable, never competing with the
    primary. Skipping must always be cheap — an onboarding you cannot leave
    contradicts "five minutes a month, then it leaves you alone". */
-.onb-skip,
-.onb-another {
+.onb-skip {
     background: none;
     border: none;
     padding: 6px 2px;
@@ -206,137 +228,16 @@
     transition: color 0.15s ease;
 }
 
-.onb-skip:hover,
-.onb-another:hover { color: var(--text-primary); text-decoration: underline; }
+.onb-skip:hover { color: var(--text-primary); text-decoration: underline; }
 
-/* ── The import-results digest (shared with an ordinary import) ─────────────── */
+/* ── "Here Is Your Import" headline + callout (shared with an ordinary import,
+   rendered by txfileimport.js's showImportModal / uncategorizedNoteHtml) ──── */
 
 .tx-found-headline {
     color: var(--text-primary);
     font-family: var(--font-h2);
     font-size: var(--size-h3);
     font-weight: var(--weight-semibold);
-}
-
-.tx-found-asides {
-    margin-top: 4px;
-    color: var(--text-tertiary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-}
-
-.tx-found { margin-top: 4px; }
-
-.tx-found-head {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 14px;
-}
-
-.tx-found-account {
-    color: var(--text-primary);
-    font-family: var(--font-h3);
-    font-size: var(--size-small);
-    font-weight: var(--weight-medium);
-}
-
-.tx-found-period {
-    color: var(--text-tertiary);
-    font-family: var(--font-mono, var(--font-menu));
-    font-size: var(--size-micro);
-}
-
-.tx-found-totals {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 18px;
-}
-
-.tx-found-total {
-    flex: 1 1 120px;
-    padding: 10px 12px;
-    border: var(--border-width) solid var(--dialog-stroke);
-    border-radius: 8px;
-    background: var(--frost-2);
-}
-
-.tx-found-total-label {
-    display: block;
-    color: var(--text-tertiary);
-    font-family: var(--font-menu);
-    font-size: var(--size-micro);
-    letter-spacing: var(--track-wide);
-    text-transform: uppercase;
-}
-
-.tx-found-total-value {
-    display: block;
-    margin-top: 3px;
-    color: var(--text-primary);
-    font-family: var(--font-h2);
-    font-size: var(--size-body);
-    font-weight: var(--weight-semibold);
-    font-variant-numeric: tabular-nums;
-}
-
-.tx-found-total.is-income .tx-found-total-value { color: var(--accent-positive); }
-.tx-found-total.is-expense .tx-found-total-value { color: var(--text-primary); }
-
-/* One row per category the import landed in, biggest first. The bar is scaled
-   against the largest category — enough to read the shape of the month at a
-   glance without pulling in the chart layer. */
-.tx-found-cat {
-    display: grid;
-    grid-template-columns: minmax(90px, 1fr) minmax(60px, 2fr) auto auto;
-    align-items: center;
-    gap: 10px;
-    padding: 5px 0;
-}
-
-.tx-found-cat-name {
-    color: var(--text-primary);
-    font-family: var(--font-h3);
-    font-size: var(--size-small);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.tx-found-cat-bar {
-    height: 6px;
-    border-radius: 3px;
-    background: var(--frost-2);
-    overflow: hidden;
-}
-
-.tx-found-cat-bar i {
-    display: block;
-    height: 100%;
-    border-radius: 3px;
-    background: var(--accent-primary);
-}
-
-/* Direction is carried by colour as well as by the scale it's measured against
-   (bars are scaled within a direction — see renderFound), so an income row
-   never reads as a category of spending. */
-.tx-found-cat.is-income .tx-found-cat-bar i { background: var(--accent-positive); }
-.tx-found-cat.is-transfer .tx-found-cat-bar i { background: var(--accent-neutral); }
-
-.tx-found-cat-count,
-.tx-found-cat-total {
-    color: var(--text-tertiary);
-    font-family: var(--font-menu);
-    font-size: var(--size-micro);
-    font-variant-numeric: tabular-nums;
-    text-align: right;
-}
-
-.tx-found-cat-total {
-    color: var(--text-secondary);
-    min-width: 62px;
 }
 
 /* Abstention, stated plainly. Leaving a category blank is the designed
@@ -351,14 +252,4 @@
     font-family: var(--font-h3);
     font-size: var(--size-small);
     line-height: var(--lh-relaxed);
-}
-
-.tx-import-dialog--results { max-width: 560px; }
-
-/* The preview modal's account line when the caller already settled it. */
-.tx-import-account-fixed {
-    color: var(--text-primary);
-    font-family: var(--font-h3);
-    font-size: var(--size-small);
-    font-weight: var(--weight-medium);
 }

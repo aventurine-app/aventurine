@@ -19,8 +19,9 @@
 //   2. File picker  — format identified by magic bytes + content sniffing,
 //                     so a misnamed file (OFX saved as .txt) still imports
 //   3. Parse        — TxParse.parseFile → uniform {headers, rows, fixed}
-//   4. Map columns  — auto-detect then confirm in a modal; skipped when the
-//                     format's schema is fixed (OFX/QIF define their fields)
+//   4. Map columns  — auto-detect, then the user confirms or changes it in a
+//                     modal. Shown for EVERY format: a fixed schema (OFX/QIF)
+//                     only means the selectors arrive already correct
 //   5. Preview      — show all parsed rows; flag likely duplicates; user
 //                     checks/unchecks before committing
 //   6. Commit       — POST confirmed rows to /api/transactions/import
@@ -48,9 +49,14 @@
         const esc = escapeHtml;
 
         // The pure parsing core (txparse.js) — see the header comment.
-        const { parseFile, detectColumns, applyMapping, deriveBalances, fingerprint } = TxParse;
+        const { parseFile, detectColumns, applyMapping, deriveBalances, fingerprint, parseIsoDate, parseAmount } = TxParse;
 
         // ── API ───────────────────────────────────────────────────────────────────
+        // The row shape the import endpoint accepts — shared by the dry-run
+        // preview and the real commit so both send identical data for identical
+        // rows (a parsed row carries extra bookkeeping fields, e.g. `_idx`).
+        const toApiRow = ({ date, description, tx_type, amount, notes }) => ({ date, description, tx_type, amount, notes });
+
         async function fetchHashes(since) {
             const url = since ? `/api/transactions/hashes?since=${encodeURIComponent(since)}` : '/api/transactions/hashes';
             try {
@@ -78,6 +84,28 @@
             const data = await r.json().catch(() => ({}));
             if (!r.ok) throw new Error(data.error || 'import failed');
             return data; // { ok, inserted, skipped, balances_applied }
+        }
+
+        // Same endpoint, `dry_run: true` — runs the identical row-building and
+        // categorization passes server-side (both read-only) but writes nothing,
+        // so the combined "Here Is Your Import" screen can show the real
+        // uncategorized count BEFORE the user commits to anything. Best-effort:
+        // a failure just means the callout doesn't show, same spirit as the
+        // dup-hash fetch above.
+        async function dryRunImport(rows, accountKey) {
+            try {
+                const body = { rows, dry_run: true };
+                if (accountKey) body.account_key = accountKey;
+                const r = await apiFetch('/api/transactions/import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                const data = await r.json().catch(() => ({}));
+                return r.ok ? data : null; // { found, would_insert, auto_categorized }
+            } catch {
+                return null;
+            }
         }
 
         // The accounts this import can land in. `include_hidden` is what makes
@@ -216,34 +244,104 @@
 
         // ── Step 1: Mapping modal ─────────────────────────────────────────────────
         function showMappingModal(headers, rows, detected, onContinue) {
-            const { body, close } = buildModal('Map Columns');
+            const { body, dialog, close } = buildModal('Map Columns');
 
             // Live selection state, seeded from detectColumns' guesses and
-            // harvested from the selects before every re-render, so switching
-            // amount modes never loses what the user already picked.
+            // harvested from the selects before every re-render, so redirecting
+            // one field to a different column never loses another.
             const current = { ...detected };
             // Split mode: money out / money in as two separate columns
             // (Debit/Credit, Withdrawal/Deposit) instead of one signed Amount
             // — direction then comes from the column, not the sign (banks list
-            // positive magnitudes in both). Auto-detected from the headers; the
-            // link under the form switches either way when the guess is wrong.
-            let split = detected.debit !== null && detected.credit !== null;
+            // positive magnitudes in both). This is a FACT about the file, not a
+            // preference, so it's detected once from the headers (detectColumns,
+            // now with a data-shape fallback for anonymous headers too — see
+            // txparse.js findSplitPair) and never toggled by hand: asking the
+            // user to declare something the file already shows would be a
+            // needless question. If a specific column guess is wrong, its own
+            // dropdown still repoints it — only the overall SHAPE is fixed.
+            const split = detected.debit !== null && detected.credit !== null;
 
-            // Preview of first 3 raw rows so the user can visually verify the mapping.
-            const previewHtml = `
-            <p class="tx-import-hint">Match the columns in your file to the transaction fields below.</p>
-            <div class="tx-import-section-label">File preview (first 3 rows)</div>
-            <div class="tx-import-preview-wrap">
-                <table class="tx-import-preview-table">
-                    <thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead>
-                    <tbody>
-                        ${rows.slice(0, 3).map(r =>
-                            `<tr>${headers.map((_, i) => `<td>${esc(r[i] ?? '')}</td>`).join('')}</tr>`
-                        ).join('')}
-                    </tbody>
-                </table>
-            </div>
-        `;
+            const CURRENCY = (typeof CURRENCY_SYMBOL !== 'undefined') ? CURRENCY_SYMBOL : '$';
+            const fmtAmt   = (n) => CURRENCY + Math.abs(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+            // Renders the shared preview shell around a set of columns + rows;
+            // `rowsHtml` is already-escaped/formatted <td> cell markup per row.
+            function previewTableHtml(columnLabels, rowsHtml) {
+                return `
+                <p class="tx-import-hint">Match the columns in your file to the transaction fields below.</p>
+                <div class="tx-import-section-label">Preview (first 3 rows)</div>
+                <div class="tx-import-preview-wrap">
+                    <table class="tx-import-preview-table">
+                        <thead><tr>${columnLabels.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
+                        <tbody>
+                            ${rowsHtml.length ? rowsHtml.map(cells => `<tr>${cells.join('')}</tr>`).join('')
+                                : `<tr><td colspan="${columnLabels.length}" class="tx-import-preview-empty">Select the columns below to preview your data</td></tr>`}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            }
+
+            // A live preview of the first 3 rows, run through the SAME mapping the
+            // user is currently choosing — so they see their own dates/amounts
+            // land in the right fields before committing to Map Columns, rather
+            // than a raw dump of file columns that doesn't reflect the mapping at
+            // all. Re-run from render() on every selection change; falls back to
+            // "select columns to preview" until the required fields are chosen.
+            //
+            // Split mode shows Debit and Credit as their OWN columns (the raw
+            // cell text, formatted as currency when it parses) instead of
+            // collapsing them into one blended Amount — the whole point of the
+            // preview here is letting the user SEE that "Money out" and "Money
+            // in" each pulled from the column they meant.
+            function livePreviewHtml() {
+                const sampleRaw = rows.slice(0, 3);
+
+                if (split) {
+                    const ready = current.debit != null || current.credit != null;
+                    const cellAmt = (raw) => {
+                        const s = (raw ?? '').trim();
+                        if (!s) return '';
+                        const v = parseAmount(s);
+                        return esc(Number.isNaN(v) ? s : fmtAmt(v));
+                    };
+                    const previewRows = ready ? sampleRaw
+                        .map(r => ({
+                            date: parseIsoDate(r[current.date]),
+                            description: (r[current.description] ?? '').trim(),
+                            debit: current.debit  != null ? r[current.debit]  : '',
+                            credit: current.credit != null ? r[current.credit] : '',
+                            notes: current.notes   != null ? (r[current.notes] ?? '').trim() : '',
+                        }))
+                        .filter(r => r.date && r.description)
+                        .map(r => [
+                            `<td>${esc(r.date)}</td>`,
+                            `<td>${esc(r.description)}</td>`,
+                            `<td class="tx-import-col-amount">${cellAmt(r.debit)}</td>`,
+                            `<td class="tx-import-col-amount">${cellAmt(r.credit)}</td>`,
+                            `<td>${r.notes ? esc(r.notes) : ''}</td>`,
+                        ]) : [];
+                    return previewTableHtml(['Date', 'Description', 'Debit', 'Credit', 'Notes'], previewRows);
+                }
+
+                const mapping = { date: current.date, description: current.description, amount: current.amount, debit: null, credit: null, notes: current.notes, balance: current.balance };
+                let sample = [];
+                if (mapping.amount != null) {
+                    try {
+                        sample = applyMapping(sampleRaw, mapping, 2).parsed;
+                    } catch {
+                        sample = []; // a mid-selection mapping can be transiently invalid
+                    }
+                }
+                const previewRows = sample.map(r => [
+                    `<td>${esc(r.date)}</td>`,
+                    `<td>${esc(r.description)}</td>`,
+                    `<td class="tx-import-col-amount">${esc(fmtAmt(r.amount))}</td>`,
+                    `<td>${r.notes ? esc(r.notes) : ''}</td>`,
+                ]);
+                return previewTableHtml(['Date', 'Description', 'Amount', 'Notes'], previewRows);
+            }
 
             // Build one <select> row per required/optional field.
             function mapSelect(label, field, required) {
@@ -268,16 +366,69 @@
                 });
             }
 
+            // Footer lives outside body (appended to the dialog directly), so its
+            // top border spans the full modal width like every other modal's,
+            // instead of only the body's padded content width.
+            const footer = document.createElement('div');
+            footer.className = 'tx-import-footer tx-import-footer--mapping';
+            footer.innerHTML = `<button class="button-primary tx-import-continue-btn">Continue →</button>`;
+            dialog.append(footer);
+
+            footer.querySelector('.tx-import-continue-btn').addEventListener('click', () => {
+                harvest();
+                if (current.date        === null) { alert('Please select the Date column.');        return; }
+                if (current.description === null) { alert('Please select the Description column.'); return; }
+                let mapping;
+                if (split) {
+                    // At least one side must be mapped (a debit-only export
+                    // is legitimate); both on the same column would leave
+                    // every row's direction ambiguous.
+                    if (current.debit === null && current.credit === null) {
+                        alert('Please select the Money out and/or Money in columns.');
+                        return;
+                    }
+                    if (current.debit !== null && current.debit === current.credit) {
+                        alert('Money out and Money in must be different columns.');
+                        return;
+                    }
+                    mapping = {
+                        date: current.date, description: current.description,
+                        amount: null, debit: current.debit, credit: current.credit,
+                        notes: current.notes, balance: current.balance,
+                    };
+                } else {
+                    if (current.amount === null) { alert('Please select the Amount column.'); return; }
+                    mapping = {
+                        date: current.date, description: current.description,
+                        amount: current.amount, debit: null, credit: null,
+                        notes: current.notes, balance: current.balance,
+                    };
+                }
+                close();
+                onContinue(mapping);
+            });
+
             function render() {
+                // A required select has no "— skip —" option, so once it's on
+                // screen the browser ALWAYS shows some column picked — if none is
+                // marked `selected` (current[field] still null), it silently
+                // defaults to the first one. Left alone, that leaves `current`
+                // saying "unset" while the dropdown visibly shows a column, and
+                // the live preview (which trusts `current`) disagrees with what's
+                // on screen. Sync before building anything so the select, the
+                // preview, and `current` never diverge — this also means a bad
+                // guess shows up immediately in the preview instead of hiding
+                // until Continue silently harvests it.
+                if (current.date        == null) current.date = 0;
+                if (current.description == null) current.description = 0;
+                if (!split && current.amount == null) current.amount = 0;
+
                 const amountRows = split
                     ? mapSelect('Money out (Debit)',  'debit',  false)
                       + mapSelect('Money in (Credit)', 'credit', false)
                     : mapSelect('Amount *', 'amount', true);
-                const modeLabel = split
-                    ? 'My file has one signed Amount column'
-                    : 'My file has separate Debit / Credit columns';
 
-                body.innerHTML = previewHtml + `
+                body.innerHTML = livePreviewHtml() + `
                 <div class="tx-import-section-label">Column mapping</div>
                 <div class="tx-import-map-form">
                     ${mapSelect('Date *',        'date',        true)}
@@ -286,51 +437,16 @@
                     ${mapSelect('Notes',         'notes',       false)}
                     ${mapSelect('Balance',       'balance',     false)}
                 </div>
-                <button type="button" class="tx-import-map-mode">${modeLabel}</button>
-                <div class="tx-import-footer">
-                    <span class="tx-import-row-count">${rows.length} row${rows.length !== 1 ? 's' : ''} in file</span>
-                    <button class="button-primary tx-import-continue-btn">Continue →</button>
-                </div>
             `;
 
-                body.querySelector('.tx-import-map-mode').addEventListener('click', () => {
-                    harvest();
-                    split = !split;
-                    render();
-                });
-
-                body.querySelector('.tx-import-continue-btn').addEventListener('click', () => {
-                    harvest();
-                    if (current.date        === null) { alert('Please select the Date column.');        return; }
-                    if (current.description === null) { alert('Please select the Description column.'); return; }
-                    let mapping;
-                    if (split) {
-                        // At least one side must be mapped (a debit-only export
-                        // is legitimate); both on the same column would leave
-                        // every row's direction ambiguous.
-                        if (current.debit === null && current.credit === null) {
-                            alert('Please select the Money out and/or Money in columns.');
-                            return;
-                        }
-                        if (current.debit !== null && current.debit === current.credit) {
-                            alert('Money out and Money in must be different columns.');
-                            return;
-                        }
-                        mapping = {
-                            date: current.date, description: current.description,
-                            amount: null, debit: current.debit, credit: current.credit,
-                            notes: current.notes, balance: current.balance,
-                        };
-                    } else {
-                        if (current.amount === null) { alert('Please select the Amount column.'); return; }
-                        mapping = {
-                            date: current.date, description: current.description,
-                            amount: current.amount, debit: null, credit: null,
-                            notes: current.notes, balance: current.balance,
-                        };
-                    }
-                    close();
-                    onContinue(mapping);
+                // Any field change re-runs the live preview above with the new
+                // selections — harvest() first so `current` (which the preview
+                // reads) reflects what's on screen right now.
+                body.querySelectorAll('.tx-import-map-select').forEach(sel => {
+                    sel.addEventListener('change', () => {
+                        harvest();
+                        render();
+                    });
                 });
             }
 
@@ -535,141 +651,38 @@
             });
         }
 
-        // The preview's account line. By this point the account is always settled,
-        // so this states where the rows are going — it never asks again.
-        function buildAccountLine(account) {
-            const el = document.createElement('div');
-            el.className = 'tx-import-balance-bar';
-            el.innerHTML = `
-                <div class="tx-import-account-row">
-                    <span class="tx-import-account-label">Importing into</span>
-                    <span class="tx-import-account-fixed">${esc(account.label || account.key)}</span>
-                </div>`;
-            return el;
-        }
-
-        // ── The import-results moment ─────────────────────────────────────────────
-        // "Here's what we found. Does this look right?" — the payoff screen of an
-        // import, and the only place the categorizer's work is visible. It reads
-        // back the user's OWN merchants sorted into their OWN categories, because
-        // a row count proves nothing about whether the import was understood.
-        //
-        // `result.found` is the digest the server returns (handlers/transactions
-        // summariseImport): period, totals by direction, categories hit, and the
-        // count it deliberately left blank. Uncategorized rows are stated plainly
-        // rather than hidden — abstention is the designed behaviour, and naming it
-        // sets the expectation that the ledger is where those get filled in.
-        //
-        // `actions` lets a caller own what happens next (onboarding offers "add
-        // another account"); the default is a single dismissal.
-        function renderFound(found, accountLabel) {
-            const CURRENCY = (typeof CURRENCY_SYMBOL !== 'undefined') ? CURRENCY_SYMBOL : '$';
-            const money = (n) => CURRENCY + Math.abs(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-            if (!found) return '';
-
-            const period = (found.date_from && found.date_to)
-                ? (found.date_from === found.date_to
-                    ? found.date_from
-                    : `${found.date_from} → ${found.date_to}`)
-                : '';
-
-            const totals = [
-                found.income ? { label: 'Income', value: found.income, cls: 'is-income' } : null,
-                found.expense ? { label: 'Spending', value: found.expense, cls: 'is-expense' } : null,
-                found.transfer ? { label: 'Transfers', value: found.transfer, cls: 'is-transfer' } : null,
-            ].filter(Boolean);
-
-            // Bars are scaled WITHIN each direction, not across all of them: one
-            // paycheck usually dwarfs every expense, and a shared scale would
-            // flatten the whole spending breakdown into stubs — precisely the
-            // comparison the user is here to check. Per-direction, "where did my
-            // spending go" stays legible and income still reads as the largest
-            // thing on the screen.
-            const maxOf = {};
-            for (const c of found.categories) {
-                maxOf[c.cat_type] = Math.max(maxOf[c.cat_type] || 0, c.total);
-            }
-            const rows = found.categories.map(c => {
-                const pct = Math.max(2, Math.round((c.total / (maxOf[c.cat_type] || 1)) * 100));
-                return `
-                <div class="tx-found-cat is-${esc(c.cat_type)}">
-                    <span class="tx-found-cat-name">${esc(c.name)}</span>
-                    <span class="tx-found-cat-bar"><i style="width:${pct}%"></i></span>
-                    <span class="tx-found-cat-count">${c.count}</span>
-                    <span class="tx-found-cat-total">${esc(money(c.total))}</span>
-                </div>`;
-            }).join('');
-
+        // ── The uncategorized callout ─────────────────────────────────────────────
+        // The gray callout on the combined "Here Is Your Import" screen — the only
+        // place the categorizer's work is visible. Abstention is the designed
+        // behaviour (a wrong guess costs more trust than a blank one), so this
+        // states it plainly rather than hiding it: `found` comes from a dry-run
+        // categorization pass (see dryRunImport above), run BEFORE the user
+        // commits, so the count is accurate and costs nothing to show even if
+        // they back out.
+        function uncategorizedNoteHtml(found) {
+            if (!found || !found.uncategorized) return '';
+            const n = found.uncategorized;
             return `
-                <div class="tx-found">
-                    <div class="tx-found-head">
-                        ${accountLabel ? `<span class="tx-found-account">${esc(accountLabel)}</span>` : ''}
-                        ${period ? `<span class="tx-found-period">${esc(period)}</span>` : ''}
-                    </div>
-                    ${totals.length ? `<div class="tx-found-totals">${totals.map(tt => `
-                        <div class="tx-found-total ${tt.cls}">
-                            <span class="tx-found-total-label">${tt.label}</span>
-                            <span class="tx-found-total-value">${esc(money(tt.value))}</span>
-                        </div>`).join('')}</div>` : ''}
-                    ${rows ? `<div class="tx-found-cats">
-                        <div class="tx-import-section-label">Where it landed</div>
-                        ${rows}
-                    </div>` : ''}
-                    ${found.uncategorized ? `<div class="tx-found-note">
-                        ${found.uncategorized} transaction${found.uncategorized !== 1 ? 's' : ''}
-                        ${found.uncategorized !== 1 ? 'were' : 'was'} left uncategorized — Aventurine
-                        only fills in what it's sure of. Set ${found.uncategorized !== 1 ? 'them' : 'it'}
-                        once in your ledger and it'll remember next time.
-                    </div>` : ''}
+                <div class="tx-found-note">
+                    ${n} transaction${n !== 1 ? 's' : ''} will be left uncategorized —
+                    Aventurine only fills in what it's sure of. Set ${n !== 1 ? 'them' : 'it'}
+                    once in your ledger and it'll remember next time.
                 </div>`;
         }
 
-        // Show the results screen. `actions` is [{ label, primary, onClick }];
-        // onClick receives a close() it can call to dismiss. Returns nothing —
-        // the modal owns its own lifetime from here.
-        function showResultsModal(result, { accountLabel = '', title = 'Import complete', actions = null } = {}) {
-            const { body, dialog, close } = buildModal(title);
-            dialog.classList.add('tx-import-dialog--results');
-
-            const n = result.inserted;
-            const headline = `${n} transaction${n !== 1 ? 's' : ''} imported`;
-            const asides = [
-                result.balances_applied
-                    ? `${result.balances_applied} month-end balance${result.balances_applied !== 1 ? 's' : ''} added to your Balance Sheet`
-                    : '',
-                result.skipped?.length ? `${result.skipped.length} row${result.skipped.length !== 1 ? 's' : ''} skipped` : '',
-            ].filter(Boolean);
-
-            body.innerHTML = `
-                <div class="tx-found-headline">${esc(headline)}</div>
-                ${asides.length ? `<div class="tx-found-asides">${esc(asides.join(' · '))}</div>` : ''}
-                ${renderFound(result.found, accountLabel)}
-            `;
-
-            const footer = document.createElement('div');
-            footer.className = 'tx-import-footer';
-            const list = actions && actions.length ? actions : [{ label: 'Done', primary: true }];
-            footer.innerHTML = `<span class="tx-import-row-count"></span>`;
-            for (const a of list) {
-                const btn = document.createElement('button');
-                btn.className = a.primary ? 'button-primary' : 'button-secondary';
-                btn.type = 'button';
-                btn.textContent = a.label;
-                btn.addEventListener('click', () => {
-                    if (a.onClick) a.onClick(close);
-                    else close();
-                });
-                footer.append(btn);
-            }
-            dialog.append(footer);
-        }
-
-        // ── Step 2: Preview modal ─────────────────────────────────────────────────
+        // ── Step 2: "Here Is Your Import" ─────────────────────────────────────────
+        // The combined preview + results moment: the table the old "Review
+        // Import" step showed, plus the uncategorized callout the old post-commit
+        // "Here's what we found" showed — computed here via a dry run (see
+        // dryRunImport above) so it's accurate BEFORE anything is written. Exactly
+        // two actions: "Go Back" re-opens Map Columns with the same selections
+        // and nothing committed; "Looks Right" is the only thing that commits.
+        //
         // `opts.account` — { key, label }, always set: every path settles the
         // account before the file dialog opens (askAccount, or onboarding's own
-        // picker). `opts.onImported` takes over the results moment.
-        function showPreviewModal(parsed, errors, dupeSet, balanceReadings = [], opts = {}) {
-            const { body, close, setClosable } = buildModal('Review Import');
+        // picker). A successful commit hands off to Step 4 (showSuccessModal).
+        function showImportModal(parsed, errors, dupeSet, balanceReadings, dryRun, opts, goBack) {
+            const { body, close, setClosable } = buildModal('Here Is Your Import');
 
             // Augment each row with a stable index, fingerprint, and dup flag.
             const rows     = parsed.map((r, i) => ({ ...r, _idx: i, _fp: fingerprint(r), _dup: dupeSet.has(fingerprint(r)) }));
@@ -685,12 +698,18 @@
                 ${errors.slice(0, 3).map(e => `row ${e.row} — ${esc(e.reason)}`).join('; ')}${errors.length > 3 ? '…' : ''}
             </div>` : '';
 
-            // Footer lives outside body so it stays visible while the table scrolls.
+            // A snapshot from the dry run above — it does not recompute as rows
+            // are checked/unchecked below (unchecking is mainly for duplicates, a
+            // small minority), so this stays one cheap server round trip.
+            const noteHtml = uncategorizedNoteHtml(dryRun && dryRun.found);
+
+            // Footer lives outside body so it stays visible while the table
+            // scrolls, and holds exactly the two actions the spec calls for.
             const footer = document.createElement('div');
             footer.className = 'tx-import-footer tx-import-footer--preview';
             footer.innerHTML = `
-            <span class="tx-import-row-count"></span>
-            <button class="button-primary tx-import-do-btn" disabled>Import</button>
+            <button type="button" class="button-secondary tx-import-back-btn">Go Back</button>
+            <button type="button" class="button-primary tx-import-do-btn" disabled>Looks Right</button>
         `;
 
             const dialog = body.closest('.tx-import-dialog');
@@ -699,24 +718,30 @@
             dialog.classList.add('tx-import-dialog--preview');
             dialog.append(footer);
 
-            // Where the rows are going, stated plainly. Lives outside the
-            // scrolling body, above the footer, so it survives renderTable's
-            // innerHTML rewrites and stays visible while the list scrolls.
+            // The uncategorized callout, pinned in the static bar above the
+            // footer — it replaces what used to be an "Importing into: <account>"
+            // statement here. Lives outside the scrolling body, so it survives
+            // renderTable's innerHTML rewrites and stays visible while the list
+            // scrolls. Absent entirely when there's nothing uncategorized.
             const account = opts.account;
-            const accountLine = buildAccountLine(account);
-            dialog.insertBefore(accountLine, footer);
+            const staticNote = noteHtml ? document.createElement('div') : null;
+            if (staticNote) {
+                staticNote.className = 'tx-import-balance-bar';
+                staticNote.innerHTML = noteHtml;
+                dialog.insertBefore(staticNote, footer);
+            }
 
-            function updateFooter() {
+            function updateCount() {
                 const n = checked.size;
-                footer.querySelector('.tx-import-row-count').textContent = `${n} of ${rows.length} selected`;
-                const btn = footer.querySelector('.tx-import-do-btn');
-                btn.textContent = `Import ${n} row${n !== 1 ? 's' : ''}`;
-                btn.disabled    = n === 0;
+                const headline = body.querySelector('.tx-found-headline');
+                if (headline) headline.textContent = `${n} transaction${n !== 1 ? 's' : ''} will be added`;
+                footer.querySelector('.tx-import-do-btn').disabled = n === 0;
             }
 
             function renderTable() {
                 const allChecked = rows.length > 0 && rows.every(r => checked.has(r._idx));
                 body.innerHTML = errBanner + `
+                <div class="tx-found-headline"></div>
                 <div class="tx-import-preview-wrap">
                     <table class="tx-import-preview-table tx-import-preview-full">
                         <thead>
@@ -747,7 +772,6 @@
                     if (e.target.checked) rows.forEach(r => checked.add(r._idx));
                     else checked.clear();
                     renderTable();
-                    updateFooter();
                 });
 
                 body.querySelectorAll('.tx-import-row-check').forEach(cb => {
@@ -757,18 +781,22 @@
                         // Update check-all state without re-rendering the whole table.
                         body.querySelector('.tx-import-check-all').checked =
                             rows.every(r => checked.has(r._idx));
-                        updateFooter();
+                        updateCount();
                     });
                 });
+
+                updateCount();
             }
 
             renderTable();
-            updateFooter();
+
+            footer.querySelector('.tx-import-back-btn').addEventListener('click', () => {
+                close();
+                goBack();
+            });
 
             footer.querySelector('.tx-import-do-btn').addEventListener('click', async () => {
-                const toSend = rows
-                    .filter(r => checked.has(r._idx))
-                    .map(({ date, description, tx_type, amount, notes }) => ({ date, description, tx_type, amount, notes }));
+                const toSend = rows.filter(r => checked.has(r._idx)).map(toApiRow);
 
                 rememberAccount(account.key);
 
@@ -786,7 +814,7 @@
                 const tableView = [...body.children];
                 body.replaceChildren(progressBar(`Importing ${toSend.length} transaction${toSend.length !== 1 ? 's' : ''}…`));
                 footer.style.display = 'none';
-                accountLine.style.display = 'none';
+                if (staticNote) staticNote.style.display = 'none';
                 setClosable(false);
 
                 try {
@@ -806,19 +834,58 @@
                         }
                     }
                     window.dispatchEvent(new Event('transactions:reload'));
-                    // The caller owns the results moment when it has more to say
-                    // (onboarding offers the next account); otherwise show the
-                    // shared "here's what we found" screen.
-                    if (opts.onImported) opts.onImported(result);
-                    else showResultsModal(result, { accountLabel: account.label });
+                    // "Does this look right?" was already answered by "Looks
+                    // Right" above, so Step 4 is deliberately just confirmation
+                    // and the two places to go next.
+                    showSuccessModal(opts, result);
                 } catch (err) {
                     // Put the preview back so the user can retry or deselect rows.
                     body.replaceChildren(...tableView);
                     footer.style.display = '';
-                    accountLine.style.display = '';
+                    if (staticNote) staticNote.style.display = '';
                     setClosable(true);
                     UI.toast('Import failed: ' + err.message, { type: 'error' });
                 }
+            });
+        }
+
+        // ── Step 4: success ───────────────────────────────────────────────────────
+        // The commit already happened — Step 3's "Looks Right" was the only thing
+        // that could still go wrong, and it didn't. Deliberately minimal: no
+        // digest, no bars (those already had their moment in "Here Is Your
+        // Import"), just confirmation and exactly two places to go next.
+        //
+        // `opts.onUploadMore()` / `opts.onDashboard()` let a caller (onboarding)
+        // own what "more" and "done" mean in its own flow; the defaults below
+        // (restart the import, or navigate home) cover the ordinary import.
+        function showSuccessModal(opts, result) {
+            // "Success!" lives in the standard header slot (styled large, no
+            // rule beneath it), not the body — the body carries only the
+            // one-line confirmation.
+            const { body, dialog, close } = buildModal('Success!');
+            dialog.classList.add('tx-import-dialog--success');
+            body.innerHTML = `<p class="tx-import-success-sub">Your transactions have been added.</p>`;
+
+            const footer = document.createElement('div');
+            footer.className = 'tx-import-footer';
+            footer.innerHTML = `
+            <button type="button" class="button-secondary tx-import-more-btn">Start Another Upload</button>
+            <button type="button" class="button-primary tx-import-dashboard-btn">Go to Dashboard</button>
+        `;
+            dialog.append(footer);
+
+            footer.querySelector('.tx-import-more-btn').addEventListener('click', () => {
+                close();
+                if (opts.onUploadMore) opts.onUploadMore(result);
+                // No account carried over: a second file may well be for a
+                // different account, so this re-asks (pre-filled from the one
+                // just used, via the same last-used memory as any other import).
+                else run({ onCancel: opts.onCancel, onDashboard: opts.onDashboard });
+            });
+            footer.querySelector('.tx-import-dashboard-btn').addEventListener('click', () => {
+                close();
+                if (opts.onDashboard) opts.onDashboard(result);
+                else window.location.href = '/';
             });
         }
 
@@ -826,19 +893,27 @@
         // The account question comes FIRST, before the file dialog — one question,
         // asked once, never repeated later in the flow.
         //
-        // opts.account   — { key, label }: already settled by the caller
-        //                  (onboarding asks it as part of its own first step), so
-        //                  this skips straight to the file dialog.
-        // opts.onImported — takes over the results moment; receives the server's
-        //                  result object (including the `found` digest).
-        // opts.onCancel  — called if the user backs out at the account step or the
-        //                  file dialog, so a wizard can stay on its own step.
+        // opts.account     — { key, label }: already settled by the caller
+        //                    (onboarding asks it as part of its own first step),
+        //                    so this skips straight to the file dialog.
+        // opts.onUploadMore — Step 4's "Upload More Transactions" button; receives
+        //                    the server's result object. Default: restart the
+        //                    import flow (re-ask the account, then a new file).
+        // opts.onDashboard — Step 4's "Take Me to My Dashboard" button; receives
+        //                    the result object. Default: navigate home.
+        // opts.onCancel    — called if the user backs out at the account step or
+        //                    the file dialog, so a wizard can stay on its own step.
         async function run(opts = {}) {
             if (!opts.account) {
                 const account = await askAccount();
                 if (!account) { if (opts.onCancel) opts.onCancel(); return; }
                 opts = { ...opts, account };
             }
+            pickFile(opts);
+        }
+
+        // Opens the file dialog.
+        function pickFile(opts) {
             const input   = document.createElement('input');
             input.type    = 'file';
             // Every format the dispatcher understands; sniffing still rescues
@@ -890,56 +965,74 @@
                     return;
                 }
 
-                // Shared continuation for both paths: validate rows, fetch
-                // duplicate fingerprints, open the preview.
-                const proceed = async (mapping, firstRowNum) => {
-                    // Row validation + the dup-hash fetch scale with file size;
-                    // same delayed-reveal bar as the parse phase.
-                    const busy = showBusyModal('Preparing preview…');
-                    await nextPaint();
-
-                    const { parsed, errors } = applyMapping(table.rows, mapping, firstRowNum);
-                    if (!parsed.length) {
-                        busy.close();
-                        const first = errors[0];
-                        bail(`No rows could be read (${errors.length} error${errors.length > 1 ? 's' : ''})`
-                            + (first ? ` — row ${first.row}: ${first.reason}` : '') + '.');
-                        return;
-                    }
-
-                    // Reduce any per-row balances (+ an OFX ledger balance) to
-                    // one month-end reading per month — the Balance Sheet's
-                    // computed layer. Empty for files that carry no balance.
-                    const balanceReadings = deriveBalances(parsed, table.ledgerBalance);
-
-                    // Fetch existing fingerprints for dup detection, bounded to the
-                    // date range in the file so we don't scan the full history.
-                    const minDate = parsed.reduce((min, r) => (r.date < min ? r.date : min), parsed[0].date);
-                    const dupeSet = await fetchHashes(minDate);
-
-                    busy.close();
-                    showPreviewModal(parsed, errors, dupeSet, balanceReadings, opts);
-                };
-
-                if (table.fixed) {
-                    // Known-schema formats (OFX/QIF): the parser already emitted
-                    // [Date, Description, Amount, Notes], so mapping is identity
-                    // and the modal would be a pointless extra click.
-                    proceed({ date: 0, description: 1, amount: 2, notes: 3 }, 1);
-                } else {
-                    const detected = detectColumns(table.headers, table.rows);
-                    showMappingModal(table.headers, table.rows, detected,
-                        (mapping) => proceed(mapping, 2));
-                }
+                // Map Columns is shown for EVERY file — every format, every
+                // detection outcome. What lands in which field is the user's
+                // call to confirm or change; silently assuming a whole mapping
+                // is the one thing an import must never do. Known-schema
+                // formats (OFX/QIF) arrive pre-mapped, since the parser itself
+                // defined those columns, so the step is a confirmation rather
+                // than a puzzle — and their rows start at 1, not 2, having
+                // never had a header row to skip.
+                const detected = table.fixed
+                    ? { date: 0, description: 1, amount: 2, debit: null, credit: null, notes: 3, balance: null }
+                    : detectColumns(table.headers, table.rows);
+                openMapping(table, detected, table.fixed ? 1 : 2, opts);
             });
 
             input.click();
         }
 
-        // Shared with the onboarding flow: it renders the same "here's what we
-        // found" digest with its own next-step buttons, and asks the account
-        // question with the same markup and wiring so both read identically.
-        return { run, showResultsModal, renderFound, accountChoicesHtml, wireAccountChoices };
+        // Opens Map Columns; re-openable from "Go Back" with the mapping the
+        // user had already chosen (`detected` doubles as "current selections"
+        // whether it came from auto-detection, a fixed schema, or a previous
+        // pass through here).
+        function openMapping(table, detected, firstRowNum, opts) {
+            showMappingModal(table.headers, table.rows, detected,
+                (mapping) => proceed(table, mapping, firstRowNum, opts,
+                    () => openMapping(table, mapping, firstRowNum, opts)));
+        }
+
+        // What Map Columns continues into: validate rows under the chosen
+        // mapping, then run the dup-hash fetch and the dry-run categorization
+        // preview together before opening the combined screen.
+        async function proceed(table, mapping, firstRowNum, opts, goBack) {
+            // Row validation + the dup-hash/dry-run fetches scale with file size;
+            // same delayed-reveal bar as the parse phase.
+            const busy = showBusyModal('Preparing your import…');
+            await nextPaint();
+
+            const { parsed, errors } = applyMapping(table.rows, mapping, firstRowNum);
+            if (!parsed.length) {
+                busy.close();
+                const first = errors[0];
+                const msg = `No rows could be read (${errors.length} error${errors.length > 1 ? 's' : ''})`
+                    + (first ? ` — row ${first.row}: ${first.reason}` : '') + '.';
+                UI.toast(msg, { type: 'error' });
+                if (opts.onCancel) opts.onCancel();
+                return;
+            }
+
+            // Reduce any per-row balances (+ an OFX ledger balance) to one
+            // month-end reading per month — the Balance Sheet's computed layer.
+            // Empty for files that carry no balance.
+            const balanceReadings = deriveBalances(parsed, table.ledgerBalance);
+
+            // Fetch existing fingerprints for dup detection, bounded to the date
+            // range in the file, and the categorization preview, in parallel —
+            // both are read-only and independent of each other.
+            const minDate = parsed.reduce((min, r) => (r.date < min ? r.date : min), parsed[0].date);
+            const [dupeSet, dryRun] = await Promise.all([
+                fetchHashes(minDate),
+                dryRunImport(parsed.map(toApiRow), opts.account.key),
+            ]);
+
+            busy.close();
+            showImportModal(parsed, errors, dupeSet, balanceReadings, dryRun, opts, goBack);
+        }
+
+        // Shared with the onboarding flow: it asks the account question with the
+        // same markup and wiring so both read identically.
+        return { run, accountChoicesHtml, wireAccountChoices };
     })();
 
     window.TxFileImport = TxFileImport;

@@ -81,6 +81,18 @@
         </div>
         <div class="db-modal-body">
             <p class="db-modal-hint" id="db-modal-hint" hidden></p>
+            <!-- New Database asks for a name and states where the file lands
+                 (dbactions.js keeps the two in sync); Save As / Open still take
+                 a whole path. The path row is also New Database's fallback if
+                 the backend never told us a folder to propose. -->
+            <label class="db-field" id="db-name-row" hidden>
+                <span>Name</span>
+                <input type="text" id="db-name-input" placeholder="Finances" spellcheck="false" autocomplete="off" maxlength="80">
+            </label>
+            <p class="db-location" id="db-location-row" hidden>
+                <span class="db-location-path"><span class="db-location-label">Saved to</span> <span id="db-location-path"></span></span>
+                <button type="button" class="db-btn db-btn-link" id="db-location-change">Change…</button>
+            </p>
             <label class="db-field" id="db-path-row">
                 <span>File location</span>
                 <span class="db-path-inputs">
@@ -88,7 +100,7 @@
                     <button type="button" class="db-btn" id="db-browse-btn">Browse…</button>
                 </span>
             </label>
-            
+
             <div class="db-browser" id="db-browser" hidden>
                 <div class="db-browser-path" id="db-browser-path"></div>
                 <ul class="db-browser-list" id="db-browser-list"></ul>

@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { connect, sqlQuote } = require('./db');
-const { createDbState } = require('./dbstate');
+const { createDbState, defaultDbDir } = require('./dbstate');
 const { bootstrapSchema } = require('./migrate');
 const { seedDefaults } = require('./seed');
 const { ApiError } = require('./validate');
@@ -59,11 +59,21 @@ function createConn() {
   }
 
   /** Gate a pending file write. Throws ApiError(403) if the user declines a
-   *  path that wasn't dialog-issued. No-op when no guard is wired. */
-  function authorizeWrite(p) {
+   *  path that wasn't dialog-issued. No-op when no guard is wired.
+   *
+   *  `allowProposedDir` waives the prompt for a new file sitting directly in
+   *  the folder WE proposed (defaultDbDir — the one the New Database modal
+   *  displays before the user presses Create). That location did not come from
+   *  the renderer, the user reads it first, and the only caller that passes
+   *  this refuses to overwrite an existing file — so the worst a compromised
+   *  renderer buys is a new empty database in a folder the app already owns.
+   *  Immediate children only: comparing the parent exactly means no `..` walks
+   *  out and no subtree comes along. */
+  function authorizeWrite(p, { allowProposedDir = false } = {}) {
     if (!writeGuard) return;
     const key = normWrite(p);
     if (approvedWrites.has(key)) return;
+    if (allowProposedDir && path.dirname(key) === defaultDbDir(state.path)) return;
     if (writeGuard.confirm(key)) {
       approvedWrites.add(key); // remember so chunked writes don't re-prompt
       return;
@@ -97,6 +107,11 @@ function createConn() {
       locked: state.locked,
       // Encryption ships in-binary now; field kept for frontend compat.
       encryption_available: true,
+      // Where a new database goes unless the user says otherwise, plus the
+      // separator to join a file name onto it: the New Database modal offers
+      // this location so naming the file is the only required step.
+      default_dir: defaultDbDir(state.path),
+      sep: path.sep,
     };
   }
 

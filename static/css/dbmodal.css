@@ -74,6 +74,37 @@
     border-color: var(--accent-primary);
 }
 
+/* Where the new database will land. It sits under the Name field as a
+   statement, not a question — the negative margin pulls it inside the body's
+   16px rhythm to 8px so it reads as part of that field. "Change…" is the
+   escape hatch, demoted to a link so Create stays the only primary action. */
+.db-location {
+    margin: -8px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 4px 12px;
+    font-size: var(--size-micro);
+    line-height: 1.5;
+}
+
+.db-location-path {
+    flex: 1;
+    min-width: 0;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;   /* long paths wrap instead of stretching the modal */
+}
+
+.db-location-label { color: var(--text-tertiary); }
+
+.db-location .db-btn-link {
+    flex: none;
+    padding: 0;
+    font-size: var(--size-micro);
+}
+
 /* In-modal filesystem browser (non-Electron Browse…) */
 .db-browser {
     border: var(--border-width) solid var(--border);
@@ -125,6 +156,18 @@
 .db-browser-file::before { content: '≡'; }
 
 .db-browser-list .db-browser-file { color: var(--text-primary); }
+
+/* New Database lists a folder's existing databases for context only — opening
+   one isn't on offer here, and creating over one is refused. */
+.db-browser-list li.db-browser-inert {
+    cursor: default;
+    color: var(--text-tertiary);
+}
+
+.db-browser-list li.db-browser-inert:hover {
+    background: transparent;
+    color: var(--text-tertiary);
+}
 
 .db-browser-list .db-browser-empty {
     cursor: default;

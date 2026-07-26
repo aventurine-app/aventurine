@@ -29,7 +29,9 @@ contextBridge.exposeInMainWorld('electronWindow', {
 // a Promise resolving to an absolute path string, or null when cancelled —
 // no filesystem access is exposed to the page beyond picking a path.
 contextBridge.exposeInMainWorld('electronFile', {
-    chooseNewDbPath:      () => ipcRenderer.invoke('db-choose-new-path'),
+    // `suggested` (optional) is where the save dialog opens — the destination
+    // the modal is already showing, so "Change…" starts from it.
+    chooseNewDbPath:      (suggested) => ipcRenderer.invoke('db-choose-new-path', suggested),
     chooseExistingDbPath: () => ipcRenderer.invoke('db-choose-existing-path'),
     // Save dialog for Export Transactions; format selects the file filter
     // and suggested name. Same contract: a path string, or null on cancel.

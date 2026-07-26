@@ -98,6 +98,14 @@ let mainWindow = null;
 function startBackend() {
     // Same data-dir contract as the Flask era: <userData>/data.
     process.env.AVENTURINE_DATA_DIR = path.join(app.getPath('userData'), 'data');
+    // Electron knows the real (localized, XDG-aware) Documents folder; the
+    // backend derives the location it proposes for new databases from it
+    // (dbstate.defaultDbDir), and guesses ~/Documents if this is missing.
+    try {
+        process.env.AVENTURINE_DOCUMENTS_DIR = app.getPath('documents');
+    } catch {
+        // no documents path on this platform — the backend's guess stands
+    }
     const { createConn } = require('./backend/conn');
     const { dispatch } = require('./backend/routes');
     conn = createConn();
@@ -161,11 +169,14 @@ const DB_FILE_FILTERS = [
     { name: 'All Files',       extensions: ['*'] },
 ];
 
-ipcMain.handle('db-choose-new-path', async (e) => {
+ipcMain.handle('db-choose-new-path', async (e, suggested) => {
     const w = BrowserWindow.fromWebContents(e.sender);
+    // The modal already shows a destination; opening the dialog there means
+    // "Change…" starts where the user is, not in some unrelated folder. Only a
+    // starting point — nothing is written until the dialog returns a path.
     const r = await dialog.showSaveDialog(w, {
         title:       'New Database',
-        defaultPath: 'finance.db',
+        defaultPath: typeof suggested === 'string' && suggested ? suggested : 'finance.db',
         filters:     DB_FILE_FILTERS,
     });
     if (r.canceled) return null;

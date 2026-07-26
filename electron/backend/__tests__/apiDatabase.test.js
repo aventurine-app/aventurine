@@ -13,6 +13,7 @@ const path = require('node:path');
 const { makeClient } = require('./helpers');
 const { createConn } = require('../conn');
 const { dispatch } = require('../routes');
+const { defaultDbDir } = require('../dbstate');
 
 const SQLITE_MAGIC = Buffer.from('SQLite format 3\x00', 'latin1');
 
@@ -38,6 +39,40 @@ test('db: status reports active db', (t) => {
   assert.equal(s.encrypted, false);
   assert.equal(s.locked, false);
   assert.equal(s.encryption_available, true);
+});
+
+test('db: status proposes where a new database goes', (t) => {
+  const c = makeClient(t);
+  const s = c.get('/api/db/status').body;
+  // The New Database modal names a file in this folder instead of making the
+  // user browse; the active DB's own folder is the standing proposal.
+  assert.equal(s.default_dir, path.dirname(path.resolve(c.dbPath)));
+  assert.equal(s.sep, path.sep);
+});
+
+test('db: the app profile dir is never proposed for a new database', (t) => {
+  const dir = tmpDir(t);
+  const prevData = process.env.AVENTURINE_DATA_DIR;
+  const prevDocs = process.env.AVENTURINE_DOCUMENTS_DIR;
+  process.env.AVENTURINE_DATA_DIR = path.join(dir, 'profile');
+  process.env.AVENTURINE_DOCUMENTS_DIR = path.join(dir, 'Documents');
+  t.after(() => {
+    if (prevData === undefined) delete process.env.AVENTURINE_DATA_DIR;
+    else process.env.AVENTURINE_DATA_DIR = prevData;
+    if (prevDocs === undefined) delete process.env.AVENTURINE_DOCUMENTS_DIR;
+    else process.env.AVENTURINE_DOCUMENTS_DIR = prevDocs;
+  });
+
+  // A database that never moved out of the app's own profile dir: proposing
+  // that folder would file the user's finances in app plumbing.
+  assert.equal(
+    defaultDbDir(path.join(dir, 'profile', 'finance.db')),
+    path.join(dir, 'Documents', 'Aventurine')
+  );
+  // One the user placed themselves: propose the folder they chose.
+  assert.equal(defaultDbDir(path.join(dir, 'Vault', 'ours.db')), path.join(dir, 'Vault'));
+  // Proposing a folder must not create it — only writing a database does.
+  assert.ok(!fs.existsSync(path.join(dir, 'Documents')));
 });
 
 test('db: create plain db, seeded and immediately usable', (t) => {

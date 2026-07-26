@@ -13,7 +13,11 @@
 // build isolated instances exactly like create_app() did for Flask.
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+
+// Folder name used under Documents for the out-of-the-box database location.
+const APP_FOLDER = 'Aventurine';
 
 function dataDir() {
   const d = process.env.AVENTURINE_DATA_DIR;
@@ -26,6 +30,48 @@ function dataDir() {
   const fallback = path.join(process.cwd(), '.data');
   fs.mkdirSync(fallback, { recursive: true });
   return fallback;
+}
+
+/** The user's Documents folder. The Electron shell passes its own (localized,
+ *  XDG-aware) answer in AVENTURINE_DOCUMENTS_DIR; off the shell we guess, and
+ *  fall back to the home directory when there is no Documents folder. */
+function documentsDir() {
+  const given = process.env.AVENTURINE_DOCUMENTS_DIR;
+  if (given) return path.resolve(given);
+  const guess = path.join(os.homedir(), 'Documents');
+  try {
+    if (fs.statSync(guess).isDirectory()) return guess;
+  } catch {
+    // no Documents folder on this machine
+  }
+  return os.homedir();
+}
+
+/**
+ * Folder proposed for a NEW database file, so the New Database modal can offer
+ * a location (name it and press Create) instead of making the user browse for
+ * one every time.
+ *
+ * It is the folder the active database already lives in — someone keeping
+ * their finances in ~/Vault wants the next one there too — EXCEPT when that
+ * folder is the app's own profile dir, which is private plumbing the user
+ * should never be asked to file their data in. A never-moved default database
+ * therefore falls through to <Documents>/Aventurine. Nothing is created here:
+ * proposing a location must not touch the disk (the create route mkdir's the
+ * parent when a file is actually written).
+ */
+function defaultDbDir(activePath) {
+  if (typeof activePath === 'string' && activePath) {
+    const dir = path.dirname(path.resolve(activePath));
+    let profile = null;
+    try {
+      profile = path.resolve(dataDir());
+    } catch {
+      profile = null; // unwritable data dir — treat any folder as user-chosen
+    }
+    if (dir !== profile) return dir;
+  }
+  return path.join(documentsDir(), APP_FOLDER);
 }
 
 function createDbState() {
@@ -82,4 +128,4 @@ function createDbState() {
   return { state, pointerFile, dbFilePath, loadInitialState, savePointer };
 }
 
-module.exports = { createDbState, dataDir };
+module.exports = { createDbState, dataDir, defaultDbDir };

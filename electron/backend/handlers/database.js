@@ -137,8 +137,10 @@ function create(ctx, { body }) {
 
   if (fs.existsSync(p)) bad('A file already exists at that location', 409);
   // Containment: a path the renderer relayed but didn't get from a native
-  // dialog needs the user's out-of-renderer confirmation before we write.
-  ctx.authorizeWrite(p);
+  // dialog needs the user's out-of-renderer confirmation before we write —
+  // except in the folder the app itself proposed and displayed, where the
+  // existsSync + 'wx' pair above already rules out clobbering anything.
+  ctx.authorizeWrite(p, { allowProposedDir: true });
   try {
     const parent = path.dirname(p);
     if (parent) fs.mkdirSync(parent, { recursive: true });

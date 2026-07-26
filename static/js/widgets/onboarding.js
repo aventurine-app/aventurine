@@ -91,10 +91,17 @@
         // not knowing; a pre-selected "Checking" would get accepted by accident,
         // and landing a card statement in Checking is exactly the confidently
         // wrong answer that costs trust.
+        //
+        // The only way to skip is the × in the corner (matching the import
+        // modals' own close button) — first-run has no "enter things myself"
+        // link, so skipping must stay reachable some other way, per PRODUCT.md's
+        // "skipping is always available" guarantee.
         function renderPicker(dialog, { accounts, imported, onChosen, onSkip, onDone }) {
             const again = imported.length > 0;
 
             dialog.innerHTML = `
+                <button type="button" class="onb-close" title="Close" aria-label="Close">&times;</button>
+
                 <div class="onb-head">
                     <h2 class="onb-title">${again ? 'Add another account' : 'Let’s start with one account'}</h2>
                     <p class="onb-sub">${again
@@ -109,7 +116,7 @@
                 ${TxFileImport.accountChoicesHtml(accounts, { name: 'onb-account' })}
 
                 <div class="onb-foot">
-                    <button type="button" class="onb-skip">${again ? 'Finish' : 'I’ll enter things myself'}</button>
+                    ${again ? '<button type="button" class="onb-skip">Finish</button>' : ''}
                     <button type="button" class="button-primary onb-next" disabled>Choose file…</button>
                 </div>
             `;
@@ -119,10 +126,11 @@
                 onValidityChange: (ok) => { nextBtn.disabled = !ok; },
             });
 
-            dialog.querySelector('.onb-skip').addEventListener('click', () => {
+            dialog.querySelector('.onb-close').addEventListener('click', () => {
                 if (again) onDone();
                 else onSkip();
             });
+            dialog.querySelector('.onb-skip')?.addEventListener('click', onDone);
 
             nextBtn.addEventListener('click', async () => {
                 nextBtn.disabled = true;
@@ -133,25 +141,6 @@
                     nextBtn.disabled = false;
                 }
             });
-        }
-
-        // ── Step 3: here's what we found ──────────────────────────────────────────
-        function renderFound(dialog, { account, result, onAnother, onDone }) {
-            const n = result.inserted;
-            dialog.innerHTML = `
-                <div class="onb-head">
-                    <h2 class="onb-title">Here’s what we found</h2>
-                    <p class="onb-sub">${n} transaction${n !== 1 ? 's' : ''} from
-                        ${esc(account.label)}, sorted into your categories. Does this look right?</p>
-                </div>
-                ${TxFileImport.renderFound(result.found, account.label)}
-                <div class="onb-foot">
-                    <button type="button" class="onb-another">Add another account</button>
-                    <button type="button" class="button-primary onb-finish">Looks right</button>
-                </div>
-            `;
-            dialog.querySelector('.onb-another').addEventListener('click', onAnother);
-            dialog.querySelector('.onb-finish').addEventListener('click', onDone);
         }
 
         // ── Flow ──────────────────────────────────────────────────────────────────
@@ -178,18 +167,22 @@
                     onChosen: (account) => {
                         // Hand off to the ordinary import, with the account
                         // settled so the preview states it instead of re-asking.
+                        // The import's own Step 4 ("Success!") offers the same
+                        // two choices onboarding needs next: add another account
+                        // (back to the picker, with this one added to the
+                        // imported chips) or finish up.
                         modal.hide();
                         TxFileImport.run({
                             account,
                             onCancel: () => modal.show(),
-                            onImported: (result) => {
+                            onUploadMore: () => {
                                 imported.push(account);
                                 modal.show();
-                                renderFound(modal.dialog, {
-                                    account, result,
-                                    onAnother: showPicker,
-                                    onDone: () => finish(),
-                                });
+                                showPicker();
+                            },
+                            onDashboard: () => {
+                                imported.push(account);
+                                finish();
                             },
                         });
                     },
