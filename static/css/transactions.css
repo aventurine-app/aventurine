@@ -580,8 +580,6 @@
    eyebrow cells just need their left alignment; the divider lives on <thead>. */
 .tx-header-row th {
     text-align: left;
-    /* DEBUG: temporary cell-boundary gridlines for troubleshooting — remove after. */
-    border-right: 1px solid var(--border);
 }
 
 .tx-header-row th.tx-col-amount {
@@ -630,8 +628,6 @@
     font-size: var(--size-body);
     font-weight: var(--weight-regular);
     vertical-align: middle;
-    /* DEBUG: temporary cell-boundary gridlines for troubleshooting — remove after. */
-    border-right: 1px solid var(--border);
 }
 
 .tx-row td.tx-col-amount {

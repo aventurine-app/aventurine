@@ -17,7 +17,6 @@ const routes = [
   ...require('./handlers/predictions').routes,
   ...require('./handlers/forecast').routes,
   ...require('./handlers/trends').routes,
-  ...require('./handlers/recurring').routes,
   ...require('./handlers/reportCard').routes,
   ...require('./handlers/appSettings').routes,
   ...require('./handlers/onboarding').routes,

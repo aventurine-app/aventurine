@@ -38,7 +38,6 @@ const PAGE_ROUTES = {
     '/cash-flow':       'cash-flow.html',
     '/spending-trends': 'spending-trends.html',
     '/report-card':     'report-card.html',
-    '/recurring':       'recurring.html',
 };
 
 // app:// must be registered as standard+secure BEFORE app.whenReady so the

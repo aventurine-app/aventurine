@@ -108,7 +108,6 @@ app.whenReady().then(async () => {
       '/cash-flow':       'Cash Flow Reports',
       '/spending-trends': 'Spending Trends',
       '/report-card':     'Report Card',
-      '/recurring':       'Recurring',
     };
     for (const [route, name] of Object.entries(routes)) {
       const activeHref = route;
