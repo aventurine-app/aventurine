@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Aventurine | Reports</title>
+    <!-- @include head -->
+    <link rel="stylesheet" href="/static/css/forecast.css">
+    <link rel="stylesheet" href="/static/css/trends.css">
+    <link rel="stylesheet" href="/static/css/recurring.css">
+</head>
+<body>
+    <!-- @include chrome -->
+
+    <div class="body_container">
+        <!-- @include sidebar -->
+
+        <div class="page">
+
+<div class="rep-reports">
+
+    <!-- Report tabs. Adding another report = a .rep-tab button here + a matching
+         .rep-panel below, in the same order. Controller: reports.js (data-driven,
+         no JS change). Each panel owns its own controls — a report's pickers live
+         in its card header (or its own toolbar row), never hoisted up here, so a
+         report stays a self-contained block of markup. -->
+    <div class="rep-tabs" role="tablist" aria-label="Reports">
+        <button type="button" class="rep-tab active" id="rep-tab-cashflow" role="tab"
+            data-tab="cashflow" aria-controls="rep-panel-cashflow" aria-selected="true">Cash Flow</button>
+        <button type="button" class="rep-tab" id="rep-tab-spending" role="tab"
+            data-tab="spending" aria-controls="rep-panel-spending" aria-selected="false" tabindex="-1">Spending</button>
+        <button type="button" class="rep-tab" id="rep-tab-recurring" role="tab"
+            data-tab="recurring" aria-controls="rep-panel-recurring" aria-selected="false" tabindex="-1">Recurring</button>
+        <button type="button" class="rep-tab" id="rep-tab-forecast" role="tab"
+            data-tab="forecast" aria-controls="rep-panel-forecast" aria-selected="false" tabindex="-1">Forecast</button>
+    </div>
+
+    <div class="rep-panel" id="rep-panel-cashflow" role="tabpanel"
+        data-panel="cashflow" aria-labelledby="rep-tab-cashflow" tabindex="0">
+
+<div class="forecast-page">
+
+    <div class="forecast-card forecast-card-main">
+        <div class="home-card-header">
+            <span class="home-card-title">Cash Flow<span class="fc-info" tabindex="0" role="note"
+                aria-label="Where your money flowed for the selected year. Income categories on the left feed a central Net Inflow, which fans out to your expense categories on the right; each band is sized by the total for that category. Hover any node or flow for its amount. Everything is computed on your device — nothing leaves it."
+                data-tip="Where your money flowed for the selected year. Income categories on the left feed a central Net Inflow, which fans out to your expense categories on the right; each band is sized by the total for that category. Hover any node or flow for its amount. Everything is computed on your device — nothing leaves it.">i</span></span>
+            <div class="forecast-controls">
+                <div class="range-selector" id="cashflow-year">
+                    <button class="range-selector-btn" id="cashflow-year-btn" type="button">Year</button>
+                    <div class="range-selector-menu" id="cashflow-year-menu" hidden></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty state lands here when the selected year has no data. -->
+        <div id="cashflow-empty"></div>
+
+        <div class="chart-area">
+            <div id="cashflow-chart"></div>
+        </div>
+    </div>
+
+</div>
+
+    </div><!-- /.rep-panel -->
+
+    <div class="rep-panel" id="rep-panel-spending" role="tabpanel"
+        data-panel="spending" aria-labelledby="rep-tab-spending" tabindex="0" hidden>
+
+<div class="trends-page">
+
+    <div class="trends-card">
+        <div class="home-card-header">
+            <span class="home-card-title">Spending Trends<span class="fc-info" tabindex="0" role="note"
+                aria-label="Each line is one expense category's spending per month over the selected window (the current, incomplete month is excluded). Toggle categories below to focus the view."
+                data-tip="Each line is one expense category's spending per month over the selected window (the current, incomplete month is excluded). Toggle categories below to focus the view.">i</span></span>
+            <div class="trends-controls">
+                <div class="range-selector" id="trends-range">
+                    <button class="range-selector-btn" id="trends-range-btn" type="button">12 Months</button>
+                    <div class="range-selector-menu" id="trends-range-menu" hidden>
+                        <button data-window="6"  type="button">6 Months</button>
+                        <button data-window="12" type="button">12 Months</button>
+                        <button data-window="36" type="button">3 Years</button>
+                        <button data-window="60" type="button">5 Years</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="trends-selector" class="trends-selector"></div>
+        <div class="chart-area">
+            <div id="trends-chart"></div>
+        </div>
+    </div>
+
+</div>
+
+    </div><!-- /.rep-panel -->
+
+    <div class="rep-panel" id="rep-panel-recurring" role="tabpanel"
+        data-panel="recurring" aria-labelledby="rep-tab-recurring" tabindex="0" hidden>
+
+<div class="rec-page">
+
+    <!-- This report's cards are the calendar/list pair below, so its title and
+         month stepper ride a toolbar row instead of a card header. Same
+         1fr auto 1fr grid as the Statements toolbar, so the stepper is truly
+         centred and the ⋮ lands hard right. -->
+    <div class="rec-toolbar">
+        <span class="home-card-title">Recurring<span class="fc-info" tabindex="0" role="note"
+            aria-label="Merchants that repeat on a steady schedule — weekly, biweekly, monthly, quarterly, or yearly — detected automatically from your transaction history. A pattern needs at least three charges before it's trusted, and drops off here if it goes quiet. Every field is editable, and you can add a schedule by hand or remove one from the ⋮ menu / its row."
+            data-tip="Merchants that repeat on a steady schedule — weekly, biweekly, monthly, quarterly, or yearly — detected automatically from your transaction history. A pattern needs at least three charges before it's trusted, and drops off here if it goes quiet. Every field is editable, and you can add a schedule by hand or remove one from the ⋮ menu / its row.">i</span></span>
+        <div class="stepper rec-month-stepper" aria-label="Recurring month">
+            <button type="button" class="stepper-btn button-primary" id="rec-month-prev" aria-label="Previous month">&#8249;</button>
+            <button type="button" class="stepper-label" id="rec-month-label" aria-live="polite">&nbsp;</button>
+            <button type="button" class="stepper-btn button-primary" id="rec-month-next" aria-label="Next month">&#8250;</button>
+        </div>
+        <button type="button" class="p-menu-btn" id="rec-kebab-btn" title="Recurring options" aria-label="Recurring options" aria-haspopup="menu">⋮</button>
+    </div>
+
+    <div class="rec-layout" id="rec-layout">
+        <div class="rec-calendar" id="rec-calendar"></div>
+        <div class="rec-list" id="rec-list"></div>
+    </div>
+
+</div>
+
+    </div><!-- /.rep-panel -->
+
+    <div class="rep-panel" id="rep-panel-forecast" role="tabpanel"
+        data-panel="forecast" aria-labelledby="rep-tab-forecast" tabindex="0" hidden>
+
+<div class="forecast-page">
+
+    <div class="forecast-card forecast-card-main">
+        <div class="home-card-header">
+            <span class="home-card-title">Cash Flow Forecast<span class="fc-info" tabindex="0" role="note"
+                aria-label="Projects your balance forward week by week, so cash crunches inside a month are visible. Each week adds your typical irregular spending and income (averaged from recent months and spread evenly) plus any recurring bills or paychecks detected in your history, dropped on the week they're due. Planned items you add below land in their own week too. Hover any point to see that week's balance and net. Everything is computed on your device — nothing leaves it."
+                data-tip="Projects your balance forward week by week, so cash crunches inside a month are visible. Each week adds your typical irregular spending and income (averaged from recent months and spread evenly) plus any recurring bills or paychecks detected in your history, dropped on the week they're due. Planned items you add below land in their own week too. Hover any point to see that week's balance and net. Everything is computed on your device — nothing leaves it.">i</span></span>
+            <div class="forecast-controls">
+                <label class="forecast-start">
+                    <span class="forecast-start-label">Starting account<span class="fc-info fc-info-right" tabindex="0" role="note"
+                        aria-label="Pick a cash account from your Balance Sheet to start the forecast from. The app uses that account's latest available balance as the starting balance."
+                        data-tip="Pick a cash account from your Balance Sheet to start the forecast from. The app uses that account's latest available balance as the starting balance.">i</span></span>
+                    <select id="forecast-account-select" class="forecast-account-select"></select>
+                </label>
+                <span class="forecast-transfers">
+                    <button type="button" class="forecast-toggle active" id="forecast-transfers-toggle" aria-pressed="true">
+                        Include transfers
+                    </button>
+                    <span class="fc-info fc-info-right" tabindex="0" role="note"
+                        aria-label="When on, money you move to savings or a brokerage counts as an outflow, so the forecast shows your real spendable balance. Turn it off to see the balance as if that money had stayed in this account."
+                        data-tip="When on, money you move to savings or a brokerage counts as an outflow, so the forecast shows your real spendable balance. Turn it off to see the balance as if that money had stayed in this account.">i</span>
+                </span>
+                <div class="range-selector" id="forecast-range">
+                    <button class="range-selector-btn" id="forecast-range-btn" type="button">3 Months</button>
+                    <div class="range-selector-menu" id="forecast-range-menu" hidden>
+                        <button data-months="1" type="button">1 Month</button>
+                        <button data-months="3" type="button">3 Months</button>
+                        <button data-months="6" type="button">6 Months</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- starting-account hint + projected end / lowest point / warning, by forecast.js -->
+        <div class="forecast-summary" id="forecast-summary"></div>
+
+        <div class="chart-area">
+            <div id="forecast-chart"></div>
+        </div>
+    </div>
+
+    <div class="forecast-card">
+        <div class="home-card-header">
+            <span class="home-card-title">Planned Items</span>
+            <button class="forecast-add-btn" id="planned-add-btn" type="button">+ Add item</button>
+        </div>
+        <p class="forecast-hint">
+            One-off or scheduled income and expenses you already know about — these
+            bend the projected line on top of the recurring charges detected from your
+            transactions.
+        </p>
+        <!-- Rows + the add/edit form are rendered by forecast.js. -->
+        <div id="planned-list" class="planned-list"></div>
+    </div>
+
+</div>
+
+    </div><!-- /.rep-panel -->
+
+</div><!-- /.rep-reports -->
+
+        </div>
+    </div>
+
+    <!-- @include scripts -->
+    <script src="/static/js/pages/reports.js"></script>
+    <script src="/static/js/widgets/chart.js"></script>
+    <script src="/static/js/widgets/forecast.js"></script>
+    <script src="/static/js/widgets/cashflow-sankey.js"></script>
+    <script src="/static/js/pages/trends.js"></script>
+    <script src="/static/js/pages/recurring.js"></script>
+</body>
+</html>

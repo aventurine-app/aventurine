@@ -126,6 +126,29 @@
     };
   })();
 
+  // static/js/pages/recurring.js — a handful of recurring series + this
+  // month's occurrences (calendar dots + list). The real backend recomputes
+  // per `month`; this fixture returns the same shape for any month since
+  // query strings aren't modeled (see fixtureResponse() below).
+  const recurringFixture = (() => {
+    const pad = (n) => String(n).padStart(2, '0');
+    const today = new Date();
+    const ym = `${today.getFullYear()}-${pad(today.getMonth() + 1)}`;
+    const iso = (day) => `${ym}-${pad(Math.min(day, 28))}`;
+    const series = [
+      { key: 'netflix', description: 'NETFLIX.COM', display_name: 'Netflix', direction: 'expense', amount: 15.49, cycle: 'monthly', occurrences: 6, confidence: 0.92, last_date: iso(14), next_date: iso(14) },
+      { key: 'city_fitness', description: 'CITY FITNESS CLUB', display_name: 'City Fitness', direction: 'expense', amount: 42.0, cycle: 'monthly', occurrences: 5, confidence: 0.85, last_date: iso(3), next_date: iso(3) },
+      { key: 'rent', description: 'RENT', display_name: null, direction: 'expense', amount: 1500, cycle: 'monthly', occurrences: 8, confidence: 0.98, last_date: iso(1), next_date: iso(1) },
+      { key: 'spotify', description: 'SPOTIFY', display_name: 'Spotify', direction: 'expense', amount: 11.99, cycle: 'monthly', occurrences: 6, confidence: 0.9, last_date: iso(24), next_date: iso(24) },
+      { key: 'acme_payroll', description: 'ACME PAYROLL', display_name: 'Acme Corp', direction: 'income', amount: 3000, cycle: 'biweekly', occurrences: 10, confidence: 0.95, last_date: iso(15), next_date: iso(15) },
+    ];
+    const occurrences = series.map((s) => ({
+      date: s.next_date, key: s.key, direction: s.direction, amount: s.amount,
+      actual: Number(s.next_date.slice(-2)) <= today.getDate(),
+    }));
+    return { month: ym, series, occurrences };
+  })();
+
   // Static GET responses keyed by path (query strings are stripped before
   // lookup — see fixtureResponse() below). Each key corresponds 1:1 to a
   // real backend route implemented in electron/backend/handlers/ and must
@@ -245,10 +268,11 @@
       categories: [{ id: 4, name: 'Food' }],
       monthly_spend: { 4: 520.0 },
     },
-    // Recurring-spend predictions (backend service kept for a future
-    // recurring-transaction calendar; no dashboard widget consumes it now).
-    // Empty here since fixtures don't model recurring-transaction detection.
+    // Recurring-spend predictions — no dashboard widget consumes this one
+    // (the Recurring report below uses detectRecurringSeries, not this
+    // top-N "due soon" endpoint). Empty here since fixtures don't model it.
     '/api/predictions/upcoming': { upcoming: [] },
+    '/api/recurring': recurringFixture,
     // static/js/pages/trends.js — 12-month per-category spend series for
     // the Spending Trends chart.
     '/api/trends': {

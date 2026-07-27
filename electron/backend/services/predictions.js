@@ -18,8 +18,21 @@ const CYCLES = [
 // Cycles that step by calendar month rather than a fixed day count.
 const CYCLE_MONTHS = { monthly: 1, quarterly: 3, yearly: 12 };
 
+// {cycle name -> nominal gap in days}, derived from CYCLES — the single
+// source of truth a cadence override (Recurring page) re-derives next_date
+// from, without duplicating the day counts above.
+const CYCLE_DAYS = Object.fromEntries(CYCLES.map(([name, days]) => [name, days]));
+
 const MIN_OCCURRENCES = 3; // charges needed before a pattern is trusted
 const MIN_REGULARITY = 0.7; // fraction of gaps that must sit within tolerance
+
+// Grace period (days past the projected next charge) before detectRecurringSeries
+// gives up on a series and drops it as "probably cancelled". Deliberately much
+// looser than a cycle's own gap tolerance: a short month, a late-posting charge,
+// or simply not having imported the latest statement yet shouldn't erase months
+// of otherwise-perfect history from the calendar. detectRecurringExpenses stays
+// on the tighter per-cycle tolerance (oracle-pinned, must not change).
+const LAPSED_GRACE_DAYS = 90;
 
 /** Canonical grouping key for a merchant string (mirror of _normalise_desc):
  *  lowercase, digits dropped, every non-[a-z] run collapsed to one space. */
@@ -167,8 +180,85 @@ function detectRecurringExpenses(transactions, { today = null, limit = 5 } = {})
   return results.slice(0, limit);
 }
 
+/**
+ * Find every currently-active recurring series in one direction's transactions
+ * (mirror of detectRecurringExpenses's grouping/cycle/regularity/lapsed-drop
+ * rules, kept as a separate function rather than a shared refactor because
+ * detectRecurringExpenses is oracle-fixture-pinned and must not change).
+ * Unlike detectRecurringExpenses this returns EVERY qualifying series (no
+ * `limit`) and keeps each series' full occurrence history — `dates`, one entry
+ * per real charge date with that day's actual (split-merged) amount — instead
+ * of collapsing it to a last-date/count pair. Built for a calendar view that
+ * needs to place real dots on real past days, not just predict the next one.
+ * `today` is an ISO string (defaults to the current date). Returns
+ * [{key, description, amount, cycle, next_date, due_in_days, last_date, dates,
+ * occurrences, confidence}], sorted soonest-due first.
+ */
+function detectRecurringSeries(transactions, { today = null } = {}) {
+  const todayIso = today || localTodayIso();
+
+  const groups = new Map();
+  for (const t of transactions) {
+    const key = normaliseDesc(t.description);
+    if (!key) continue;
+    let arr = groups.get(key);
+    if (!arr) { arr = []; groups.set(key, arr); }
+    arr.push(t);
+  }
+
+  const results = [];
+  for (const rows of groups.values()) {
+    const byDate = new Map();
+    for (const t of rows) {
+      byDate.set(t.date, (byDate.get(t.date) || 0) + t.amount);
+    }
+    if (byDate.size < MIN_OCCURRENCES) continue;
+
+    const dates = [...byDate.keys()].sort();
+    const gaps = dates.slice(1).map((d, i) => daysBetween(dates[i], d));
+
+    const cycle = classifyCycle(gaps);
+    if (!cycle) continue;
+    const [name, days, tol] = cycle;
+
+    const regular = gaps.filter((g) => Math.abs(g - days) <= tol).length / gaps.length;
+    if (regular < MIN_REGULARITY) continue;
+
+    const last = dates[dates.length - 1];
+    const nextDue = name in CYCLE_MONTHS ? addMonths(last, CYCLE_MONTHS[name]) : addDays(last, days);
+
+    // Overdue beyond the lapsed grace period => probably cancelled — drop it.
+    if (daysBetween(nextDue, todayIso) > LAPSED_GRACE_DAYS) continue;
+
+    const amount = round2(median(dates.slice(-3).map((d) => byDate.get(d))));
+    const confidence = round2(regular * (0.5 + (0.5 * Math.min(gaps.length, 6)) / 6));
+    const latestRow = rows.reduce((a, b) => (a.date > b.date ? a : b));
+
+    results.push({
+      key: normaliseDesc(latestRow.description),
+      description: latestRow.description,
+      display_name: latestRow.display_name ?? null,
+      amount,
+      cycle: name,
+      cycle_days: days,
+      dates: dates.map((d) => ({ date: d, amount: round2(byDate.get(d)) })),
+      next_date: nextDue,
+      due_in_days: daysBetween(todayIso, nextDue),
+      last_date: last,
+      occurrences: dates.length,
+      confidence,
+    });
+  }
+
+  results.sort((a, b) =>
+    a.next_date < b.next_date ? -1 : a.next_date > b.next_date ? 1 : b.confidence - a.confidence
+  );
+  return results;
+}
+
 module.exports = {
   detectRecurringExpenses,
+  detectRecurringSeries,
   normaliseDesc,
   addMonths,
   addDays,
@@ -177,4 +267,8 @@ module.exports = {
   classifyCycle,
   localTodayIso,
   CYCLE_MONTHS,
+  CYCLE_DAYS,
+  MIN_OCCURRENCES,
+  MIN_REGULARITY,
+  LAPSED_GRACE_DAYS,
 };

@@ -34,6 +34,8 @@ const globals = require('globals');
 const appGlobals = {
   // core/escape.js
   escapeHtml: 'readonly',
+  // core/avatar.js
+  merchantAvatarHtml: 'readonly',
   // core/api.js
   apiFetch: 'readonly',
   // core/store.js

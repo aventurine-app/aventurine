@@ -30,6 +30,12 @@
     // pagination just windows the filtered list — it never re-queries the backend.
     const TX_PAGE_SIZE = 100;
 
+    // Columns that size to their own rendered content (see txSyncColumnWidths).
+    // account/notes also get clamped — account names run up to 50 chars and
+    // notes are unbounded, longer than is ever worth showing in a ledger row.
+    const TX_FIT_COLS = ['date', 'account', 'category', 'amount', 'notes'];
+    const TX_FIT_MAX  = { account: 220, notes: 240 };
+
     const txState = {
         rows:        [],
         categories:  [],
@@ -190,17 +196,25 @@
             ? `<span class="tx-category-pill ${meta.catCls}">${txEsc(catName)}</span>`
             : `<span class="tx-category-pill tx-category-empty">Uncategorized</span>`;
 
+        // Same resolved label the description cell shows (clean display_name when
+        // the lexicon recognized the merchant, else the raw description) — the
+        // avatar's initials/colour always match what's printed right next to them.
+        const merchantLabel = t.display_name || t.description || '';
+
         // Imported rows the merchant lexicon recognizes carry a canonical
         // display_name with the raw bank string one click away; manual entries
         // and unrecognized imports have none and render the description
         // directly, with no affordance.
-        let descCell = txEsc(t.description);
+        // Description is a fixed, narrow 120px column, so both branches below
+        // need to truncate with an ellipsis rather than wrap or overflow — a
+        // title attribute keeps the full text one hover away either way.
+        let descCell = `<span class="tx-desc-plain" title="${txEsc(t.description || '')}">${txEsc(t.description)}</span>`;
         if (t.display_name) {
             const revealed = txState.revealedIds.has(t.id);
             descCell = `
             <button type="button" class="tx-desc-toggle" data-tx-desc="${t.id}"
                     aria-expanded="${revealed}" title="${revealed ? 'Hide' : 'Show'} original description">
-                <span class="tx-desc-name">${txEsc(t.display_name)}</span>
+                <span class="tx-desc-name" title="${txEsc(t.display_name)}">${txEsc(t.display_name)}</span>
                 <svg class="tx-desc-chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M7 8.5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>${revealed ? `
             <div class="tx-desc-original">${txEsc(t.description)}</div>` : ''}`;
@@ -216,11 +230,12 @@
         <tr class="tx-row${selected ? ' tx-selected' : ''}" data-id="${t.id}">
             <td class="tx-col-select"><input type="checkbox" class="tx-checkbox tx-row-cb" data-id="${t.id}" ${selected ? 'checked' : ''} aria-label="Select transaction"></td>
             <td class="tx-col-date">${txEsc(txFmtDate(t.date))}</td>
+            <td class="tx-col-avatar">${merchantAvatarHtml(merchantLabel)}</td>
             <td class="tx-col-description">${descCell}</td>
             <td class="tx-col-account">${acctCell}</td>
             <td class="tx-col-category">${catCell}</td>
             <td class="tx-col-amount ${amountClass}">${sign}${txFmtAmount(t.amount)}</td>
-            <td class="tx-col-notes">${txEsc(t.notes)}</td>
+            <td class="tx-col-notes" title="${txEsc(t.notes || '')}">${txEsc(t.notes)}</td>
         </tr>
     `;
     }
@@ -332,6 +347,7 @@
                     <button class="tx-action-btn tx-action-cancel" data-action="cancel" data-id="${rowId}" title="Cancel">${TX_ICONS.cross}</button>
                 </div>
             </td>
+            <td class="tx-col-avatar"></td>
             ${txEditFieldsCells(t, { includeType: false })}
         </tr>
     `;
@@ -351,7 +367,7 @@
                 desc: 'Import a statement from your bank, or add a transaction by hand to get started.',
                 action: { label: 'Import transactions', name: 'tx-import', icon: 'import', primary: true },
             });
-        return `<tr class="tx-empty-row"><td colspan="7">${inner}</td></tr>`;
+        return `<tr class="tx-empty-row"><td colspan="8">${inner}</td></tr>`;
     }
 
     // Skeleton placeholder rows shown while the ledger loads (cold fetch only).
@@ -360,6 +376,7 @@
         const cell = (w) => `<td><div class="skeleton skeleton-line sk-w-${w}"></div></td>`;
         const row = '<tr class="tx-row tx-skeleton-row">'
             + '<td class="tx-col-select"></td>'
+            + '<td class="tx-col-avatar"><div class="skeleton skeleton-circle"></div></td>'
             + cell('75') + cell('90') + cell('60') + cell('50') + cell('50') + cell('40')
             + '</tr>';
         return row.repeat(n);
@@ -918,6 +935,34 @@
 
     // ─── Render orchestration ────────────────────────────────────────────────────
 
+    // Every ledger row is its own independent one-row table (transactions.css
+    // §1 — the header/body bands scroll separately), so nothing keeps a
+    // column's width in sync across rows automatically. This measures the
+    // true content width of each fit column across the header + every
+    // currently mounted display row and writes the max back as a --tx-w-*
+    // custom property shared by every band. The transient inline add-row
+    // (.tx-new) is excluded — its <input>/<select> controls don't have a
+    // natural content width the same way text cells do, and would otherwise
+    // distort the measurement while the user is mid-entry.
+    function txSyncColumnWidths() {
+        const table = document.querySelector('.tx-table');
+        if (!table) return;
+        table.classList.add('tx-measuring');
+        const widths = {};
+        for (const col of TX_FIT_COLS) {
+            let max = 0;
+            table.querySelectorAll(`tr:not(.tx-new) > .tx-col-${col}`).forEach(cell => {
+                if (cell.offsetWidth > max) max = cell.offsetWidth;
+            });
+            if (TX_FIT_MAX[col]) max = Math.min(max, TX_FIT_MAX[col]);
+            widths[col] = max;
+        }
+        table.classList.remove('tx-measuring');
+        for (const col of TX_FIT_COLS) {
+            table.style.setProperty(`--tx-w-${col}`, `${widths[col]}px`);
+        }
+    }
+
     function txRender() {
         const tbody = document.getElementById('tx-tbody');
         if (!tbody) return;
@@ -960,6 +1005,7 @@
 
         tbody.innerHTML = out.join('');
         txRenderPagination(visible.length);
+        txSyncColumnWidths();
         const newRow = document.querySelector('tr.tx-new');
         if (newRow) txWireDirectionLock(newRow);
         txFocusFirstInput();

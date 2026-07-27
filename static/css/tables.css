@@ -510,93 +510,12 @@
     text-align: right;
 }
 
-/* == ⋮ table options menu button (shared across all spreadsheet pages) ==
-   A circular icon button sized on the 4px grid: a --control-height (32px = 8×4)
-   square turned into a circle with border-radius:50%. The ⋮ glyph is centred by
-   the flex box, so the button needs no padding and no margin (both stay on the
-   grid at 0). Surface/border/colours/hover still match the other eyebrow
-   controls (Transactions Import/Export, etc.). */
-.p-menu-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--control-height);
-    height: var(--control-height);
-    padding: 0;
-    margin: 0;
-    border-radius: 50%;
-    background: var(--surface1);
-    border: var(--border-width) solid var(--border);
-    color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-h3);
-    line-height: 1;
-    cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.p-menu-btn:hover {
-    background: var(--surface2);
-    color: var(--text-primary);
-    border-color: var(--text-tertiary);
-}
-
-/* The ⋮ dropdown (.p-table-dropdown / .p-dropdown-item) moved to ui.css —
-   it's shared with the stepper month/year pickers via UI.openMenu (ui.js). */
-
-/* == Confirmation dialog == */
-/* Positioning + centering come from the shared overlay rule in style.css §8;
-   only the scrim opacity and stacking order are confirm-specific. */
-.confirm-overlay {
-    background: rgba(0, 0, 0, 0.55);
-    z-index: 1000;
-}
-
-.confirm-dialog {
-    position: relative;
-    background: var(--dialog-surface);
-    border: var(--border-width) solid var(--dialog-stroke);
-    border-radius: 8px;
-    padding: 24px 28px;
-    max-width: 340px;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-}
-
-.confirm-dialog p {
-    color: var(--text-secondary);
-    font-family: var(--font-h3);
-    font-size: var(--size-small);
-    line-height: var(--lh-relaxed);
-    margin: 0 0 16px;
-}
-
-.confirm-dialog strong {
-    color: var(--text-primary);
-}
-
-/* == Dialog close button (×) ==
-   Icon glyph — sized to --size-h2 so it reads at a similar weight to the
-   modal title next to it. (The Statements managers use the shared
-   .cat-manager-close instead — style.css §8.) */
-.dialog-close-btn {
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    font-size: var(--size-h2);
-    line-height: 1;
-    cursor: pointer;
-    padding: 2px 5px;
-    border-radius: 4px;
-    transition: color 0.15s ease, background 0.15s ease;
-    position: absolute;
-    top: 10px;
-    right: 12px;
-}
-
-.dialog-close-btn:hover {
-    color: var(--text-primary);
-    background: var(--frost-3);
-}
+/* The ⋮ menu trigger (.p-menu-btn), the dropdown it opens
+   (.p-table-dropdown / .p-dropdown-item, ui.css), and the confirm/prompt
+   dialog shell (.confirm-overlay / .confirm-dialog / .dialog-close-btn /
+   .confirm-actions / .confirm-cancel / .confirm-add / .confirm-delete) all
+   moved to style.css §7b — a second page (Recurring) needed the identical
+   chrome, so it's declared once globally instead of per page. */
 
 /* == Year prompt input == */
 .year-prompt-input {

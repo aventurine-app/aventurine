@@ -569,7 +569,19 @@
 .tx-table {
     border-collapse: collapse;
     width: 100%;
-    min-width: 1250px;
+    /* table-layout: fixed's "hand the one auto column whatever's left" step
+       doesn't reliably respect that column's own min-width when the other
+       columns' explicit widths already claim the row's available space (see
+       §2) — notes (the flex column now) could render under its 180px floor.
+       Forcing the table itself to always be at least wide enough for every
+       other column's current width plus that floor guarantees the row has
+       that 180px to hand over; .tx-wrapper's horizontal scroll (§1) absorbs
+       the rest on a narrow window. Never below the original 1250px design
+       floor either, so a lightly populated ledger still reads spacious. */
+    min-width: max(1250px, calc(
+        60px + 44px + 750px + var(--tx-w-date, 140px) + var(--tx-w-account, 150px) +
+        var(--tx-w-category, 140px) + var(--tx-w-amount, 140px) + 180px
+    ));
 }
 
 /* ─── 2. Header row + column widths ──────────────────────────────────────── */
@@ -580,24 +592,79 @@
    eyebrow cells just need their left alignment; the divider lives on <thead>. */
 .tx-header-row th {
     text-align: left;
+    /* Cells default to content-box, which would add padding/border on top of
+       the width below instead of being included in it — border-box makes
+       offsetWidth (what txSyncColumnWidths measures) map 1:1 onto `width`. */
+    box-sizing: border-box;
 }
 
 .tx-header-row th.tx-col-amount {
     text-align: right;
 }
 
-/* Column widths — picked so a typical row reads cleanly without truncation.
-   The description and notes columns flex to take remaining space. */
-.tx-col-date        { width: 140px; }
-.tx-col-description { width: auto;  min-width: 200px; }
+/* Column widths — date/account/category/amount size to their own rendered
+   content: txSyncColumnWidths() (transactions.js) measures the header +
+   every mounted row after each render and writes the max back as --tx-w-*,
+   shared by the header/body bands via this custom property (the px
+   fallbacks below are only what shows before that first measurement runs).
+   Account can hold much longer text (account names up to 50 chars) than is
+   ever worth showing in a ledger row, so it caps with max-width + ellipsis
+   (below); category's 18-char input limit already bounds it, so it needs no
+   cap. Description is fixed at 750px — comfortable room for a merchant name;
+   clicking it reveals the raw text below if it's ever truncated anyway (see
+   .tx-desc-toggle). Notes is the one column left without an explicit width,
+   so table-layout: fixed hands it whatever the others don't claim — it's
+   the flex column now, with a 180px floor. */
+.tx-col-date        { width: var(--tx-w-date, 140px); }
+/* Merchant avatar — fixed, not content-fit: it's a decorative circle, not
+   text, so there's nothing for it to conform to. Its width is subtracted
+   from the calc() above so notes gives up exactly this much room. */
+.tx-col-avatar       { width: 44px; text-align: center; }
+.tx-col-description { width: 600px; }
 .tx-col-type        { width: 140px; }
-.tx-col-account     { width: 150px; }
-.tx-col-category    { width: 140px; }
-.tx-col-amount      { width: 140px; text-align: right; }
-.tx-col-notes       { width: auto;  min-width: 180px; }
+.tx-col-account     { width: var(--tx-w-account, 150px); max-width: 220px; }
+.tx-col-category    { width: var(--tx-w-category, 140px); }
+.tx-col-amount       {
+    width: var(--tx-w-amount, 140px);
+    min-width: 140px;
+    text-align: right;
+}
+.tx-col-notes       { width: auto; min-width: 180px; }
 /* Leading selection cell — a centered checkbox (or, on the inline add row, the
-   Save/Cancel buttons). Fixed narrow width keeps the column tight. */
-.tx-col-select      { width: 44px; text-align: center; }
+   Save/Cancel buttons). Fixed narrow width keeps the column tight. 60px (not
+   44px) because this column is unaffected by the border-box switch above in
+   spirit — it's structural, not content-fit — so the value preserves the
+   same rendered size the old content-box 44px + this column's own 8px+8px
+   padding (§5 below) produced. */
+.tx-col-select      { width: 60px; text-align: center; }
+
+/* ── Content-fit measurement mode ────────────────────────────────────────
+   txSyncColumnWidths() toggles this class on .tx-table for one synchronous
+   pass: switching each row back to real table-layout: auto (every row is its
+   own one-row table — see §1) and forcing a single nowrap line lets the
+   browser report each cell's true natural width via offsetWidth, which JS
+   then takes the max of (header + every mounted row, per column) and writes
+   back as --tx-w-*. max-width: none during the pass so a long value isn't
+   pre-clamped before JS gets to apply its own cap. width: max-content on the
+   row itself matters just as much as table-layout: auto on its own: without
+   it the row stays 100% of its band, and automatic table layout responds by
+   proportionally handing every auto column a share of THAT leftover space —
+   inflating date/category/etc. past their real content width — instead of
+   each column shrinking to only what it needs. */
+.tx-table.tx-measuring > thead > tr,
+.tx-table.tx-measuring > tbody > tr {
+    table-layout: auto;
+    width: max-content;
+}
+.tx-table.tx-measuring .tx-col-date,
+.tx-table.tx-measuring .tx-col-account,
+.tx-table.tx-measuring .tx-col-category,
+.tx-table.tx-measuring .tx-col-amount,
+.tx-table.tx-measuring .tx-col-notes {
+    width: auto;
+    max-width: none;
+    white-space: nowrap;
+}
 
 
 /* ─── 3. Display-mode row ──────────────────────────────────────────────────
@@ -628,6 +695,10 @@
     font-size: var(--size-body);
     font-weight: var(--weight-regular);
     vertical-align: middle;
+    /* Cells default to content-box, which would add padding/border on top of
+       the width below instead of being included in it — border-box makes
+       offsetWidth (what txSyncColumnWidths measures) map 1:1 onto `width`. */
+    box-sizing: border-box;
 }
 
 .tx-row td.tx-col-amount {
@@ -641,6 +712,15 @@
     color: var(--text-secondary);
 }
 
+/* Notes is capped + content-fit (unlike description, which flexes), so a long
+   note truncates instead of stretching the column — the full text is still
+   reachable via the cell's title attribute (see txRenderDisplayRow). */
+.tx-row td.tx-col-notes {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* Clean description (imported rows): the cell shows the import-derived clean
    merchant name; the raw bank string expands underneath on click. The toggle
    is a real <button> for keyboard access but renders as plain cell text, with
@@ -651,6 +731,10 @@
     align-items: center;
     gap: 6px;
     max-width: 100%;
+    /* Lets .tx-desc-name (below) actually shrink below its content's natural
+       width — flex items default to a content-based min-width, which is
+       exactly what defeats an ellipsis in a flex child otherwise. */
+    min-width: 0;
     padding: 0;
     border: none;
     background: none;
@@ -658,6 +742,21 @@
     color: inherit;
     font: inherit;
     text-align: left;
+}
+
+/* Description is fixed at 750px, so most text fits comfortably — but an
+   unusually long merchant name or raw bank string still needs to truncate
+   rather than wrap or overflow. Full text is a hover (title attribute) or,
+   for a recognized merchant, a click (.tx-desc-toggle reveals the raw
+   original below) away. Not on the <td> itself: .tx-desc-original below is a
+   deliberate second line when revealed, not something to clip. */
+.tx-desc-name,
+.tx-desc-plain {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
 }
 
 .tx-desc-chevron {
@@ -866,6 +965,22 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
        up with the centered checkboxes in the rows below it. */
     text-align: center;
 }
+
+
+/* ─── 5b. Merchant avatar ─────────────────────────────────────────────────── */
+/* Same narrow treatment as Select — a 28px circle doesn't need the 16px text
+   gutter either. The header cell stays visually empty (no column label),
+   matching how the Select header carries only its checkbox, no "Select" text.
+   The avatar itself (.avatar-circle / .avatar-circle-0..7) is a shared
+   component in ui.css — see avatar.js — so the Recurring page's merchant
+   rows render identically without duplicating the palette here. */
+.tx-row td.tx-col-avatar,
+.tx-header-row th.tx-col-avatar {
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+.tx-col-avatar .skeleton-circle { width: 28px; height: 28px; }
 
 /* Themed checkbox — tracks the accent colour, sized for comfortable hit area. */
 .tx-checkbox {

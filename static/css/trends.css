@@ -1,26 +1,18 @@
 /* ============================================================================
-   trends.css — Spending Trends (Reports) page.
+   trends.css — the Spending report, a tab of the Reports page.
 
-   Page-scoped: restates the shared card / range-selector / chart-frame / tooltip
-   chrome (home.css is only loaded on Home). The chart SVG emitted by chart.js
-   uses the .home-chart .chart-* hooks, defined here so it's styled on this page.
+   Loads only alongside forecast.css (pages/reports.html), which owns the .rep-*
+   tab shell and the page padding — so this file styles the report's own column
+   and nothing above it. The card / header chrome it used to restate for its own
+   page comes from forecast.css now; what stays here is the range-selector, the
+   category chips, and the .home-chart .chart-* hooks the SVG from chart.js
+   needs (home.css is only loaded on Home).
    ============================================================================ */
-
-/* The base .page rule (style.css) centers its child on the cross axis
-   (align-items: center → vertical centering). Once the cards push the page past
-   one viewport — easy when zoomed in — the overflow spills above the centered
-   origin and can't be scrolled up to. Anchor to flex-start so the page always
-   starts from the top. Same pattern as Home and Settings. */
-.page:has(.trends-page) {
-    align-items: flex-start;
-}
 
 .trends-page {
     display: flex;
     flex-direction: column;
     gap: 24px;
-    padding: var(--page-pad);
-    width: 100%;
 }
 
 .trends-card {
@@ -34,26 +26,8 @@
     flex-direction: column;
 }
 
-.home-card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-    min-height: 22px;
-    gap: 16px;
-}
-
-.home-card-title {
-    color: var(--text-primary);
-    font-family: var(--font-h3);
-    font-size: var(--size-small);
-    font-weight: var(--weight-semibold);
-    line-height: var(--lh-tight);
-    letter-spacing: var(--track-widest);
-    text-transform: uppercase;
-}
-
-.chart-area { width: 100%; overflow: hidden; }
+/* .home-card-header / .home-card-title / .chart-area come from forecast.css,
+   which is always loaded on this page. */
 #trends-chart { width: 100%; }
 
 .chart-empty {
@@ -147,8 +121,7 @@
     60%  { r: 13; opacity: 0; }
     100% { r: 13; opacity: 0; }
 }
-.chart-no-anim .chart-line { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; }
-.chart-no-anim .chart-area-fill, .chart-no-anim .chart-dot { animation: none; opacity: 1; }
+/* The .chart-no-anim opt-out is stated in forecast.css, loaded on this page too. */
 
 @media (prefers-reduced-motion: reduce) {
     .home-chart .chart-line { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; }

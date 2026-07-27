@@ -35,8 +35,8 @@ const PAGE_ROUTES = {
     '/portfolio':       'portfolio.html',
     '/transactions':    'transactions.html',
     '/credit-cards':    'credit-cards.html',
-    '/cash-flow':       'cash-flow.html',
-    '/spending-trends': 'spending-trends.html',
+    // Cash Flow, Spending, Recurring and Forecast are tabs of this one page.
+    '/reports':         'reports.html',
     '/report-card':     'report-card.html',
 };
 

@@ -246,6 +246,23 @@ const MIGRATIONS = [
       );
     }
   }],
+  // v13 — recurring_overrides: user edits (name/direction/cadence/amount) to
+  // a recurring schedule on the Recurring page, plus manual (undetected)
+  // schedules and hidden (removed) ones — see schema.js baseline. New table,
+  // so a plain CREATE TABLE IF NOT EXISTS is idempotent on its own.
+  [13, (db) => {
+    db.exec(`CREATE TABLE IF NOT EXISTS recurring_overrides (
+       "key" VARCHAR(200) NOT NULL,
+       display_name VARCHAR(100),
+       direction VARCHAR(10) CHECK (direction IN ('income', 'expense', 'transfer')),
+       cycle VARCHAR(20)
+         CHECK (cycle IN ('weekly', 'biweekly', 'monthly', 'quarterly', 'yearly')),
+       amount FLOAT CHECK (amount > 0),
+       last_date DATE,
+       removed INTEGER DEFAULT 0 NOT NULL CHECK (removed IN (0, 1)),
+       PRIMARY KEY ("key")
+     )`);
+  }],
 ];
 
 function bootstrapSchema(db) {
