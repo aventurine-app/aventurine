@@ -834,7 +834,7 @@
                 icon: 'wallet',
                 title: 'No income or expenses yet',
                 desc: 'Add your monthly income and expense figures to chart your cash flow.',
-                action: { label: 'Open Cash Flow', href: '/statements#cash-flow', icon: 'plus', primary: true },
+                action: { label: 'Open Statements', href: '/statements#cash-flow', icon: 'plus', primary: true },
             });
             const selEl = document.getElementById('ie-selector');
             if (selEl) selEl.innerHTML = '';
@@ -1351,7 +1351,7 @@
 
     /**
      * "This Month" / "Over Time" tab bar — standard ARIA tablist, same controller
-     * as Cash Flow Reports (cashflow.js): click or arrow/Home/End to switch
+     * as the Reports page (reports.js): click or arrow/Home/End to switch
      * panels, with roving tabindex so only the active tab is in the tab order.
      * Charts inside the hidden panel paint (animated) on first reveal: their
      * ResizeObserver fires when the container gains a width.

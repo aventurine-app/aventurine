@@ -1,16 +1,20 @@
 'use strict';
 
-// Cash Flow Reports — tab bar controller (pages/cash-flow.html).
+// Reports — tab bar controller (pages/reports.html).
 // Standard ARIA tablist: click or arrow/Home/End to switch report panels,
-// with roving tabindex so only the active tab is in the tab order. Built for
-// one report today (Forecast); adding a report = a `.cf-tab` button in the
-// tablist + a matching `.cf-panel[data-panel]` — no JS change needed.
+// with roving tabindex so only the active tab is in the tab order. Adding a
+// report = a `.rep-tab` button in the tablist + a matching
+// `.rep-panel[data-panel]` — no JS change needed.
+//
+// A hidden panel's charts draw at zero width and skip the paint; every chart
+// here observes its container, so the report renders the moment its tab is
+// selected. That's what lets each report load its data up front, unconditionally.
 (function () {
-  const tablist = document.querySelector('.cf-tabs');
+  const tablist = document.querySelector('.rep-tabs');
   if (!tablist) return;
 
-  const tabs = Array.from(tablist.querySelectorAll('.cf-tab'));
-  const panels = Array.from(document.querySelectorAll('.cf-panel'));
+  const tabs = Array.from(tablist.querySelectorAll('.rep-tab'));
+  const panels = Array.from(document.querySelectorAll('.rep-panel'));
   if (!tabs.length) return;
 
   function select(tab, focus) {
@@ -26,7 +30,7 @@
   }
 
   tablist.addEventListener('click', (e) => {
-    const tab = e.target.closest('.cf-tab');
+    const tab = e.target.closest('.rep-tab');
     if (tab) select(tab);
   });
 

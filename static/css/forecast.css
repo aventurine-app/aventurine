@@ -1,5 +1,10 @@
 /* ============================================================================
-   forecast.css — Cash Flow Reports page (tab landing) + the Forecast report.
+   forecast.css — Reports page (tab shell) + the Forecast report.
+
+   The .rep-* shell here frames all four reports (Cash Flow, Spending,
+   Recurring, Forecast); trends.css and recurring.css load alongside this file
+   on that one page and style the two reports that came in from their own
+   pages. Only the shell + Forecast live here.
 
    Page-scoped: the shared chart-frame + range-selector chrome lives in home.css
    (loaded only on Home), so the slices this page needs are re-stated here under
@@ -12,14 +17,15 @@
    one viewport — easy when zoomed in — the overflow spills above the centered
    origin and can't be scrolled up to. Anchor to flex-start so the page always
    starts from the top. Same pattern as Home and Settings. */
-.page:has(.cf-reports) {
+.page:has(.rep-reports) {
     align-items: flex-start;
 }
 
-/* ─── Reports landing: tab bar + panel wrapper ──────────────────────────────
+/* ─── Reports shell: tab bar + panel wrapper ────────────────────────────────
    The wrapper owns the page padding / max width; the report inside it (the
-   .forecast-page column) then just stacks its cards. */
-.cf-reports {
+   .forecast-page / .trends-page / .rec-page column) then just stacks its
+   cards — which is why none of those three restate the page padding. */
+.rep-reports {
     display: flex;
     flex-direction: column;
     /* Tab row → report panel: same tight 8px as Statements' toolbar → tables
@@ -27,14 +33,20 @@
     gap: var(--space-8);
     padding: var(--page-pad);
     /* Fill the page so the reports use the full available width — the charts
-       scale responsively to their container, making legends easier to read. */
-    width: 100%;
+       scale responsively to their container, making legends easier to read.
+       Grow as a flex item rather than width:100%: .page is a scroll container,
+       and a percentage width resolves against a content box that still counts
+       the vertical scrollbar's track, so a report tall enough to scroll (the
+       Forecast one) overshot by the scrollbar width and raised a horizontal
+       scrollbar under it. */
+    flex: 1;
+    min-width: 0;
 }
 
 /* Tab styles live in ui.css — the segmented control shared with .home-tab and
    .stmt-tab. The column above stretches its children; keep the track hugging
    its labels like the other pages' toolbars do. */
-.cf-tabs { align-self: flex-start; }
+.rep-tabs { align-self: flex-start; }
 
 .forecast-page {
     display: flex;

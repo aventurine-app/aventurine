@@ -798,26 +798,33 @@ app.whenReady().then(async () => {
     // ═══ Phase 8: reports ════════════════════════════════════════════════════
     if (phase('reports')) {
       console.log('\n— reports —');
-      await nav('/cash-flow', 3200);
-      await unhover();
-      await shotPage('reports-cash-flow-diagram', '.cf-panel:not([hidden]) .forecast-card');
-
-      // A planned item, so the forecast card has one to show.
+      // A planned item, so the forecast card has one to show. Every report on
+      // the page fetches once on load, so this has to land before the nav —
+      // switching tabs reveals a panel, it does not re-fetch it.
       await post('/api/forecast/planned', {
         label: 'Car insurance renewal', amount: 640, flow: 'expense',
         date: iso(now.getFullYear(), now.getMonth() + 2, 12),
       });
-      await click('#cf-tab-forecast');
-      await sleep(3000);
-      await unhover();
-      await shotPage('reports-forecast', '.cf-panel:not([hidden]) .forecast-card');
-      await shotEl('reports-forecast-summary', '#forecast-summary', 10);
-      await shotEl('reports-forecast-planned', '.forecast-card:last-child', 10);
 
-      await nav('/spending-trends', 3000);
+      // Cash Flow, Spending, Recurring and Forecast are tabs of one page now,
+      // so this is one nav and three clicks. The panel selectors have to be
+      // scoped to the visible panel: .forecast-card matches in two of them.
+      await nav('/reports', 3200);
+      await unhover();
+      await shotPage('reports-cash-flow-diagram', '.rep-panel:not([hidden]) .forecast-card');
+
+      await click('#rep-tab-spending');
+      await sleep(2000);
       await unhover();
       await shotPage('spending-page', '.trends-card');
       await shotEl('spending-category-chips', '#trends-selector', 8);
+
+      await click('#rep-tab-forecast');
+      await sleep(3000);
+      await unhover();
+      await shotPage('reports-forecast', '.rep-panel:not([hidden]) .forecast-card');
+      await shotEl('reports-forecast-summary', '#forecast-summary', 10);
+      await shotEl('reports-forecast-planned', '.rep-panel:not([hidden]) .forecast-card:last-child', 10);
     }
 
     // ═══ Phase 9: tools ══════════════════════════════════════════════════════

@@ -1,8 +1,8 @@
 'use strict';
 
 // ─── Cash Flow (Reports) — Sankey diagram ────────────────────────────────────
-// Second report on the Cash Flow Reports page (pages/cash-flow.html), shown when
-// the "Cash Flow" tab is selected. Visualises a year's money movement as a
+// The Reports page's landing report (pages/reports.html), shown when the
+// "Cash Flow" tab is selected. Visualises a year's money movement as a
 // Sankey: income categories on the left feed a central Net Inflow node, which
 // fans out to expense categories on the right. Each band is sized by that
 // category's yearly total; the pipes are colour-blended and animated.
@@ -289,8 +289,11 @@
       el.innerHTML = UI.emptyState({
         icon: 'chart',
         title: state.year === null ? 'No data yet' : 'Nothing to chart for this year',
-        desc: 'Add income and expenses on the Cash Flow page and the diagram will map how your money moves.',
-        action: { label: 'Open Cash Flow', href: '/statements#cash-flow', icon: 'plus', primary: true },
+        // Name the destination, not the statement: this empty state sits
+        // directly under a tab also labelled "Cash Flow", so "the Cash Flow
+        // page" would read as somewhere on this page rather than Statements.
+        desc: 'Add income and expenses to your Cash Flow statement and the diagram will map how your money moves.',
+        action: { label: 'Open Statements', href: '/statements#cash-flow', icon: 'plus', primary: true },
       });
       chart.innerHTML = '';
     } else {

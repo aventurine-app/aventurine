@@ -49,21 +49,6 @@ li {
     margin-bottom: var(--space-4);  /* Spacing between each menu item */
 }
 
-/* Section heading inside the sidebar ("Savings & Investing", "Account").
-   Uses --text-tertiary from style.css — shared with the home page stat labels
-   so all muted secondary headings across the app stay in lockstep. */
-.nav-section-title {
-    font-size: var(--size-small);
-    font-weight: var(--weight-bold);
-    font-family: var(--font-menu);
-    text-transform: uppercase;
-    letter-spacing: var(--track-widest);
-    color: var(--text-tertiary);
-    padding: 0 var(--space-12);
-    margin-top: var(--space-32);
-    margin-bottom: var(--space-4);
-}
-
 /* Color comes from --text-secondary (style.css). Each SVG icon in navbar.html uses
    currentColor for its stroke/fill, so it inherits this same color
    automatically — one variable controls both the label and the icon. */

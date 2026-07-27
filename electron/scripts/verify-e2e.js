@@ -105,14 +105,18 @@ app.whenReady().then(async () => {
       '/statements':      'Statements',
       '/portfolio':       'Portfolio',
       '/credit-cards':    'Credit Cards',
-      '/cash-flow':       'Cash Flow Reports',
-      '/spending-trends': 'Spending Trends',
+      '/reports':         'Reports',
       '/report-card':     'Report Card',
-      '/recurring':       'Recurring',
     };
     for (const [route, name] of Object.entries(routes)) {
-      const activeHref = route;
       await win.loadURL(`app://aventurine${route}`);
+      // A route whose sidebar link is commented out (Credit Cards, Report Card)
+      // is still reachable by URL but has nothing to highlight. Ask the rendered
+      // sidebar which it is, rather than assuming every route is linked —
+      // otherwise disabling a nav link turns this check permanently red.
+      const linked = await evalJs(
+        `!!document.querySelector(".menu .nav a[href=" + ${JSON.stringify(JSON.stringify(route))} + "]")`);
+      const activeHref = linked ? route : null;
       const ok = await evalJs(`document.title.includes(${JSON.stringify(name)})
         && !!document.querySelector(".titlebar")
         && !!document.querySelector(".menu .nav")

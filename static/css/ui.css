@@ -328,12 +328,12 @@ html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
     color: var(--accent-negative);
 }
 
-.home-panel[hidden], .cf-panel[hidden], .stmt-panel[hidden] { display: none; }
-.home-panel:focus, .cf-panel:focus, .stmt-panel:focus { outline: none; }
+.home-panel[hidden], .rep-panel[hidden], .stmt-panel[hidden] { display: none; }
+.home-panel:focus, .rep-panel:focus, .stmt-panel:focus { outline: none; }
 
 /* ─── Segmented tab control + toolbar row ───────────────────────────────────
- * Shared by Statements (.stmt-*), Home (.home-*), and Cash Flow Reports
- * (.cf-*). Moved here from statements.css when Home adopted it.
+ * Shared by Statements (.stmt-*), Home (.home-*), and Reports (.rep-*).
+ * Moved here from statements.css when Home adopted it.
  *
  * The tabs are a segmented control: a hairline-outlined grey track holding both
  * labels, with the active one filled in the accent — the same fill/text pair
@@ -349,7 +349,7 @@ html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
  * — restate it at author level (Home hides its month stepper on Year to Year). */
 .stepper[hidden] { display: none; }
 
-.stmt-tabs, .home-tabs, .cf-tabs {
+.stmt-tabs, .home-tabs, .rep-tabs {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -366,7 +366,7 @@ html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
 /* Type + box tokens mirror the action-button shape (buttons.css) — same
    32px control height, uppercase micro type — so the segments read as
    siblings of the other 32px controls across the row. */
-.stmt-tab, .home-tab, .cf-tab {
+.stmt-tab, .home-tab, .rep-tab {
     appearance: none;
     background: transparent;
     /* Transparent hairline reserves the active tab's border so the label never
@@ -392,7 +392,7 @@ html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
 
 /* One stop along the base ramp from the track, rather than a translucent frost
    tint — an opaque rung reads the same wherever the toolbar sits. */
-.stmt-tab:hover, .home-tab:hover, .cf-tab:hover {
+.stmt-tab:hover, .home-tab:hover, .rep-tab:hover {
     color: var(--text-primary);
     background: var(--segctl-hover);
 }
@@ -402,13 +402,13 @@ html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
    carries the selected state on its own. */
 .stmt-tab.active, .stmt-tab[aria-selected="true"],
 .home-tab.active, .home-tab[aria-selected="true"],
-.cf-tab.active, .cf-tab[aria-selected="true"] {
+.rep-tab.active, .rep-tab[aria-selected="true"] {
     color: var(--segctl-active-text);
     background: var(--segctl-active);
     border-color: var(--segctl-active);
 }
 
-.stmt-tab:focus-visible, .home-tab:focus-visible, .cf-tab:focus-visible {
+.stmt-tab:focus-visible, .home-tab:focus-visible, .rep-tab:focus-visible {
     outline: 2px solid var(--color-accent-400);
     outline-offset: -2px;
 }
@@ -417,12 +417,12 @@ html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
    ring in the label colour instead. */
 .stmt-tab.active:focus-visible, .stmt-tab[aria-selected="true"]:focus-visible,
 .home-tab.active:focus-visible, .home-tab[aria-selected="true"]:focus-visible,
-.cf-tab.active:focus-visible, .cf-tab[aria-selected="true"]:focus-visible {
+.rep-tab.active:focus-visible, .rep-tab[aria-selected="true"]:focus-visible {
     outline-color: var(--segctl-active-text);
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .stmt-tab, .home-tab, .cf-tab { transition: none; }
+    .stmt-tab, .home-tab, .rep-tab { transition: none; }
 }
 
 /* The current choice in picker-style menus (stepper month/year). */
