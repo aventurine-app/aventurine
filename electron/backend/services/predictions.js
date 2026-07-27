@@ -18,8 +18,21 @@ const CYCLES = [
 // Cycles that step by calendar month rather than a fixed day count.
 const CYCLE_MONTHS = { monthly: 1, quarterly: 3, yearly: 12 };
 
+// {cycle name -> nominal gap in days}, derived from CYCLES — the single
+// source of truth a cadence override (Recurring page) re-derives next_date
+// from, without duplicating the day counts above.
+const CYCLE_DAYS = Object.fromEntries(CYCLES.map(([name, days]) => [name, days]));
+
 const MIN_OCCURRENCES = 3; // charges needed before a pattern is trusted
 const MIN_REGULARITY = 0.7; // fraction of gaps that must sit within tolerance
+
+// Grace period (days past the projected next charge) before detectRecurringSeries
+// gives up on a series and drops it as "probably cancelled". Deliberately much
+// looser than a cycle's own gap tolerance: a short month, a late-posting charge,
+// or simply not having imported the latest statement yet shouldn't erase months
+// of otherwise-perfect history from the calendar. detectRecurringExpenses stays
+// on the tighter per-cycle tolerance (oracle-pinned, must not change).
+const LAPSED_GRACE_DAYS = 90;
 
 /** Canonical grouping key for a merchant string (mirror of _normalise_desc):
  *  lowercase, digits dropped, every non-[a-z] run collapsed to one space. */
@@ -214,8 +227,8 @@ function detectRecurringSeries(transactions, { today = null } = {}) {
     const last = dates[dates.length - 1];
     const nextDue = name in CYCLE_MONTHS ? addMonths(last, CYCLE_MONTHS[name]) : addDays(last, days);
 
-    // Overdue beyond tolerance => probably cancelled — drop it.
-    if (daysBetween(nextDue, todayIso) > tol) continue;
+    // Overdue beyond the lapsed grace period => probably cancelled — drop it.
+    if (daysBetween(nextDue, todayIso) > LAPSED_GRACE_DAYS) continue;
 
     const amount = round2(median(dates.slice(-3).map((d) => byDate.get(d))));
     const confidence = round2(regular * (0.5 + (0.5 * Math.min(gaps.length, 6)) / 6));
@@ -254,6 +267,8 @@ module.exports = {
   classifyCycle,
   localTodayIso,
   CYCLE_MONTHS,
+  CYCLE_DAYS,
   MIN_OCCURRENCES,
   MIN_REGULARITY,
+  LAPSED_GRACE_DAYS,
 };

@@ -109,13 +109,14 @@ test('recurring: recurring income is detected with direction "income"', (t) => {
   assert.equal(r.body.series[0].direction, 'income');
 });
 
-test('recurring: transfer-type transactions are excluded even if they recur', (t) => {
+test('recurring: a recurring transfer (e.g. autosave) is detected with direction "transfer"', (t) => {
   const c = makeClient(t);
   for (const date of [daysAgoIso(90), daysAgoIso(60), daysAgoIso(30)]) {
     insertTx(c, { date, amount: 200, description: 'SAVINGS AUTO-TRANSFER', tx_type: 'transfer' });
   }
   const r = c.get('/api/recurring');
-  assert.deepStrictEqual(r.body.series, []);
+  assert.equal(r.body.series.length, 1);
+  assert.equal(r.body.series[0].direction, 'transfer');
 });
 
 test('recurring: a lapsed series is dropped and contributes no occurrences', (t) => {
@@ -127,4 +128,245 @@ test('recurring: a lapsed series is dropped and contributes no occurrences', (t)
   const r = c.get('/api/recurring');
   assert.deepStrictEqual(r.body.series, []);
   assert.deepStrictEqual(r.body.occurrences, []);
+});
+
+// ─── Overrides (editable rows) ───────────────────────────────────────────────
+
+test('recurring override: display_name and amount edits are reflected on the next GET', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
+    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', display_name: 'Netflix', category_id: food });
+  }
+  const key = c.get('/api/recurring').body.series[0].key;
+
+  const up = c.post('/api/recurring/override', { key, display_name: 'Streaming', amount: 17.99 });
+  assert.equal(up.status, 200, JSON.stringify(up.body));
+  assert.equal(up.body.override.display_name, 'Streaming');
+  assert.equal(up.body.override.amount, 17.99);
+
+  const r = c.get('/api/recurring');
+  const s = r.body.series[0];
+  assert.equal(s.display_name, 'Streaming');
+  assert.equal(s.amount, 17.99);
+});
+
+test('recurring override: an amount edit never rewrites a past actual occurrence', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  const dates = [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)];
+  for (const date of dates) {
+    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', display_name: 'Netflix', category_id: food });
+  }
+  const lastDate = dates[dates.length - 1];
+  const key = c.get('/api/recurring').body.series[0].key;
+  c.post('/api/recurring/override', { key, amount: 99 });
+
+  const r = c.get(`/api/recurring?month=${lastDate.slice(0, 7)}`);
+  const actualOcc = r.body.occurrences.find((o) => o.date === lastDate);
+  assert.ok(actualOcc);
+  assert.equal(actualOcc.actual, true);
+  assert.equal(actualOcc.amount, 15.49, 'a real past charge keeps its real amount');
+});
+
+test('recurring override: a cadence edit recomputes next_date from the real last charge', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
+    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
+  }
+  const before = c.get('/api/recurring').body.series[0];
+  assert.equal(before.cycle, 'monthly');
+
+  c.post('/api/recurring/override', { key: before.key, cycle: 'weekly' });
+
+  const after = c.get('/api/recurring').body.series[0];
+  assert.equal(after.cycle, 'weekly');
+  assert.notEqual(after.next_date, before.next_date);
+});
+
+test('recurring override: invalid cycle/amount/display_name are rejected', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
+    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
+  }
+  const key = c.get('/api/recurring').body.series[0].key;
+
+  assert.equal(c.post('/api/recurring/override', { key, cycle: 'daily' }).status, 400);
+  assert.equal(c.post('/api/recurring/override', { key, amount: 0 }).status, 400);
+  assert.equal(c.post('/api/recurring/override', { key, amount: -5 }).status, 400);
+  assert.equal(c.post('/api/recurring/override', { key, display_name: '   ' }).status, 400);
+  assert.equal(c.post('/api/recurring/override', { key: '' }).status, 400);
+  assert.equal(c.post('/api/recurring/override', { key }).status, 400, 'no fields to update');
+});
+
+test('recurring override: null clears a field back to auto-detected', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
+    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', display_name: 'Netflix', category_id: food });
+  }
+  const key = c.get('/api/recurring').body.series[0].key;
+  c.post('/api/recurring/override', { key, display_name: 'Streaming' });
+  assert.equal(c.get('/api/recurring').body.series[0].display_name, 'Streaming');
+
+  c.post('/api/recurring/override', { key, display_name: null });
+  assert.equal(c.get('/api/recurring').body.series[0].display_name, 'Netflix');
+});
+
+test('recurring override: direction can be corrected, and flows into the calendar occurrences', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  const dates = [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)];
+  for (const date of dates) {
+    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
+  }
+  const key = c.get('/api/recurring').body.series[0].key;
+  c.post('/api/recurring/override', { key, direction: 'transfer' });
+
+  const r = c.get(`/api/recurring?month=${dates[3].slice(0, 7)}`);
+  assert.equal(r.body.series[0].direction, 'transfer');
+  const occ = r.body.occurrences.find((o) => o.date === dates[3]);
+  assert.equal(occ.direction, 'transfer');
+});
+
+test('recurring override: invalid direction is rejected', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
+    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
+  }
+  const key = c.get('/api/recurring').body.series[0].key;
+  assert.equal(c.post('/api/recurring/override', { key, direction: 'savings' }).status, 400);
+});
+
+// ─── Add (manual schedules) ───────────────────────────────────────────────────
+
+test('recurring add: a manual schedule with no transactions appears in the listing', (t) => {
+  const c = makeClient(t);
+  const nextDate = daysAgoIso(-14); // 14 days from now
+  const res = c.post('/api/recurring/schedule', {
+    display_name: 'Gym Membership', direction: 'expense', cycle: 'monthly', amount: 45, next_date: nextDate,
+  });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.ok(res.body.key);
+
+  const r = c.get('/api/recurring');
+  assert.equal(r.body.series.length, 1);
+  const s = r.body.series[0];
+  assert.equal(s.display_name, 'Gym Membership');
+  assert.equal(s.direction, 'expense');
+  assert.equal(s.cycle, 'monthly');
+  assert.equal(s.amount, 45);
+  assert.equal(s.next_date, nextDate);
+  assert.equal(s.occurrences, 0, 'no real transactions back it');
+});
+
+test('recurring add: a manual schedule projects forward even if its anchor date has gone stale', (t) => {
+  const c = makeClient(t);
+  // Anchor a year in the past — nothing has kept it fresh since nothing ever
+  // posts against a manual schedule, so next_date must catch up to today.
+  const staleNext = daysAgoIso(365);
+  c.post('/api/recurring/schedule', {
+    display_name: 'Old Subscription', direction: 'expense', cycle: 'monthly', amount: 9.99, next_date: staleNext,
+  });
+  const s = c.get('/api/recurring').body.series[0];
+  const todayIso = daysAgoIso(0);
+  assert.ok(s.next_date >= todayIso, `next_date ${s.next_date} should have caught up to today ${todayIso}`);
+});
+
+test('recurring add: appears in the calendar occurrences for its projected month', (t) => {
+  const c = makeClient(t);
+  const nextDate = daysAgoIso(-10);
+  c.post('/api/recurring/schedule', {
+    display_name: 'Car Insurance', direction: 'expense', cycle: 'monthly', amount: 120, next_date: nextDate,
+  });
+  const r = c.get(`/api/recurring?month=${nextDate.slice(0, 7)}`);
+  const occ = r.body.occurrences.find((o) => o.date === nextDate);
+  assert.ok(occ, 'projected occurrence appears on its due date');
+  assert.equal(occ.actual, false);
+  assert.equal(occ.amount, 120);
+});
+
+test('recurring add: missing/invalid fields are rejected', (t) => {
+  const c = makeClient(t);
+  const valid = { display_name: 'Thing', direction: 'expense', cycle: 'monthly', amount: 10, next_date: daysAgoIso(-10) };
+  assert.equal(c.post('/api/recurring/schedule', { ...valid, display_name: '' }).status, 400);
+  assert.equal(c.post('/api/recurring/schedule', { ...valid, display_name: '123' }).status, 400, 'no letters to key off of');
+  assert.equal(c.post('/api/recurring/schedule', { ...valid, direction: 'savings' }).status, 400);
+  assert.equal(c.post('/api/recurring/schedule', { ...valid, cycle: 'daily' }).status, 400);
+  assert.equal(c.post('/api/recurring/schedule', { ...valid, amount: 0 }).status, 400);
+  assert.equal(c.post('/api/recurring/schedule', { ...valid, next_date: 'not-a-date' }).status, 400);
+});
+
+test('recurring add: a manual entry key collides with (merges into) a later-matching detected series', (t) => {
+  const c = makeClient(t);
+  // normaliseDesc keys off letters only (digits dropped, punctuation
+  // collapsed to spaces) — 'Netflix Com' and 'NETFLIX.COM' both key to
+  // 'netflix com', so this manual entry and the transactions below are the
+  // SAME schedule, not two.
+  c.post('/api/recurring/schedule', {
+    display_name: 'Netflix Com', direction: 'expense', cycle: 'monthly', amount: 15.49, next_date: daysAgoIso(-10),
+  });
+  const food = catId(c, 'food');
+  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
+    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
+  }
+  const r = c.get('/api/recurring');
+  assert.equal(r.body.series.length, 1, 'the manual entry and the real series are the same key, not two rows');
+  assert.equal(r.body.series[0].display_name, 'Netflix Com');
+  assert.equal(r.body.series[0].occurrences, 4, 'the real detected series wins once transactions exist');
+});
+
+// ─── Remove ───────────────────────────────────────────────────────────────────
+
+test('recurring remove: deleting a manual schedule removes it outright', (t) => {
+  const c = makeClient(t);
+  const create = c.post('/api/recurring/schedule', {
+    display_name: 'Gym Membership', direction: 'expense', cycle: 'monthly', amount: 45, next_date: daysAgoIso(-14),
+  });
+  const key = create.body.key;
+  assert.equal(c.get('/api/recurring').body.series.length, 1);
+
+  const del = c.del(`/api/recurring/schedule/${encodeURIComponent(key)}`);
+  assert.equal(del.status, 200, JSON.stringify(del.body));
+  assert.deepStrictEqual(c.get('/api/recurring').body.series, []);
+
+  const row = c.conn.db().prepare('SELECT * FROM recurring_overrides WHERE "key" = ?').get(key);
+  assert.equal(row, undefined, 'no tombstone left behind for a manual schedule');
+});
+
+test('recurring remove: hiding a detected series persists even though its transactions still recur', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
+    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
+  }
+  const key = c.get('/api/recurring').body.series[0].key;
+
+  const del = c.del(`/api/recurring/schedule/${encodeURIComponent(key)}`);
+  assert.equal(del.status, 200);
+  assert.deepStrictEqual(c.get('/api/recurring').body.series, [], 'hidden immediately');
+
+  // Still hidden after another transaction keeps the pattern alive.
+  insertTx(c, { date: daysAgoIso(0), amount: 15.49, description: 'NETFLIX.COM', category_id: food });
+  assert.deepStrictEqual(c.get('/api/recurring').body.series, [], 'still hidden — removal is a standing flag, not one-shot');
+
+  const row = c.conn.db().prepare('SELECT removed FROM recurring_overrides WHERE "key" = ?').get(key);
+  assert.equal(row.removed, 1);
+});
+
+test('recurring remove: re-adding under the same name revives a removed detected series', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
+    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
+  }
+  const key = c.get('/api/recurring').body.series[0].key;
+  c.del(`/api/recurring/schedule/${encodeURIComponent(key)}`);
+  assert.deepStrictEqual(c.get('/api/recurring').body.series, []);
+
+  c.post('/api/recurring/override', { key, amount: 16 });
+  assert.equal(c.get('/api/recurring').body.series.length, 1, 'any edit through the override endpoint un-hides it');
 });

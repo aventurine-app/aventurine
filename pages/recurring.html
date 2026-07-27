@@ -18,8 +18,8 @@
 
     <div class="rec-intro">
         <h1 class="rec-heading">Recurring<span class="fc-info" tabindex="0" role="note"
-            aria-label="Merchants that repeat on a steady schedule — weekly, biweekly, monthly, quarterly, or yearly — detected automatically from your transaction history. A pattern needs at least three charges before it's trusted, and drops off here if it goes quiet."
-            data-tip="Merchants that repeat on a steady schedule — weekly, biweekly, monthly, quarterly, or yearly — detected automatically from your transaction history. A pattern needs at least three charges before it's trusted, and drops off here if it goes quiet.">i</span></h1>
+            aria-label="Merchants that repeat on a steady schedule — weekly, biweekly, monthly, quarterly, or yearly — detected automatically from your transaction history. A pattern needs at least three charges before it's trusted, and drops off here if it goes quiet. Every field is editable, and you can add a schedule by hand or remove one from the ⋮ menu / its row."
+            data-tip="Merchants that repeat on a steady schedule — weekly, biweekly, monthly, quarterly, or yearly — detected automatically from your transaction history. A pattern needs at least three charges before it's trusted, and drops off here if it goes quiet. Every field is editable, and you can add a schedule by hand or remove one from the ⋮ menu / its row.">i</span></h1>
     </div>
 
     <div class="rec-toolbar">
@@ -28,11 +28,7 @@
             <button type="button" class="stepper-label" id="rec-month-label" aria-live="polite">&nbsp;</button>
             <button type="button" class="stepper-btn button-primary" id="rec-month-next" aria-label="Next month">&#8250;</button>
         </div>
-        <div class="rec-legend">
-            <span class="rec-legend-item"><span class="rec-dot rec-dot-expense rec-dot-actual" aria-hidden="true"></span>Expense</span>
-            <span class="rec-legend-item"><span class="rec-dot rec-dot-income rec-dot-actual" aria-hidden="true"></span>Income</span>
-            <span class="rec-legend-item"><span class="rec-dot rec-dot-expense rec-dot-projected" aria-hidden="true"></span>Projected</span>
-        </div>
+        <button type="button" class="p-menu-btn" id="rec-kebab-btn" title="Recurring options" aria-label="Recurring options" aria-haspopup="menu">⋮</button>
     </div>
 
     <div class="rec-layout" id="rec-layout">

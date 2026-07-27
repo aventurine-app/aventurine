@@ -76,12 +76,28 @@ test('detectRecurringSeries: irregular gaps are rejected', () => {
   assert.deepStrictEqual(detectRecurringSeries(rows, { today: '2026-07-01' }), []);
 });
 
-test('detectRecurringSeries: a lapsed series (overdue beyond tolerance) is dropped entirely', () => {
+test('detectRecurringSeries: a lapsed series (overdue beyond the 90-day grace period) is dropped entirely', () => {
   const rows = [
     tx('2025-10-14'), tx('2025-11-14'), tx('2025-12-14'), tx('2026-01-14'),
   ];
-  // Next charge would've been ~2026-02-14; "today" is far past it + tolerance.
+  // Next charge would've been ~2026-02-14; "today" is 156 days past it.
   assert.deepStrictEqual(detectRecurringSeries(rows, { today: '2026-07-20' }), []);
+});
+
+test('detectRecurringSeries: a monthly series overdue past the cycle tolerance but within the 90-day grace period still shows', () => {
+  // Long-running monthly charge on the 20th; latest statement (July) hasn't
+  // been imported/posted yet, so "today" is 7 days past the expected next
+  // charge (July 20) — well beyond the 5-day monthly tolerance but nowhere
+  // near the 90-day lapsed cutoff. A missed/late statement shouldn't erase
+  // months of otherwise-perfect history from the calendar.
+  const rows = [
+    tx('2026-02-20'), tx('2026-03-20'), tx('2026-04-20'), tx('2026-05-20'), tx('2026-06-20'),
+  ];
+  const [s] = detectRecurringSeries(rows, { today: '2026-07-27' });
+  assert.ok(s, 'series still detected despite being 7 days overdue');
+  assert.equal(s.cycle, 'monthly');
+  assert.equal(s.last_date, '2026-06-20');
+  assert.equal(s.next_date, '2026-07-20');
 });
 
 test('detectRecurringSeries: multiple merchants sort soonest-due first', () => {

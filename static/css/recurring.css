@@ -3,8 +3,10 @@
 
    Page-scoped: restates the shared card chrome + "i" info-badge tooltip, same
    pattern as the other Reports pages (see reportcard.css/trends.css). Layout
-   is a two-column grid — calendar (left, ~67%) + list (right, ~33%) — that
-   collapses to one column under a narrow window.
+   is a two-column grid — calendar (left) + list (right), even split — that
+   collapses to one column under a narrow window. The confirm-dialog shell
+   (.confirm-*) and the ⋮ menu trigger (.p-menu-btn) this page's Add/Remove
+   flows use are shared globals now (style.css §7b) — nothing to restate here.
    ============================================================================ */
 
 .page:has(.rec-page) {
@@ -16,8 +18,7 @@
     flex-direction: column;
     gap: 20px;
     padding: var(--page-pad);
-    width: 1200px;
-    max-width: 100%;
+    width: 100%;
 }
 
 /* ─── Intro ───────────────────────────────────────────────────────────────── */
@@ -45,24 +46,14 @@
     font-variant-numeric: tabular-nums;
 }
 
-.rec-legend {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wide);
-    text-transform: uppercase;
-}
-.rec-legend-item { display: flex; align-items: center; gap: 6px; }
-.rec-legend .rec-dot { width: 12px; height: 12px; }
-
 /* ─── Layout ──────────────────────────────────────────────────────────────── */
+/* Even split, not the calendar's original 2:1 — the list now carries five
+   columns (merchant/type/cadence/amount/remove) instead of a plain
+   two-column readout, so it needs real width to keep the merchant name
+   legible next to four fixed-width controls. */
 .rec-layout {
     display: grid;
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: 1fr 1fr;
     align-items: start;
     gap: 24px;
     width: 100%;
@@ -158,11 +149,15 @@
    letter glyph + tooltip + click-to-identify secondary cues kick in. */
 .rec-dot-expense.rec-dot-actual { background: var(--accent-negative); color: var(--button-text); }
 .rec-dot-income.rec-dot-actual  { background: var(--accent-positive); color: var(--button-text); }
+.rec-dot-transfer.rec-dot-actual { background: var(--accent-info); color: var(--button-text); }
 .rec-dot-expense.rec-dot-projected {
     background: transparent; border: 2px dashed var(--accent-negative); color: var(--accent-negative);
 }
 .rec-dot-income.rec-dot-projected {
     background: transparent; border: 2px dashed var(--accent-positive); color: var(--accent-positive);
+}
+.rec-dot-transfer.rec-dot-projected {
+    background: transparent; border: 2px dashed var(--accent-info); color: var(--accent-info);
 }
 .rec-dot-selected {
     box-shadow: 0 0 0 2px var(--surface1), 0 0 0 4px var(--text-primary);
@@ -176,13 +171,16 @@
 }
 
 /* ─── List (table) ────────────────────────────────────────────────────────── */
+/* No padding on the card itself — the divider lines (th/td border-bottom)
+   need to span the FULL card width edge-to-edge. Content still gets the same
+   breathing room via padding on the first/last cell of each row instead
+   (below), so nothing looks tighter than before. */
 .rec-list {
     min-width: 0;
     border: var(--border-width) solid var(--border);
     border-radius: 8px;
     background: var(--surface1);
     box-shadow: var(--shadow-card);
-    padding: 8px;
     overflow-x: auto;
 }
 
@@ -198,7 +196,10 @@
     padding: 8px 10px;
     border-bottom: var(--border-width) solid var(--border);
 }
-.rec-table th.rec-col-amount { text-align: right; }
+.rec-table th.rec-col-type { width: 92px; }
+.rec-table th.rec-col-cadence { width: 104px; }
+.rec-table th.rec-col-amount { text-align: right; width: 96px; }
+.rec-table th.rec-col-remove { width: 34px; }
 
 .rec-row { cursor: pointer; }
 .rec-row:hover { background: var(--surface2); }
@@ -210,21 +211,17 @@
 }
 .rec-row:last-child td { border-bottom: none; }
 
+/* Edge padding — see the .rec-list comment above. */
+.rec-table th:first-child, .rec-row td:first-child { padding-left: 16px; }
+.rec-table th:last-child, .rec-row td:last-child { padding-right: 8px; }
+
 .rec-row-name {
     display: flex;
     align-items: center;
     gap: 8px;
     min-width: 0;
 }
-.rec-row-name .rec-dot { width: 20px; height: 20px; min-width: 20px; font-size: 10px; cursor: inherit; }
-.rec-row-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rec-row-merchant {
-    display: block;
-    color: var(--text-primary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    font-weight: var(--weight-medium);
-}
+.rec-row-label { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; }
 .rec-row-cycle {
     display: block;
     color: var(--text-tertiary);
@@ -232,15 +229,100 @@
     font-size: var(--size-micro);
 }
 
+/* ─── Editable fields ───────────────────────────────────────────────────────
+   Rows are pre-filled predictions, not read-only text — every field is a real
+   input the user can correct. The name reuses the borderless underline-on-
+   focus treatment Credit Cards' name field uses (a table cell, not a form, so
+   it shouldn't look boxed until touched); type/cadence/amount use the same
+   boxed control Credit Cards' other fields use, since a <select> and a
+   number need a clear click/type target. .rec-select is shared by both the
+   Type and Cadence dropdowns — same look, different `data-field`. */
+.rec-input-name {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    background: transparent;
+    border: none;
+    border-bottom: var(--border-width) solid transparent;
+    border-radius: 0;
+    padding: 1px 0 2px;
+    color: var(--text-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-medium);
+}
+.rec-input-name:hover { border-bottom-color: var(--frost-dim); }
+.rec-input-name:focus { border-bottom-color: var(--frost-focus); outline: none; }
+
+.rec-select {
+    width: 100%;
+    box-sizing: border-box;
+    height: var(--control-height);
+    background: var(--frost-2);
+    border: var(--border-width) solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    color: var(--text-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    cursor: pointer;
+}
+.rec-select:hover { background: var(--frost-3); }
+.rec-select:focus { border-color: var(--frost-focus); outline: none; }
+.rec-select option { background: var(--surface1); color: var(--text-primary); }
+
 .rec-amount {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+/* Same red/green/blue polarity the calendar dots use (see the .rec-dot
+   comment above) — with the legend gone, this pairing is what carries
+   direction now, so both surfaces stay unambiguous. Transfer reuses the
+   ledger's own transfer colour (--accent-info, see transactions.css
+   .tx-amount-transfer) rather than red/green — it's neither a gain nor a
+   spend. */
+.rec-amount-expense  { color: var(--accent-negative); }
+.rec-amount-income   { color: var(--accent-positive); }
+.rec-amount-transfer { color: var(--accent-info); }
+
+.rec-input-amount {
+    width: 90px;
+    box-sizing: border-box;
+    height: var(--control-height);
+    background: var(--frost-2);
+    border: var(--border-width) solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    color: inherit;
     text-align: right;
     font-family: var(--font-numeric);
     font-size: var(--size-small);
     font-variant-numeric: tabular-nums;
-    white-space: nowrap;
+    caret-color: var(--frost-caret);
 }
-.rec-amount-expense { color: var(--text-primary); }
-.rec-amount-income  { color: var(--accent-positive); }
+.rec-input-amount:hover { background: var(--frost-3); }
+.rec-input-amount:focus { border-color: var(--frost-focus); outline: none; }
+
+/* Remove button — same destructive treatment as Credit Cards' per-card ×
+   (light-red tint, deepens on hover), sized down for a table row. */
+.rec-remove-btn {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--accent-negative) 15%, transparent);
+    color: var(--accent-negative);
+    font-size: var(--size-h3);
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.rec-remove-btn:hover {
+    background: var(--accent-negative);
+    color: #fff;
+}
 
 .rec-empty-cell {
     padding: 40px 12px;
@@ -248,4 +330,55 @@
     color: var(--text-tertiary);
     font-family: var(--font-menu);
     font-size: var(--size-small);
+}
+
+/* ─── Add-schedule dialog ─────────────────────────────────────────────────── */
+.rec-add-dialog { width: 320px; }
+.rec-add-dialog p { margin: 0 0 16px; }
+
+.rec-add-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+.rec-add-label {
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wide);
+    text-transform: uppercase;
+}
+
+.rec-dialog-input {
+    width: 100%;
+    box-sizing: border-box;
+    height: var(--control-height);
+    background: var(--frost-2);
+    border: var(--border-width) solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-body);
+    caret-color: var(--frost-caret);
+}
+.rec-dialog-input:focus { border-color: var(--frost-focus); outline: none; }
+
+/* Themed date-picker glyph — matches .tx-input's fix (transactions.css): the
+   native glyph ignores color-scheme under Electron/Chromium and stays dark
+   in light mode without this. */
+.rec-dialog-input::-webkit-calendar-picker-indicator {
+    -webkit-appearance: none;
+            appearance: none;
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    background: var(--calendar-icon) center / contain no-repeat;
+}
+
+.rec-dialog-input.invalid,
+.rec-select.invalid {
+    border-color: var(--accent-negative);
 }

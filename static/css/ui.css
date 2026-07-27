@@ -170,6 +170,64 @@
 }
 
 
+/* ─── Merchant avatar ─────────────────────────────────────────────────────
+ * A deterministic colour + initials circle for a merchant label (avatar.js:
+ * merchantAvatarHtml). Global, not page-scoped, so every page that lists
+ * merchants — the Transactions ledger, the Recurring schedule table — renders
+ * the same merchant the same colour without a lookup table to maintain. No
+ * real merchant logos are bundled or fetched (offline, no network calls —
+ * see PRODUCT.md). */
+.avatar-circle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    font-family: var(--font-h3);
+    font-size: 11px;
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--track-normal);
+    user-select: none;
+    flex-shrink: 0;
+    color: #0b0b0b;
+}
+
+/* 8 fixed slots, same hue family as the dataviz skill's categorical palette
+   (references/palette.md) but re-stepped light/desaturated (not reused
+   as-is) — avatars are a calm identity cue, not a chart series that needs
+   full-saturation ink to carry meaning. Hues are evenly spaced (45° apart)
+   rather than the chart palette's hand-tuned angles: at this low a
+   saturation, hues that sit close together (e.g. the chart palette's red at
+   0.4° and orange at 17°) collapse into the same pale tone, so even spacing
+   is what keeps all 8 tell-apart-able. Every swatch in a theme now lands at
+   the same lightness, so — unlike the chart palette — one ink colour per
+   theme covers all 8 instead of a per-swatch pick. */
+.avatar-circle-0 { background: #bec7e4; } /* blue */
+.avatar-circle-1 { background: #e4dbbe; } /* orange */
+.avatar-circle-2 { background: #bee4e4; } /* aqua */
+.avatar-circle-3 { background: #d1e4be; } /* yellow */
+.avatar-circle-4 { background: #e4bedb; } /* magenta */
+.avatar-circle-5 { background: #bee4c7; } /* green */
+.avatar-circle-6 { background: #d1bee4; } /* violet */
+.avatar-circle-7 { background: #e4bebe; } /* red */
+
+/* Dark mode steps the same 8 hues to a muted mid-tone for the dark surface
+   (not a separate palette) — pastel-light would glow against a near-black
+   background, the opposite of "desaturated"; a darker, less saturated step
+   reads as calm there instead. Ink flips to white for all 8 (see light-mode
+   comment above for why one ink colour suffices). */
+html[data-theme="dark"] .avatar-circle { color: #ffffff; }
+html[data-theme="dark"] .avatar-circle-0 { background: #404e77; }
+html[data-theme="dark"] .avatar-circle-1 { background: #776a40; }
+html[data-theme="dark"] .avatar-circle-2 { background: #407777; }
+html[data-theme="dark"] .avatar-circle-3 { background: #5c7740; }
+html[data-theme="dark"] .avatar-circle-4 { background: #77406a; }
+html[data-theme="dark"] .avatar-circle-5 { background: #40774e; }
+html[data-theme="dark"] .avatar-circle-6 { background: #5c4077; }
+html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
+
+
 /* ─── Range selector ───────────────────────────────────────────────────────
  * The time-range dropdown used on the chart pages (Home, Spending Trends,
  * Forecast). Lives here, in the globally-loaded primitives, because it's shared
