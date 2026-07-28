@@ -1,7 +1,7 @@
 'use strict';
 
 // UI probe for the first-run onboarding flow. Boots the real app entry against
-// an isolated (fresh) userData dir, then drives Home → hero → account picker →
+// an isolated (fresh) userData dir, then drives Dashboard → hero → account picker →
 // import → "Here Is Your Import", capturing a screenshot at each step.
 //
 //   electron scratchpad/probe-onboarding.js
@@ -85,15 +85,15 @@ app.whenReady().then(async () => {
 
     // ── Step 1: the hero preempts the dashboard ──
     await sleep(600);
-    check('hero visible', await js('!document.getElementById("home-firstrun").hidden'));
+    check('hero visible', await js('!document.getElementById("dashboard-firstrun").hidden'));
     check('dashboard preempted',
-      await js('document.querySelectorAll(".home-panel.is-preempted").length === 2'));
+      await js('document.querySelectorAll(".dashboard-panel.is-preempted").length === 2'));
     check('hero is actually laid out (the [hidden] trap)',
-      await js('document.getElementById("home-firstrun").getBoundingClientRect().height > 100'));
+      await js('document.getElementById("dashboard-firstrun").getBoundingClientRect().height > 100'));
     await shot('01-hero');
 
     // ── Step 2: the account picker ──
-    await js('document.getElementById("home-firstrun-start").click()');
+    await js('document.getElementById("dashboard-firstrun-start").click()');
     await sleep(500);
     check('picker modal open', await js('!!document.querySelector(".onb-dialog .acct-tiles")'));
     const tiles = await js(`[...document.querySelectorAll('.acct-tile-name')].map(e => e.textContent)`);
@@ -264,8 +264,8 @@ app.whenReady().then(async () => {
     await js('document.querySelector(".onb-skip").click()');
     await sleep(2500);
     check('dashboard restored after finishing',
-      await js('document.querySelectorAll(".home-panel.is-preempted").length === 0'));
-    check('hero gone', await js('document.getElementById("home-firstrun") === null || document.getElementById("home-firstrun").hidden'));
+      await js('document.querySelectorAll(".dashboard-panel.is-preempted").length === 0'));
+    check('hero gone', await js('document.getElementById("dashboard-firstrun") === null || document.getElementById("dashboard-firstrun").hidden'));
     await shot('07-dashboard');
 
     // ── Step 7: the ORDINARY import now asks the same question, up front ──

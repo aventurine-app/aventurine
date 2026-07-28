@@ -62,7 +62,7 @@
   // apiFetch() near the bottom of this file. Nothing outside this file
   // reads FL_FIXTURES directly; pages only ever see it indirectly through
   // apiFetch()'s GET responses, so this data must independently satisfy the
-  // shape every consuming page/widget expects (Home, Trends, Report Card,
+  // shape every consuming page/widget expects (Dashboard, Trends, Report Card,
   // Transactions, Forecast, Portfolio, Credit Cards, Balance Sheet).
   // Just enough shape for every page to render: one year of sparse data.
   const year = new Date().getFullYear();
@@ -161,7 +161,7 @@
       ok: true, path: '(fixtures)', encrypted: false, locked: false,
       encryption_available: true,
     },
-    // static/js/pages/home.js and the Statements page (income/expense side)
+    // static/js/pages/dashboard.js and the Statements page (income/expense side)
     // — monthly income/expense/transfer grid, one row per month.
     '/api/data': {
       years: [year],
@@ -329,7 +329,7 @@
     // static/js/pages/transactions.js — "find similar" lookup used by the
     // bulk-recategorize action.
     '/api/transactions/similar': { transactions: [] },
-    // static/js/pages/home.js — badge count driving the "N transactions
+    // static/js/pages/dashboard.js — badge count driving the "N transactions
     // need a category" nudge on the dashboard.
     '/api/transactions/uncategorized-count': { count: 1 },
   };

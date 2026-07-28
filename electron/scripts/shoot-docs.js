@@ -317,8 +317,8 @@ app.whenReady().then(async () => {
     if (phase('firstrun')) {
       console.log('\n— first run —');
       await sleep(700);
-      await shotPage('firstrun-hero', '.home-firstrun');
-      await click('#home-firstrun-start');
+      await shotPage('firstrun-hero', '.dashboard-firstrun');
+      await click('#dashboard-firstrun-start');
       await sleep(600);
       await shotEl('firstrun-account-picker', '.onb-dialog');
       await js(`(() => {
@@ -359,7 +359,7 @@ app.whenReady().then(async () => {
     for (const c of cats.categories) { catId[c.key] = c.id; catName[c.key] = c.name; }
 
     const all = buildRows(catId);
-    const strip = (r) => { const { _account, ...rest } = r; return rest; };
+    const strip = (r) => { const rest = { ...r }; delete rest._account; return rest; };
     for (const which of ['checking', 'card']) {
       const rows = all.filter((r) => r._account === which).map(strip);
       const res = await post('/api/transactions/import', { rows, account_key: keys[which] });
@@ -393,20 +393,20 @@ app.whenReady().then(async () => {
         throw new Error('month cards did not render data: ' + JSON.stringify(filled));
       }
       await unhover();
-      await shotPage('dashboard-month-to-month', '.home-panel:not([hidden]) .home-card');
-      await shotEl('dashboard-month-stepper', '#home-month', 8);
-      await shotEl('dashboard-monthly-cash-flow', '.home-grid .home-card:nth-child(1)');
-      await shotEl('dashboard-capital-snapshot', '.home-grid .accounts-card');
-      await shotEl('dashboard-spending', '.home-grid .home-card:nth-child(3)');
+      await shotPage('dashboard-month-to-month', '.dashboard-panel:not([hidden]) .dashboard-card');
+      await shotEl('dashboard-month-stepper', '#dashboard-month', 8);
+      await shotEl('dashboard-monthly-cash-flow', '.dashboard-grid .dashboard-card:nth-child(1)');
+      await shotEl('dashboard-capital-snapshot', '.dashboard-grid .accounts-card');
+      await shotEl('dashboard-spending', '.dashboard-grid .dashboard-card:nth-child(3)');
 
-      await click('#home-tab-overtime');
+      await click('#dashboard-tab-overtime');
       await sleep(2600);
       await unhover();
-      await shotPage('dashboard-year-to-year', '.home-panel:not([hidden]) .home-card');
-      await shotEl('dashboard-range-picker', '#home-range', 8);
+      await shotPage('dashboard-year-to-year', '.dashboard-panel:not([hidden]) .dashboard-card');
+      await shotEl('dashboard-range-picker', '#dashboard-range', 8);
       await shotEl('dashboard-net-worth', '.networth-card');
-      await shotEl('dashboard-account-balances', '#home-panel-overtime .home-card:nth-child(2)');
-      await shotEl('dashboard-income-expenses', '#home-panel-overtime .home-card:nth-child(3)');
+      await shotEl('dashboard-account-balances', '#dashboard-panel-overtime .dashboard-card:nth-child(2)');
+      await shotEl('dashboard-income-expenses', '#dashboard-panel-overtime .dashboard-card:nth-child(3)');
     }
 
     // ═══ Phase 3: window chrome ══════════════════════════════════════════════
@@ -433,10 +433,6 @@ app.whenReady().then(async () => {
 
       // Two rows lifted verbatim from what is already in the ledger, so the
       // duplicate badges in the capture are real ones the app found.
-      const dupes = await js(`(() => {
-        const rows = window.__txAll || [];
-        return null;
-      })()`);
       const ledger = await js('apiFetch("/api/transactions").then(r => r.json())');
       const recent = ledger.transactions.filter((t) => t.date.startsWith(
         `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)).slice(0, 2);

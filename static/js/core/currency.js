@@ -31,7 +31,7 @@
 /**
  * Normalise a currency symbol to something safe to interpolate into HTML.
  * The symbol is read back from localStorage and flows, unescaped, into
- * innerHTML in several renderers (home.js, transactions.js, …). setter
+ * innerHTML in several renderers (dashboard.js, transactions.js, …). setter
  * enforces a 3-char cap, but a value placed in localStorage by any other
  * means (a prior bug, another tab, devtools) would bypass that — so we
  * re-sanitise at every read: strip the characters that carry markup

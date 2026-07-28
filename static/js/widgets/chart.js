@@ -2,10 +2,10 @@
 
 // ─── chart.js ────────────────────────────────────────────────────────────────
 // Shared hand-rolled multi-series SVG line chart, exposed as window.FinanceChart.
-// It's a faithful copy of the renderer the Home dashboard uses (home.js), lifted
+// It's a faithful copy of the renderer the Dashboard uses (dashboard.js), lifted
 // into a reusable module so other pages (Spending Trends, and later others) get
 // the identical frame, smoothing, nice-tick axis, entrance animation, and
-// responsive redraw — without a per-page copy. Home/forecast keep their own code
+// responsive redraw — without a per-page copy. Dashboard/forecast keep their own code
 // for now; they can migrate here later.
 //
 // Series shape:  [{ label, color, points: [{ year, monthIdx, value }] }]
@@ -100,7 +100,7 @@
     const yScale = (v) => PT + CH - ((v - minVal) / valRange) * CH;
     const rnd = Math.random().toString(36).slice(2, 9);
 
-    let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" class="home-chart${animate ? '' : ' chart-no-anim'}" style="display:block;">`;
+    let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" class="dashboard-chart${animate ? '' : ' chart-no-anim'}" style="display:block;">`;
 
     for (const v of yTicks) {
       const y = yScale(v);

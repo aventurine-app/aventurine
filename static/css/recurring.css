@@ -81,7 +81,7 @@
    180px sidebar and the page padding — an even split leaves the merchant name
    squeezed to a few characters long before either column is truly out of
    room, so one full-width column each is the better read well before then.
-   Same collapse-early call as .home-grid's 1200px breakpoint, a touch earlier
+   Same collapse-early call as .dashboard-grid's 1200px breakpoint, a touch earlier
    because this page's list is five columns wide. */
 @media (max-width: 1300px) {
     .rec-layout { grid-template-columns: 1fr; }
@@ -227,8 +227,18 @@
 .rec-table th.rec-col-remove { width: 34px; }
 
 .rec-row { cursor: pointer; }
-.rec-row:hover { background: var(--surface2); }
-.rec-row-selected { background: var(--surface2); }
+/* Hover uses surface3, not surface2: in the dark theme --surface2 resolves to
+   the same palette stop as --surface1 (the card fill underneath), so a
+   surface2 row was invisible there. surface3 is the "hover/prominent" rung and
+   is a real step away from the card in both themes.
+   Selection is an accent wash rather than another neutral rung — same
+   treatment (and same 24% mix) as .db-table td.cell-selected in tables.css, so
+   "selected" reads identically across the app and can't collide with a
+   neutral surface token in either theme. It has to out-specify :hover, since
+   the pointer is usually still over the row that was just clicked. */
+.rec-row:hover { background: var(--surface3); }
+.rec-row-selected,
+.rec-row-selected:hover { background: color-mix(in srgb, var(--accent-primary) 24%, transparent); }
 .rec-row td {
     padding: 10px;
     border-bottom: var(--border-width) solid var(--border);

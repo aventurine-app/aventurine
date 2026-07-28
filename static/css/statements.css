@@ -5,7 +5,7 @@
 
    The tables themselves are styled by tables.css; the page scroll shell is the
    standard `.page:has(.db-page)` one. The toolbar grid and segmented tab
-   control live in ui.css (shared with Home). This file owns the
+   control live in ui.css (shared with Dashboard). This file owns the
    statement-specific overrides only.
    Loads AFTER tables.css (see statements.html).
    ============================================================================ */

@@ -354,7 +354,7 @@ function importRows(ctx, { body }) {
 
       // Auto-create the Cash Flow *and* Balance Sheet year-tables for every year
       // this import touches (transaction years and balance-reading years alike),
-      // so imported history feeds the statement, Report Card, and Home with zero
+      // so imported history feeds the statement, Report Card, and Dashboard with zero
       // configuration (Cash Flow cells compute from transactions by default,
       // Balance Sheet cells seeded from these readings) and both /statements tabs
       // stay in step — a year that appears in one must appear in the other.

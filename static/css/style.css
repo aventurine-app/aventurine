@@ -238,7 +238,7 @@
    --dialog-surface:   var(--surface1);
    --dialog-stroke:    var(--border);
 
-   /* Segmented control (Statements/Home/Reports tabs) — a grey track holding
+   /* Segmented control (Statements/Dashboard/Reports tabs) — a grey track holding
       the options, outlined with the same hairline as every other bordered
       control, with the active option carrying the accent fill of a primary
       button (.button-primary in buttons.css). The track takes the sidebar
@@ -253,7 +253,7 @@
    --segctl-active:        var(--accent-primary);
    --segctl-active-text:   var(--button-text);
 
-   /* Toolbar controls (stepper label, Home's toolbar range picker) — these sit
+   /* Toolbar controls (stepper label, Dashboard's toolbar range picker) — these sit
       on the page background, where surface2 collides (both base-100), so they
       step one rung lighter to stay visible; dark keeps surface2 (themes.css).
       Card-header pickers keep surface2, which still contrasts on cards. */

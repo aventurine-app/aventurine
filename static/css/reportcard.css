@@ -1,7 +1,7 @@
 /* ============================================================================
    reportcard.css — Yearly Report Card (Reports) page.
 
-   Page-scoped: restates the shared card chrome (home.css is only loaded on Home)
+   Page-scoped: restates the shared card chrome (dashboard.css is only loaded on Dashboard)
    and the "i" info-badge tooltip (shared with the other Reports pages). One card
    per year, laid out in a responsive grid.
    ============================================================================ */

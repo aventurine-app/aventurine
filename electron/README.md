@@ -60,7 +60,7 @@ First launch creates this directory and seeds a fresh DB.
 
 ## What to validate
 
-- [ ] Electron window opens with the Home page rendered.
+- [ ] Electron window opens with the Dashboard page rendered.
 - [ ] Navigate to Income & Expenses; edit a cell.
 - [ ] Close and re-launch. Your edit from the previous run is still there.
 

@@ -86,7 +86,7 @@
 
     // ─── API ─────────────────────────────────────────────────────────────────────
 
-    // Every transaction write changes the computed Cash Flow cells that Home
+    // Every transaction write changes the computed Cash Flow cells that Dashboard
     // renders from the shared Store cache (store.js), so drop the 'ie' dataset
     // after each one — the next dashboard visit refetches instead of showing a
     // stale sessionStorage snapshot. Same pattern as tables.js makeYearTableApi.

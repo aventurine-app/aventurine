@@ -2,7 +2,7 @@
 
 // ─── Spending Trends (Reports) ────────────────────────────────────────────────
 // Plots each expense category's monthly spending over a trailing window, with
-// per-category toggles (like the Home charts).
+// per-category toggles (like the Dashboard charts).
 //
 // Data comes from GET /api/trends (monthly per-category expense sums). The chart
 // is the shared FinanceChart (chart.js).

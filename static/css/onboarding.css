@@ -4,7 +4,7 @@
      .acct-*      the account question — asked once, before the file dialog, in
                   identical words and shape in first-run and in a normal import
      .tx-found-*  the "Here Is Your Import" headline + uncategorized callout
-   Both pages that can import (Home during first run, Transactions) load this.
+   Both pages that can import (Dashboard during first run, Transactions) load this.
 
    Deliberately quiet: this is the first thing a new user sees, so it reads as an
    invitation with one obvious next step rather than a form to fill in. Overlay

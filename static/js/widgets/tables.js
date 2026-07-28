@@ -228,7 +228,7 @@
      * The shapes mirror the backend endpoints (electron/backend/routes.js) exactly.
      */
     // Map each API prefix to its Store dataset name. Writes through the API
-    // invalidate the matching cached dataset so that aggregator pages (Home,
+    // invalidate the matching cached dataset so that aggregator pages (Dashboard,
     // Insights, Yearly Review) never read stale data after the user edits a
     // tracker. Tracker pages themselves don't read through the Store yet — a
     // background revalidation arriving mid-edit would clobber focus/scroll.

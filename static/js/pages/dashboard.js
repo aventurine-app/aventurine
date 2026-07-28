@@ -1,6 +1,6 @@
 'use strict';
 
-// ─── Home dashboard ──────────────────────────────────────────────────────────
+// ─── Dashboard ───────────────────────────────────────────────────────────────
 // Two tab panels (ARIA tablist, same pattern as Cash Flow Reports):
 //
 // "This Month" — the monthly view, defaulting to the current month with a
@@ -83,7 +83,7 @@
 
     // ─── Accounts pie ────────────────────────────────────────────────────────────
     // Single donut summarising the balance sheet as of the month shown by the
-    // panel stepper (homeMonth). One slice per account type — Investments, Cash,
+    // panel stepper (dashboardMonth). One slice per account type — Investments, Cash,
     // Retirement, Debt — sized by the sum of each column's most recent value at
     // or before that month (carried forward via latestValueByColumn, so a
     // partially-filled month doesn't blank out accounts that were only updated
@@ -113,7 +113,7 @@
 
         const entries = data.entries || {};
         const columns = data.columns || [];
-        const curr    = latestValueByColumn(entries, homeMonth);
+        const curr    = latestValueByColumn(entries, dashboardMonth);
 
         if (Object.keys(curr).length === 0) {
             pieEl.style.display = 'none';
@@ -123,7 +123,7 @@
             const hasAnyData = Object.keys(latestValueByColumn(entries)).length > 0;
             legendEl.innerHTML = hasAnyData ? UI.emptyState({
                 icon: 'donut', compact: true,
-                title: `No balances by ${homeMonthLabel()}`,
+                title: `No balances by ${dashboardMonthLabel()}`,
                 desc: 'Your first recorded balance is in a later month — step forward to see your capital snapshot.',
             }) : UI.emptyState({
                 icon: 'donut', compact: true,
@@ -184,7 +184,7 @@
             // Arcs render at zero length (dasharray "0 C") and transition to
             // data-dash after insertion — a staggered clockwise sweep. The
             // transition is inline because the per-arc stagger delay must only
-            // apply to the dash, never to the opacity hover (home.css §6).
+            // apply to the dash, never to the opacity hover (dashboard.css §6).
             return `<circle class="donut-arc" cx="${cx}" cy="${cy}" r="${r}" fill="none"
             stroke="${s.color}" stroke-width="${sw}"
             stroke-dasharray="0 ${f2(C)}" data-dash="${f2(len)} ${f2(C - len)}"
@@ -227,7 +227,7 @@
         }).join('');
     }
 
-    // Both datasets flow through Store (store.js) so navigating away from Home
+    // Both datasets flow through Store (store.js) so navigating away from Dashboard
     // and back returns to a populated dashboard immediately, with a background
     // revalidation if anything changed elsewhere.
     const fetchBalanceData = () => Store.ensure('balance');
@@ -327,7 +327,7 @@
     // same entrance animation. Lines render as smoothed bezier curves with a
     // soft gradient fill underneath; frame chrome (grid/labels) uses theme
     // variables so the charts retone with the palette and stay legible in the
-    // light theme. Animation keyframes live in home.css §10.
+    // light theme. Animation keyframes live in dashboard.css §10.
 
     const CHART_RATIO = 200 / 800;
     const chartObservers = new Map();
@@ -428,10 +428,10 @@
         // on the area-fill linearGradient ids.
         const rnd = Math.random().toString(36).slice(2, 9);
 
-        let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" class="home-chart${animate ? '' : ' chart-no-anim'}" style="display:block;">`;
+        let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" class="dashboard-chart${animate ? '' : ' chart-no-anim'}" style="display:block;">`;
 
         // Horizontal grid + Y labels (right-aligned in the left gutter).
-        // Styling lives in home.css (.chart-grid / .chart-label) so the frame
+        // Styling lives in dashboard.css (.chart-grid / .chart-label) so the frame
         // chrome follows the theme instead of hard-coded dark-mode rgba values.
         for (const v of yTicks) {
             const y = yScale(v);
@@ -989,18 +989,18 @@
     // any earlier month; both charts follow it (no fetch: the month is sliced
     // out of the already-loaded dataset).
 
-    let homeMonth = (() => {
+    let dashboardMonth = (() => {
         const now = new Date();
         return { year: now.getFullYear(), monthIdx: now.getMonth() };
     })();
 
-    function isCurrentHomeMonth() {
+    function isCurrentDashboardMonth() {
         const now = new Date();
-        return homeMonth.year === now.getFullYear() && homeMonth.monthIdx === now.getMonth();
+        return dashboardMonth.year === now.getFullYear() && dashboardMonth.monthIdx === now.getMonth();
     }
 
-    function homeMonthLabel() {
-        return `${MONTHS[homeMonth.monthIdx]} ${homeMonth.year}`;
+    function dashboardMonthLabel() {
+        return `${MONTHS[dashboardMonth.monthIdx]} ${dashboardMonth.year}`;
     }
 
     // Monthly Cash Flow rows, in display order. Income leads on the base accent
@@ -1048,7 +1048,7 @@
         const xScale = v => PL + (v / maxVal) * CW;
         const plotBottom = PT + rows.length * BAND;
 
-        let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" class="home-chart${animate ? '' : ' chart-no-anim'}" style="display:block;">`;
+        let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" class="dashboard-chart${animate ? '' : ' chart-no-anim'}" style="display:block;">`;
 
         for (const v of xTicks) {
             const x = xScale(v);
@@ -1138,7 +1138,7 @@
             // Compact here — the Spending card below carries the tab's one CTA.
             container.innerHTML = UI.emptyState({
                 icon: 'chart', compact: true,
-                title: isCurrentHomeMonth() ? 'No activity this month yet' : `Nothing in ${homeMonthLabel()}`,
+                title: isCurrentDashboardMonth() ? 'No activity this month yet' : `Nothing in ${dashboardMonthLabel()}`,
                 desc: 'Transactions you import and figures you enter on your Cash Flow statement show up here as income, expenses, and transfers.',
             });
             return;
@@ -1151,7 +1151,7 @@
      * Build one inline SVG bar chart: one bar per category, value on the Y axis.
      * Shares the line charts' frame (same pad, grid, nice-tick axis, label
      * typography) so the Spending card lines up with everything else; the bars'
-     * grow-in entrance lives in home.css §11.
+     * grow-in entrance lives in dashboard.css §11.
      *
      *   bars: [{ label, color, value }] — in user category order, values > 0.
      *
@@ -1174,7 +1174,7 @@
         const yScale = v => PT + CH - (v / maxVal) * CH;
         const baseY  = PT + CH;
 
-        let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" class="home-chart${animate ? '' : ' chart-no-anim'}" style="display:block;">`;
+        let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" class="dashboard-chart${animate ? '' : ' chart-no-anim'}" style="display:block;">`;
 
         for (const v of yTicks) {
             const y = yScale(v);
@@ -1221,7 +1221,7 @@
 
         if (cats.length === 0) {
             chartObservers.get('spending-chart')?.disconnect();
-            container.innerHTML = isCurrentHomeMonth()
+            container.innerHTML = isCurrentDashboardMonth()
                 ? UI.emptyState({
                     icon: 'wallet',
                     title: 'No spending this month yet',
@@ -1230,7 +1230,7 @@
                 })
                 : UI.emptyState({
                     icon: 'search', compact: true,
-                    title: `Nothing in ${homeMonthLabel()}`,
+                    title: `Nothing in ${dashboardMonthLabel()}`,
                     desc: 'No expenses were recorded in this month.',
                 });
             return;
@@ -1257,7 +1257,7 @@
      * left-to-right order the Cash Flow statement shows).
      */
     function sliceStatementMonth(data) {
-        const cells = ((data.entries || {})[String(homeMonth.year)] || {})[MONTHS[homeMonth.monthIdx]] || {};
+        const cells = ((data.entries || {})[String(dashboardMonth.year)] || {})[MONTHS[dashboardMonth.monthIdx]] || {};
         const totals = { income: 0, expense: 0, transfer: 0 };
         // Per-type category breakdown (positive cells only, in column order) so
         // each Monthly Cash Flow bar can be drawn as its categories stacked.
@@ -1278,10 +1278,10 @@
     }
 
     async function renderMonthSection() {
-        const labelEl = document.getElementById('home-month-label');
-        const nextBtn = document.getElementById('home-month-next');
-        if (labelEl) labelEl.textContent = homeMonthLabel();
-        if (nextBtn) nextBtn.disabled = isCurrentHomeMonth();
+        const labelEl = document.getElementById('dashboard-month-label');
+        const nextBtn = document.getElementById('dashboard-month-next');
+        if (labelEl) labelEl.textContent = dashboardMonthLabel();
+        if (nextBtn) nextBtn.disabled = isCurrentDashboardMonth();
 
         let data = ieData;
         if (!data) {
@@ -1314,20 +1314,20 @@
 
     /** Step the monthly view back/forward. Forward stops at the current month
      *  (the next button is disabled there too — this is the belt to its braces). */
-    function shiftHomeMonth(delta) {
+    function shiftDashboardMonth(delta) {
         const now = new Date();
-        const target = homeMonth.year * 12 + homeMonth.monthIdx + delta;
+        const target = dashboardMonth.year * 12 + dashboardMonth.monthIdx + delta;
         if (target > now.getFullYear() * 12 + now.getMonth()) return;
-        homeMonth = { year: Math.floor(target / 12), monthIdx: ((target % 12) + 12) % 12 };
+        dashboardMonth = { year: Math.floor(target / 12), monthIdx: ((target % 12) + 12) % 12 };
         renderMonthSection();
     }
 
     function wireMonthStepper() {
-        const prev  = document.getElementById('home-month-prev');
-        const next  = document.getElementById('home-month-next');
-        const label = document.getElementById('home-month-label');
-        if (prev) prev.addEventListener('click', () => shiftHomeMonth(-1));
-        if (next) next.addEventListener('click', () => shiftHomeMonth(1));
+        const prev  = document.getElementById('dashboard-month-prev');
+        const next  = document.getElementById('dashboard-month-next');
+        const label = document.getElementById('dashboard-month-label');
+        if (prev) prev.addEventListener('click', () => shiftDashboardMonth(-1));
+        if (next) next.addEventListener('click', () => shiftDashboardMonth(1));
         // The label opens a picker of the last 12 months (the arrows still reach
         // further back); the displayed month is marked as current.
         if (label) label.addEventListener('click', e => {
@@ -1339,8 +1339,8 @@
                 const year = Math.floor(t / 12), monthIdx = ((t % 12) + 12) % 12;
                 items.push({
                     label: `${MONTHS[monthIdx]} ${year}`,
-                    selected: year === homeMonth.year && monthIdx === homeMonth.monthIdx,
-                    action: () => { homeMonth = { year, monthIdx }; renderMonthSection(); },
+                    selected: year === dashboardMonth.year && monthIdx === dashboardMonth.monthIdx,
+                    action: () => { dashboardMonth = { year, monthIdx }; renderMonthSection(); },
                 });
             }
             UI.openMenu(label, items);
@@ -1357,11 +1357,11 @@
      * ResizeObserver fires when the container gains a width.
      */
     function wireTabs() {
-        const tablist = document.querySelector('.home-tabs');
+        const tablist = document.querySelector('.dashboard-tabs');
         if (!tablist) return;
 
-        const tabs = Array.from(tablist.querySelectorAll('.home-tab'));
-        const panels = Array.from(document.querySelectorAll('.home-panel'));
+        const tabs = Array.from(tablist.querySelectorAll('.dashboard-tab'));
+        const panels = Array.from(document.querySelectorAll('.dashboard-panel'));
         if (!tabs.length) return;
 
         function select(tab, focus) {
@@ -1376,15 +1376,15 @@
             // The month stepper and the range picker share the toolbar row
             // (outside the panels) but each scopes one panel's cards — show
             // whichever matches the active tab.
-            const stepper = document.getElementById('home-month');
+            const stepper = document.getElementById('dashboard-month');
             if (stepper) stepper.hidden = id !== 'month';
-            const rangeSel = document.getElementById('home-range');
+            const rangeSel = document.getElementById('dashboard-range');
             if (rangeSel) rangeSel.hidden = id !== 'overtime';
             if (focus) tab.focus();
         }
 
         tablist.addEventListener('click', (e) => {
-            const tab = e.target.closest('.home-tab');
+            const tab = e.target.closest('.dashboard-tab');
             if (tab) select(tab);
         });
 
@@ -1409,7 +1409,7 @@
     /** Inject loading skeletons into the dashboard's chart and list slots. Shown
      *  only when the data fetch outlasts the skeletonGuard delay (cold loads);
      *  warm cached loads render straight to content with no flash (see store.js). */
-    function showHomeSkeletons() {
+    function showDashboardSkeletons() {
         const fill = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
         fill('networth-chart',  UI.skChart(220));
         fill('ie-chart',        UI.skChart(220));
@@ -1429,7 +1429,7 @@
     // dashboard comes back with its own per-card empty states, each pointing at
     // the surface it belongs to.
     async function maybeOfferOnboarding() {
-        const hero = document.getElementById('home-firstrun');
+        const hero = document.getElementById('dashboard-firstrun');
         if (!hero || !window.Onboarding) return;
 
         let state;
@@ -1446,12 +1446,12 @@
             hero.hidden = !on;
             // The stepper/tabs and both panels scope the dashboard; while the
             // hero stands in for them they'd only offer controls over nothing.
-            document.querySelectorAll('.home-toolbar, .home-panel')
+            document.querySelectorAll('.dashboard-toolbar, .dashboard-panel')
                 .forEach(el => el.classList.toggle('is-preempted', on));
         };
         setHero(true);
 
-        document.getElementById('home-firstrun-skip').addEventListener('click', async () => {
+        document.getElementById('dashboard-firstrun-skip').addEventListener('click', async () => {
             setHero(false);
             try {
                 await apiFetch('/api/app-settings/onboarding_dismissed', {
@@ -1464,7 +1464,7 @@
             }
         });
 
-        document.getElementById('home-firstrun-start').addEventListener('click', () => {
+        document.getElementById('dashboard-firstrun-start').addEventListener('click', () => {
             Onboarding.start({
                 onFinished: ({ imported }) => {
                     setHero(false);
@@ -1489,16 +1489,16 @@
         // Kick this off first so the "This Month" panel loads alongside the
         // Over Time charts (its statement fetch is deduped with the one below).
         renderMonthSection();
-        const cancelSkeletons = UI.skeletonGuard(showHomeSkeletons);
+        const cancelSkeletons = UI.skeletonGuard(showDashboardSkeletons);
         const [balanceData, ieDataFetched] = await Promise.all([fetchBalanceData(), fetchIEData()]);
         cancelSkeletons();
         appData = balanceData;
         ieData  = ieDataFetched;
         renderNetworthSection(appData);
         renderIEChart(ieData);
-        wireRangePicker('home-range-btn', 'home-range-menu', range => {
+        wireRangePicker('dashboard-range-btn', 'dashboard-range-menu', range => {
             overtimeRange = range;
-            const btn = document.getElementById('home-range-btn');
+            const btn = document.getElementById('dashboard-range-btn');
             if (btn) btn.textContent = RANGE_LABELS[range];
             renderNetworthSection(appData);
             renderIEChart(ieData);

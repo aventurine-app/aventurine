@@ -134,7 +134,7 @@ function entryDelete(ctx, { body }) {
  * default, so creating the year is all it takes for that year's activity to
  * appear. Shared by the "+ year" endpoint and the transaction importer (an
  * import auto-creates the years it touches, so imported history feeds the
- * statement, Report Card, and Home with zero configuration). Returns true
+ * statement, Report Card, and Dashboard with zero configuration). Returns true
  * when the year was created.
  */
 function ensureActiveYear(db, year) {

@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Aventurine | Home</title>
+    <title>Aventurine | Dashboard</title>
     <!-- @include head -->
-    <link rel="stylesheet" href="/static/css/home.css">
+    <link rel="stylesheet" href="/static/css/dashboard.css">
     <!-- First-run setup runs the ordinary import flow inside its own modal, so
-         Home carries the import widget's styles too (transactions.css owns the
+         Dashboard carries the import widget's styles too (transactions.css owns the
          .tx-import-* modal shell; onboarding.css owns .onb-* and the shared
          import-results digest). -->
     <link rel="stylesheet" href="/static/css/transactions.css">
@@ -20,71 +20,71 @@
 
         <div class="page">
 
-<div class="home-page">
+<div class="dashboard-page">
 
     <!-- First-run hero. Replaces the dashboard only while the database holds
          nothing the user put there and they haven't waved setup off (both
          answered by GET /api/onboarding). Hidden by default so a database with
          data never flashes it before the check resolves; maybeOfferOnboarding()
-         in home.js reveals it. Skipping removes it and shows the ordinary
+         in dashboard.js reveals it. Skipping removes it and shows the ordinary
          dashboard, whose own empty states lead into each surface. -->
-    <div class="home-firstrun" id="home-firstrun" hidden>
-        <div class="home-firstrun-card">
-            <h1 class="home-firstrun-title">Your dashboard is empty — let’s fix that</h1>
-            <p class="home-firstrun-sub">Point Aventurine at one transaction export and it
+    <div class="dashboard-firstrun" id="dashboard-firstrun" hidden>
+        <div class="dashboard-firstrun-card">
+            <h1 class="dashboard-firstrun-title">Your dashboard is empty — let’s fix that</h1>
+            <p class="dashboard-firstrun-sub">Point Aventurine at one transaction export and it
                 builds your ledger, statements, and charts from it. Everything is read and
                 categorized on this computer; nothing is uploaded.</p>
-            <div class="home-firstrun-actions">
-                <button type="button" class="button-primary" id="home-firstrun-start">Set up my accounts</button>
-                <button type="button" class="home-firstrun-skip" id="home-firstrun-skip">Skip for now</button>
+            <div class="dashboard-firstrun-actions">
+                <button type="button" class="button-primary" id="dashboard-firstrun-start">Set up my accounts</button>
+                <button type="button" class="dashboard-firstrun-skip" id="dashboard-firstrun-skip">Skip for now</button>
             </div>
         </div>
     </div>
 
 
     <!-- Toolbar: month stepper far left, segmented view tabs far right
-         (layout in home.css; the tab control itself is shared with Statements
+         (layout in dashboard.css; the tab control itself is shared with Statements
          via ui.css). Same ARIA tablist pattern as Cash Flow Reports: a
-         .home-tab button here + a matching .home-panel[data-panel] below.
-         Controller: wireTabs() in home.js. -->
-    <div class="home-toolbar">
+         .dashboard-tab button here + a matching .dashboard-panel[data-panel] below.
+         Controller: wireTabs() in dashboard.js. -->
+    <div class="dashboard-toolbar">
         <!-- The stepper scopes every card on the Month to Month panel: current
              month by default, arrows walk back to any earlier month; clicking
              the label opens a recent-months picker. wireTabs() hides it while
              Year to Year is active (those cards have their own range pickers). -->
-        <div class="stepper" id="home-month" aria-label="Dashboard month">
-            <button class="stepper-btn button-primary" id="home-month-prev" type="button" aria-label="Previous month">&#8249;</button>
-            <button class="stepper-label" id="home-month-label" type="button" aria-live="polite"
+        <div class="stepper" id="dashboard-month" aria-label="Dashboard month">
+            <button class="stepper-btn button-primary" id="dashboard-month-prev" type="button" aria-label="Previous month">&#8249;</button>
+            <button class="stepper-label" id="dashboard-month-label" type="button" aria-live="polite"
                 aria-haspopup="menu" title="Choose month">&nbsp;</button>
-            <button class="stepper-btn button-primary" id="home-month-next" type="button" aria-label="Next month" disabled>&#8250;</button>
+            <button class="stepper-btn button-primary" id="dashboard-month-next" type="button" aria-label="Next month" disabled>&#8250;</button>
         </div>
         <!-- One range picker scoping every card on the Year to Year panel
              (the stepper's counterpart: wireTabs() swaps which one shows). -->
-        <div class="range-selector" id="home-range" hidden>
-            <button class="range-selector-btn" id="home-range-btn" type="button">This Year</button>
-            <div class="range-selector-menu" id="home-range-menu" hidden>
+        <div class="range-selector" id="dashboard-range" hidden>
+            <button class="range-selector-btn" id="dashboard-range-btn" type="button">This Year</button>
+            <div class="range-selector-menu" id="dashboard-range-menu" hidden>
                 <button data-range="year"   type="button">This Year</button>
                 <button data-range="12mo"   type="button">Last 12 Months</button>
                 <button data-range="24mo"   type="button">Last 24 Months</button>
                 <button data-range="5yr"    type="button">Last 5 Years</button>
             </div>
         </div>
-        <div class="home-tabs" role="tablist" aria-label="Home dashboard views">
-            <button type="button" class="home-tab active" id="home-tab-month" role="tab"
-                data-tab="month" aria-controls="home-panel-month" aria-selected="true">Month to Month</button>
-            <button type="button" class="home-tab" id="home-tab-overtime" role="tab"
-                data-tab="overtime" aria-controls="home-panel-overtime" aria-selected="false" tabindex="-1">Year to Year</button>
+        <div class="dashboard-tabs" role="tablist" aria-label="Dashboard views">
+            <button type="button" class="dashboard-tab active" id="dashboard-tab-month" role="tab"
+                data-tab="month" aria-controls="dashboard-panel-month" aria-selected="true">Month to Month</button>
+            <button type="button" class="dashboard-tab" id="dashboard-tab-overtime" role="tab"
+                data-tab="overtime" aria-controls="dashboard-panel-overtime" aria-selected="false" tabindex="-1">Year to Year</button>
         </div>
     </div>
 
-    <div class="home-panel" id="home-panel-month" role="tabpanel"
-        data-panel="month" aria-labelledby="home-tab-month" tabindex="0">
+    <div class="dashboard-panel" id="dashboard-panel-month" role="tabpanel"
+        data-panel="month" aria-labelledby="dashboard-tab-month" tabindex="0">
 
-    <div class="home-grid">
+    <div class="dashboard-grid">
 
-            <div class="home-card">
-                <div class="home-card-header">
-                    <span class="home-card-title">Monthly Cash Flow<span class="fc-info" tabindex="0" role="note"
+            <div class="dashboard-card">
+                <div class="dashboard-card-header">
+                    <span class="dashboard-card-title">Monthly Cash Flow<span class="fc-info" tabindex="0" role="note"
                         aria-label="Where the shown month's money went: total income, expenses, and transfers from your transactions ledger. Transfers are money moved to your own savings or brokerage accounts — neither income nor spending."
                         data-tip="Where the shown month's money went: total income, expenses, and transfers from your transactions ledger. Transfers are money moved to your own savings or brokerage accounts — neither income nor spending.">i</span></span>
                 </div>
@@ -93,9 +93,9 @@
                 </div>
             </div>
 
-            <div class="home-card accounts-card">
-                <div class="home-card-header">
-                    <span class="home-card-title">Capital Snapshot</span>
+            <div class="dashboard-card accounts-card">
+                <div class="dashboard-card-header">
+                    <span class="dashboard-card-title">Capital Snapshot</span>
                 </div>
                 <div class="accounts-body">
                     <div id="accounts-legend" class="accounts-legend"></div>
@@ -103,9 +103,9 @@
                 </div>
             </div>
 
-            <div class="home-card">
-                <div class="home-card-header">
-                    <span class="home-card-title">Spending<span class="fc-info" tabindex="0" role="note"
+            <div class="dashboard-card">
+                <div class="dashboard-card-header">
+                    <span class="dashboard-card-title">Spending<span class="fc-info" tabindex="0" role="note"
                         aria-label="What you've spent in each category in the shown month, from your transactions ledger."
                         data-tip="What you've spent in each category in the shown month, from your transactions ledger.">i</span></span>
                 </div>
@@ -116,16 +116,16 @@
 
     </div>
 
-    </div><!-- /.home-panel -->
+    </div><!-- /.dashboard-panel -->
 
-    <div class="home-panel" id="home-panel-overtime" role="tabpanel"
-        data-panel="overtime" aria-labelledby="home-tab-overtime" tabindex="0" hidden>
+    <div class="dashboard-panel" id="dashboard-panel-overtime" role="tabpanel"
+        data-panel="overtime" aria-labelledby="dashboard-tab-overtime" tabindex="0" hidden>
 
-    <div class="home-grid">
+    <div class="dashboard-grid">
 
-            <div class="home-card networth-card">
-                <div class="home-card-header">
-                    <span class="home-card-title">Net Worth<span class="fc-info" tabindex="0" role="note"
+            <div class="dashboard-card networth-card">
+                <div class="dashboard-card-header">
+                    <span class="dashboard-card-title">Net Worth<span class="fc-info" tabindex="0" role="note"
                         aria-label="Your Balance Sheet's most recent value for each account, added up — cash, investment, and retirement accounts minus debt. Every account contributes its latest recorded balance, even if from an earlier month."
                         data-tip="Your Balance Sheet's most recent value for each account, added up — cash, investment, and retirement accounts minus debt. Every account contributes its latest recorded balance, even if from an earlier month.">i</span></span>
                 </div>
@@ -138,9 +138,9 @@
                 </div>
             </div>
 
-            <div class="home-card">
-                <div class="home-card-header">
-                    <span class="home-card-title">Account Balances</span>
+            <div class="dashboard-card">
+                <div class="dashboard-card-header">
+                    <span class="dashboard-card-title">Account Balances</span>
                 </div>
                 <div id="account-selector" class="account-selector"></div>
                 <div class="chart-area">
@@ -148,9 +148,9 @@
                 </div>
             </div>
 
-            <div class="home-card">
-                <div class="home-card-header">
-                    <span class="home-card-title">Income & Expenses</span>
+            <div class="dashboard-card">
+                <div class="dashboard-card-header">
+                    <span class="dashboard-card-title">Income & Expenses</span>
                 </div>
                 <div id="ie-selector" class="account-selector"></div>
                 <div class="chart-area">
@@ -160,7 +160,7 @@
 
     </div>
 
-    </div><!-- /.home-panel -->
+    </div><!-- /.dashboard-panel -->
 
 </div>
         </div>
@@ -170,6 +170,6 @@
     <script src="/static/js/widgets/txparse.js"></script>
     <script src="/static/js/widgets/txfileimport.js"></script>
     <script src="/static/js/widgets/onboarding.js"></script>
-    <script src="/static/js/pages/home.js"></script>
+    <script src="/static/js/pages/dashboard.js"></script>
 </body>
 </html>

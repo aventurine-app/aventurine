@@ -9,7 +9,7 @@
 // planned-items CRUD form.
 //
 // The chart is a self-contained inline-SVG renderer (single weekly series) —
-// deliberately not shared with home.js's multi-series renderer yet; see the
+// deliberately not shared with dashboard.js's multi-series renderer yet; see the
 // plan's charting note. It uses the same .chart-* class hooks, styled locally
 // in forecast.css.
 //
@@ -28,7 +28,7 @@
     editing: null,        // planned-item id being edited, or null
   };
 
-  // ─── Currency formatting (mirrors home.js's compact axis/tooltip helpers) ────
+  // ─── Currency formatting (mirrors dashboard.js's compact axis/tooltip helpers) ────
   function fmtMoney(n) {
     return formatCurrency(n, true);
   }
@@ -189,7 +189,7 @@
     return ticks;
   }
 
-  /** Catmull-Rom → bezier smoothing (same construction as home.js). */
+  /** Catmull-Rom → bezier smoothing (same construction as dashboard.js). */
   function smoothPath(pts) {
     const f = (n) => Math.round(n * 100) / 100;
     if (pts.length < 3) return pts.map((p, i) => `${i ? 'L' : 'M'} ${f(p.x)} ${f(p.y)}`).join(' ');

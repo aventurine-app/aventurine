@@ -1,6 +1,6 @@
 'use strict';
 
-// Recurring-expense detection for the Home page "Upcoming Expenses" card —
+// Recurring-expense detection for the Dashboard page "Upcoming Expenses" card —
 // faithful port of services/predictions.py. Pure functions over already-loaded
 // rows; only .date (ISO string) / .description / .amount are touched. DB access
 // stays in the handler.

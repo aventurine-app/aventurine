@@ -229,9 +229,9 @@ html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
 
 
 /* ─── Range selector ───────────────────────────────────────────────────────
- * The time-range dropdown used on the chart pages (Home, Spending Trends,
+ * The time-range dropdown used on the chart pages (Dashboard, Spending Trends,
  * Forecast). Lives here, in the globally-loaded primitives, because it's shared
- * across pages — previously it was copy-pasted into home.css, trends.css and
+ * across pages — previously it was copy-pasted into dashboard.css, trends.css and
  * forecast.css (each page CSS loads alone, so the duplication was the only way
  * to reach all three before this file existed for them). */
 .range-selector { position: relative; }
@@ -251,13 +251,13 @@ html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
 /* ─── Dropdown menu (UI.openMenu) ──────────────────────────────────────────
  * Anchored absolute into the opener's parent: the ⋮ table menus (tables.js),
  * the stepper month/year pickers and the range selector share it. Moved here
- * from tables.css so pages without tables (Home) get it too. */
+ * from tables.css so pages without tables (Dashboard) get it too. */
 .p-table-dropdown, .range-selector-menu {
     position: absolute;
     top: calc(100% + 4px);
     right: 0;
     /* Right-aligned by default — suits the ⋮ openers near the right edge. The
-     * stepper pickers (Statements year, Home month) sit at the far left of the
+     * stepper pickers (Statements year, Dashboard month) sit at the far left of the
      * page instead, where their narrow button hugs the .page overflow edge next
      * to the sidebar; a right-aligned menu would spill left off that scroll box
      * and be clipped under the nav. Left-align them so they open into the page.
@@ -328,12 +328,12 @@ html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
     color: var(--accent-negative);
 }
 
-.home-panel[hidden], .rep-panel[hidden], .stmt-panel[hidden] { display: none; }
-.home-panel:focus, .rep-panel:focus, .stmt-panel:focus { outline: none; }
+.dashboard-panel[hidden], .rep-panel[hidden], .stmt-panel[hidden] { display: none; }
+.dashboard-panel:focus, .rep-panel:focus, .stmt-panel:focus { outline: none; }
 
 /* ─── Segmented tab control + toolbar row ───────────────────────────────────
- * Shared by Statements (.stmt-*), Home (.home-*), and Reports (.rep-*).
- * Moved here from statements.css when Home adopted it.
+ * Shared by Statements (.stmt-*), Dashboard (.dashboard-*), and Reports (.rep-*).
+ * Moved here from statements.css when Dashboard adopted it.
  *
  * The tabs are a segmented control: a hairline-outlined grey track holding both
  * labels, with the active one filled in the accent — the same fill/text pair
@@ -342,14 +342,14 @@ html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
  *
  * The toolbar row layouts differ per page and live in each page's stylesheet:
  * Statements (statements.css) pins its year stepper dead-center between the
- * tabs and the ⋮ menu; Home (home.css) puts the month stepper far left and
+ * tabs and the ⋮ menu; Dashboard (dashboard.css) puts the month stepper far left and
  * the tabs far right. */
 
 /* The stepper is display:flex, which beats the UA's [hidden] { display: none }
- * — restate it at author level (Home hides its month stepper on Year to Year). */
+ * — restate it at author level (Dashboard hides its month stepper on Year to Year). */
 .stepper[hidden] { display: none; }
 
-.stmt-tabs, .home-tabs, .rep-tabs {
+.stmt-tabs, .dashboard-tabs, .rep-tabs {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -366,7 +366,7 @@ html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
 /* Type + box tokens mirror the action-button shape (buttons.css) — same
    32px control height, uppercase micro type — so the segments read as
    siblings of the other 32px controls across the row. */
-.stmt-tab, .home-tab, .rep-tab {
+.stmt-tab, .dashboard-tab, .rep-tab {
     appearance: none;
     background: transparent;
     /* Transparent hairline reserves the active tab's border so the label never
@@ -392,7 +392,7 @@ html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
 
 /* One stop along the base ramp from the track, rather than a translucent frost
    tint — an opaque rung reads the same wherever the toolbar sits. */
-.stmt-tab:hover, .home-tab:hover, .rep-tab:hover {
+.stmt-tab:hover, .dashboard-tab:hover, .rep-tab:hover {
     color: var(--text-primary);
     background: var(--segctl-hover);
 }
@@ -401,14 +401,14 @@ html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
    track that width change would shove the sibling tab sideways. The accent fill
    carries the selected state on its own. */
 .stmt-tab.active, .stmt-tab[aria-selected="true"],
-.home-tab.active, .home-tab[aria-selected="true"],
+.dashboard-tab.active, .dashboard-tab[aria-selected="true"],
 .rep-tab.active, .rep-tab[aria-selected="true"] {
     color: var(--segctl-active-text);
     background: var(--segctl-active);
     border-color: var(--segctl-active);
 }
 
-.stmt-tab:focus-visible, .home-tab:focus-visible, .rep-tab:focus-visible {
+.stmt-tab:focus-visible, .dashboard-tab:focus-visible, .rep-tab:focus-visible {
     outline: 2px solid var(--color-accent-400);
     outline-offset: -2px;
 }
@@ -416,13 +416,13 @@ html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
 /* Inset on an accent fill, the accent ring vanishes — draw the active tab's
    ring in the label colour instead. */
 .stmt-tab.active:focus-visible, .stmt-tab[aria-selected="true"]:focus-visible,
-.home-tab.active:focus-visible, .home-tab[aria-selected="true"]:focus-visible,
+.dashboard-tab.active:focus-visible, .dashboard-tab[aria-selected="true"]:focus-visible,
 .rep-tab.active:focus-visible, .rep-tab[aria-selected="true"]:focus-visible {
     outline-color: var(--segctl-active-text);
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .stmt-tab, .home-tab, .rep-tab { transition: none; }
+    .stmt-tab, .dashboard-tab, .rep-tab { transition: none; }
 }
 
 /* The current choice in picker-style menus (stepper month/year). */
@@ -432,8 +432,8 @@ html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
 }
 
 /* ─── Stepper (‹ label ›) ──────────────────────────────────────────────────
- * Prev/label/next picker — Home's month stepper and Statements' year stepper.
- * Moved here from home.css when Statements adopted it. The label is a button:
+ * Prev/label/next picker — Dashboard's month stepper and Statements' year stepper.
+ * Moved here from dashboard.css when Statements adopted it. The label is a button:
  * clicking it opens a UI.openMenu picker, and it shares its rules outright with
  * the range selector (see below). */
 .stepper {

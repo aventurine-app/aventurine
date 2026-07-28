@@ -1,5 +1,5 @@
 /* ============================================================================
-   home.css — Dashboard page (Home).
+   dashboard.css — Dashboard page.
    ============================================================================
    All typography flows through the tokens defined in style.css §2 (sizes,
    weights, line-heights, tracking). Card titles compose the standard
@@ -22,13 +22,13 @@
 
 
 /* ─── 1. Page layout ─────────────────────────────────────────────────────── */
-.page:has(.home-page) {
+.page:has(.dashboard-page) {
     align-items: flex-start;
     padding: var(--page-pad);
     box-sizing: border-box;
 }
 
-.home-page {
+.dashboard-page {
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -37,7 +37,7 @@
 
 /* ─── First-run hero ──────────────────────────────────────────────────────────
    Shown INSTEAD of the dashboard while the database holds nothing the user put
-   there (home.js maybeOfferOnboarding). The dashboard's controls and panels are
+   there (dashboard.js maybeOfferOnboarding). The dashboard's controls and panels are
    marked .is-preempted rather than removed, so skipping restores them without a
    reload — and so a database with data never has to wait on the check.
 
@@ -45,7 +45,7 @@
    to look at, and every empty chart behind it is noise. */
 .is-preempted { display: none !important; }
 
-.home-firstrun {
+.dashboard-firstrun {
     display: flex;
     justify-content: center;
     padding: clamp(16px, 6vh, 64px) 0;
@@ -54,14 +54,14 @@
 /* The display:flex above outranks the UA's [hidden] rule, so the attribute
    needs an explicit override (same trap buttons.css documents). Without this the
    hero would render for every user, on every page load. */
-.home-firstrun[hidden] { display: none; }
+.dashboard-firstrun[hidden] { display: none; }
 
-.home-firstrun-card {
+.dashboard-firstrun-card {
     max-width: 560px;
     text-align: center;
 }
 
-.home-firstrun-title {
+.dashboard-firstrun-title {
     margin: 0 0 12px;
     color: var(--text-primary);
     font-family: var(--font-h1);
@@ -70,7 +70,7 @@
     line-height: var(--lh-snug);
 }
 
-.home-firstrun-sub {
+.dashboard-firstrun-sub {
     margin: 0 auto;
     max-width: 46ch;
     color: var(--text-secondary);
@@ -79,7 +79,7 @@
     line-height: var(--lh-relaxed);
 }
 
-.home-firstrun-actions {
+.dashboard-firstrun-actions {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -89,7 +89,7 @@
 
 /* Skipping stays visible and cheap — an onboarding you can't leave contradicts
    "five minutes a month, then it leaves you alone". */
-.home-firstrun-skip {
+.dashboard-firstrun-skip {
     background: none;
     border: none;
     padding: 8px 4px;
@@ -101,29 +101,29 @@
     transition: color 0.15s ease;
 }
 
-.home-firstrun-skip:hover { color: var(--text-primary); text-decoration: underline; }
+.dashboard-firstrun-skip:hover { color: var(--text-primary); text-decoration: underline; }
 
 /* Toolbar row — month stepper (Month to Month) or range picker (Year to
    Year) far left, view tabs far right. The segmented tab control itself is
    shared with Statements via ui.css. margin-left:auto (not space-between)
    pins the tabs right, so they stay put when the left control swaps. */
-.home-toolbar {
+.dashboard-toolbar {
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
-.home-toolbar .home-tabs { margin-left: auto; }
+.dashboard-toolbar .dashboard-tabs { margin-left: auto; }
 
 /* The shared .range-selector-menu (ui.css) right-aligns to its button — made
    for pickers on a card header's right edge. This instance sits at the row's
    LEFT edge, where a rightward-anchored menu grows off the content area, so
    anchor it left instead. */
-#home-range .range-selector-menu { right: auto; left: 0; }
+#dashboard-range .range-selector-menu { right: auto; left: 0; }
 
 /* Both panels: cards in a 2×2 grid of equal-width columns, as direct grid
    children. An odd card count leaves the last cell empty. */
-.home-grid {
+.dashboard-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     align-items: stretch;
@@ -131,7 +131,7 @@
 }
 
 @media (max-width: 1200px) {
-    .home-grid { grid-template-columns: 1fr; }
+    .dashboard-grid { grid-template-columns: 1fr; }
 }
 
 
@@ -140,7 +140,7 @@
    card via margin-top: auto. When the grid row stretches a card taller than
    its content (driven by a taller neighbour), the chart pins to the bottom
    edge instead of floating below the header. */
-.home-card {
+.dashboard-card {
     min-width: 0;
     border: var(--border-width) solid var(--border);
     border-radius: 8px;
@@ -153,7 +153,7 @@
 
 
 /* ─── 3. Card header ─────────────────────────────────────────────────────── */
-.home-card-header {
+.dashboard-card-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -164,7 +164,7 @@
 /* The card title is an all-caps section eyebrow. One step up from the
    micro 11px tier so it reads as a section header, not a tag. Legend
    labels inside the card stay at micro to create a hierarchy. */
-.home-card-title {
+.dashboard-card-title {
     color: var(--text-primary);
     font-family: var(--font-h3);
     font-size: var(--size-small);
@@ -198,7 +198,7 @@
 
 /* ─── 5. Net Worth card ──────────────────────────────────────────────────── */
 /* Title hugs the value so the row reads as one stacked label/value group. */
-.networth-card .home-card-header {
+.networth-card .dashboard-card-header {
     margin-bottom: 2px;
 }
 
@@ -254,7 +254,7 @@
 }
 
 /* Hovering the ring spotlights one segment by dimming the rest. The arcs'
-   opacity transition is declared inline in home.js (it shares a transition
+   opacity transition is declared inline in dashboard.js (it shares a transition
    list with the staggered sweep-in), so only the values change here. */
 .accounts-pie-svg:hover .donut-arc { opacity: 0.5; }
 .accounts-pie-svg .donut-arc:hover { opacity: 1; }
@@ -402,29 +402,29 @@
 .account-toggle.active .account-toggle-dot { opacity: 1; }
 
 
-/* Range-selector dropdown moved to ui.css (shared across Home / Trends /
+/* Range-selector dropdown moved to ui.css (shared across Dashboard / Trends /
    Forecast — was duplicated in all three page stylesheets). */
 
 
 /* ─── 9. Charts: unified frame chrome + entrance animation ───────────────── */
-/* All three line charts share the .home-chart renderer in home.js — one
+/* All three line charts share the .dashboard-chart renderer in dashboard.js — one
    frame, one grid, one label style. Chrome colors come from theme variables
    so a palette change (or the light theme) retones the charts too. */
 
-.home-chart .chart-grid {
+.dashboard-chart .chart-grid {
     stroke: var(--border);
     stroke-width: 1;
     stroke-dasharray: 3 5;
 }
 
-.home-chart .chart-zero {
+.dashboard-chart .chart-zero {
     stroke: var(--text-tertiary);
     stroke-width: 1;
     stroke-dasharray: 5 4;
     opacity: 0.55;
 }
 
-.home-chart .chart-label {
+.dashboard-chart .chart-label {
     fill: var(--text-tertiary);
     font-family: var(--font-h3);
     font-size: 11px;
@@ -438,25 +438,25 @@
    animation replays on user-driven re-renders (range picker, account
    toggles) but not on window resizes — observeChart() flags those renders
    with .chart-no-anim. */
-.home-chart .chart-line {
+.dashboard-chart .chart-line {
     stroke-dasharray: 1;
     stroke-dashoffset: 1;
     animation: chart-draw 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-.home-chart .chart-area-fill,
-.home-chart .chart-dot {
+.dashboard-chart .chart-area-fill,
+.dashboard-chart .chart-dot {
     opacity: 0;
     animation: chart-fade 0.5s ease forwards;
 }
 
 /* Hover affordance on every data dot, all charts alike. */
-.home-chart .chart-dot { transition: r 0.15s ease; }
-.home-chart .chart-dot:hover { r: 6; }
+.dashboard-chart .chart-dot { transition: r 0.15s ease; }
+.dashboard-chart .chart-dot:hover { r: 6; }
 
 /* Soft expanding halo on each series' latest point — draws the eye to
    "now" without shouting. */
-.home-chart .chart-pulse {
+.dashboard-chart .chart-pulse {
     fill: none;
     stroke-width: 2;
     opacity: 0;
@@ -484,17 +484,17 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .home-chart .chart-line {
+    .dashboard-chart .chart-line {
         animation: none;
         stroke-dasharray: none;
         stroke-dashoffset: 0;
     }
-    .home-chart .chart-area-fill,
-    .home-chart .chart-dot {
+    .dashboard-chart .chart-area-fill,
+    .dashboard-chart .chart-dot {
         animation: none;
         opacity: 1;
     }
-    .home-chart .chart-pulse { display: none; }
+    .dashboard-chart .chart-pulse { display: none; }
     .accounts-pie-svg .donut-arc { transition: none !important; }
 }
 
@@ -505,8 +505,8 @@
    .stepper component (ui.css); Statements' year stepper uses the same one. */
 
 /* Bars grow up from the baseline on entrance; per-bar delays are set inline
-   by the renderer (home.js), same pattern as the line charts' draw-in. */
-.home-chart .chart-bar {
+   by the renderer (dashboard.js), same pattern as the line charts' draw-in. */
+.dashboard-chart .chart-bar {
     transform-box: fill-box;
     transform-origin: center bottom;
     transform: scaleY(0);
@@ -515,7 +515,7 @@
 }
 
 /* Horizontal variant (Monthly Cash Flow): bars grow rightward from the axis. */
-.home-chart .chart-hbar {
+.dashboard-chart .chart-hbar {
     transform-box: fill-box;
     transform-origin: left center;
     transform: scaleX(0);
@@ -525,7 +525,7 @@
 
 /* Exact value annotated at the end of each horizontal bar — one size up from
    the axis labels, primary ink, so the figures read as data, not chrome. */
-.home-chart .chart-bar-value {
+.dashboard-chart .chart-bar-value {
     fill: var(--text-primary);
     font-family: var(--font-numeric);
     font-size: 12px;
@@ -542,8 +542,8 @@
    only the non-hovered bars (:not(:hover)); dimming *all* bars and then
    re-lighting the hovered one would fail, because :has() lifts the dim rule's
    specificity above a plain :hover override, leaving the hovered bar greyed. */
-.home-chart:has(.chart-bar:hover) .chart-bar:not(:hover) { opacity: 0.55; }
-.home-chart:has(.chart-hbar:hover) .chart-hbar:not(:hover) { opacity: 0.55; }
+.dashboard-chart:has(.chart-bar:hover) .chart-bar:not(:hover) { opacity: 0.55; }
+.dashboard-chart:has(.chart-hbar:hover) .chart-hbar:not(:hover) { opacity: 0.55; }
 
 @keyframes chart-bar-grow  { to { transform: scaleY(1); } }
 @keyframes chart-hbar-grow { to { transform: scaleX(1); } }
@@ -562,15 +562,15 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .home-chart .chart-bar {
+    .dashboard-chart .chart-bar {
         animation: none;
         transform: scaleY(1);
     }
-    .home-chart .chart-hbar {
+    .dashboard-chart .chart-hbar {
         animation: none;
         transform: scaleX(1);
     }
-    .home-chart .chart-bar-value {
+    .dashboard-chart .chart-bar-value {
         animation: none;
         opacity: 1;
     }

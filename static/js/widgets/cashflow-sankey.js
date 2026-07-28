@@ -10,7 +10,7 @@
 // Pure renderer — no dedicated backend. It reuses GET /api/data (the Cash Flow
 // table payload) and aggregates each category across the 12 months of the
 // selected year on the client. Self-contained inline SVG, the same approach as
-// forecast.js / home.js (CSP-clean: no CDN library, no inline handlers). Styled
+// forecast.js / dashboard.js (CSP-clean: no CDN library, no inline handlers). Styled
 // in forecast.css under the .cashflow-sankey namespace.
 //
 // Globals in play (loaded before this script): apiFetch (api.js), escapeHtml

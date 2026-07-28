@@ -1,7 +1,7 @@
 'use strict';
 
 // ─── onboarding.js ────────────────────────────────────────────────────────────
-// First-run setup, launched from the Home dashboard's hero CTA on a database
+// First-run setup, launched from the Dashboard's hero CTA on a database
 // that holds nothing the user put there (GET /api/onboarding decides that from
 // data, not a flag — see handlers/onboarding.js).
 //
@@ -33,7 +33,7 @@
 // way) and happens by using the app, not by answering questions up front.
 //
 // Skipping is always available and always leads to a fully working app: the
-// ordinary Home dashboard with its own empty-state CTAs into each surface.
+// ordinary Dashboard with its own empty-state CTAs into each surface.
 
 (function () {
     const Onboarding = (() => {

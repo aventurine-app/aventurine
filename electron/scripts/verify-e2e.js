@@ -100,7 +100,7 @@ app.whenReady().then(async () => {
     // Every page is assembled from pages/partials/ at serve time — walk all
     // routes and prove the shared chrome landed on each one.
     const routes = {
-      '/':                'Home',
+      '/':                'Dashboard',
       '/transactions':    'Transactions',
       '/statements':      'Statements',
       '/portfolio':       'Portfolio',

@@ -6,8 +6,8 @@
    on that one page and style the two reports that came in from their own
    pages. Only the shell + Forecast live here.
 
-   Page-scoped: the shared chart-frame + range-selector chrome lives in home.css
-   (loaded only on Home), so the slices this page needs are re-stated here under
+   Page-scoped: the shared chart-frame + range-selector chrome lives in dashboard.css
+   (loaded only on Dashboard), so the slices this page needs are re-stated here under
    the .forecast-chart namespace. Everything draws from the theme variables so
    it retones with the palette / light theme like the rest of the app.
    ============================================================================ */
@@ -16,7 +16,7 @@
    (align-items: center → vertical centering). Once the cards push the page past
    one viewport — easy when zoomed in — the overflow spills above the centered
    origin and can't be scrolled up to. Anchor to flex-start so the page always
-   starts from the top. Same pattern as Home and Settings. */
+   starts from the top. Same pattern as Dashboard and Settings. */
 .page:has(.rep-reports) {
     align-items: flex-start;
 }
@@ -43,7 +43,7 @@
     min-width: 0;
 }
 
-/* Tab styles live in ui.css — the segmented control shared with .home-tab and
+/* Tab styles live in ui.css — the segmented control shared with .dashboard-tab and
    .stmt-tab. The column above stretches its children; keep the track hugging
    its labels like the other pages' toolbars do. */
 .rep-tabs { align-self: flex-start; }
@@ -54,7 +54,7 @@
     gap: 24px;
 }
 
-/* ─── Card (mirrors .home-card) ──────────────────────────────────────────── */
+/* ─── Card (mirrors .dashboard-card) ──────────────────────────────────────────── */
 .forecast-card {
     min-width: 0;
     border: var(--border-width) solid var(--border);
@@ -66,7 +66,7 @@
     flex-direction: column;
 }
 
-.home-card-header {
+.dashboard-card-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -75,7 +75,7 @@
     gap: 16px;
 }
 
-.home-card-title {
+.dashboard-card-title {
     color: var(--text-primary);
     font-family: var(--font-h3);
     font-size: var(--size-small);
@@ -184,7 +184,7 @@
     color: var(--text-primary);
 }
 
-/* Range selector lives in ui.css now (shared across Home / Trends / Forecast). */
+/* Range selector lives in ui.css now (shared across Dashboard / Trends / Forecast). */
 
 /* ─── Summary strip ──────────────────────────────────────────────────────── */
 .forecast-summary {

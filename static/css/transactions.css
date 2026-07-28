@@ -957,7 +957,7 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 }
 
 /* Native <select> caret styling — drawn via background-image so the menu
-   text stays clean. Same approach as the home-page range selector
+   text stays clean. Same approach as the dashboard-page range selector
    (.range-selector-btn in ui.css): a single conic-gradient triangle, one
    layer, so it can't split into halves at fractional zoom the way the old
    two-linear-gradient recipe did. */

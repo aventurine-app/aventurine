@@ -121,7 +121,7 @@ const balanceTable = bootstrapYearTablePage({
     });
 
     // Deep link: /statements#balance-sheet lands on the Balance Sheet tab
-    // (Home's "Add balances" CTA uses it).
+    // (Dashboard's "Add balances" CTA uses it).
     selectTab(location.hash === '#balance-sheet' ? TABS[1] : TABS[0]);
 
     // ── "Add New Year" — one statement year spans BOTH datasets ─────────────

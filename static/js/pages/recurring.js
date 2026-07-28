@@ -479,9 +479,9 @@
       load();
     });
 
-    // The label is a picker, like Home's month stepper — .stepper-label draws a
+    // The label is a picker, like Dashboard's month stepper — .stepper-label draws a
     // caret and a pointer cursor, so it has to open something. The window runs
-    // a few months ahead of today rather than stopping there the way Home's
+    // a few months ahead of today rather than stopping there the way Dashboard's
     // does: this report projects upcoming charges. The arrows still reach past
     // either end.
     document.getElementById('rec-month-label').addEventListener('click', (e) => {

@@ -5,8 +5,8 @@
    tab shell and the page padding — so this file styles the report's own column
    and nothing above it. The card / header chrome it used to restate for its own
    page comes from forecast.css now; what stays here is the range-selector, the
-   category chips, and the .home-chart .chart-* hooks the SVG from chart.js
-   needs (home.css is only loaded on Home).
+   category chips, and the .dashboard-chart .chart-* hooks the SVG from chart.js
+   needs (dashboard.css is only loaded on Dashboard).
    ============================================================================ */
 
 .trends-page {
@@ -26,7 +26,7 @@
     flex-direction: column;
 }
 
-/* .home-card-header / .home-card-title / .chart-area come from forecast.css,
+/* .dashboard-card-header / .dashboard-card-title / .chart-area come from forecast.css,
    which is always loaded on this page. */
 #trends-chart { width: 100%; }
 
@@ -50,7 +50,7 @@
 /* ─── Header controls: window picker ──────────────────────────────────────── */
 .trends-controls { display: flex; align-items: center; gap: 16px; }
 
-/* Range selector lives in ui.css now (shared across Home / Trends / Forecast). */
+/* Range selector lives in ui.css now (shared across Dashboard / Trends / Forecast). */
 
 /* ─── Category selector chips ────────────────────────────────────────────── */
 .trends-selector {
@@ -94,25 +94,25 @@
 }
 
 
-/* ─── Chart frame chrome (consumed by chart.js' .home-chart SVG) ──────────── */
-.home-chart .chart-grid { stroke: var(--border); stroke-width: 1; stroke-dasharray: 3 5; }
-.home-chart .chart-zero { stroke: var(--text-tertiary); stroke-width: 1; stroke-dasharray: 5 4; opacity: 0.55; }
-.home-chart .chart-label {
+/* ─── Chart frame chrome (consumed by chart.js' .dashboard-chart SVG) ──────────── */
+.dashboard-chart .chart-grid { stroke: var(--border); stroke-width: 1; stroke-dasharray: 3 5; }
+.dashboard-chart .chart-zero { stroke: var(--text-tertiary); stroke-width: 1; stroke-dasharray: 5 4; opacity: 0.55; }
+.dashboard-chart .chart-label {
     fill: var(--text-tertiary);
     font-family: var(--font-h3);
     font-size: 11px;
     font-weight: var(--weight-semibold);
     letter-spacing: 0.05em;
 }
-.home-chart .chart-line {
+.dashboard-chart .chart-line {
     stroke-dasharray: 1;
     stroke-dashoffset: 1;
     animation: chart-draw 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
-.home-chart .chart-area-fill, .home-chart .chart-dot { opacity: 0; animation: chart-fade 0.5s ease forwards; }
-.home-chart .chart-dot { transition: r 0.15s ease; }
-.home-chart .chart-dot:hover { r: 6; }
-.home-chart .chart-pulse { fill: none; stroke-width: 2; opacity: 0; animation: chart-pulse 3s ease-out infinite; }
+.dashboard-chart .chart-area-fill, .dashboard-chart .chart-dot { opacity: 0; animation: chart-fade 0.5s ease forwards; }
+.dashboard-chart .chart-dot { transition: r 0.15s ease; }
+.dashboard-chart .chart-dot:hover { r: 6; }
+.dashboard-chart .chart-pulse { fill: none; stroke-width: 2; opacity: 0; animation: chart-pulse 3s ease-out infinite; }
 
 @keyframes chart-draw { to { stroke-dashoffset: 0; } }
 @keyframes chart-fade { to { opacity: 1; } }
@@ -124,7 +124,7 @@
 /* The .chart-no-anim opt-out is stated in forecast.css, loaded on this page too. */
 
 @media (prefers-reduced-motion: reduce) {
-    .home-chart .chart-line { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; }
-    .home-chart .chart-area-fill, .home-chart .chart-dot { animation: none; opacity: 1; }
-    .home-chart .chart-pulse { display: none; }
+    .dashboard-chart .chart-line { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; }
+    .dashboard-chart .chart-area-fill, .dashboard-chart .chart-dot { animation: none; opacity: 1; }
+    .dashboard-chart .chart-pulse { display: none; }
 }

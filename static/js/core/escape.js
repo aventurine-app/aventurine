@@ -6,7 +6,7 @@
 // through this before being interpolated into innerHTML — forgetting it is
 // the main XSS risk in this app (the CSP is the backstop, not the defence).
 //
-// Previously five files each carried their own copy (tables.js, home.js,
+// Previously five files each carried their own copy (tables.js, dashboard.js,
 // transactions.js, txfileimport.js, settingsCategories.js); they now all
 // alias this global.
 

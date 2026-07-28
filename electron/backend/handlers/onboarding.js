@@ -1,6 +1,6 @@
 'use strict';
 
-// Onboarding state — the one question the Home dashboard asks before deciding
+// Onboarding state — the one question the Dashboard asks before deciding
 // whether to lead with first-run setup: does this database hold anything the
 // user put there?
 //

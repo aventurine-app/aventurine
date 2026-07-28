@@ -30,7 +30,7 @@ const STATIC_DIR = path.join(PROJECT_ROOT, 'static');
 // Route → page file, mirroring the old Flask pages blueprint so the
 // navbar's absolute hrefs keep working unchanged.
 const PAGE_ROUTES = {
-    '/':                'home.html',
+    '/':                'dashboard.html',
     '/statements':      'statements.html',
     '/portfolio':       'portfolio.html',
     '/transactions':    'transactions.html',
