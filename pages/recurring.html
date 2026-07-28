@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Aventurine | Recurring</title>
+    <!-- @include head -->
+    <link rel="stylesheet" href="/static/css/recurring.css">
+</head>
+<body>
+    <!-- @include chrome -->
+
+    <div class="body_container">
+        <!-- @include sidebar -->
+
+        <div class="page">
+
+<div class="rec-page">
+
+    <div class="rec-intro">
+        <h1 class="rec-heading">Recurring</h1>
+    </div>
+
+    <!-- This page's cards are the calendar/list pair below, so its controls
+         ride a toolbar row instead of a card header: stepper hard left, ⋮ hard
+         right. The month label is a picker (recurring.js), same as Home's
+         stepper — the caret .stepper-label draws is not decoration. -->
+    <div class="rec-toolbar">
+        <div class="stepper rec-month-stepper" aria-label="Recurring month">
+            <button type="button" class="stepper-btn button-primary" id="rec-month-prev" aria-label="Previous month">&#8249;</button>
+            <button type="button" class="stepper-label" id="rec-month-label" aria-live="polite">&nbsp;</button>
+            <button type="button" class="stepper-btn button-primary" id="rec-month-next" aria-label="Next month">&#8250;</button>
+        </div>
+        <button type="button" class="p-menu-btn" id="rec-kebab-btn" title="Recurring options" aria-label="Recurring options" aria-haspopup="menu">⋮</button>
+    </div>
+
+    <div class="rec-layout" id="rec-layout">
+        <div class="rec-calendar" id="rec-calendar"></div>
+        <div class="rec-list" id="rec-list"></div>
+    </div>
+
+</div>
+
+        </div>
+    </div>
+
+    <!-- @include scripts -->
+    <script src="/static/js/pages/recurring.js"></script>
+</body>
+</html>

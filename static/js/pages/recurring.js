@@ -479,6 +479,26 @@
       load();
     });
 
+    // The label is a picker, like Home's month stepper — .stepper-label draws a
+    // caret and a pointer cursor, so it has to open something. The window runs
+    // a few months ahead of today rather than stopping there the way Home's
+    // does: this report projects upcoming charges. The arrows still reach past
+    // either end.
+    document.getElementById('rec-month-label').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const items = [];
+      for (let i = 3; i > -9; i--) {
+        const key = addMonthKey(currentMonthKey(), i);
+        const [y, m] = key.split('-').map(Number);
+        items.push({
+          label: `${MONTHS[m - 1]} ${y}`,
+          selected: key === month,
+          action: () => { month = key; selectedKey = null; load(); },
+        });
+      }
+      UI.openMenu(e.currentTarget, items);
+    });
+
     document.getElementById('rec-kebab-btn').addEventListener('click', (e) => {
       UI.openMenu(e.currentTarget, [
         { label: 'Add recurring schedule', action: openAddDialog },

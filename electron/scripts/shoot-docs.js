@@ -806,9 +806,10 @@ app.whenReady().then(async () => {
         date: iso(now.getFullYear(), now.getMonth() + 2, 12),
       });
 
-      // Cash Flow, Spending, Recurring and Forecast are tabs of one page now,
-      // so this is one nav and three clicks. The panel selectors have to be
-      // scoped to the visible panel: .forecast-card matches in two of them.
+      // Cash Flow, Spending and Forecast are tabs of one page, so this is one
+      // nav and two clicks (Recurring has its own page). The panel selectors
+      // have to be scoped to the visible panel: .forecast-card matches in two
+      // of them.
       await nav('/reports', 3200);
       await unhover();
       await shotPage('reports-cash-flow-diagram', '.rep-panel:not([hidden]) .forecast-card');

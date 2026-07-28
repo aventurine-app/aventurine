@@ -106,6 +106,7 @@ app.whenReady().then(async () => {
       '/portfolio':       'Portfolio',
       '/credit-cards':    'Credit Cards',
       '/reports':         'Reports',
+      '/recurring':       'Recurring',
       '/report-card':     'Report Card',
     };
     for (const [route, name] of Object.entries(routes)) {

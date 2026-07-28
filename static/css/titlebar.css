@@ -10,6 +10,26 @@
    square Windows/Linux controls on the right, or macOS traffic lights on the
    left. The middle (the drag region) is what -webkit-app-region drags by. */
 
+/* ── Bar-local frost tokens ───────────────────────────────────────────────
+   The global --frost-* tints darken in the light theme (black-tinted) — but
+   the title bar sits on --surface3, a DARKER rung than the page, so its
+   hover/menu surfaces read better stepping UP toward white in both themes.
+   These two tokens are that white-tinted ladder: `frost` is the hover /
+   dropdown-panel fill, `frost-strong` the one rung past it for a hovered item
+   inside an already-tinted panel. Declared on :root because the dropdown
+   panels are SIBLINGS of .titlebar, not children (see chrome.html). */
+:root {
+    --titlebar-frost:        rgba(255,255,255, 0.60);
+    --titlebar-frost-strong: rgba(255,255,255, 0.95);
+}
+
+/* Dark theme: --surface3 is already near-black, so the same white tints only
+   need to be whispers to register. */
+html[data-theme="dark"] {
+    --titlebar-frost:        rgba(255,255,255, 0.10);
+    --titlebar-frost-strong: rgba(255,255,255, 0.18);
+}
+
 .titlebar {
     display: flex;
     align-items: stretch;
@@ -100,7 +120,7 @@
 
 .titlebar-menu-item:hover,
 .titlebar-menu-item[aria-expanded="true"] {
-    background: var(--frost-3);
+    background: var(--titlebar-frost);
     color: var(--text-primary);
 }
 
@@ -112,15 +132,20 @@
 
 /* ── File dropdown ───────────────────────────────────────────────────── */
 .titlebar-dropdown {
-    /* Positioned absolutely so it floats over page content; left coordinate
-       is set in titlebar.js to align with the File button's left edge. */
+    /* Positioned absolutely so it floats over page content; left AND top
+       coordinates are set in titlebar.js from the menu button's own rect, so
+       the panel hangs off the bottom edge of the BUTTON (not the full bar) —
+       it reads as an extension of the pressed button rather than a strip
+       dropped from the chrome. */
     position: fixed;
-    top: 40px;
     min-width: 180px;
     z-index: 1200;
-    background: var(--surface2);
+    /* The button's hover/expanded fill (--titlebar-frost) is translucent; over
+       page content it would show through, so composite it over the bar's own
+       surface as a flat gradient layer. One declaration, correct in every
+       theme — both tokens flip with the theme. */
+    background: linear-gradient(var(--titlebar-frost), var(--titlebar-frost)), var(--surface3);
     border: var(--border-width) solid var(--border);
-    border-top: none;
     border-radius: 6px;
     box-shadow: var(--shadow-menu);
     padding: 4px 0;
@@ -145,7 +170,9 @@
 }
 
 .titlebar-dropdown-item:hover {
-    background: var(--frost-2);
+    /* The panel already sits at the --titlebar-frost tint, so an item hover
+       has to step past it to register. */
+    background: var(--titlebar-frost-strong);
     color: var(--text-primary);
 }
 
@@ -187,7 +214,9 @@
 }
 
 .titlebar-btn:hover {
-    background: var(--frost-3);
+    /* Same white-tinted ladder as the menu items, so the whole bar's hover
+       treatment is one thing. (Close keeps its red, below.) */
+    background: var(--titlebar-frost);
     color: var(--text-primary);
 }
 

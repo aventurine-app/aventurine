@@ -43,8 +43,11 @@
         const panel = panelFor(btn.dataset.menu);
         if (!panel) return;
         closeMenus();
+        // Hang the panel off the button's own bottom-left corner rather than
+        // the bottom of the bar, so it reads as an extension of the button.
         const r = btn.getBoundingClientRect();
         panel.style.left = `${r.left}px`;
+        panel.style.top = `${r.bottom}px`;
         panel.hidden = false;
         btn.setAttribute('aria-expanded', 'true');
     }
