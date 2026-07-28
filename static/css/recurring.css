@@ -1,9 +1,11 @@
 /* ============================================================================
    recurring.css — the Recurring page (pages/recurring.html).
 
-   Its own page again, so this file owns the page padding and heading the way
-   the other standalone pages do (see reportcard.css) — it no longer rides the
-   Reports tab shell. Layout is a two-column grid — calendar (left) + list
+   Its own page again, so this file owns the page padding the way the other
+   standalone pages do (see reportcard.css) — it no longer rides the Reports
+   tab shell. No page heading: the sidebar's active link already names the
+   page, which is how every other page here works. Layout is a two-column
+   grid — calendar (left) + list
    (right), even split — that collapses to one column under a narrow window.
    The confirm-dialog shell (.confirm-*) and the ⋮ menu trigger (.p-menu-btn)
    the Add/Remove flows use are shared globals (style.css §7b) — nothing to
@@ -31,22 +33,12 @@
     min-width: 0;
 }
 
-/* ─── Intro ───────────────────────────────────────────────────────────────── */
-.rec-intro { display: flex; flex-direction: column; gap: 8px; }
-.rec-heading {
-    color: var(--text-primary);
-    font-family: var(--font-h2);
-    font-size: var(--size-h2);
-    font-weight: var(--weight-semibold);
-    margin: 0;
-}
-
 /* ─── Toolbar ─────────────────────────────────────────────────────────────── */
 /* Month stepper hard left, ⋮ hard right. This page's cards are the calendar
    and list below, so its controls ride a toolbar row instead of a card header.
    A plain flex row, not the Statements 1fr auto 1fr grid: that grid exists to
-   centre a stepper against a title, and the heading above already names the
-   page, so there is nothing to centre against. */
+   centre a stepper against a title, and this page has no title to centre
+   against. */
 .rec-toolbar {
     display: flex;
     align-items: center;

@@ -38,8 +38,16 @@ app.setPath('documents', path.join(tmp, 'Documents'));
 
 const OUT = process.env.SHOT_OUT || tmp;
 const ONLY = process.env.SHOT_ONLY ? new Set(process.env.SHOT_ONLY.split(',')) : null;
-const W = 1400;
-const H = 900;
+// Layout stays at 1400×900 DIPs whatever the scale — only the pixel density of
+// the PNG changes, so a crop framed for the docs frames identically at 2x. Needs
+// the runtime flag to match: --force-device-scale-factor=2 SHOT_SCALE=2, which
+// is how the website's marketing shots are taken. Docs default to 1.
+const SCALE = Number(process.env.SHOT_SCALE) || 1;
+// Window size in DIPs. The docs are written against 1400×900 — widening it
+// changes what fits (the Recurring merchant column, the ledger's last columns),
+// so only override it for one-off captures, never for a docs refresh.
+const W = Number(process.env.SHOT_W) || 1400;
+const H = Number(process.env.SHOT_H) || 900;
 const DEADLINE_MS = 25000;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -188,9 +196,9 @@ app.whenReady().then(async () => {
     const shot = async (name, rect) => {
       try {
         const img = await win.webContents.capturePage(rect);
-        fs.writeFileSync(path.join(OUT, `${name}.png`), img.toPNG());
+        fs.writeFileSync(path.join(OUT, `${name}.png`), img.toPNG({ scaleFactor: SCALE }));
         const s = img.getSize();
-        console.log(`  ${name}.png  ${s.width}×${s.height}`);
+        console.log(`  ${name}.png  ${s.width * SCALE}×${s.height * SCALE}`);
       } catch (e) {
         missing.push(`${name} (capture failed: ${e.message})`);
         console.log(`  !! ${name} — ${e.message}`);
@@ -824,7 +832,65 @@ app.whenReady().then(async () => {
       await shotEl('reports-forecast-planned', '.rep-panel:not([hidden]) .forecast-card:last-child', 10);
     }
 
-    // ═══ Phase 9: tools ══════════════════════════════════════════════════════
+    // ═══ Opt-in: website feature shots ═══════════════════════════════════════
+    // For aventurine-app.com's Features section, NOT for the docs — each shot is
+    // cropped to the feature itself, with the title bar and the sidebar left
+    // out, so the image carries no app chrome. Opt in by naming it; a plain docs
+    // run skips it, which is why this is `ONLY.has` rather than `phase()`:
+    //
+    //   SHOT_ONLY=site SHOT_W=1900 SHOT_H=1150 SHOT_OUT=… \
+    //     electron --no-sandbox --force-device-scale-factor=1.5 scripts/shoot-docs.js
+    //
+    // The width matters: below ~1900 the Recurring merchant column clips its
+    // names (they are <input>s, so they cut mid-word rather than ellipsing) and
+    // the ledger's Notes column falls off the right edge.
+    if (ONLY && ONLY.has('site')) {
+      console.log('\n— site —');
+
+      // The ledger card: header row through the pagination footer, which is a
+      // row of the same table, so one element covers it.
+      // Flush to the element box, no padding: 10px of air here is 10px of the
+      // title bar above the Recurring heading and of the tab bar above the
+      // Sankey, which is exactly the chrome these crops exist to drop.
+      await nav('/transactions', 2500);
+      await unhover();
+      await shotEl('site-transactions', '.tx-wrapper', 0);
+
+      // Heading, month stepper, calendar and list — the whole feature, minus
+      // the chrome around it.
+      await nav('/recurring', 3200);
+      if (!(await js(`(() => document.querySelectorAll('#rec-list .rec-row').length)()`))) {
+        throw new Error('recurring page listed no series');
+      }
+      await unhover();
+      await shotEl('site-recurring', '.rec-page', 0);
+
+      // The Sankey card alone — the tab bar above it is page furniture.
+      await nav('/reports', 3200);
+      await unhover();
+      await shotEl('site-cash-flow', '.rep-panel:not([hidden]) .forecast-card', 0);
+    }
+
+    // ═══ Phase 9: recurring ══════════════════════════════════════════════════
+    if (phase('recurring')) {
+      console.log('\n— recurring —');
+      // Its own page, not a Reports tab. The seeded household has monthly rent,
+      // utilities, two subscriptions, a gym, twice-monthly payroll and the two
+      // standing transfers, so detection has real series to find without any
+      // hand-authored override.
+      await nav('/recurring', 3200);
+      const found = await js(`(() => document.querySelectorAll('#rec-list .rec-row').length)()`);
+      if (!found) throw new Error('recurring page listed no series');
+      console.log(`  ${found} detected series`);
+      await unhover();
+      // Trimmed to the taller of the two columns: the calendar runs out well
+      // above the list, so a full-window shot ends in a band of empty page.
+      await shotPage('recurring-page', '.rec-layout > *');
+      await shotEl('recurring-list', '#rec-list', 8);
+      await shotEl('recurring-calendar', '#rec-calendar', 8);
+    }
+
+    // ═══ Phase 10: tools ═════════════════════════════════════════════════════
     if (phase('tools')) {
       console.log('\n— tools —');
       // Credit Cards: one card, filled in so its derived stats are real.
@@ -862,7 +928,7 @@ app.whenReady().then(async () => {
       await shotPage('portfolio-page', '.db-outer');
     }
 
-    // ═══ Phase 10: settings + database management ════════════════════════════
+    // ═══ Phase 11: settings + database management ════════════════════════════
     if (phase('settings')) {
       console.log('\n— settings —');
       await nav('/', 2500);
