@@ -205,9 +205,10 @@
         // display_name with the raw bank string one click away; manual entries
         // and unrecognized imports have none and render the description
         // directly, with no affordance.
-        // Description is a fixed, narrow 120px column, so both branches below
-        // need to truncate with an ellipsis rather than wrap or overflow — a
-        // title attribute keeps the full text one hover away either way.
+        // Description is a percentage-width column that narrows with the window
+        // (transactions.css §2), so both branches below need to truncate with an
+        // ellipsis rather than wrap or overflow — a title attribute keeps the
+        // full text one hover away either way.
         let descCell = `<span class="tx-desc-plain" title="${txEsc(t.description || '')}">${txEsc(t.description)}</span>`;
         if (t.display_name) {
             const revealed = txState.revealedIds.has(t.id);

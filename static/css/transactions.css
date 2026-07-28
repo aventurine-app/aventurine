@@ -572,16 +572,20 @@
     /* table-layout: fixed's "hand the one auto column whatever's left" step
        doesn't reliably respect that column's own min-width when the other
        columns' explicit widths already claim the row's available space (see
-       §2) — notes (the flex column now) could render under its 180px floor.
+       §2) — notes (the flex column now) could render under its 120px floor.
        Forcing the table itself to always be at least wide enough for every
        other column's current width plus that floor guarantees the row has
-       that 180px to hand over; .tx-wrapper's horizontal scroll (§1) absorbs
+       that floor to hand over; .tx-wrapper's horizontal scroll (§1) absorbs
        the rest on a narrow window. Never below the original 1250px design
-       floor either, so a lightly populated ledger still reads spacious. */
-    min-width: max(1250px, calc(
-        60px + 44px + 750px + var(--tx-w-date, 140px) + var(--tx-w-account, 150px) +
-        var(--tx-w-category, 140px) + var(--tx-w-amount, 140px) + 180px
-    ));
+       floor either, so a lightly populated ledger still reads spacious.
+       Description can't be a term in that sum any more — it's 30% of this
+       very width (§2), which would be circular. It's solved for instead:
+       if description takes 30% of the table, the px columns below have to
+       fit in the other 70%, so the table's floor is their total / 0.7. */
+    min-width: max(1250px, calc((
+        60px + 44px + var(--tx-w-date, 140px) + var(--tx-w-account, 150px) +
+        var(--tx-w-category, 140px) + var(--tx-w-amount, 140px) + 120px
+    ) / 0.7));
 }
 
 /* ─── 2. Header row + column widths ──────────────────────────────────────── */
@@ -610,17 +614,20 @@
    Account can hold much longer text (account names up to 50 chars) than is
    ever worth showing in a ledger row, so it caps with max-width + ellipsis
    (below); category's 18-char input limit already bounds it, so it needs no
-   cap. Description is fixed at 750px — comfortable room for a merchant name;
-   clicking it reveals the raw text below if it's ever truncated anyway (see
+   cap. Description is a percentage (30%), not a fixed px width: it's by far
+   the widest column, so a fixed width was what pushed the row past the
+   viewport and forced horizontal scrolling on a resize. As a share of the
+   table it gives the space back as the window narrows, and nothing is lost
+   by truncating — clicking the cell reveals the raw text below (see
    .tx-desc-toggle). Notes is the one column left without an explicit width,
    so table-layout: fixed hands it whatever the others don't claim — it's
-   the flex column now, with a 180px floor. */
+   the flex column now, with a 120px floor. */
 .tx-col-date        { width: var(--tx-w-date, 140px); }
 /* Merchant avatar — fixed, not content-fit: it's a decorative circle, not
    text, so there's nothing for it to conform to. Its width is subtracted
    from the calc() above so notes gives up exactly this much room. */
 .tx-col-avatar       { width: 44px; text-align: center; }
-.tx-col-description { width: 600px; }
+.tx-col-description { width: 30%; }
 .tx-col-type        { width: 140px; }
 .tx-col-account     { width: var(--tx-w-account, 150px); max-width: 220px; }
 .tx-col-category    { width: var(--tx-w-category, 140px); }
@@ -629,7 +636,7 @@
     min-width: 140px;
     text-align: right;
 }
-.tx-col-notes       { width: auto; min-width: 180px; }
+.tx-col-notes       { width: auto; min-width: 120px; }
 /* Leading selection cell — a centered checkbox (or, on the inline add row, the
    Save/Cancel buttons). Fixed narrow width keeps the column tight. 60px (not
    44px) because this column is unaffected by the border-box switch above in
@@ -664,6 +671,18 @@
     width: auto;
     max-width: none;
     white-space: nowrap;
+}
+/* Description has to drop its percentage width for the pass too, even though
+   it isn't a measured column. A percentage cell in an automatic-layout table
+   is a constraint on the TABLE's width, not just its own: the browser has to
+   grow the table until description is 30% of it, then hands the surplus to
+   the auto columns — so a row whose raw description is revealed
+   (.tx-desc-original, a much longer string) would inflate every measured
+   column's offsetWidth and shift the ledger. width: auto keeps the row's
+   max-content width equal to the sum of its columns' real content, which is
+   the only thing this pass is trying to read. */
+.tx-table.tx-measuring .tx-col-description {
+    width: auto;
 }
 
 
@@ -744,8 +763,8 @@
     text-align: left;
 }
 
-/* Description is fixed at 750px, so most text fits comfortably — but an
-   unusually long merchant name or raw bank string still needs to truncate
+/* Description takes 30% of the table (§2), so most text fits comfortably —
+   but an unusually long merchant name still needs to truncate
    rather than wrap or overflow. Full text is a hover (title attribute) or,
    for a recognized merchant, a click (.tx-desc-toggle reveals the raw
    original below) away. Not on the <td> itself: .tx-desc-original below is a
