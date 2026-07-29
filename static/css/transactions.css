@@ -1738,10 +1738,12 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 }
 
 
-/* ─── 11. Bulk-edit modal ────────────────────────────────────────────────── */
-/* Opened from the header Edit button: every selected transaction laid out with
-   all fields editable and one Save-all button. Shell mirrors the similar /
-   import modals; it's wider to hold the six editable columns. */
+/* ─── 11. Edit modal ─────────────────────────────────────────────────────── */
+/* Opened from the header Edit button, in one of two shapes: a single selected
+   transaction is laid out with all fields editable, while two or more become
+   an en-masse update — one control row over the rows it will rewrite. Either
+   way there's one Save-all button. Shell mirrors the similar / import modals;
+   it's wider to hold the seven editable columns. */
 
 /* Positioning + centering come from the shared overlay rule in style.css §8. */
 .tx-edit-overlay {
@@ -1811,6 +1813,126 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 .tx-edit-table td {
     padding: 4px 8px;
     vertical-align: middle;
+}
+
+/* ── En-masse edit (2+ rows selected) ──────────────────────────────────────
+   One control row on top, the transactions it will rewrite listed read-only
+   beneath it. Both live in the same scroll container as two separate tables,
+   so the control row can stick to the top of a long selection; a shared
+   <colgroup> + fixed layout is what keeps their columns in lockstep. */
+.tx-bulk-table {
+    table-layout: fixed;
+}
+
+/* The body's own top padding would leave a strip for rows to show through
+   above the sticky control row, so the intro carries that spacing instead. */
+.tx-bulk-body { padding-top: 0; }
+
+.tx-bulk-intro {
+    padding: 16px 0 12px;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    line-height: 1.5;
+}
+
+.tx-bulk-intro strong {
+    color: var(--text-primary);
+    font-weight: var(--weight-semibold);
+}
+
+/* Sticky so the row doing the editing never scrolls away from the rows it
+   edits. The surface fill is load-bearing — preview rows pass underneath. */
+.tx-bulk-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--dialog-surface);
+}
+
+/* Tinted so the control row reads as a single instruction rather than another
+   ledger line, and carries an accent rail on the side it applies from. */
+.tx-bulk-apply-row td {
+    padding: 6px 8px 10px;
+    background: color-mix(in srgb, var(--accent-primary) 10%, var(--dialog-surface));
+}
+
+.tx-bulk-apply-row td:first-child { border-radius: 6px 0 0 6px; }
+.tx-bulk-apply-row td:last-child  { border-radius: 0 6px 6px 0; }
+
+/* Seven controls across one dialog leaves each of them narrow, so the control
+   row trims the gutters the ledger's own edit row can afford — enough to keep
+   "Expense" and a full date mask from clipping. */
+.tx-bulk-apply-row .tx-input,
+.tx-bulk-apply-row .tx-select {
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+.tx-bulk-apply-row .tx-select {
+    padding-right: 22px;
+    background-position: calc(100% - 8px) 50%;
+}
+
+/* A field the user has actually set — the accent border is the link between
+   this control and the struck-through column below it. */
+.tx-bulk-apply-row td.is-set .tx-input,
+.tx-bulk-apply-row td.is-set .tx-select {
+    border-color: var(--accent-primary);
+}
+
+.tx-bulk-count {
+    padding: 10px 8px;
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+    border-bottom: var(--border-width) solid var(--dialog-stroke);
+}
+
+.tx-bulk-count.is-armed { color: var(--accent-primary); }
+
+.tx-bulk-preview-table td {
+    padding: 9px 8px;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    /* One line per transaction: the list can run long, and a wrapping cell
+       would cost more height than the value is worth (title carries the rest). */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tx-bulk-row + .tx-bulk-row td {
+    border-top: var(--border-width) solid var(--dialog-stroke);
+}
+
+.tx-bulk-row td.tx-col-date,
+.tx-bulk-row td.tx-col-amount {
+    font-family: var(--font-numeric);
+    font-variant-numeric: tabular-nums;
+}
+
+.tx-bulk-row td.tx-col-amount { text-align: right; }
+
+.tx-bulk-none { color: var(--text-tertiary); }
+
+/* A value the control row is about to overwrite. Struck through rather than
+   swapped for the new one: every row in the column becomes the same thing, and
+   that thing is already spelled out in the control directly above. */
+.tx-bulk-row td.is-replaced {
+    color: var(--text-tertiary);
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+    opacity: 0.55;
+}
+
+.tx-bulk-row td.is-replaced .tx-category-pill {
+    text-decoration: line-through;
+    opacity: 0.7;
 }
 
 .tx-edit-footer {

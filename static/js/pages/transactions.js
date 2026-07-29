@@ -16,10 +16,13 @@
 //   txState.rows         — list of transactions, newest first
 //   txState.categories   — category vocabulary (shared with I&E + Settings)
 //   txState.editingId    — 'new' while the inline add row is open, else null.
-//                          (Existing rows are edited via the bulk-edit modal,
-//                          not in place.)
+//                          (Existing rows are edited via the edit modal, not
+//                          in place.)
 //   txState.selectedIds  — Set of checked transaction ids; drives the header
-//                          Edit/Delete buttons and the two action modals
+//                          Edit/Delete buttons and the two action modals, and
+//                          decides which shape the edit modal takes: one row
+//                          is edited field by field, two or more become a
+//                          single en-masse update applied to all of them
 //   txState.revealedIds  — ids whose original (raw bank) description is
 //                          expanded under the clean display name
 //   txState.filters      — Transactions Search controls, raw input values;
@@ -243,7 +246,7 @@
 
     // Category <option>/<optgroup> markup for an edit control, grouped by type and
     // led by an "Uncategorized" sentinel (backend treats null category_id as
-    // Uncategorized). Shared by the inline add row and the bulk-edit modal.
+    // Uncategorized). Shared by the inline add row and the edit modal.
     function txCategoryOptions(selectedId) {
         const TYPE_ORDER = ['income', 'expense', 'transfer'];
         const TYPE_LABELS = { income: 'Income', expense: 'Expense', transfer: 'Transfer' };
@@ -286,12 +289,12 @@
     // The editable field cells (date / description / [type] / account /
     // category / amount / notes) for one transaction. Each input carries a
     // data-field so txReadFields() can read it back. Used both as <td>s in the
-    // inline add row and as cells in the bulk-edit modal.
+    // inline add row and as cells in the edit modal.
     //
     // `includeType` gates the Type <select>. The main ledger merged Type into the
     // Category column, so the inline add row (which lives in that table and must
     // stay column-aligned) omits it — a new row's direction follows the category
-    // it's given. The bulk-edit modal keeps its own table, so it retains the Type
+    // it's given. The edit modal keeps its own table, so it retains the Type
     // control: it's the one place to set direction on a row left uncategorized.
     function txEditFieldsCells(t, { includeType = true } = {}) {
         const txType = t.tx_type || 'expense';
@@ -304,7 +307,7 @@
             </select>
         </td>` : '';
         // Account sits between Type and Category, matching the ledger's column
-        // order; both the inline add row and the bulk-edit modal carry it, so a
+        // order; both the inline add row and the edit modal carry it, so a
         // transaction's account can be set on creation and changed on edit.
         const accountCell = `
         <td class="tx-col-account">
@@ -332,6 +335,140 @@
             <input type="text" class="tx-input tx-input-notes" data-field="notes"
                    value="${txEsc(t.notes || '')}" placeholder="Optional">
         </td>
+    `;
+    }
+
+    // ─── En-masse edit controls ──────────────────────────────────────────────────
+    // Selecting two or more rows turns the edit modal into a single "apply to
+    // all" control row over a read-only list of the rows it will rewrite. Every
+    // control starts on a "Keep" sentinel: a field is only pushed to the batch
+    // once the user actually sets it, so an untouched column leaves each row's
+    // own value alone. Blank is never a value here — clearing a text field puts
+    // it back to Keep. The label is one word because it has to fit the narrowest
+    // column (Type) without truncating; the line of copy above the row is what
+    // spells out what keeping means.
+    const TX_KEEP = '__keep__';
+    const TX_KEEP_LABEL = 'Keep';
+
+    // The seven edit columns, shared by the control row and the preview list so
+    // a struck-through preview cell always sits under the control that replaces
+    // it. table-layout is fixed (transactions.css §11) — these widths are what
+    // keeps the two tables in column lockstep.
+    const TX_BULK_COLGROUP = `
+        <colgroup>
+            <col style="width:16%"><col style="width:19%"><col style="width:12%">
+            <col style="width:15%"><col style="width:16%"><col style="width:9%"><col style="width:13%">
+        </colgroup>`;
+
+    const TX_EDIT_HEAD_CELLS = `
+        <th class="tx-col-date">Date</th>
+        <th class="tx-col-description">Description</th>
+        <th class="tx-col-type">Type</th>
+        <th class="tx-col-account">Account</th>
+        <th class="tx-col-category">Category</th>
+        <th class="tx-col-amount">Amount</th>
+        <th class="tx-col-notes">Notes</th>`;
+
+    // The control row's cells. Same data-field names as txEditFieldsCells, so
+    // txReadBulkFields reads them the same way — only the sentinels differ.
+    function txBulkFieldsCells() {
+        const keep = `<option value="${TX_KEEP}" selected>${TX_KEEP_LABEL}</option>`;
+        return `
+        <td class="tx-col-date">
+            <input type="date" class="tx-input tx-input-date" data-field="date"
+                   aria-label="Set the date on every selected transaction">
+        </td>
+        <td class="tx-col-description">
+            <input type="text" class="tx-input tx-input-description" data-field="description"
+                   placeholder="${TX_KEEP_LABEL}" aria-label="Set the description on every selected transaction">
+        </td>
+        <td class="tx-col-type">
+            <select class="tx-select tx-input-type" data-field="tx_type"
+                    aria-label="Set the type on every selected transaction">
+                ${keep}
+                <option value="expense">Expense</option>
+                <option value="income">Income</option>
+                <option value="transfer">Transfer</option>
+            </select>
+        </td>
+        <td class="tx-col-account">
+            <select class="tx-select tx-input-account" data-field="account_key"
+                    aria-label="Set the account on every selected transaction">${keep}${txAccountOptions(undefined)}</select>
+        </td>
+        <td class="tx-col-category">
+            <select class="tx-select tx-input-category" data-field="category_id"
+                    aria-label="Set the category on every selected transaction">${keep}${txCategoryOptions(undefined)}</select>
+        </td>
+        <td class="tx-col-amount">
+            <input type="text" inputmode="decimal" class="tx-input tx-input-amount" data-field="amount"
+                   placeholder="${TX_KEEP_LABEL}" aria-label="Set the amount on every selected transaction">
+        </td>
+        <td class="tx-col-notes">
+            <input type="text" class="tx-input tx-input-notes" data-field="notes"
+                   placeholder="${TX_KEEP_LABEL}" aria-label="Set the notes on every selected transaction">
+        </td>
+    `;
+    }
+
+    // Read the control row into a *partial* update payload — only the fields the
+    // user set. PUT /api/transactions/<id> applies exactly the keys it's given
+    // (applyTxFields with requireAll:false), so an absent key leaves that column
+    // untouched on every row; category_id being present is also what makes the
+    // backend (re)learn the match rule for those descriptions.
+    function txReadBulkFields(scope) {
+        const out = {};
+        if (!scope) return out;
+        const get = (field) => scope.querySelector(`[data-field="${field}"]`)?.value;
+
+        const date = (get('date') || '').trim();
+        if (date) out.date = date;
+
+        const description = (get('description') || '').trim();
+        if (description) out.description = description;
+
+        const category = get('category_id');
+        if (category != null && category !== TX_KEEP) {
+            out.category_id = category === '' ? null : parseInt(category, 10);
+        }
+
+        const account = get('account_key');
+        if (account != null && account !== TX_KEEP) {
+            out.account_key = account === '' ? null : account;
+        }
+
+        // Direction is owned by the category, so an explicit type only means
+        // something when the batch isn't being handed a category as well.
+        const type = get('tx_type');
+        if (type && type !== TX_KEEP && out.category_id == null) out.tx_type = type;
+
+        const amount = (get('amount') || '').toString().replace(/,/g, '').trim();
+        if (amount) out.amount = parseFloat(amount);
+
+        const notes = (get('notes') || '').trim();
+        if (notes) out.notes = notes;
+
+        return out;
+    }
+
+    // One read-only line under the control row: the transaction exactly as it
+    // stands today. Each cell names the field it holds so syncBulkPreview can
+    // strike through the columns the control row is about to replace.
+    function txBulkPreviewRow(t) {
+        const catName = txCategoryName(t.category_id);
+        const catCell = catName
+            ? `<span class="tx-category-pill">${txEsc(catName)}</span>`
+            : '<span class="tx-category-pill tx-category-empty">Uncategorized</span>';
+        const acctName = txAccountName(t.account_key);
+        return `
+        <tr class="tx-bulk-row" data-id="${t.id}">
+            <td class="tx-col-date"        data-col="date">${txEsc(txFmtDate(t.date))}</td>
+            <td class="tx-col-description" data-col="description" title="${txEsc(t.description || '')}">${txEsc(t.display_name || t.description || '')}</td>
+            <td class="tx-col-type"        data-col="tx_type">${txEsc(TX_TYPE_LABELS[t.tx_type] || t.tx_type || '')}</td>
+            <td class="tx-col-account"     data-col="account_key">${acctName ? txEsc(acctName) : '<span class="tx-bulk-none">No account</span>'}</td>
+            <td class="tx-col-category"    data-col="category_id">${catCell}</td>
+            <td class="tx-col-amount"      data-col="amount">${txFmtAmount(t.amount)}</td>
+            <td class="tx-col-notes"       data-col="notes" title="${txEsc(t.notes || '')}">${t.notes ? txEsc(t.notes) : '<span class="tx-bulk-none">—</span>'}</td>
+        </tr>
     `;
     }
 
@@ -1111,7 +1248,7 @@
         txRender();
     }
 
-    // Read one edit-control group (the inline add row or a bulk-edit modal row)
+    // Read one edit-control group (the inline add row or a per-row editor in the edit modal)
     // into an update/create payload. `scope` is any element containing the
     // data-field inputs.
     function txReadFields(scope) {
@@ -1211,9 +1348,13 @@
     }
 
     // Editing wizard → three steps inside one overlay:
-    //   1. Edit — every selected row laid out with all fields editable, plus a
-    //      footer checkbox offering to cascade the chosen categories onto other
-    //      transactions with similar descriptions.
+    //   1. Edit — one of two shapes, depending on how much is selected:
+    //        · a single row is edited field by field, as it always was;
+    //        · two or more become an **en-masse** update — one control row on
+    //          top holds the edit, and the rows it will rewrite are listed
+    //          read-only beneath it, columns struck through as they're claimed.
+    //      Either way a footer checkbox offers to cascade the chosen categories
+    //      onto other transactions with similar descriptions.
     //   2. Find similar (only when the checkbox is on) — a match-strength slider
     //      (always starting at 80%) over a live-updating list of candidate rows,
     //      grouped by the category each would receive.
@@ -1227,10 +1368,34 @@
         const txs = txSelectedRows();
         if (!txs.length) return;
         const plural = txs.length === 1 ? '' : 's';
+        const bulk   = txs.length > 1;
 
-        const bodyRows = txs.map(t => `
-        <tr class="tx-edit-row" data-id="${t.id}">${txEditFieldsCells(t)}</tr>
-    `).join('');
+        const editStepHtml = bulk ? `
+                <div class="tx-bulk-intro">
+                    Set only the fields you want to change — every selected transaction
+                    takes the values from this row. Any field left on
+                    <strong>Keep</strong> stays exactly as it already is below.
+                </div>
+                <div class="tx-bulk-head">
+                    <table class="tx-edit-table tx-bulk-table">
+                        ${TX_BULK_COLGROUP}
+                        <thead><tr>${TX_EDIT_HEAD_CELLS}</tr></thead>
+                        <tbody><tr class="tx-bulk-apply-row" id="tx-bulk-apply">${txBulkFieldsCells()}</tr></tbody>
+                    </table>
+                    <div class="tx-bulk-count" id="tx-bulk-count"></div>
+                </div>
+                <table class="tx-edit-table tx-bulk-table tx-bulk-preview-table">
+                    ${TX_BULK_COLGROUP}
+                    <tbody>${txs.map(txBulkPreviewRow).join('')}</tbody>
+                </table>`
+            : `
+                <div class="tx-edit-table-wrap">
+                    <table class="tx-edit-table">
+                        <thead><tr>${TX_EDIT_HEAD_CELLS}</tr></thead>
+                        <tbody>${txs.map(t => `
+                            <tr class="tx-edit-row" data-id="${t.id}">${txEditFieldsCells(t)}</tr>`).join('')}</tbody>
+                    </table>
+                </div>`;
 
         const overlay = document.createElement('div');
         overlay.className = 'tx-edit-overlay';
@@ -1241,23 +1406,7 @@
                 <span class="tx-edit-title" id="tx-edit-title">Edit ${txs.length} transaction${plural}</span>
                 <button class="tx-import-close" id="tx-edit-close" aria-label="Close">&times;</button>
             </div>
-            <div class="tx-edit-body" data-step="edit">
-                <div class="tx-edit-table-wrap">
-                    <table class="tx-edit-table">
-                        <thead>
-                            <tr>
-                                <th class="tx-col-date">Date</th>
-                                <th class="tx-col-description">Description</th>
-                                <th class="tx-col-type">Type</th>
-                                <th class="tx-col-account">Account</th>
-                                <th class="tx-col-category">Category</th>
-                                <th class="tx-col-amount">Amount</th>
-                                <th class="tx-col-notes">Notes</th>
-                            </tr>
-                        </thead>
-                        <tbody>${bodyRows}</tbody>
-                    </table>
-                </div>
+            <div class="tx-edit-body${bulk ? ' tx-bulk-body' : ''}" data-step="edit">${editStepHtml}
             </div>
             <div class="tx-edit-body" data-step="match" hidden>
                 <div class="tx-match-slider-row">
@@ -1292,6 +1441,7 @@
         overlay.querySelectorAll('.tx-edit-row').forEach(row => txWireDirectionLock(row));
 
         const $ = (sel) => overlay.querySelector(sel);
+        const applyRow = bulk ? $('#tx-bulk-apply') : null;
         const steps = {
             edit:   $('[data-step="edit"]'),
             match:  $('[data-step="match"]'),
@@ -1327,8 +1477,73 @@
             nextBtn.textContent = step === 'review' ? 'Save all changes' : 'Next';
         }
 
-        // Validate every row up front so a bad field doesn't leave a half-saved batch.
+        // ── En-masse control row ───────────────────────────────────────────────
+        // Keeps the list below honest while the control row is filled in: a
+        // column the user has set reads as struck through, because the value
+        // those rows become is the one sitting directly above them.
+        function syncBulkPreview() {
+            const overrides = txReadBulkFields(applyRow);
+            const claimed = new Set(Object.keys(overrides));
+            // Handing the batch a category re-derives direction (the direction
+            // rule), so Type is replaced too even though it isn't in the payload.
+            if (overrides.category_id != null) claimed.add('tx_type');
+
+            for (const cell of applyRow.children) {
+                const field = cell.querySelector('[data-field]')?.dataset.field;
+                cell.classList.toggle('is-set', !!field && field in overrides);
+            }
+            for (const cell of overlay.querySelectorAll('.tx-bulk-row td[data-col]')) {
+                cell.classList.toggle('is-replaced', claimed.has(cell.dataset.col));
+            }
+
+            const countEl = $('#tx-bulk-count');
+            countEl.textContent = claimed.size
+                ? `All ${txs.length} transactions below will be updated`
+                : `${txs.length} selected transactions — nothing set to change yet`;
+            countEl.classList.toggle('is-armed', claimed.size > 0);
+        }
+
+        if (bulk) {
+            // Same direction lock as a per-row editor, minus one wrinkle: the
+            // Type select has to fall back to whatever the user had picked if
+            // they undo the category, or a value they never chose would ride
+            // along into the payload.
+            const catSel  = applyRow.querySelector('.tx-input-category');
+            const typeSel = applyRow.querySelector('.tx-input-type');
+            let keptType  = typeSel.value;
+            catSel.addEventListener('change', () => {
+                const catId = (catSel.value === TX_KEEP || catSel.value === '')
+                    ? null : parseInt(catSel.value, 10);
+                if (catId != null) {
+                    if (!typeSel.disabled) keptType = typeSel.value;
+                    typeSel.value    = txCategoryType(catId) || typeSel.value;
+                    typeSel.disabled = true;
+                } else if (typeSel.disabled) {
+                    typeSel.disabled = false;
+                    typeSel.value    = keptType;
+                }
+            });
+            applyRow.addEventListener('input',  syncBulkPreview);
+            applyRow.addEventListener('change', syncBulkPreview);
+            syncBulkPreview();
+        }
+
+        // Validate up front so a bad field doesn't leave a half-saved batch.
         function collectEdits() {
+            if (bulk) {
+                const overrides = txReadBulkFields(applyRow);
+                if (!Object.keys(overrides).length) {
+                    alert('Set at least one field to apply to the selected transactions.');
+                    return null;
+                }
+                if ('amount' in overrides && !Number.isFinite(overrides.amount)) {
+                    alert('Amount must be a number.');
+                    return null;
+                }
+                // One partial payload per row: the update endpoint touches only
+                // the keys it's handed, so every other column survives untouched.
+                return txs.map(t => ({ id: t.id, payload: { ...overrides }, orig: t }));
+            }
             const out = [];
             for (const row of overlay.querySelectorAll('.tx-edit-row')) {
                 const payload = txReadFields(row);
@@ -1358,6 +1573,9 @@
         function rowChanges(orig, payload) {
             const out = [];
             for (const field of Object.keys(FIELD_LABELS)) {
+                // The en-masse control row sends a partial payload — a field it
+                // never set isn't a change, it's an absence.
+                if (!(field in payload)) continue;
                 const before = orig?.[field];
                 const after  = payload[field];
                 const same = field === 'amount'
@@ -1380,12 +1598,17 @@
             const token = ++fetchToken;
             const seen = new Set();
             const queries = [];
-            for (const { payload } of edits) {
-                if (payload.category_id == null || !payload.description) continue;
-                const key = `${payload.description.toLowerCase()} ${payload.category_id}`;
+            // A field the payload doesn't carry keeps the row's own value — with
+            // the en-masse row that's the norm, since one category typically
+            // cascades across many different descriptions.
+            for (const { payload, orig } of edits) {
+                const category_id = 'category_id' in payload ? payload.category_id : orig?.category_id;
+                const description = 'description' in payload ? payload.description : orig?.description;
+                if (category_id == null || !description) continue;
+                const key = `${description.toLowerCase()} ${category_id}`;
                 if (seen.has(key)) continue;
                 seen.add(key);
-                queries.push(payload);
+                queries.push({ description, category_id });
             }
             if (!queries.length) {
                 results.classList.remove('tx-match-loading');
@@ -1523,8 +1746,28 @@
                 else untouched++;
             }
 
-            const editHtml = changed.length
-                ? changed.map(({ orig, payload, diffs }) => `
+            // An en-masse edit applies the same values everywhere, so listing it
+            // per row would just be the same block N times over: report the one
+            // set of values and how many rows it actually moves.
+            const overrides = bulk ? (edits[0]?.payload ?? {}) : null;
+            const bulkHtml = () => `
+                    <div class="tx-review-row">
+                        <div class="tx-review-desc">Applied to ${changed.length} transaction${changed.length === 1 ? '' : 's'}</div>
+                        <ul class="tx-review-changes">
+                            ${Object.keys(FIELD_LABELS).filter(f => f in overrides).map(f => `
+                                <li>
+                                    <span class="tx-review-field">${FIELD_LABELS[f]}</span>
+                                    <span class="tx-review-arrow">→</span>
+                                    <strong>${txEsc(fieldDisplay(f, overrides[f]))}</strong>
+                                </li>`).join('')}
+                        </ul>
+                    </div>`;
+
+            const editHtml = !changed.length
+                ? '<div class="tx-match-empty">No field changes.</div>'
+                : bulk
+                ? bulkHtml()
+                : changed.map(({ orig, payload, diffs }) => `
                     <div class="tx-review-row">
                         <div class="tx-review-desc">${txEsc(payload.description || orig.description || '—')}</div>
                         <ul class="tx-review-changes">
@@ -1536,8 +1779,7 @@
                                     <strong>${txEsc(fieldDisplay(d.field, d.after))}</strong>
                                 </li>`).join('')}
                         </ul>
-                    </div>`).join('')
-                : '<div class="tx-match-empty">No field changes.</div>';
+                    </div>`).join('');
 
             let cascadeHtml = '';
             if (cascadeCb.checked) {
@@ -1554,7 +1796,7 @@
 
             $('#tx-review-body').innerHTML = `
                 <div class="tx-review-section-title">Your edits</div>
-                ${untouched ? `<div class="tx-review-note">${untouched} transaction${untouched === 1 ? '' : 's'} unchanged.</div>` : ''}
+                ${untouched ? `<div class="tx-review-note">${untouched} transaction${untouched === 1 ? '' : 's'} ${bulk ? 'already ' + (untouched === 1 ? 'matches' : 'match') + ' these values.' : 'unchanged.'}</div>` : ''}
                 ${editHtml}
                 ${cascadeHtml}`;
         }
