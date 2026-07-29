@@ -38,3 +38,30 @@ if (missing.length) {
 }
 
 console.log(`[check-package-files] ok — ${topLevelJs.length} top-level files all allowlisted`);
+
+// ── Second guard: packaging icons vs. the app logo ───────────────────────────
+// build/icon.png (linux) and build/icon.ico (win) are *copies* of the logo,
+// rendered offline by scripts/make-icons.js — nothing regenerates them during a
+// build. So editing static/icons/logo/logo.svg updates the title bar and leaves
+// every installer, taskbar and launcher shipping the previous mark, silently.
+// make-icons.js stamps the hash of the SVG it rendered from; compare it here.
+
+const { sourceHash, SRC_SVG, BUILD_DIR, STAMP_FILE } = require('./make-icons.js');
+
+const stampPath = path.join(BUILD_DIR, STAMP_FILE);
+const stamped = fs.existsSync(stampPath) ? fs.readFileSync(stampPath, 'utf8').trim() : null;
+const current = sourceHash();
+
+if (stamped !== current) {
+    console.error(
+        '[check-package-files] FAIL — the packaging icons in electron/build/ were\n' +
+        `not rendered from the current ${path.relative(path.resolve(ROOT, '..'), SRC_SVG)}, so this\n` +
+        'build would ship the old logo on every installer, launcher and taskbar.\n' +
+        `    stamped: ${stamped || '(no stamp — icons predate the generator)'}\n` +
+        `    current: ${current}\n` +
+        'Run `node scripts/make-icons.js` and commit build/icon.png, build/icon.ico\n' +
+        `and build/${STAMP_FILE}.`);
+    process.exit(1);
+}
+
+console.log('[check-package-files] ok — build/icon.{png,ico} match the current logo.svg');
