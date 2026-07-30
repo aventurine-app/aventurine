@@ -38,11 +38,27 @@ jobs:
       # electron-builder cross-builds the Windows .exe on Linux but needs Wine
       # to run rcedit (icon/version stamping). If a future runner image drops
       # these stock packages, switch to the WineHQ apt repo.
+      #
+      # `wine` is load-bearing and easy to miss: electron-builder spawns the
+      # plain `wine` binary, which on Ubuntu noble ships in the `wine` package
+      # alone — wine64 provides /usr/bin/wine64, not /usr/bin/wine, and
+      # --no-install-recommends stops `wine` being pulled in as a recommend.
+      # Dropping it fails the Windows build with `spawn wine ENOENT` (v0.5.1).
+      # `wine --version` fails this step early instead of 5 minutes later inside
+      # electron-builder.
+      #
+      # continue-on-error for the same reason the Windows build below has it: the
+      # Windows toolchain is best-effort and must never stop the source-only
+      # release. A hard failure here would SKIP the un-guarded steps that follow
+      # (dependencies, Linux installers), leaving the artifact upload with no
+      # files to upload — so the whole run would collapse over a Wine problem.
       - name: Install Wine (Windows cross-build toolchain)
+        continue-on-error: true
         run: |
           sudo dpkg --add-architecture i386
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends wine64 wine32
+          sudo apt-get install -y --no-install-recommends wine wine64 wine32
+          wine --version
 
       # postinstall (scripts/setup-native-abis.js) parks the prebuilt
       # better-sqlite3-multiple-ciphers Linux binaries; no C toolchain / rebuild.
