@@ -17,7 +17,7 @@
 //   - the v_* views pre-join the normalized tables into human-readable,
 //     chronologically-sortable shapes for ad-hoc querying.
 
-const SCHEMA_VERSION = 13;
+const SCHEMA_VERSION = 14;
 
 // Months persist as 1-12 integers so `ORDER BY year, month` sorts
 // chronologically (the app translates to/from English names at its API
@@ -206,17 +206,22 @@ const DDL = [
      -- derived from the transactions themselves rather than a surrogate id.
      -- Any column left NULL keeps the auto-detected value.
      --
-     -- Two rows exist beyond plain edits of a detected series:
-     --   - MANUAL schedules: a row whose key matches no currently-detected
-     --     series is synthesized into one of its own (handlers/recurring.js),
-     --     using last_date as the anchor to project from — so display_name,
-     --     direction, cycle, amount, and last_date are all required together
-     --     for a manual row to actually surface. If real transactions for
-     --     that merchant appear later, detection naturally takes over (the
-     --     row keeps applying as a plain override on top of it).
-     --   - REMOVED (hidden) detected series: detection re-derives its result
-     --     from transactions on every read, so hiding an otherwise-still-
-     --     active pattern needs a standing flag, not just deleting a row.
+     -- A row here is also what makes a schedule VISIBLE at all: detection
+     -- never surfaces itself. The Recurring page starts empty and the user
+     -- runs "Find recurring schedules" (GET /api/recurring/candidates) and
+     -- ticks the ones they want, which writes adopted=1 rows. A detected
+     -- pattern with no adopted row is a candidate, not a schedule — so
+     -- deleting one is just adopted=0 (it is offered again on the next
+     -- detection run), not a tombstone.
+     --
+     -- Beyond plain edits of an adopted detected series there are MANUAL
+     -- schedules: a row whose key matches no currently-detected series is
+     -- synthesized into one of its own (handlers/recurring.js), using
+     -- last_date as the anchor to project from — so display_name, direction,
+     -- cycle, amount, and last_date are all required together for a manual
+     -- row to actually surface. If real transactions for that merchant
+     -- appear later, detection naturally takes over (the row keeps applying
+     -- as a plain override on top of it).
      "key" VARCHAR(200) NOT NULL,
      display_name VARCHAR(100),
      direction VARCHAR(10) CHECK (direction IN ('income', 'expense', 'transfer')),
@@ -224,7 +229,7 @@ const DDL = [
        CHECK (cycle IN ('weekly', 'biweekly', 'monthly', 'quarterly', 'yearly')),
      amount FLOAT CHECK (amount > 0),
      last_date DATE,  -- anchor date for a MANUAL schedule's own projection
-     removed INTEGER DEFAULT 0 NOT NULL CHECK (removed IN (0, 1)),
+     adopted INTEGER DEFAULT 0 NOT NULL CHECK (adopted IN (0, 1)),
      PRIMARY KEY ("key")
    )`,
   `CREATE INDEX ix_balance_entries_year ON balance_entries (year)`,

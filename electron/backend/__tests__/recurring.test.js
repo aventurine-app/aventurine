@@ -8,6 +8,11 @@
 // injectable through the API (the handler always uses the real local date, same
 // as /api/predictions/upcoming already does), so dates are built relative to
 // "now" rather than hardcoded.
+//
+// Detection never populates the page by itself, so almost every test here
+// inserts history and then calls adoptAll() — the two-call equivalent of the
+// user running "Find recurring schedules" and ticking every box. The adoption
+// gate itself is covered in its own section at the bottom.
 
 const test = require('node:test');
 const assert = require('node:assert');
@@ -26,6 +31,14 @@ function insertTx(c, { date, amount, description = '', display_name = null, cate
        VALUES (?, ?, ?, ?, ?, '', ?)`
     )
     .run(date, description, display_name, category_id, amount, tx_type);
+}
+
+/** Run detection and adopt everything it found — what the picker dialog does
+ *  when the user ticks every candidate. Returns the adopted keys. */
+function adoptAll(c) {
+  const keys = c.get('/api/recurring/candidates').body.candidates.map((s) => s.key);
+  if (keys.length) c.post('/api/recurring/adopt', { keys });
+  return keys;
 }
 
 function daysAgoIso(n) {
@@ -74,6 +87,8 @@ test('recurring: monthly expense series — actual occurrence in its month, proj
     insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', display_name: 'Netflix', category_id: food });
   }
 
+  adoptAll(c);
+
   const lastMonth = d4.slice(0, 7);
   const r = c.get(`/api/recurring?month=${lastMonth}`);
   assert.equal(r.status, 200, JSON.stringify(r.body));
@@ -104,6 +119,7 @@ test('recurring: recurring income is detected with direction "income"', (t) => {
       category_id: income, tx_type: 'income',
     });
   }
+  adoptAll(c);
   const r = c.get('/api/recurring');
   assert.equal(r.body.series.length, 1);
   assert.equal(r.body.series[0].direction, 'income');
@@ -114,6 +130,7 @@ test('recurring: a recurring transfer (e.g. autosave) is detected with direction
   for (const date of [daysAgoIso(90), daysAgoIso(60), daysAgoIso(30)]) {
     insertTx(c, { date, amount: 200, description: 'SAVINGS AUTO-TRANSFER', tx_type: 'transfer' });
   }
+  adoptAll(c);
   const r = c.get('/api/recurring');
   assert.equal(r.body.series.length, 1);
   assert.equal(r.body.series[0].direction, 'transfer');
@@ -125,6 +142,8 @@ test('recurring: a lapsed series is dropped and contributes no occurrences', (t)
   for (const date of [daysAgoIso(500), daysAgoIso(470), daysAgoIso(440)]) {
     insertTx(c, { date, amount: 9, description: 'DEFUNCT GYM', category_id: food });
   }
+  // Not even offered as a candidate, so there is nothing to adopt either.
+  assert.deepStrictEqual(adoptAll(c), []);
   const r = c.get('/api/recurring');
   assert.deepStrictEqual(r.body.series, []);
   assert.deepStrictEqual(r.body.occurrences, []);
@@ -138,7 +157,7 @@ test('recurring override: display_name and amount edits are reflected on the nex
   for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
     insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', display_name: 'Netflix', category_id: food });
   }
-  const key = c.get('/api/recurring').body.series[0].key;
+  const key = adoptAll(c)[0];
 
   const up = c.post('/api/recurring/override', { key, display_name: 'Streaming', amount: 17.99 });
   assert.equal(up.status, 200, JSON.stringify(up.body));
@@ -159,7 +178,7 @@ test('recurring override: an amount edit never rewrites a past actual occurrence
     insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', display_name: 'Netflix', category_id: food });
   }
   const lastDate = dates[dates.length - 1];
-  const key = c.get('/api/recurring').body.series[0].key;
+  const key = adoptAll(c)[0];
   c.post('/api/recurring/override', { key, amount: 99 });
 
   const r = c.get(`/api/recurring?month=${lastDate.slice(0, 7)}`);
@@ -175,6 +194,7 @@ test('recurring override: a cadence edit recomputes next_date from the real last
   for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
     insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
   }
+  adoptAll(c);
   const before = c.get('/api/recurring').body.series[0];
   assert.equal(before.cycle, 'monthly');
 
@@ -191,7 +211,7 @@ test('recurring override: invalid cycle/amount/display_name are rejected', (t) =
   for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
     insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
   }
-  const key = c.get('/api/recurring').body.series[0].key;
+  const key = adoptAll(c)[0];
 
   assert.equal(c.post('/api/recurring/override', { key, cycle: 'daily' }).status, 400);
   assert.equal(c.post('/api/recurring/override', { key, amount: 0 }).status, 400);
@@ -207,7 +227,7 @@ test('recurring override: null clears a field back to auto-detected', (t) => {
   for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
     insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', display_name: 'Netflix', category_id: food });
   }
-  const key = c.get('/api/recurring').body.series[0].key;
+  const key = adoptAll(c)[0];
   c.post('/api/recurring/override', { key, display_name: 'Streaming' });
   assert.equal(c.get('/api/recurring').body.series[0].display_name, 'Streaming');
 
@@ -222,7 +242,7 @@ test('recurring override: direction can be corrected, and flows into the calenda
   for (const date of dates) {
     insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
   }
-  const key = c.get('/api/recurring').body.series[0].key;
+  const key = adoptAll(c)[0];
   c.post('/api/recurring/override', { key, direction: 'transfer' });
 
   const r = c.get(`/api/recurring?month=${dates[3].slice(0, 7)}`);
@@ -237,7 +257,7 @@ test('recurring override: invalid direction is rejected', (t) => {
   for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
     insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
   }
-  const key = c.get('/api/recurring').body.series[0].key;
+  const key = adoptAll(c)[0];
   assert.equal(c.post('/api/recurring/override', { key, direction: 'savings' }).status, 400);
 });
 
@@ -337,36 +357,231 @@ test('recurring remove: deleting a manual schedule removes it outright', (t) => 
   assert.equal(row, undefined, 'no tombstone left behind for a manual schedule');
 });
 
-test('recurring remove: hiding a detected series persists even though its transactions still recur', (t) => {
+test('recurring remove: deleting a detected series un-adopts it, and it stays gone as it keeps recurring', (t) => {
   const c = makeClient(t);
   const food = catId(c, 'food');
   for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
     insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
   }
-  const key = c.get('/api/recurring').body.series[0].key;
+  const key = adoptAll(c)[0];
 
   const del = c.del(`/api/recurring/schedule/${encodeURIComponent(key)}`);
   assert.equal(del.status, 200);
-  assert.deepStrictEqual(c.get('/api/recurring').body.series, [], 'hidden immediately');
+  assert.deepStrictEqual(c.get('/api/recurring').body.series, [], 'off the page immediately');
 
-  // Still hidden after another transaction keeps the pattern alive.
+  // Still gone after another transaction keeps the pattern alive: detection
+  // re-finding it is not re-adoption.
   insertTx(c, { date: daysAgoIso(0), amount: 15.49, description: 'NETFLIX.COM', category_id: food });
-  assert.deepStrictEqual(c.get('/api/recurring').body.series, [], 'still hidden — removal is a standing flag, not one-shot');
+  assert.deepStrictEqual(c.get('/api/recurring').body.series, [], 'still gone — adoption is a standing flag, not one-shot');
 
-  const row = c.conn.db().prepare('SELECT removed FROM recurring_overrides WHERE "key" = ?').get(key);
-  assert.equal(row.removed, 1);
+  const row = c.conn.db().prepare('SELECT adopted FROM recurring_overrides WHERE "key" = ?').get(key);
+  assert.equal(row.adopted, 0);
 });
 
-test('recurring remove: re-adding under the same name revives a removed detected series', (t) => {
+test('recurring remove: a deleted detected series is offered again by the next detection run', (t) => {
   const c = makeClient(t);
   const food = catId(c, 'food');
   for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
     insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
   }
-  const key = c.get('/api/recurring').body.series[0].key;
+  const key = adoptAll(c)[0];
+  c.del(`/api/recurring/schedule/${encodeURIComponent(key)}`);
+  assert.deepStrictEqual(c.get('/api/recurring').body.series, []);
+
+  const again = c.get('/api/recurring/candidates').body.candidates;
+  assert.equal(again.length, 1, 'a delete is recoverable — it goes back in the picker');
+  assert.equal(again[0].key, key);
+  adoptAll(c);
+  assert.equal(c.get('/api/recurring').body.series.length, 1);
+});
+
+test('recurring remove: re-adopting a deleted series keeps the corrections it carried', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
+    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
+  }
+  const key = adoptAll(c)[0];
+  c.post('/api/recurring/override', { key, display_name: 'Streaming' });
+  c.del(`/api/recurring/schedule/${encodeURIComponent(key)}`);
+  assert.deepStrictEqual(c.get('/api/recurring').body.series, []);
+
+  adoptAll(c);
+  assert.equal(c.get('/api/recurring').body.series[0].display_name, 'Streaming');
+});
+
+test('recurring remove: an edit through the override endpoint re-adopts a deleted series', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
+    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
+  }
+  const key = adoptAll(c)[0];
   c.del(`/api/recurring/schedule/${encodeURIComponent(key)}`);
   assert.deepStrictEqual(c.get('/api/recurring').body.series, []);
 
   c.post('/api/recurring/override', { key, amount: 16 });
-  assert.equal(c.get('/api/recurring').body.series.length, 1, 'any edit through the override endpoint un-hides it');
+  assert.equal(c.get('/api/recurring').body.series.length, 1, 'correcting a schedule is adopting it');
+});
+
+// ─── Category (the card's pill) ───────────────────────────────────────────────
+
+test('recurring category: a series carries the category its transactions have', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
+    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
+  }
+  adoptAll(c);
+  const s = c.get('/api/recurring').body.series[0];
+  assert.equal(s.category_id, food);
+  assert.equal(s.category, 'Food');
+});
+
+test('recurring category: uncategorized transactions leave it null, not guessed', (t) => {
+  const c = makeClient(t);
+  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
+    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM' });
+  }
+  adoptAll(c);
+  const s = c.get('/api/recurring').body.series[0];
+  assert.equal(s.category_id, null);
+  assert.equal(s.category, null);
+});
+
+test('recurring category: the majority category wins when a series is split', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  const entertainment = catId(c, 'entertainment');
+  // Three of four say Entertainment — one stray Food row must not win.
+  insertTx(c, { date: daysAgoIso(95), amount: 15.49, description: 'NETFLIX.COM', category_id: food });
+  for (const date of [daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
+    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: entertainment });
+  }
+  adoptAll(c);
+  assert.equal(c.get('/api/recurring').body.series[0].category, 'Entertainment');
+});
+
+test('recurring category: an uncategorized row does not outvote a categorized one', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  insertTx(c, { date: daysAgoIso(95), amount: 15.49, description: 'NETFLIX.COM' });
+  insertTx(c, { date: daysAgoIso(65), amount: 15.49, description: 'NETFLIX.COM' });
+  insertTx(c, { date: daysAgoIso(35), amount: 15.49, description: 'NETFLIX.COM', category_id: food });
+  insertTx(c, { date: daysAgoIso(5), amount: 15.49, description: 'NETFLIX.COM' });
+  adoptAll(c);
+  assert.equal(c.get('/api/recurring').body.series[0].category, 'Food',
+    'rows with no category abstain rather than voting for "none"');
+});
+
+test('recurring category: a hand-added schedule has none', (t) => {
+  const c = makeClient(t);
+  c.post('/api/recurring/schedule', {
+    display_name: 'Gym Membership', direction: 'expense', cycle: 'monthly', amount: 45, next_date: daysAgoIso(-14),
+  });
+  const s = c.get('/api/recurring').body.series[0];
+  assert.equal(s.category, null, 'nothing backs it, so there is nothing to read a category from');
+});
+
+test('recurring category: candidates carry it too, for the picker', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
+    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
+  }
+  assert.equal(c.get('/api/recurring/candidates').body.candidates[0].category, 'Food');
+});
+
+// ─── Detection / adoption (the mini-onboarding) ───────────────────────────────
+
+test('recurring detect: history alone shows nothing until the user adopts a candidate', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
+    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', display_name: 'Netflix', category_id: food });
+  }
+
+  const listed = c.get('/api/recurring');
+  assert.deepStrictEqual(listed.body.series, [], 'detection does not populate the page by itself');
+  assert.deepStrictEqual(listed.body.occurrences, [], 'and contributes no calendar dots either');
+
+  const cand = c.get('/api/recurring/candidates');
+  assert.equal(cand.status, 200, JSON.stringify(cand.body));
+  assert.equal(cand.body.candidates.length, 1);
+  const s = cand.body.candidates[0];
+  assert.equal(s.display_name, 'Netflix');
+  assert.equal(s.cycle, 'monthly');
+  assert.equal(s.amount, 15.49);
+  assert.equal(s.occurrences, 4);
+
+  // Looking is not adopting.
+  assert.deepStrictEqual(c.get('/api/recurring').body.series, []);
+
+  const ad = c.post('/api/recurring/adopt', { keys: [s.key] });
+  assert.equal(ad.status, 200, JSON.stringify(ad.body));
+  assert.equal(ad.body.adopted, 1);
+  assert.equal(c.get('/api/recurring').body.series.length, 1);
+});
+
+test('recurring detect: only the ticked candidates are adopted, and adopted ones stop being offered', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
+    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
+    insertTx(c, { date, amount: 42, description: 'CITY FITNESS CLUB', category_id: food });
+  }
+  const candidates = c.get('/api/recurring/candidates').body.candidates;
+  assert.equal(candidates.length, 2);
+
+  const picked = candidates.find((s) => s.amount === 42);
+  c.post('/api/recurring/adopt', { keys: [picked.key] });
+
+  const series = c.get('/api/recurring').body.series;
+  assert.equal(series.length, 1, 'the unticked candidate stays off the page');
+  assert.equal(series[0].key, picked.key);
+
+  const left = c.get('/api/recurring/candidates').body.candidates;
+  assert.equal(left.length, 1, 'an adopted schedule is not offered again');
+  assert.notEqual(left[0].key, picked.key);
+});
+
+test('recurring detect: candidates come back most-confident first', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  // A long, dead-regular series and a shorter one — both detected, but not
+  // equally well evidenced, so the picker has something to order.
+  for (const date of [daysAgoIso(155), daysAgoIso(125), daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
+    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
+  }
+  for (const date of [daysAgoIso(62), daysAgoIso(32), daysAgoIso(2)]) {
+    insertTx(c, { date, amount: 42, description: 'CITY FITNESS CLUB', category_id: food });
+  }
+  const candidates = c.get('/api/recurring/candidates').body.candidates;
+  assert.equal(candidates.length, 2);
+  for (let i = 1; i < candidates.length; i++) {
+    assert.ok(candidates[i - 1].confidence >= candidates[i].confidence, 'sorted by confidence, descending');
+  }
+});
+
+test('recurring adopt: an empty or non-array keys list is rejected', (t) => {
+  const c = makeClient(t);
+  assert.equal(c.post('/api/recurring/adopt', {}).status, 400);
+  assert.equal(c.post('/api/recurring/adopt', { keys: 'netflix com' }).status, 400);
+  assert.equal(c.post('/api/recurring/adopt', { keys: [] }).status, 400);
+  assert.equal(c.post('/api/recurring/adopt', { keys: ['  '] }).status, 400);
+});
+
+test('recurring adopt: a key detection no longer produces renders nothing', (t) => {
+  const c = makeClient(t);
+  const ad = c.post('/api/recurring/adopt', { keys: ['ghost merchant'] });
+  assert.equal(ad.status, 200, 'a stale key from an open picker is a race, not an error');
+  assert.deepStrictEqual(c.get('/api/recurring').body.series, [], 'nothing backs it, so it shows nothing');
+});
+
+test('recurring adopt: a hand-added schedule needs no adoption step', (t) => {
+  const c = makeClient(t);
+  c.post('/api/recurring/schedule', {
+    display_name: 'Gym Membership', direction: 'expense', cycle: 'monthly', amount: 45, next_date: daysAgoIso(-14),
+  });
+  assert.equal(c.get('/api/recurring').body.series.length, 1, 'the user just declared it — nothing left to confirm');
 });

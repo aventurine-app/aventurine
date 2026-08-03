@@ -187,6 +187,17 @@ app.whenReady().then(async () => {
             headers: { 'Content-Type': 'application/json' },
             body: ${JSON.stringify(JSON.stringify(body))} }).then(r => r.json())`);
 
+    // The Recurring page lists only the schedules the user adopted from its
+    // detection dialog, so a freshly seeded profile lands there empty. Adopt
+    // whatever detection found first — these shots document the settled page,
+    // and the picker is captured separately. Idempotent: an adopted series
+    // stops being offered, so a re-run finds nothing left to do.
+    const adoptRecurring = async () => {
+      const { candidates } = await js('apiFetch("/api/recurring/candidates").then(r => r.json())');
+      if (candidates.length) await post('/api/recurring/adopt', { keys: candidates.map((s) => s.key) });
+      return candidates.length;
+    };
+
     // Screens are captured in named phases so a single one can be re-run while
     // iterating: SHOT_ONLY=transactions,import
     const phase = (name) => !ONLY || ONLY.has(name);
@@ -856,11 +867,12 @@ app.whenReady().then(async () => {
       await unhover();
       await shotEl('site-transactions', '.tx-wrapper', 0);
 
-      // Heading, month stepper, calendar and list — the whole feature, minus
-      // the chrome around it.
+      // Month stepper and the calendar with its occurrence chips — the whole
+      // feature, minus the chrome around it.
+      await adoptRecurring();
       await nav('/recurring', 3200);
-      if (!(await js(`(() => document.querySelectorAll('#rec-list .rec-row').length)()`))) {
-        throw new Error('recurring page listed no series');
+      if (!(await js(`(() => document.querySelectorAll('.rec-occ').length)()`))) {
+        throw new Error('recurring calendar showed no occurrences');
       }
       await unhover();
       await shotEl('site-recurring', '.rec-page', 0);
@@ -878,16 +890,29 @@ app.whenReady().then(async () => {
       // utilities, two subscriptions, a gym, twice-monthly payroll and the two
       // standing transfers, so detection has real series to find without any
       // hand-authored override.
+      console.log(`  ${await adoptRecurring()} candidates adopted`);
       await nav('/recurring', 3200);
-      const found = await js(`(() => document.querySelectorAll('#rec-list .rec-row').length)()`);
-      if (!found) throw new Error('recurring page listed no series');
-      console.log(`  ${found} detected series`);
+      const found = await js(`(() => document.querySelectorAll('.rec-occ').length)()`);
+      if (!found) throw new Error('recurring calendar showed no occurrences');
+      console.log(`  ${found} occurrences on the grid`);
       await unhover();
-      // Trimmed to the taller of the two columns: the calendar runs out well
-      // above the list, so a full-window shot ends in a band of empty page.
-      await shotPage('recurring-page', '.rec-layout > *');
-      await shotEl('recurring-list', '#rec-list', 8);
+      // Trimmed to the calendar: it is the page now, so a full-window shot
+      // ends in a band of empty space below it.
+      await shotPage('recurring-page', '.rec-calendar');
       await shotEl('recurring-calendar', '#rec-calendar', 8);
+
+      // The hover card, which is where a schedule's data lives now. Clicking a
+      // chip pins it, which is the only way to hold it open for a capture —
+      // capturePage doesn't carry a synthetic hover. Shot with padding so the
+      // card is framed with the chip it points at.
+      await js(`document.querySelector('.rec-occ').click()`);
+      await sleep(400);
+      if (!(await js(`(() => { const p = document.getElementById('rec-pop'); return p && !p.hidden; })()`))) {
+        throw new Error('recurring hover card did not open');
+      }
+      await shotEl('recurring-card', '#rec-pop', 12);
+      await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
+      await sleep(200);
     }
 
     // ═══ Phase 10: tools ═════════════════════════════════════════════════════

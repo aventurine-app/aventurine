@@ -1161,6 +1161,131 @@ const MERCHANTS = [
   ['shakeys', 'food'], ['moms touch', 'food'], ['musicians friend', 'shopping'],
   ['powells books', 'shopping'], ['farmers dog', 'shopping'],
 
+  // ── Creator-founded & internet-viral brands ─────────────────────────────────
+  // Brands that reach a statement through a feed rather than a storefront:
+  // creator-owned labels (Prime, Feastables, Chamberlain, Unwell, Happy Dad),
+  // the DTC beverage/snack wave, and the TikTok-era beauty shelf. These are
+  // exactly the rows the classifier can't describe — an invented word ("Byoma",
+  // "Olaplex", "Cariuma") carries no morphology to infer a kind from — so the
+  // lexicon is the only tier that will ever name or categorize them.
+  // Rejected on the usual substring grounds: 'canva' (hides in "canvas"),
+  // 'g fuel' (hides in "…ING FUEL", a heating-oil naming convention — the
+  // solid 'gfuel' spelling is used instead), 'celsius' (a temperature unit and
+  // an HVAC-shop name), 'graza' ("Grazano"), 'rapha' ("Raphael"), 'prusa'
+  // ("Prusak"), 'patrick ta' ("Patrick Taylor"), 'on running' ("marathon
+  // running"), 'set active' ("sunset activewear"), 'descript' ("description"),
+  // 'cameo'/'thistle'/'gobble'/'notion'/'lemme' (plain words or common salon /
+  // farm / firm names), 'porter road' (a street), 'bachan' ("Bachand"),
+  // 'dieux' ("adieux"), 'rtic' (inside "article").
+  // Beverages, snacks & creator labels
+  ['prime hydration', 'food'], ['feastables', 'food'], ['chamberlain coffee', 'food'],
+  ['unwell hydration', 'food'], ['happy dad', 'food'], ['liquid death', 'food'],
+  ['ghost energy', 'food'], ['alani nu', 'food'], ['zoa energy', 'food'],
+  ['c4 energy', 'food'], ['gfuel', 'food'], ['gorgie energy', 'food'],
+  ['magic spoon', 'food'], ['david protein', 'food'], ['catalina crunch', 'food'],
+  ['chomps', 'food'], ['siete foods', 'food'], ['lesser evil', 'food'],
+  ['pipcorn', 'food'], ['fly by jing', 'food'], ['omsom', 'food'],
+  ['momofuku', 'food'], ['brightland', 'food'], ["tony's chocolonely", 'food'],
+  ['kettle & fire', 'food'], ['mid day squares', 'food'], ['milk bar', 'food'],
+  ['dirty dough', 'food'], ["jeni's ice cream", 'food'],
+  // Subscription food boxes & the DTC pantry
+  ['wild alaskan', 'food'], ['hungryroot', 'food'], ['green chef', 'food'],
+  ['cookunity', 'food'], ['daily harvest', 'food'], ['sakara life', 'food'],
+  ['purple carrot', 'food'], ['marley spoon', 'food'], ['dinnerly', 'food'],
+  ['snake river farms', 'food'],
+  // Coffee & tea subscriptions (these beat the 'coffee' keyword to the row, so
+  // the ledger gets a brand name instead of a bare "food" guess).
+  ['black rifle coffee', 'food'], ['trade coffee', 'food'], ['atlas coffee club', 'food'],
+  ['bulletproof coffee', 'food'], ['adagio teas', 'food'], ['harney & sons', 'food'],
+  ["david's tea", 'food'], ['davidstea', 'food'], ['art of tea', 'food'],
+  ['cometeer', 'food'],
+  // Beauty & skincare — creator-founded houses
+  // Both spellings of the r.e.m. wordmark: banks print it with and without the
+  // dots, and neither form survives as a substring of the other.
+  ['rhode skin', 'shopping'], ['rem beauty', 'shopping'], ['r.e.m. beauty', 'shopping'],
+  ['florence by mills', 'shopping'],
+  ['haus labs', 'shopping'], ['makeup by mario', 'shopping'], ['kylie cosmetics', 'shopping'],
+  ['kylie skin', 'shopping'], ['goop', 'shopping'], ['honest company', 'shopping'],
+  // Beauty & skincare — the DTC shelf
+  ['glow recipe', 'shopping'], ['summer fridays', 'shopping'], ['tower 28', 'shopping'],
+  ['saie beauty', 'shopping'], ['merit beauty', 'shopping'], ['ilia beauty', 'shopping'],
+  ['youth to the people', 'shopping'], ['topicals', 'shopping'], ['starface', 'shopping'],
+  ['hero cosmetics', 'shopping'], ['bubble skincare', 'shopping'], ['byoma', 'shopping'],
+  ['naturium', 'shopping'], ['the ordinary', 'shopping'], ['deciem', 'shopping'],
+  ["paula's choice", 'shopping'], ['medik8', 'shopping'], ['biossance', 'shopping'],
+  ['farmacy beauty', 'shopping'], ['sunday riley', 'shopping'], ['augustinus bader', 'shopping'],
+  ['kosas', 'shopping'], ['westman atelier', 'shopping'], ['refy beauty', 'shopping'],
+  ['jones road beauty', 'shopping'], ['il makiage', 'shopping'], ['beauty pie', 'shopping'],
+  // Grooming & hair
+  ['dr squatch', 'shopping'], ['manscaped', 'shopping'], ['duke cannon', 'shopping'],
+  ['lume deodorant', 'shopping'], ['native deodorant', 'shopping'], ['olaplex', 'shopping'],
+  ['ouai haircare', 'shopping'], ['prose hair', 'shopping'], ['function of beauty', 'shopping'],
+  ['vegamour', 'shopping'], ['crown affair', 'shopping'], ['briogeo', 'shopping'],
+  ['amika', 'shopping'], ['drybar', 'shopping'],
+  // Apparel & footwear — the feed-native labels
+  ['alo yoga', 'shopping'], ['halara', 'shopping'], ['princess polly', 'shopping'],
+  ['edikted', 'shopping'], ['oh polly', 'shopping'], ['meshki', 'shopping'],
+  ['cupshe', 'shopping'], ['brandy melville', 'shopping'], ['true classic', 'shopping'],
+  ['cuts clothing', 'shopping'], ['marine layer', 'shopping'], ['mott & bow', 'shopping'],
+  ['bombas', 'shopping'], ["rothy's", 'shopping'], ['oofos', 'shopping'],
+  ['vessi', 'shopping'], ['cariuma', 'shopping'], ['kizik', 'shopping'],
+  ['tecovas', 'shopping'], ['darn tough', 'shopping'], ['smartwool', 'shopping'],
+  ['outdoor voices', 'shopping'], ['tracksmith', 'shopping'], ['janji', 'shopping'],
+  ['chubbies', 'shopping'], ['birddogs', 'shopping'], ['western rise', 'shopping'],
+
+  // ── Niche & enthusiast retail ───────────────────────────────────────────────
+  // The hobby long tail: shops a household hits a few times a year but that a
+  // hobbyist's statement is full of. Each is a single-category retailer, which
+  // is what makes them safe entries — a "TCGPLAYER" or "JLCPCB" row is never
+  // anything but shopping.
+  // Tabletop, trading cards & crowdfunding
+  ['tcgplayer', 'shopping'], ['card kingdom', 'shopping'], ['troll and toad', 'shopping'],
+  ['star city games', 'shopping'], ['miniature market', 'shopping'], ['noble knight games', 'shopping'],
+  ['coolstuffinc', 'shopping'], ['games workshop', 'shopping'], ['warhammer', 'shopping'],
+  ['whatnot', 'shopping'], ['kickstarter', 'shopping'], ['indiegogo', 'shopping'],
+  ['backerkit', 'shopping'], ['gamefound', 'shopping'],
+  // Resale & collectors' marketplaces
+  ['vinted', 'shopping'], ['chrono24', 'shopping'], ['jomashop', 'shopping'],
+  ['discogs', 'shopping'], ['vinyl me please', 'shopping'], ['amoeba music', 'shopping'],
+  ['rough trade', 'shopping'], ['turntable lab', 'shopping'], ['alibris', 'shopping'],
+  ['waterstones', 'shopping'],
+  // Music gear & art supplies
+  ['zzounds', 'shopping'], ['american musical supply', 'shopping'], ["jerry's artarama", 'shopping'],
+  // Makers: woodworking, electronics, 3D printing
+  ['rockler', 'shopping'], ['woodcraft', 'shopping'], ['grizzly industrial', 'shopping'],
+  ['northern tool', 'shopping'], ['mcmaster-carr', 'shopping'], ['digikey', 'shopping'],
+  ['mouser electronics', 'shopping'], ['adafruit', 'shopping'], ['sparkfun', 'shopping'],
+  ['jlcpcb', 'shopping'], ['pcbway', 'shopping'], ['prusa research', 'shopping'],
+  ['bambu lab', 'shopping'], ['matterhackers', 'shopping'], ['elegoo', 'shopping'],
+  ['creality', 'shopping'],
+  // Outdoors, cycling & shooting sports
+  ['sierra trading', 'shopping'], ['campsaver', 'shopping'], ['steep & cheap', 'shopping'],
+  ['tactics boardshop', 'shopping'], ['jenson usa', 'shopping'], ['competitive cyclist', 'shopping'],
+  ['worldwide cyclery', 'shopping'], ['park tool', 'shopping'], ['trek bicycle', 'shopping'],
+  ['specialized bicycle', 'shopping'], ['canyon bicycles', 'shopping'], ['tackle warehouse', 'shopping'],
+  ['midway usa', 'shopping'], ['brownells', 'shopping'], ['optics planet', 'shopping'],
+  ['vortex optics', 'shopping'], ['owala', 'shopping'], ['brumate', 'shopping'],
+  ['nalgene', 'shopping'],
+  // Pets (DTC food & sitting)
+  ['ollie pets', 'shopping'], ['nom nom now', 'shopping'], ['spot & tango', 'shopping'],
+  ['bark box', 'shopping'], ['rover.com', 'shopping'],
+  // Supplements, recovery & training subscriptions
+  ['seed health', 'health'], ['bloom nutrition', 'health'], ['ryse supplements', 'health'],
+  ['nutrafol', 'health'], ['eight sleep', 'health'], ['therabody', 'health'],
+  ['hyperice', 'health'], ['concept2', 'health'], ['classpass', 'health'],
+  ['alo moves', 'health'], ['mindbody', 'health'], ['function health', 'health'],
+  // Creator platforms & digital media (tips, memberships, courses). 'buy me a
+  // coffee' is listed here on purpose: without it the 'coffee' keyword files a
+  // creator tip under food.
+  ['gumroad', 'entertainment'], ['ko-fi', 'entertainment'], ['buy me a coffee', 'entertainment'],
+  ['capcut', 'entertainment'], ['epidemic sound', 'entertainment'], ['domestika', 'entertainment'],
+
+  // ── Apostrophe-stripped twins (see the note above the first batch) ──────────
+  ['tonys chocolonely', 'food'], ['jenis ice cream', 'food'], ['davids tea', 'food'],
+  ['paulas choice', 'shopping'], ['rothys', 'shopping'], ['jerrys artarama', 'shopping'],
+  // "KETTLE AND FIRE" / "SALT AND STRAW" — the same story for '&' spelled out.
+  ['kettle and fire', 'food'], ['salt and straw', 'food'],
+
   // ── Income — payroll / deposits (direction-guarded in categorize.js) ──
   ['adp payroll', 'income'], ['gusto pay', 'income'], ['payroll', 'income'],
   ['direct deposit', 'income'],
@@ -2411,6 +2536,102 @@ const DISPLAY_OVERRIDES = {
   'deel payroll': 'Deel',
   isolved: 'isolved',
   'opm treas': 'OPM',
+
+  // Creator-founded & viral brands. Two recurring corrections here: internet
+  // brands love a lowercase or all-caps wordmark (goop, amika, BYOMA), and a
+  // needle often carries a disambiguating tail ("… beauty", "… deodorant")
+  // that isn't part of the name the ledger should show.
+  gfuel: 'G FUEL',
+  'zoa energy': 'ZOA Energy',
+  'gorgie energy': 'Gorgie',
+  'fly by jing': 'Fly By Jing',
+  'david protein': 'David',
+  'siete foods': 'Siete',
+  'lesser evil': 'LesserEvil',
+  'mid day squares': 'Mid-Day Squares',
+  cookunity: 'CookUnity',
+  'wild alaskan': 'Wild Alaskan Company',
+  'bulletproof coffee': 'Bulletproof',
+  'art of tea': 'Art of Tea',
+  "david's tea": 'DAVIDsTEA',
+  'rhode skin': 'Rhode',
+  'rem beauty': 'r.e.m. beauty',
+  'r.e.m. beauty': 'r.e.m. beauty',
+  davidstea: 'DAVIDsTEA',
+  'florence by mills': 'Florence by Mills',
+  'makeup by mario': 'Makeup by Mario',
+  goop: 'goop',
+  'honest company': 'The Honest Company',
+  'saie beauty': 'Saie',
+  'merit beauty': 'Merit',
+  'ilia beauty': 'ILIA',
+  'youth to the people': 'Youth to the People',
+  'bubble skincare': 'Bubble',
+  byoma: 'BYOMA',
+  deciem: 'DECIEM',
+  'farmacy beauty': 'Farmacy',
+  'refy beauty': 'REFY',
+  'jones road beauty': 'Jones Road',
+  'il makiage': 'IL MAKIAGE',
+  'dr squatch': 'Dr. Squatch',
+  'lume deodorant': 'Lume',
+  'native deodorant': 'Native',
+  'ouai haircare': 'OUAI',
+  'prose hair': 'Prose',
+  'function of beauty': 'Function of Beauty',
+  vegamour: 'VEGAMOUR',
+  amika: 'amika',
+  'cuts clothing': 'Cuts',
+  oofos: 'OOFOS',
+
+  // Niche & enthusiast retail — mostly compound wordmarks the auto-caser
+  // flattens (zZounds, McMaster-Carr, PCBWay) and shop names carrying a
+  // category tail the brand itself drops.
+  tcgplayer: 'TCGplayer',
+  'troll and toad': 'Troll and Toad',
+  coolstuffinc: 'CoolStuffInc',
+  backerkit: 'BackerKit',
+  'vinyl me please': 'Vinyl Me, Please',
+  zzounds: 'zZounds',
+  'mcmaster-carr': 'McMaster-Carr',
+  digikey: 'DigiKey',
+  'mouser electronics': 'Mouser',
+  sparkfun: 'SparkFun',
+  jlcpcb: 'JLCPCB',
+  pcbway: 'PCBWay',
+  'prusa research': 'Prusa',
+  matterhackers: 'MatterHackers',
+  elegoo: 'ELEGOO',
+  'sierra trading': 'Sierra Trading Post',
+  campsaver: 'CampSaver',
+  'tactics boardshop': 'Tactics',
+  'jenson usa': 'Jenson USA',
+  'trek bicycle': 'Trek',
+  'specialized bicycle': 'Specialized',
+  'canyon bicycles': 'Canyon',
+  'midway usa': 'MidwayUSA',
+  'optics planet': 'OpticsPlanet',
+  brumate: 'BruMate',
+  'ollie pets': 'Ollie',
+  'nom nom now': 'Nom Nom',
+  'bark box': 'BarkBox',
+  'rover.com': 'Rover',
+  'seed health': 'Seed',
+  'ryse supplements': 'RYSE',
+  classpass: 'ClassPass',
+  'ko-fi': 'Ko-fi',
+  'buy me a coffee': 'Buy Me a Coffee',
+  capcut: 'CapCut',
+
+  // Apostrophe-stripped twins (same canonical name as the possessive form).
+  'tonys chocolonely': "Tony's Chocolonely",
+  'jenis ice cream': "Jeni's Ice Cream",
+  'davids tea': 'DAVIDsTEA',
+  'paulas choice': "Paula's Choice",
+  rothys: "Rothy's",
+  'jerrys artarama': "Jerry's Artarama",
+  'kettle and fire': 'Kettle & Fire',
+  'salt and straw': 'Salt & Straw',
 };
 
 /** Canonical display name for a merchant needle: the curated override when one

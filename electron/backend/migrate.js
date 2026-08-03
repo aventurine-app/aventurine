@@ -263,6 +263,41 @@ const MIGRATIONS = [
        PRIMARY KEY ("key")
      )`);
   }],
+  // v14 — the Recurring page no longer surfaces detections on its own: a
+  // schedule is shown only once the user adopts it from the detection dialog
+  // (see schema.js). That inverts what `removed` meant, so it is replaced by
+  // `adopted` rather than kept alongside it — a detected-but-unadopted series
+  // is simply a candidate again, and there is nothing left for a tombstone
+  // flag to say. Existing rows carry over as adopted = NOT removed: everything
+  // the user had visible on the page stays visible, everything they had hidden
+  // goes back to being an unticked candidate.
+  //
+  // Table rebuild (same shape as v11) since SQLite can't drop a CHECKed column
+  // in place; guarded on the column already existing so a re-run is a no-op.
+  [14, (db) => {
+    const cols = db.pragma('table_info(recurring_overrides)').map((c) => c.name);
+    if (cols.includes('adopted')) return;
+    db.exec(`
+      CREATE TABLE recurring_overrides_new (
+        "key" VARCHAR(200) NOT NULL,
+        display_name VARCHAR(100),
+        direction VARCHAR(10) CHECK (direction IN ('income', 'expense', 'transfer')),
+        cycle VARCHAR(20)
+          CHECK (cycle IN ('weekly', 'biweekly', 'monthly', 'quarterly', 'yearly')),
+        amount FLOAT CHECK (amount > 0),
+        last_date DATE,
+        adopted INTEGER DEFAULT 0 NOT NULL CHECK (adopted IN (0, 1)),
+        PRIMARY KEY ("key")
+      );
+      INSERT INTO recurring_overrides_new
+        ("key", display_name, direction, cycle, amount, last_date, adopted)
+        SELECT "key", display_name, direction, cycle, amount, last_date,
+               CASE WHEN removed = 1 THEN 0 ELSE 1 END
+          FROM recurring_overrides;
+      DROP TABLE recurring_overrides;
+      ALTER TABLE recurring_overrides_new RENAME TO recurring_overrides;
+    `);
+  }],
 ];
 
 function bootstrapSchema(db) {

@@ -4,12 +4,17 @@
    Its own page again, so this file owns the page padding the way the other
    standalone pages do (see reportcard.css) — it no longer rides the Reports
    tab shell. No page heading: the sidebar's active link already names the
-   page, which is how every other page here works. Layout is a two-column
-   grid — calendar (left) + list
-   (right), even split — that collapses to one column under a narrow window.
+   page, which is how every other page here works.
+
+   The calendar is the whole page: one full-width grid whose day cells hold
+   occurrence chips (.rec-occ), each carrying its own schedule's name and
+   amount. Hovering or clicking a chip opens .rec-pop — a floating card with
+   the full row (name, type, cadence, amount, pencil, trash). There is no side
+   table any more; the chip IS the row's home, so the two can't drift apart.
+
    The confirm-dialog shell (.confirm-*) and the ⋮ menu trigger (.p-menu-btn)
-   the Add/Remove flows use are shared globals (style.css §7b) — nothing to
-   restate here.
+   the Detect/Add/Remove flows use are shared globals (style.css §7b) —
+   nothing to restate here.
    ============================================================================ */
 
 /* Anchor to the top so the cards never scroll out of reach when zoomed in
@@ -53,33 +58,20 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* ─── Layout ──────────────────────────────────────────────────────────────── */
-/* Even split, not the calendar's original 2:1 — the list now carries five
-   columns (merchant/type/cadence/amount/remove) instead of a plain
-   two-column readout, so it needs real width to keep the merchant name
-   legible next to four fixed-width controls. */
-.rec-layout {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    align-items: start;
-    gap: 24px;
-    width: 100%;
-}
-/* Stack calendar over list well before the window gets genuinely narrow: both
-   columns have hard floors. The list's four fixed columns (type 92 + cadence
-   104 + amount 96 + remove 34, plus cell padding) eat ~350px before the
-   merchant name gets a single pixel, and the calendar needs seven day cells
-   wide enough to hold a row of 18px dots. Under ~1300px of window — minus the
-   180px sidebar and the page padding — an even split leaves the merchant name
-   squeezed to a few characters long before either column is truly out of
-   room, so one full-width column each is the better read well before then.
-   Same collapse-early call as .dashboard-grid's 1200px breakpoint, a touch earlier
-   because this page's list is five columns wide. */
-@media (max-width: 1300px) {
-    .rec-layout { grid-template-columns: 1fr; }
+/* ─── Empty state ─────────────────────────────────────────────────────────── */
+/* Sits above the grid rather than replacing it — the month is still worth
+   seeing, and an empty calendar with no explanation reads as a bug. Compact,
+   because it is a banner over the real content, not the content itself. */
+.rec-empty {
+    border: var(--border-width) solid var(--border);
+    border-radius: 8px;
+    background: var(--surface1);
+    box-shadow: var(--shadow-card);
 }
 
 /* ─── Calendar ────────────────────────────────────────────────────────────── */
+/* Full width now that it is the page. Day cells are correspondingly taller:
+   they hold chips carrying a name and an amount, not bare dots. */
 .rec-calendar {
     min-width: 0;
     border: var(--border-width) solid var(--border);
@@ -104,166 +96,424 @@
     text-transform: uppercase;
 }
 
+/* One ruled grid, not 42 bordered tiles: the cells share their edges, so every
+   internal line is a single hairline drawn once (each cell owns only its right
+   and bottom edge; the container draws the outer frame, and the last column /
+   last row shed theirs so the frame isn't doubled). `overflow: clip` lets the
+   frame's radius round the square corner cells under it — the cells can't carry
+   their own radius any more without breaking the join. */
 .rec-cal-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 4px;
+    gap: 0;
+    border: var(--border-width) solid var(--border);
+    border-radius: 6px;
+    overflow: clip;
 }
 
 .rec-day {
-    min-height: 84px;
+    min-height: 118px;
     min-width: 0;
-    border: var(--border-width) solid var(--border);
-    border-radius: 6px;
+    /* Only two edges each — the neighbour draws the other two (see
+       .rec-cal-grid). Back to the app's standard hairline now that a line is
+       drawn once instead of twice back-to-back. */
+    border: 0;
+    border-right: var(--border-width) solid var(--border);
+    border-bottom: var(--border-width) solid var(--border);
     padding: 6px;
     display: flex;
     flex-direction: column;
     gap: 4px;
     background: var(--surface1);
 }
-.rec-day-outside { background: transparent; border-color: transparent; }
+/* The frame owns the outer edges, so the last column and last row drop theirs.
+   The grid is always a whole number of weeks (recurring.js pads both ends), so
+   the last seven children are exactly the last row. */
+.rec-day:nth-child(7n) { border-right: 0; }
+.rec-day:nth-last-child(-n + 7) { border-bottom: 0; }
+
+/* Padding days keep their share of the ruling — a joined grid with holes in it
+   reads as broken, not as "these days are outside the month". */
+.rec-day-outside { background: transparent; }
 .rec-day-outside .rec-day-num { color: var(--text-tertiary); }
-.rec-day-today { border-color: var(--accent-primary); }
+/* Today can't be a border colour any more (a cell no longer owns all four
+   edges), so it's an inset outline: drawn inside the cell, costs no layout, and
+   can't be swallowed by a neighbour's shared line. */
+.rec-day-today {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: -2px;
+}
 
 .rec-day-num {
     font-family: var(--font-numeric);
     font-size: var(--size-small);
     color: var(--text-secondary);
     font-variant-numeric: tabular-nums;
+    font-weight: var(--weight-bold);
 }
 
-.rec-day-dots {
+.rec-day-occs {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 3px;
-    align-content: flex-start;
+    min-width: 0;
 }
 
-/* One occurrence: direction = fill hue, actual vs. projected = solid vs.
-   dashed ring, and a one-letter merchant initial as the "symbol" — this reads
-   as identity without inventing an unbounded per-merchant colour palette. */
-.rec-dot {
-    width: 18px;
-    height: 18px;
-    min-width: 18px;
-    border-radius: 50%;
+/* ─── Occurrence chip ─────────────────────────────────────────────────────── */
+/* The schedule's home on the page: the merchant avatar, the name, and the
+   amount that actually applies to THIS date. Reading a chip should answer
+   "what is this and how much" without opening anything; the hover card adds
+   cadence, type and the two actions. */
+.rec-occ {
     display: flex;
     align-items: center;
-    justify-content: center;
-    font-family: var(--font-h3);
-    font-size: 9px;
-    font-weight: var(--weight-bold);
+    gap: 7px;
+    width: 100%;
+    min-width: 0;
+    /* A day cell can get narrow (zoomed in, or a small window): the name
+       ellipses first, then the amount, and nothing escapes the cell.
+       `clip` with a margin rather than plain `hidden` — the avatar's ring is
+       an outline, so it paints outside the chip's content box, and a squeezed
+       chip (one barely wider than the avatar itself) would otherwise shave
+       the right side off it. 3px clears the 2px ring. */
+    overflow: clip;
+    overflow-clip-margin: 3px;
+    padding: 4px 6px;
+    /* A rounded tile, no border. --surface2 (the control-fill rung) sits one
+       step lighter than the hover state below, so a resting chip is quiet and
+       the pointer still gets a clear response. The tile is what makes a chip
+       read as an object you can point at, now that the day cells' shared
+       ruling is the only other structure on the grid.
+       Held in a custom property so the dark theme can restate the resting
+       colour (see below) without out-specifying the :hover rule. */
+    --rec-chip-bg: var(--surface2);
+    border: 0;
+    border-radius: 6px;
+    background: var(--rec-chip-bg);
+    text-align: left;
     cursor: pointer;
-    user-select: none;
-    box-sizing: border-box;
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    transition: background 0.12s ease;
 }
-/* accent-negative/accent-positive (not accent-primary) — the app's own brand
+
+/* The avatar keeps the merchant's own deterministic colour and initials (the
+   same circle the ledger and the card draw — avatar.js / ui.css), scaled to
+   chip size. Direction rides a RING around it rather than recolouring the
+   fill: colouring the circle by direction would have made every expense look
+   like the same merchant.
+   The ring is an outline, not a border, so it hangs outside the circle and
+   costs no layout — the avatar stays exactly where it sits in the card. Solid
+   and flush (offset 0) so it reads as one unbroken outline of the circle
+   rather than a detached halo; it follows border-radius, so it stays a true
+   circle.
+   Every ring is solid, actual or projected: actual vs. projected is carried
+   by the chip's name colour below and spelled out on the card
+   ("Charged Aug 27" vs "Projected Aug 27").
+   accent-negative/accent-positive (not accent-primary) — the app's own brand
    teal and its "positive" green sit only ~30° apart in hue at the same
    lightness (validated: #497e74 vs #22a64a), too close for a reliable
    income/expense read at a glance. Red/green reuses the polarity pairing
    reportcard.js's changePill already uses for the same income-good/
    expense-bad semantic, and the ~190° hue gap is unambiguous even before the
-   letter glyph + tooltip + click-to-identify secondary cues kick in. */
-.rec-dot-expense.rec-dot-actual { background: var(--accent-negative); color: var(--button-text); }
-.rec-dot-income.rec-dot-actual  { background: var(--accent-positive); color: var(--button-text); }
-.rec-dot-transfer.rec-dot-actual { background: var(--accent-info); color: var(--button-text); }
-.rec-dot-expense.rec-dot-projected {
-    background: transparent; border: 2px dashed var(--accent-negative); color: var(--accent-negative);
+   name, the amount and the card kick in. */
+.rec-occ .avatar-circle {
+    width: 18px;
+    height: 18px;
+    font-size: 8px;
+    outline-width: 2px;
+    outline-style: solid;
+    outline-offset: 0;
 }
-.rec-dot-income.rec-dot-projected {
-    background: transparent; border: 2px dashed var(--accent-positive); color: var(--accent-positive);
+.rec-occ-expense  .avatar-circle { outline-color: var(--accent-negative); }
+.rec-occ-income   .avatar-circle { outline-color: var(--accent-positive); }
+.rec-occ-transfer .avatar-circle { outline-color: var(--accent-info); }
+
+/* Normal weight, both halves — the bold day numbers and the chips' own tiles
+   already give the grid its structure, so the labels don't need weight on top
+   of it. Their hierarchy is carried by colour (primary name, secondary
+   amount). */
+.rec-occ-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
 }
-.rec-dot-transfer.rec-dot-projected {
-    background: transparent; border: 2px dashed var(--accent-info); color: var(--accent-info);
-}
-.rec-dot-selected {
-    box-shadow: 0 0 0 2px var(--surface1), 0 0 0 4px var(--text-primary);
+/* A projected charge hasn't happened yet, so it reads one step back from a
+   real one. With every ring now solid, this is what carries "prediction, not
+   record" on the grid itself — the card spells it out in full. */
+.rec-occ-projected .rec-occ-name { color: var(--text-secondary); }
+
+.rec-occ-amount {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: var(--font-numeric);
+    font-size: var(--size-micro);
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
 }
 
+/* Dark theme has no rung between the cell fill and the hover state:
+   --surface2 resolves to the same palette stop as --surface1, so a resting
+   tile would be invisible there. Half a step toward --surface3 restores the
+   same quiet-tile/clear-hover relationship the light theme gets from the
+   tokens. Only the custom property is restated — setting `background` here
+   would out-specify .rec-occ:hover and kill the hover state in dark. */
+html[data-theme="dark"] .rec-occ {
+    --rec-chip-bg: color-mix(in srgb, var(--surface3) 55%, var(--surface1));
+}
+
+/* Hover steps up one rung, to --surface3 — a neutral grey, no accent tint.
+   .rec-occ-active takes the SAME fill, and must: recurring.js sets it on every
+   chip of a schedule the moment its card opens, which is the moment the
+   pointer lands on one of them. Any other colour here would be what "hover"
+   actually looks like, since the hovered chip is always active too. Lighting
+   up the schedule's whole run across the month is the point — a monthly bill
+   shows all its dates at once — and grey says that without recolouring the
+   grid. (Pinned-vs-previewing is carried by the card's own accent border.) */
+.rec-occ:hover,
+.rec-occ:focus-visible,
+.rec-occ-active,
+.rec-occ-active:hover {
+    background: var(--surface3);
+    outline: none;
+}
+
+/* Overflow toggle. A button, not a label: the calendar is the only way to
+   reach a schedule now, so nothing may sit permanently hidden behind it. */
 .rec-day-more {
+    align-self: flex-start;
+    border: none;
+    background: transparent;
+    padding: 1px 4px;
+    border-radius: 4px;
     font-family: var(--font-h3);
     font-size: var(--size-micro);
     color: var(--text-tertiary);
-    align-self: center;
+    cursor: pointer;
 }
+.rec-day-more:hover { background: var(--surface3); color: var(--text-primary); }
 
-/* ─── List (table) ────────────────────────────────────────────────────────── */
-/* No padding on the card itself — the divider lines (th/td border-bottom)
-   need to span the FULL card width edge-to-edge. Content still gets the same
-   breathing room via padding on the first/last cell of each row instead
-   (below), so nothing looks tighter than before. */
-.rec-list {
-    min-width: 0;
+/* ─── The hover card ──────────────────────────────────────────────────────── */
+/* One floating element, reused for whichever chip is active — the row the side
+   table used to hold, now anchored to the occurrence it describes. Fixed
+   positioning (placed by recurring.js against the chip's rect) so the page's
+   scroll container can't clip it; a fixed width keeps that measurement stable
+   on the very first show, before it has ever been laid out. */
+.rec-pop {
+    position: fixed;
+    z-index: 60;
+    /* Four fields plus two buttons on one line. The name is the only flexible
+       one, so the card's width IS the name's allowance: everything else is
+       sized to its own content (~330px all told), and whatever is left over
+       goes to the name before it ellipses. Narrowed from 560px to hand the
+       name about half the room it had — it is the one field with a tooltip and
+       a chip on the grid still showing it, so it is the one that can afford to
+       be clipped. */
+    width: 460px;
+    max-width: calc(100vw - 16px);
+    box-sizing: border-box;
     border: var(--border-width) solid var(--border);
     border-radius: 8px;
     background: var(--surface1);
-    box-shadow: var(--shadow-card);
-    overflow-x: auto;
+    /* --shadow-menu, the app's popover elevation (titlebar menus, ⋮ menus,
+       filter popovers) — this card floats over the grid exactly like those do,
+       and the shadow is what separates it from the day cells underneath.
+       (--shadow-card, which raised surfaces use, resolves to no shadow at all.) */
+    box-shadow: var(--shadow-menu);
+    padding: 10px 12px;
 }
+.rec-pop[hidden] { display: none; }
+/* Pinned by a click: it now survives the pointer leaving, so it says so. */
+.rec-pop-pinned { border-color: var(--accent-primary); }
 
-.rec-table { width: 100%; border-collapse: collapse; }
-.rec-table th {
-    text-align: left;
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wide);
-    text-transform: uppercase;
-    padding: 8px 10px;
-    border-bottom: var(--border-width) solid var(--border);
-}
-.rec-table th.rec-col-type { width: 92px; }
-.rec-table th.rec-col-cadence { width: 104px; }
-.rec-table th.rec-col-amount { text-align: right; width: 96px; }
-.rec-table th.rec-col-remove { width: 34px; }
-
-.rec-row { cursor: pointer; }
-/* Hover uses surface3, not surface2: in the dark theme --surface2 resolves to
-   the same palette stop as --surface1 (the card fill underneath), so a
-   surface2 row was invisible there. surface3 is the "hover/prominent" rung and
-   is a real step away from the card in both themes.
-   Selection is an accent wash rather than another neutral rung — same
-   treatment (and same 24% mix) as .db-table td.cell-selected in tables.css, so
-   "selected" reads identically across the app and can't collide with a
-   neutral surface token in either theme. It has to out-specify :hover, since
-   the pointer is usually still over the row that was just clicked. */
-.rec-row:hover { background: var(--surface3); }
-.rec-row-selected,
-.rec-row-selected:hover { background: color-mix(in srgb, var(--accent-primary) 24%, transparent); }
-.rec-row td {
-    padding: 10px;
-    border-bottom: var(--border-width) solid var(--border);
-    vertical-align: middle;
-}
-.rec-row:last-child td { border-bottom: none; }
-
-/* Edge padding — see the .rec-list comment above. */
-.rec-table th:first-child, .rec-row td:first-child { padding-left: 16px; }
-.rec-table th:last-child, .rec-row td:last-child { padding-right: 8px; }
-
-.rec-row-name {
+/* name · category · amount · cadence, then the actions — one flat line, no
+   field nested under another. The row's `gap` is the ONLY thing that separates
+   them: every field below is sized to its own content (flex-basis auto, no
+   min-widths, no text-align padding it out), so the space between each pair is
+   identical no matter what the values are. The name is the sole flexible one,
+   soaking up whatever is left and ellipsing when it runs out. */
+.rec-pop-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     min-width: 0;
 }
-.rec-row-label { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; }
-.rec-row-cycle {
+
+.rec-pop-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-medium);
+}
+
+.rec-pop-amount {
+    flex: 0 0 auto;
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.rec-pop-cadence {
+    flex: 0 0 auto;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    white-space: nowrap;
+}
+
+/* Edit mode only — the name input keeps a "next due" hint stacked under it,
+   which display mode has no equivalent of (its four fields are all on one
+   line). */
+.rec-pop-label { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; }
+.rec-pop-sub {
     display: block;
     color: var(--text-tertiary);
     font-family: var(--font-h3);
     font-size: var(--size-micro);
 }
 
-/* ─── Editable fields ───────────────────────────────────────────────────────
-   Rows are pre-filled predictions, not read-only text — every field is a real
-   input the user can correct. The name reuses the borderless underline-on-
-   focus treatment Credit Cards' name field uses (a table cell, not a form, so
-   it shouldn't look boxed until touched); type/cadence/amount use the same
-   boxed control Credit Cards' other fields use, since a <select> and a
-   number need a clear click/type target. .rec-select is shared by both the
-   Type and Cadence dropdowns — same look, different `data-field`. */
+/* Edit mode stacks: the name field gets a full row of its own, the three
+   controls and the ✓/✗ share the one below. Cramming all five onto the single
+   display-mode line leaves the name — usually the whole reason the card was
+   opened — a few dozen pixels wide. */
+.rec-pop-editing {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+}
+.rec-pop-edit-name {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+.rec-pop-edit-fields {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.rec-pop-edit-fields .rec-select { flex: 1 1 0; min-width: 0; }
+.rec-pop-edit-fields .rec-input-amount { flex: 0 0 100px; }
+/* Pushed hard right, under the display-mode buttons they replace, so ✓ lands
+   where the pencil just was. */
+.rec-pop-edit-fields .rec-action-group { margin-left: auto; }
+
+/* ─── Display mode ──────────────────────────────────────────────────────────
+   A settled schedule reads as text, not as a form. The pill carries the
+   schedule's CATEGORY, tinted by direction — exactly the treatment the ledger
+   gives its category column (transactions.css .tx-category-pill), down to the
+   15% mixes and the amber uncategorized state, so the same schedule reads the
+   same on both pages. Direction is never spelled out: income green, expense
+   red, transfer blue is the same trio the amount and the chip's ring use. */
+.rec-type-pill {
+    display: inline-block;
+    /* A category name is user-entered and unbounded, so the pill takes what it
+       needs up to a ceiling and ellipses past it (full text on hover). It does
+       NOT shrink below its content: the merchant name is the row's only
+       flexible field, and a tight row has to take it out of the name — which
+       still shows in full on the grid chip — rather than out of the category. */
+    flex: 0 0 auto;
+    min-width: 0;
+    max-width: 148px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    white-space: nowrap;
+}
+.rec-type-income {
+    background: color-mix(in srgb, var(--accent-positive) 15%, transparent);
+    color: var(--accent-positive);
+}
+.rec-type-expense {
+    background: color-mix(in srgb, var(--accent-negative) 15%, transparent);
+    color: var(--accent-negative);
+}
+.rec-type-transfer {
+    background: color-mix(in srgb, var(--accent-info) 15%, transparent);
+    color: var(--accent-info);
+}
+/* Uncategorized reads amber ("needs review") whatever the direction, same rule
+   the ledger follows — a blank category never takes a direction tint. Reached
+   by a hand-added schedule (nothing backs it) or one whose transactions have
+   never been categorized. */
+.rec-type-empty {
+    background: color-mix(in srgb, var(--warning) 15%, transparent);
+    color: var(--warning);
+}
+
+/* ─── Card actions (pencil / trash, ✓ / ✗) ──────────────────────────────────
+   Same square icon buttons as the Transactions ledger's row actions
+   (transactions.css .tx-action-btn), sized down a step. The delete button
+   stays neutral until hover, when it turns destructive — a trash can sitting
+   permanently red would read as an alarm rather than an action. */
+.rec-action-group {
+    flex: 0 0 auto;
+    display: inline-flex;
+    gap: 6px;
+    justify-content: flex-end;
+}
+
+.rec-action-btn {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: var(--border-width) solid var(--border);
+    border-radius: 6px;
+    background: var(--surface2);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.rec-action-btn:hover {
+    background: var(--surface3);
+    color: var(--text-primary);
+    border-color: var(--text-tertiary);
+}
+.rec-action-btn svg { width: 15px; height: 15px; }
+
+.rec-action-btn.rec-action-delete:hover {
+    background: var(--accent-negative);
+    border-color: var(--accent-negative);
+    color: #fff;
+}
+
+/* ✓ carries the primary accent — it's the commit, and the one button in the
+   row that changes stored data. ✗ keeps the neutral base treatment. */
+.rec-action-btn.rec-action-save {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--text-primary);
+}
+.rec-action-btn.rec-action-save:hover {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+/* ─── Edit mode ─────────────────────────────────────────────────────────────
+   The card's four fields become real inputs. The name reuses the borderless
+   underline-on-focus treatment Credit Cards' name field uses (it sits where a
+   title was, so it shouldn't look boxed until touched); type/cadence/amount
+   use the same boxed control Credit Cards' other fields use, since a <select>
+   and a number need a clear click/type target. .rec-select is shared by both
+   the Type and Cadence dropdowns — same look, different `data-field`. */
 .rec-input-name {
     display: block;
     width: 100%;
@@ -298,14 +548,10 @@
 .rec-select:focus { border-color: var(--frost-focus); outline: none; }
 .rec-select option { background: var(--surface1); color: var(--text-primary); }
 
-.rec-amount {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-/* Same red/green/blue polarity the calendar dots use (see the .rec-dot
-   comment above) — with the legend gone, this pairing is what carries
-   direction now, so both surfaces stay unambiguous. Transfer reuses the
+/* Same red/green/blue polarity the chips' marks use (see the .rec-occ-mark
+   comment above) — with no legend anywhere, this pairing is what carries
+   direction, so every surface showing an amount stays unambiguous. Shared by
+   the card's amount and the detection picker's. Transfer reuses the
    ledger's own transfer colour (--accent-info, see transactions.css
    .tx-amount-transfer) rather than red/green — it's neither a gain nor a
    spend. */
@@ -331,32 +577,104 @@
 .rec-input-amount:hover { background: var(--frost-3); }
 .rec-input-amount:focus { border-color: var(--frost-focus); outline: none; }
 
-/* Remove button — same destructive treatment as Credit Cards' per-card ×
-   (light-red tint, deepens on hover), sized down for a table row. */
-.rec-remove-btn {
-    flex: 0 0 auto;
-    width: 24px;
-    height: 24px;
-    border: none;
-    border-radius: 6px;
-    background: color-mix(in srgb, var(--accent-negative) 15%, transparent);
-    color: var(--accent-negative);
-    font-size: var(--size-h3);
-    line-height: 1;
-    cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease;
-}
-.rec-remove-btn:hover {
-    background: var(--accent-negative);
-    color: #fff;
+/* A field the ✓ attempt rejected (blank name, non-positive amount). Shared
+   with the Add dialog's inputs below. */
+.rec-input.invalid { border-color: var(--accent-negative); }
+.rec-input-name.invalid { border-bottom-color: var(--accent-negative); }
+
+/* ─── Detection picker ──────────────────────────────────────────────────────
+   The ⋮ → "Find recurring schedules" dialog: what detection turned up, one
+   tickable row each. Wider than the Add form since each row carries a name,
+   a cadence/history line and an amount; the list itself scrolls so a big
+   first import can't push the buttons off-screen. */
+.rec-detect-dialog { width: 440px; max-width: 100%; }
+.rec-detect-dialog p { margin: 0 0 8px; }
+
+.rec-detect-note {
+    color: var(--text-secondary);
+    font-size: var(--size-small);
+    margin-bottom: 12px;
 }
 
-.rec-empty-cell {
-    padding: 40px 12px;
-    text-align: center;
+/* accent-color, like every other checkbox in the app (the DB modal's, the
+   ledger's row checkboxes) — the browser default blue belongs to no theme
+   here. */
+.rec-cand-all input[type="checkbox"],
+.rec-cand-cb {
+    accent-color: var(--accent-primary);
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+    cursor: pointer;
+}
+
+.rec-cand-all {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0 8px;
+    border-bottom: var(--border-width) solid var(--border);
     color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wide);
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.rec-cand-list {
+    max-height: 320px;
+    overflow-y: auto;
+    margin-bottom: 16px;
+}
+
+.rec-cand-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 4px;
+    border-bottom: var(--border-width) solid var(--border);
+    cursor: pointer;
+}
+.rec-cand-row:last-child { border-bottom: none; }
+.rec-cand-row:hover { background: var(--surface3); }
+
+.rec-cand-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    flex: 1;
+}
+.rec-cand-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
     font-family: var(--font-menu);
     font-size: var(--size-small);
+    font-weight: var(--weight-medium);
+}
+.rec-cand-detail {
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+}
+
+.rec-cand-amount {
+    flex: 0 0 auto;
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* Nothing ticked → nothing to add, so the confirm button says so instead of
+   posting a request the backend would reject. */
+.rec-detect-dialog .confirm-add:disabled {
+    opacity: 0.5;
+    cursor: default;
 }
 
 /* ─── Add-schedule dialog ─────────────────────────────────────────────────── */

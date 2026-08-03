@@ -10,6 +10,14 @@
 // to surface. Every schedule's label/direction/cadence/amount is a
 // correctable prediction (recurring_overrides), and a schedule can also be
 // added by hand or removed — see the handler doc comments below.
+//
+// ADOPTION (the reason there are two listing endpoints): detection is a
+// guess, so it doesn't get to populate the page by itself. GET /api/recurring
+// returns only ADOPTED schedules — a fresh database answers with an empty
+// list no matter how much recurring history it holds. The user runs detection
+// explicitly (GET /api/recurring/candidates → the picker dialog) and adopts
+// the ones they recognize (POST /api/recurring/adopt). Everything downstream
+// — the calendar, the editable list — reads the adopted set only.
 
 const { bad, cleanLabel, isFiniteNumber, round2, parseIsoDate } = require('../validate');
 const { serialiseTx } = require('../services/transactions');
@@ -106,42 +114,116 @@ function manualSeries(ov, todayIso) {
   };
 }
 
+/**
+ * The category a detection key's transactions actually carry, as a
+ * key -> category_id map. A series is a group of transactions, not one row, so
+ * its category is the one MOST of them share; ties go to whichever was used
+ * most recently, since a re-categorization is the newer decision. Rows with no
+ * category don't vote — a schedule half-categorized still reads as its
+ * category, and one with nothing categorized comes back absent.
+ */
+function categoryByKey(rows) {
+  const counts = new Map(); // detection key -> Map(category_id -> {n, last})
+  for (const t of rows) {
+    if (t.category_id == null) continue;
+    const key = normaliseDesc(t.description);
+    if (!key) continue;
+    let byCat = counts.get(key);
+    if (!byCat) { byCat = new Map(); counts.set(key, byCat); }
+    const prev = byCat.get(t.category_id);
+    byCat.set(t.category_id, { n: (prev ? prev.n : 0) + 1, last: t.date });
+  }
+
+  const winners = new Map();
+  for (const [key, byCat] of counts) {
+    let bestId = null;
+    let best = null;
+    for (const [id, tally] of byCat) {
+      if (!best || tally.n > best.n || (tally.n === best.n && tally.last > best.last)) {
+        bestId = id;
+        best = tally;
+      }
+    }
+    winners.set(key, bestId);
+  }
+  return winners;
+}
+
+/**
+ * Every series detectRecurringSeries finds in the ledger right now, each
+ * tagged with the direction of the bucket it was detected in and the category
+ * its transactions carry. No override layering and no adoption filter — the
+ * raw detection result, shared by the listing (which then keeps the adopted
+ * ones), the candidate picker (which keeps the rest) and delete (which only
+ * needs to know whether a key is detected at all).
+ */
+function detectAll(db, todayIso) {
+  const cats = db.prepare('SELECT id, name, cat_type FROM categories').all();
+  const catTypeById = new Map(cats.map((c) => [c.id, c.cat_type]));
+  const catNameById = new Map(cats.map((c) => [c.id, c.name]));
+  const rows = db
+    .prepare('SELECT * FROM transactions ORDER BY date')
+    .all()
+    .map((t) => serialiseTx(t, catTypeById));
+  const catByKey = categoryByKey(rows);
+
+  return DIRECTION_NAMES.flatMap((direction) =>
+    detectRecurringSeries(rows.filter((t) => t.tx_type === direction), { today: todayIso })
+      .map((s) => {
+        const categoryId = catByKey.has(s.key) ? catByKey.get(s.key) : null;
+        return {
+          ...s,
+          direction,
+          category_id: categoryId,
+          category: categoryId == null ? null : catNameById.get(categoryId) ?? null,
+        };
+      })
+  );
+}
+
+/** The public shape of one schedule/candidate row. */
+function serialiseSeries(s) {
+  return {
+    key: s.key,
+    description: s.description,
+    display_name: s.display_name,
+    direction: s.direction,
+    // The category its transactions carry, for the card's pill. Null on a
+    // hand-added schedule (nothing backs it) or one nothing has categorized.
+    category_id: s.category_id ?? null,
+    category: s.category ?? null,
+    amount: s.amount,
+    cycle: s.cycle,
+    occurrences: s.occurrences,
+    confidence: s.confidence,
+    last_date: s.last_date,
+    next_date: s.next_date,
+  };
+}
+
 function recurringGet(ctx, { query }) {
   const db = ctx.db();
 
   const month = query.month || currentMonthKey();
   if (!MONTH_RE.test(month)) bad('invalid month (expected YYYY-MM)');
 
-  const catTypeById = new Map(
-    db.prepare('SELECT id, cat_type FROM categories').all().map((c) => [c.id, c.cat_type])
-  );
-  const rows = db
-    .prepare('SELECT * FROM transactions ORDER BY date')
-    .all()
-    .map((t) => serialiseTx(t, catTypeById));
-
-  const income = rows.filter((t) => t.tx_type === 'income');
-  const expense = rows.filter((t) => t.tx_type === 'expense');
-  const transfer = rows.filter((t) => t.tx_type === 'transfer');
-
   const todayIso = localTodayIso();
   const overrides = new Map(
-    db.prepare('SELECT * FROM recurring_overrides').all().map((o) => [o.key, o])
+    db.prepare('SELECT * FROM recurring_overrides WHERE adopted = 1').all().map((o) => [o.key, o])
   );
 
-  const detected = [
-    ...detectRecurringSeries(income, { today: todayIso }).map((s) => withOverride({ ...s, direction: 'income' }, overrides.get(s.key), todayIso)),
-    ...detectRecurringSeries(expense, { today: todayIso }).map((s) => withOverride({ ...s, direction: 'expense' }, overrides.get(s.key), todayIso)),
-    ...detectRecurringSeries(transfer, { today: todayIso }).map((s) => withOverride({ ...s, direction: 'transfer' }, overrides.get(s.key), todayIso)),
-  ].filter((s) => !overrides.get(s.key)?.removed);
+  // Adopted detections only — an unadopted one is a candidate the user hasn't
+  // accepted (or has since deleted), and never renders here.
+  const detected = detectAll(db, todayIso)
+    .filter((s) => overrides.has(s.key))
+    .map((s) => withOverride(s, overrides.get(s.key), todayIso));
 
-  // Any override key that ISN'T a currently-detected series is either a
-  // manual schedule (synthesize it) or a removed one (already filtered out
-  // above by the .removed check, since detected.some below can't match it).
+  // Any adopted override key that ISN'T a currently-detected series is a
+  // manual schedule — synthesize a series-shaped object for it.
   const detectedKeys = new Set(detected.map((s) => s.key));
   const manual = [];
   for (const ov of overrides.values()) {
-    if (detectedKeys.has(ov.key) || ov.removed) continue;
+    if (detectedKeys.has(ov.key)) continue;
     const m = manualSeries(ov, todayIso);
     if (m) manual.push(m);
   }
@@ -179,22 +261,54 @@ function recurringGet(ctx, { query }) {
   }
   occurrences.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
-  return {
-    month,
-    series: series.map((s) => ({
-      key: s.key,
-      description: s.description,
-      display_name: s.display_name,
-      direction: s.direction,
-      amount: s.amount,
-      cycle: s.cycle,
-      occurrences: s.occurrences,
-      confidence: s.confidence,
-      last_date: s.last_date,
-      next_date: s.next_date,
-    })),
-    occurrences,
-  };
+  return { month, series: series.map(serialiseSeries), occurrences };
+}
+
+/**
+ * Run detection on demand and return what the user hasn't adopted yet — the
+ * contents of the "Find recurring schedules" picker. Adopted keys are
+ * excluded (they're already on the page); a previously-deleted schedule is
+ * simply unadopted, so it shows up here again on the next run, unticked.
+ *
+ * Read-only: nothing is written until the user picks. Sorted by confidence
+ * so the patterns most likely to be real schedules are the ones at the top of
+ * the dialog.
+ */
+function recurringCandidates(ctx) {
+  const db = ctx.db();
+  const todayIso = localTodayIso();
+  const adopted = new Set(
+    db.prepare('SELECT "key" FROM recurring_overrides WHERE adopted = 1').all().map((o) => o.key)
+  );
+  const candidates = detectAll(db, todayIso)
+    .filter((s) => !adopted.has(s.key))
+    .sort((a, b) => b.confidence - a.confidence || (a.next_date < b.next_date ? -1 : 1));
+  return { candidates: candidates.map(serialiseSeries) };
+}
+
+/**
+ * Adopt the schedules the user ticked in the picker (POST body: {keys: [...]}
+ * of detection keys). Adoption is the only thing that puts a detected series
+ * on the page, and it's deliberately just a flag: the schedule's fields keep
+ * coming from live detection, so an adopted series still follows the ledger
+ * until the user edits a field. Unrecognized keys are accepted rather than
+ * rejected — an adopted row for a key detection no longer produces is inert
+ * (it renders as nothing, since manualSeries needs the full field set), and a
+ * stale key in a submitted picker is a race, not a client bug worth 400ing.
+ */
+function recurringAdopt(ctx, { body }) {
+  const db = ctx.db();
+  const keys = body && body.keys;
+  if (!Array.isArray(keys)) bad('keys required');
+  const clean = [...new Set(keys.map((k) => (typeof k === 'string' ? k.trim() : '')).filter(Boolean))];
+  if (!clean.length) bad('no keys to adopt');
+
+  const stmt = db.prepare(
+    'INSERT INTO recurring_overrides ("key", adopted) VALUES (?, 1) ON CONFLICT("key") DO UPDATE SET adopted = 1'
+  );
+  db.transaction(() => { for (const key of clean) stmt.run(key); })();
+
+  return { ok: true, adopted: clean.length };
 }
 
 /**
@@ -242,11 +356,11 @@ function recurringOverrideUpsert(ctx, { body }) {
     }
   }
   if (!Object.keys(patch).length) bad('no fields to update');
-  // Any real edit means the schedule should be visible — undoes a prior
-  // "remove" if the user is re-adding under the same key. Harmless
-  // otherwise: a removed row never renders, so its inputs can't be the
-  // source of a stray edit that reaches here.
-  patch.removed = 0;
+  // Editing a schedule is itself an act of adopting it: the only way to reach
+  // this endpoint through the UI is from a row already on the page, and a
+  // caller correcting a candidate's name/amount directly plainly wants to keep
+  // it. Harmless for an already-adopted row, which is the normal case.
+  patch.adopted = 1;
 
   db.prepare('INSERT INTO recurring_overrides ("key") VALUES (?) ON CONFLICT("key") DO NOTHING').run(key);
   const sets = Object.keys(patch).map((f) => `${f} = ?`).join(', ');
@@ -267,6 +381,8 @@ function recurringOverrideUpsert(ctx, { body }) {
  * `next_date` is the more intuitive thing for a user to enter ("when's this
  * next due"), but a schedule is stored/projected the same way a detected
  * series is (last_date + cycle), so it's reverse-stepped once here.
+ * A hand-added schedule is adopted on the spot — the user just declared it,
+ * there is nothing left to confirm in a detection picker.
  */
 function recurringScheduleCreate(ctx, { body }) {
   const db = ctx.db();
@@ -285,41 +401,33 @@ function recurringScheduleCreate(ctx, { body }) {
   const lastDate = reverseStepCycle(nextDate, body.cycle);
 
   db.prepare(
-    `INSERT INTO recurring_overrides ("key", display_name, direction, cycle, amount, last_date, removed)
-       VALUES (?, ?, ?, ?, ?, ?, 0)
+    `INSERT INTO recurring_overrides ("key", display_name, direction, cycle, amount, last_date, adopted)
+       VALUES (?, ?, ?, ?, ?, ?, 1)
      ON CONFLICT("key") DO UPDATE SET
        display_name = excluded.display_name, direction = excluded.direction, cycle = excluded.cycle,
-       amount = excluded.amount, last_date = excluded.last_date, removed = 0`
+       amount = excluded.amount, last_date = excluded.last_date, adopted = 1`
   ).run(key, name, body.direction, body.cycle, round2(body.amount), lastDate);
 
   return { ok: true, key };
 }
 
 /**
- * Remove a recurring schedule. A MANUAL schedule (no matching detected
- * series) has nothing else backing it, so its row is deleted outright. A
- * DETECTED one is re-derived from transactions on every read, so hiding it
- * needs a standing flag rather than a delete — the row (created if it
- * doesn't exist yet) is marked removed=1 instead of dropped.
+ * Remove a recurring schedule from the page. A MANUAL schedule (no matching
+ * detected series) has nothing else backing it, so its row is deleted
+ * outright. A DETECTED one is re-derived from transactions on every read, so
+ * it's un-adopted instead of dropped — that both takes it off the page and
+ * puts it back in the candidate picker, where the user can re-tick it if the
+ * delete was a mistake. Its stored corrections are kept for that return trip.
+ * The transactions behind it are never touched either way.
  */
 function recurringScheduleDelete(ctx, { params }) {
   const db = ctx.db();
   const key = params.key;
   if (!key) bad('key required');
 
-  const catTypeById = new Map(
-    db.prepare('SELECT id, cat_type FROM categories').all().map((c) => [c.id, c.cat_type])
-  );
-  const rows = db.prepare('SELECT * FROM transactions ORDER BY date').all().map((t) => serialiseTx(t, catTypeById));
-  const todayIso = localTodayIso();
-  const isDetected = DIRECTION_NAMES.some((dir) =>
-    detectRecurringSeries(rows.filter((t) => t.tx_type === dir), { today: todayIso }).some((s) => s.key === key)
-  );
-
+  const isDetected = detectAll(db, localTodayIso()).some((s) => s.key === key);
   if (isDetected) {
-    db.prepare(
-      'INSERT INTO recurring_overrides ("key", removed) VALUES (?, 1) ON CONFLICT("key") DO UPDATE SET removed = 1'
-    ).run(key);
+    db.prepare('UPDATE recurring_overrides SET adopted = 0 WHERE "key" = ?').run(key);
   } else {
     db.prepare('DELETE FROM recurring_overrides WHERE "key" = ?').run(key);
   }
@@ -328,6 +436,8 @@ function recurringScheduleDelete(ctx, { params }) {
 
 const routes = [
   ['GET', '/api/recurring', recurringGet],
+  ['GET', '/api/recurring/candidates', recurringCandidates],
+  ['POST', '/api/recurring/adopt', recurringAdopt],
   ['POST', '/api/recurring/override', recurringOverrideUpsert],
   ['POST', '/api/recurring/schedule', recurringScheduleCreate],
   ['DELETE', '/api/recurring/schedule/<key>', recurringScheduleDelete],

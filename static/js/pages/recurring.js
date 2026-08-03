@@ -1,19 +1,29 @@
 'use strict';
 
 (function () {
-  // ─── Recurring (Reports) ────────────────────────────────────────────────────
-  // Calendar (left) + full editable listing (right) of every currently-active
-  // recurring series. Detection/cycle-classification/projection is server-side
-  // (GET /api/recurring?month=YYYY-MM, backed by detectRecurringSeries in
-  // services/predictions.js); the list's merchant name/cadence/amount are
-  // pre-filled predictions the user can correct in place, persisted as a
-  // per-series override (POST /api/recurring/override) — see the "Editing"
-  // section below. Otherwise this page just lays out the response and handles
-  // month navigation + calendar<->table linked selection.
+  // ─── Recurring ──────────────────────────────────────────────────────────────
+  // The calendar IS the page. Every occurrence of an adopted schedule — actual
+  // past charges and projected future ones alike — renders as a chip in its
+  // day cell, and the chip is where that schedule's data lives: hovering one
+  // opens a card carrying the whole row (name, type, cadence, amount) with its
+  // pencil and trash can. There is no separate table to keep in sync with the
+  // grid; the two used to be the same data drawn twice.
+  //
+  // Detection/cycle-classification/projection is server-side (GET
+  // /api/recurring?month=YYYY-MM, backed by detectRecurringSeries in
+  // services/predictions.js).
+  //
+  // The page starts EMPTY, however much recurring history the ledger holds:
+  // detection is a guess, so it doesn't get to fill the calendar by itself.
+  // The user runs it from the ⋮ menu ("Find recurring schedules"), ticks the
+  // patterns they recognize in the picker (openDetectDialog → GET
+  // /api/recurring/candidates, POST /api/recurring/adopt), and those start
+  // appearing on the grid. Schedules can also be added by hand (⋮ → Add) and
+  // removed from the card's trash can. See "Detect" and "Add / remove".
   //
   // Globals (loaded before this script): apiFetch (api.js), escapeHtml
-  // (escape.js), debounce (format.js), formatCurrency/applyCurrencyFormat/
-  // stripCurrencyValue (currency.js), merchantAvatarHtml (avatar.js), UI (ui.js).
+  // (escape.js), formatCurrency/applyCurrencyFormat/stripCurrencyValue
+  // (currency.js), merchantAvatarHtml (avatar.js), UI (ui.js).
 
   const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const MONTHS = [
@@ -29,7 +39,25 @@
   const CYCLE_OPTIONS = Object.keys(CYCLE_LABEL);
   const DIRECTION_LABEL = { income: 'Income', expense: 'Expense', transfer: 'Transfer' };
   const DIRECTION_OPTIONS = Object.keys(DIRECTION_LABEL);
-  const MAX_DOTS_PER_DAY = 4;
+  // Chips per day before the cell collapses the rest behind a "+n more" the
+  // user can expand. A cap is needed (a busy 1st-of-the-month would otherwise
+  // stretch one row of the grid), but nothing may become unreachable: the
+  // calendar is now the only way to get at a schedule.
+  const MAX_CHIPS_PER_DAY = 3;
+  // Grace period before a card closes when the pointer leaves the chip —
+  // enough to cross the gap into the card itself, which is how the pencil and
+  // trash can are reachable without clicking first.
+  const CLOSE_DELAY_MS = 180;
+
+  // Inlined so the card's actions don't depend on an icon font / external
+  // sprite — same set (and same 20-box, 1.5-stroke drawing) the Transactions
+  // ledger uses for its row actions, since these are the same two verbs.
+  const ICONS = {
+    pencil: '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M14.5 3.5l2 2-9.5 9.5-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
+    check:  '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 10.5l3.5 3.5L15 6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    cross:  '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+    trash:  '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2M6 6l1 10h6l1-10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  };
 
   function currentMonthKey() {
     const d = new Date();
@@ -55,10 +83,6 @@
     return y === thisYear ? `${MONTHS_SHORT[m - 1]} ${d}` : `${MONTHS_SHORT[m - 1]} ${d}, ${y}`;
   }
 
-  function initial(name) {
-    return String(name || '?').trim().charAt(0).toUpperCase() || '?';
-  }
-
   // Mirror of services/predictions.js's normaliseDesc — used client-side only
   // to warn the Add-schedule dialog when a name won't key off any letters
   // (the backend is the actual source of truth and re-derives this itself).
@@ -68,7 +92,19 @@
 
   let month = currentMonthKey();
   let data = { series: [], occurrences: [] };
-  let selectedKey = null;
+  // The occurrence whose card is open, as {key, date} — an identity that
+  // survives a calendar rebuild, unlike a DOM node. `pinned` is set by a click
+  // and keeps the card open when the pointer leaves; hover alone doesn't.
+  let activeOcc = null;
+  let pinned = false;
+  // Key of the schedule being edited in the card, or null. Editing implies
+  // pinned, and freezes hover: the pointer wandering across the grid must not
+  // swap the card out from under a half-typed correction.
+  let editingKey = null;
+  // ISO dates whose "+n more" the user expanded, so the extra chips stay put
+  // across re-renders within the month.
+  const expandedDays = new Set();
+  let closeTimer = null;
 
   // ─── Calendar ────────────────────────────────────────────────────────────
 
@@ -76,14 +112,31 @@
     return data.series.find((s) => s.key === key) || {};
   }
 
-  function dotHtml(occ) {
+  function occLabel(occ) {
     const s = seriesFor(occ.key);
-    const label = s.display_name || s.description || occ.key;
-    const cls = `rec-dot rec-dot-${occ.direction} rec-dot-${occ.actual ? 'actual' : 'projected'}`
-      + (occ.key === selectedKey ? ' rec-dot-selected' : '');
+    return s.display_name || s.description || occ.key;
+  }
+
+  /** One occurrence, as a chip in its day cell: merchant avatar, name, amount.
+   *  This is the schedule's home on the page — a <button> so it is focusable
+   *  and Enter/Space-activatable without re-implementing either.
+   *
+   *  The avatar is the same deterministic colour+initials circle the ledger
+   *  and the card use (avatar.js), so a merchant looks identical everywhere;
+   *  direction rides a ring around it instead of recolouring the circle, which
+   *  would have cost that identity. */
+  function chipHtml(occ) {
+    const label = occLabel(occ);
+    const active = activeOcc && activeOcc.key === occ.key;
+    const cls = `rec-occ rec-occ-${occ.direction} rec-occ-${occ.actual ? 'actual' : 'projected'}`
+      + (active ? ' rec-occ-active' : '');
     const tip = `${label} — ${formatCurrency(occ.amount, true)}${occ.actual ? '' : ' (projected)'}`;
-    return `<span class="${cls}" data-key="${escapeHtml(occ.key)}" title="${escapeHtml(tip)}"
-      tabindex="0" role="button" aria-label="${escapeHtml(tip)}">${escapeHtml(initial(label))}</span>`;
+    return `<button type="button" class="${cls}" data-key="${escapeHtml(occ.key)}" data-date="${escapeHtml(occ.date)}"
+      aria-label="${escapeHtml(tip)}" aria-expanded="${active ? 'true' : 'false'}">
+      ${merchantAvatarHtml(label)}
+      <span class="rec-occ-name">${escapeHtml(label)}</span>
+      <span class="rec-occ-amount">${escapeHtml(formatCurrency(occ.amount, true))}</span>
+    </button>`;
   }
 
   function renderCalendar() {
@@ -112,13 +165,19 @@
 
     const cellHtml = cells.map((c) => {
       if (c.outside) return '<div class="rec-day rec-day-outside"></div>';
-      const shown = c.occs.slice(0, MAX_DOTS_PER_DAY);
+      const expanded = expandedDays.has(c.iso);
+      const shown = expanded ? c.occs : c.occs.slice(0, MAX_CHIPS_PER_DAY);
       const overflow = c.occs.length - shown.length;
-      const dots = shown.map(dotHtml).join('')
-        + (overflow > 0 ? `<span class="rec-day-more">+${overflow}</span>` : '');
+      const chips = shown.map(chipHtml).join('')
+        + (overflow > 0
+          ? `<button type="button" class="rec-day-more" data-expand="${c.iso}">+${overflow} more</button>`
+          : '')
+        + (expanded && c.occs.length > MAX_CHIPS_PER_DAY
+          ? `<button type="button" class="rec-day-more" data-expand="${c.iso}">Show less</button>`
+          : '');
       return `<div class="rec-day${c.iso === today ? ' rec-day-today' : ''}">
         <span class="rec-day-num">${c.day}</span>
-        <div class="rec-day-dots">${dots}</div>
+        <div class="rec-day-occs">${chips}</div>
       </div>`;
     }).join('');
 
@@ -126,12 +185,55 @@
       <div class="rec-cal-grid">${cellHtml}</div>`;
   }
 
-  // ─── Table ───────────────────────────────────────────────────────────────
-  // Rows are pre-filled with the detected series (merchant label, cadence,
-  // predicted amount) but every field is directly editable — a correction
-  // persists as a per-series override (POST /api/recurring/override) layered
-  // on top of the detection on every future read, same "predict, then let
-  // the user correct" shape the auto-categorizer uses elsewhere in the app.
+  /** The empty state sits above the grid rather than replacing it — the month
+   *  is still worth seeing — and its CTA is the whole point here: nothing
+   *  arrives on the calendar until the user asks for detection. */
+  function renderEmpty() {
+    const host = document.getElementById('rec-empty');
+    if (!host) return;
+    host.hidden = data.series.length > 0;
+    if (host.hidden) { host.innerHTML = ''; return; }
+    host.innerHTML = UI.emptyState({
+      icon: 'calendar',
+      title: 'No recurring schedules yet',
+      desc: 'Look through your transactions for subscriptions, bills and paychecks that repeat on a steady schedule, and pick the ones to track. You can also add one by hand from the ⋮ menu.',
+      action: { label: 'Find recurring schedules', name: 'detect', primary: true },
+      compact: true,
+    });
+  }
+
+  // ─── The card ────────────────────────────────────────────────────────────
+  // One floating element, reused for whichever chip is active. It carries the
+  // same row the old side table did — avatar + name, type, cadence, amount,
+  // pencil, trash — so the data reads identically, it just lives on the
+  // occurrence now. Parked on <body> and fixed-positioned so the calendar's
+  // scroll container can't clip it.
+
+  function popEl() {
+    let el = document.getElementById('rec-pop');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'rec-pop';
+      el.className = 'rec-pop';
+      el.hidden = true;
+      el.setAttribute('role', 'dialog');
+      el.setAttribute('aria-label', 'Recurring schedule');
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+
+  function chipFor(ref) {
+    if (!ref) return null;
+    return document.querySelector(
+      `.rec-occ[data-key="${CSS.escape(ref.key)}"][data-date="${CSS.escape(ref.date)}"]`
+    );
+  }
+
+  function occFor(ref) {
+    if (!ref) return null;
+    return data.occurrences.find((o) => o.key === ref.key && o.date === ref.date) || null;
+  }
 
   function cycleOptionsHtml(selected) {
     return CYCLE_OPTIONS.map((c) =>
@@ -145,81 +247,148 @@
     ).join('');
   }
 
-  function rowHtml(s) {
-    const label = s.display_name || s.description;
-    const cls = `rec-row${s.key === selectedKey ? ' rec-row-selected' : ''}`;
-    const key = escapeHtml(s.key);
-    return `<tr class="${cls}" data-key="${key}" tabindex="0" role="button">
-      <td><div class="rec-row-name">
-        ${merchantAvatarHtml(label)}
-        <span class="rec-row-label">
-          <input type="text" class="rec-input rec-input-name" data-key="${key}" data-field="display_name"
-            value="${escapeHtml(label)}" maxlength="100" aria-label="Merchant name">
-          <span class="rec-row-cycle">Next ${fmtShortDate(s.next_date)}</span>
-        </span>
-      </div></td>
-      <td class="rec-col-type">
-        <select class="rec-input rec-select" data-key="${key}" data-field="direction" aria-label="Type">
-          ${typeOptionsHtml(s.direction)}
-        </select>
-      </td>
-      <td class="rec-col-cadence">
-        <select class="rec-input rec-select" data-key="${key}" data-field="cycle" aria-label="Cadence">
-          ${cycleOptionsHtml(s.cycle)}
-        </select>
-      </td>
-      <td class="rec-amount rec-amount-${s.direction}">
-        <input type="text" inputmode="decimal" class="rec-input rec-input-amount" data-key="${key}" data-field="amount"
-          value="${escapeHtml(formatCurrency(s.amount, true, { editable: true }))}" aria-label="Amount">
-      </td>
-      <td class="rec-col-remove">
-        <button type="button" class="rec-remove-btn" data-key="${key}" aria-label="Remove ${escapeHtml(label)}" title="Remove">×</button>
-      </td>
-    </tr>`;
+  function actionBtn(action, key, icon, label, extraCls = '') {
+    return `<button type="button" class="rec-action-btn ${extraCls}" data-action="${action}"
+      data-key="${escapeHtml(key)}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${ICONS[icon]}</button>`;
   }
 
-  function renderTable() {
-    const host = document.getElementById('rec-list');
-    if (!host) return;
-    if (!data.series.length) {
-      host.innerHTML = UI.emptyState({
-        icon: 'calendar',
-        title: 'No recurring schedules yet',
-        desc: 'Once a transaction repeats on a steady schedule — weekly, monthly, and so on — it shows up here automatically. Or use the ⋮ menu to add one yourself.',
-      });
-      return;
-    }
-    host.innerHTML = `<table class="rec-table">
-      <thead><tr>
-        <th>Merchant</th><th class="rec-col-type">Type</th><th class="rec-col-cadence">Cadence</th>
-        <th class="rec-col-amount">Amount</th><th class="rec-col-remove"></th>
-      </tr></thead>
-      <tbody>${data.series.map(rowHtml).join('')}</tbody>
-    </table>`;
+  /** The schedule's category, as the ledger draws it (transactions.js's
+   *  txRenderDisplayRow): the category NAME in a pill tinted by direction —
+   *  income green, expense red, transfer blue — with an uncategorized one
+   *  falling back to the amber "needs review" pill regardless of direction. */
+  function categoryPillHtml(s, direction) {
+    if (!s.category) return '<span class="rec-type-pill rec-type-empty">Uncategorized</span>';
+    return `<span class="rec-type-pill rec-type-${direction}" title="${escapeHtml(s.category)}">${escapeHtml(s.category)}</span>`;
+  }
+
+  /** Display mode: one flat row — name · category · amount · cadence — then the
+   *  actions. Every field sits on the same line at the same rhythm; nothing is
+   *  a sub-line of anything else. The amount shown is the OCCURRENCE's — a past
+   *  charge keeps whatever really hit the account, which is the whole reason to
+   *  hover a specific day rather than read an average. */
+  function cardDisplayHtml(occ, s) {
+    const label = occLabel(occ);
+    return `<div class="rec-pop-row">
+      ${merchantAvatarHtml(label)}
+      <span class="rec-pop-name" title="${escapeHtml(label)}">${escapeHtml(label)}</span>
+      ${categoryPillHtml(s, occ.direction)}
+      <span class="rec-pop-amount rec-amount-${occ.direction}">${escapeHtml(formatCurrency(occ.amount, true))}</span>
+      <span class="rec-pop-cadence">${escapeHtml(CYCLE_LABEL[s.cycle] || s.cycle || '')}</span>
+      <span class="rec-action-group">
+        ${actionBtn('edit', occ.key, 'pencil', `Edit ${label}`)}
+        ${actionBtn('delete', occ.key, 'trash', `Delete ${label}`, 'rec-action-delete')}
+      </span>
+    </div>`;
+  }
+
+  /** Edit mode: the same row as inputs. The amount here is the SCHEDULE's
+   *  predicted amount, not this occurrence's — an edit corrects the standing
+   *  schedule, and past charges are history that no correction rewrites. */
+  function cardEditHtml(occ, s) {
+    const label = s.display_name || s.description || occ.key;
+    // Two rows, unlike display mode: a name field plus three controls plus two
+    // buttons across one line leaves the name a few dozen pixels, and the name
+    // is the field most likely to be the reason the user opened this at all.
+    return `<div class="rec-pop-row rec-pop-editing">
+      <div class="rec-pop-edit-name">
+        ${merchantAvatarHtml(label)}
+        <span class="rec-pop-label">
+          <input type="text" class="rec-input rec-input-name" data-field="display_name"
+            value="${escapeHtml(label)}" maxlength="100" aria-label="Merchant name">
+          <span class="rec-pop-sub">Next ${escapeHtml(fmtShortDate(s.next_date || occ.date))}</span>
+        </span>
+      </div>
+      <div class="rec-pop-edit-fields">
+        <select class="rec-input rec-select" data-field="direction" aria-label="Type">
+          ${typeOptionsHtml(s.direction)}
+        </select>
+        <select class="rec-input rec-select" data-field="cycle" aria-label="Cadence">
+          ${cycleOptionsHtml(s.cycle)}
+        </select>
+        <input type="text" inputmode="decimal" class="rec-input rec-input-amount" data-field="amount"
+          value="${escapeHtml(formatCurrency(s.amount, true, { editable: true }))}" aria-label="Amount">
+        <span class="rec-action-group">
+          ${actionBtn('save', occ.key, 'check', 'Save changes', 'rec-action-save')}
+          ${actionBtn('cancel', occ.key, 'cross', 'Discard changes')}
+        </span>
+      </div>
+    </div>`;
+  }
+
+  function positionCard(anchor) {
+    const pop = popEl();
+    const a = anchor.getBoundingClientRect();
+    const p = pop.getBoundingClientRect();
+    const gap = 8;
+    // Below the chip by default, flipped above when the month's last rows would
+    // otherwise push the card off-screen.
+    let top = a.bottom + gap;
+    if (top + p.height > window.innerHeight - 8) top = Math.max(8, a.top - p.height - gap);
+    let left = a.left + a.width / 2 - p.width / 2;
+    left = Math.min(Math.max(8, left), Math.max(8, window.innerWidth - p.width - 8));
+    pop.style.top = `${Math.round(top)}px`;
+    pop.style.left = `${Math.round(left)}px`;
+  }
+
+  /** Draw (or redraw) the card for whatever is active, anchored to its chip.
+   *  Closes itself if the occurrence went away — deleted, or the month moved
+   *  on under it. */
+  function renderCard() {
+    const pop = popEl();
+    const occ = occFor(activeOcc);
+    const chip = chipFor(activeOcc);
+    if (!occ || !chip) { closeCard(); return; }
+    const s = seriesFor(occ.key);
+    pop.innerHTML = editingKey === occ.key ? cardEditHtml(occ, s) : cardDisplayHtml(occ, s);
+    pop.hidden = false;
+    pop.classList.toggle('rec-pop-pinned', pinned);
+    positionCard(chip);
+  }
+
+  /** Light up every chip of the active schedule — a monthly bill's whole run
+   *  across the grid, not just the one under the pointer. Done by toggling
+   *  classes rather than re-rendering: the pointer is sitting on one of these
+   *  nodes, and replacing them mid-hover would restart the mouseover/mouseout
+   *  cycle underneath it. */
+  function applyActiveHighlight() {
+    const key = activeOcc ? activeOcc.key : null;
+    document.querySelectorAll('.rec-occ').forEach((el) => {
+      const on = key !== null && el.dataset.key === key;
+      el.classList.toggle('rec-occ-active', on);
+      el.setAttribute('aria-expanded', on ? 'true' : 'false');
+    });
+  }
+
+  function openCard(ref, { pin = false } = {}) {
+    clearTimeout(closeTimer);
+    activeOcc = ref;
+    if (pin) pinned = true;
+    applyActiveHighlight();
+    renderCard();
+  }
+
+  function closeCard() {
+    clearTimeout(closeTimer);
+    activeOcc = null;
+    pinned = false;
+    editingKey = null;
+    const pop = popEl();
+    pop.hidden = true;
+    pop.innerHTML = '';
+    applyActiveHighlight();
+  }
+
+  function scheduleClose() {
+    if (pinned || editingKey) return;
+    clearTimeout(closeTimer);
+    closeTimer = setTimeout(closeCard, CLOSE_DELAY_MS);
   }
 
   // ─── Editing ─────────────────────────────────────────────────────────────
-  // Text/amount fields save 600ms after typing stops (one debounced saver per
-  // (key, field), cached so repeated keystrokes across renders keep
-  // coalescing correctly); the cadence <select> saves immediately on change,
-  // since a picked option is already a single discrete action. A save never
-  // triggers a table rebuild — that would drop focus mid-edit — so on
-  // success we only patch `data` in place and repaint the calendar, whose
-  // dots read display_name/amount for their tooltip text. A cadence change
-  // also reshuffles which future days get a projected dot (server-only
-  // logic), so that one path re-fetches instead.
-
-  const _saveDebouncers = new Map(); // `${key}:${field}` -> debounced saver
-
-  function debouncedSaver(key, field) {
-    const cacheKey = `${key}:${field}`;
-    let fn = _saveDebouncers.get(cacheKey);
-    if (!fn) {
-      fn = debounce((value) => saveOverride(key, { [field]: value }), 600);
-      _saveDebouncers.set(cacheKey, fn);
-    }
-    return fn;
-  }
+  // The pencil turns the card into inputs; ✓ commits all four fields in a
+  // single override POST, ✗ (or closing the card) throws the edits away.
+  // Nothing is written while the user types, so there is no debounce and no
+  // half-saved schedule: it is either what it was or what the user confirmed.
 
   async function saveOverride(key, patch) {
     const res = await apiFetch('/api/recurring/override', {
@@ -229,96 +398,200 @@
     });
     if (!res.ok) {
       window.UI?.toast?.("Couldn't save your change — it hasn't been stored.", { type: 'error' });
+      return false;
     }
+    return true;
   }
 
-  function seriesIndex(key) {
-    return data.series.findIndex((s) => s.key === key);
+  function startEdit(key) {
+    editingKey = key;
+    pinned = true;
+    renderCard();
+    const input = popEl().querySelector('.rec-input-name');
+    if (input) { input.focus(); input.select(); }
   }
 
-  function onNameInput(input) {
-    const key = input.dataset.key;
-    const i = seriesIndex(key);
-    if (i === -1) return;
-    const value = input.value.trim();
-    if (!value) return; // wait for a non-empty name before saving
-    data.series[i].display_name = value;
-    renderCalendar();
-    debouncedSaver(key, 'display_name')(value);
+  function cancelEdit() {
+    if (!editingKey) return;
+    editingKey = null;
+    renderCard();
   }
 
-  function onNameBlur(input) {
-    const s = seriesFor(input.dataset.key);
-    if (!input.value.trim()) input.value = s.display_name || s.description || '';
+  /** Read the card's inputs, flagging (rather than silently correcting)
+   *  anything the backend would reject — a blank name or a non-positive
+   *  amount — so ✓ never quietly writes something the user didn't type. */
+  function readEditCard() {
+    const pop = popEl();
+    const nameInput = pop.querySelector('.rec-input-name');
+    const amountInput = pop.querySelector('.rec-input-amount');
+    if (!nameInput || !amountInput) return null;
+    const name = nameInput.value.trim();
+    const amount = parseFloat(stripCurrencyValue(amountInput.value));
+
+    nameInput.classList.toggle('invalid', !name);
+    amountInput.classList.toggle('invalid', !(amount > 0));
+    if (!name || !(amount > 0)) return null;
+
+    return {
+      display_name: name,
+      amount,
+      direction: pop.querySelector('[data-field="direction"]').value,
+      cycle: pop.querySelector('[data-field="cycle"]').value,
+    };
   }
 
-  function onAmountInput(input) {
-    applyCurrencyFormat(input);
-    const key = input.dataset.key;
-    const i = seriesIndex(key);
-    if (i === -1) return;
-    const parsed = parseFloat(stripCurrencyValue(input.value));
-    if (!parsed || parsed <= 0) return; // wait for a valid amount before saving
-    data.series[i].amount = parsed;
-    // Past occurrences are real transaction amounts and never change; only
-    // still-projected dots follow the new predicted amount.
-    for (const occ of data.occurrences) {
-      if (occ.key === key && !occ.actual) occ.amount = parsed;
-    }
-    renderCalendar();
-    debouncedSaver(key, 'amount')(parsed);
+  async function commitEdit(key) {
+    const patch = readEditCard();
+    if (!patch) return;
+    if (!await saveOverride(key, patch)) return;
+    editingKey = null;
+    // A cadence or direction change moves and recolours this schedule's
+    // projected chips (placement is server-only logic), so re-fetch and let
+    // the card re-anchor to whatever chip now sits under it.
+    await load();
+    followSchedule(key);
   }
 
-  function onAmountBlur(input) {
-    const s = seriesFor(input.dataset.key);
-    const parsed = parseFloat(stripCurrencyValue(input.value));
-    if (!parsed || parsed <= 0) input.value = formatCurrency(s.amount, true, { editable: true });
-  }
-
-  async function onCycleChange(select) {
-    const key = select.dataset.key;
-    await saveOverride(key, { cycle: select.value });
-    // The cadence change moves future projected dots to new dates — that
-    // placement logic is server-only, so re-fetch rather than guess locally.
-    // Patch in place (calendar + this row's "Next ..." subtext) instead of
-    // calling load()/render(): a full table rebuild here would tear out
-    // whatever <input> DOM node a debounced name/amount save is still
-    // in-flight against (on this row or another), even though the save
-    // itself would still land correctly a moment later.
-    const res = await apiFetch(`/api/recurring?month=${encodeURIComponent(month)}`);
-    if (!res.ok) return;
-    data = await res.json();
-    renderCalendar();
+  /** Keep an edited schedule in sight. Re-cadencing "monthly" to "yearly" can
+   *  empty the month on screen of every chip that schedule had — and with the
+   *  calendar as the only surface, that reads as "my edit deleted it". So when
+   *  a schedule has nothing left in the visible month, the calendar follows it
+   *  to where its next occurrence actually falls and re-opens its card there. */
+  async function followSchedule(key) {
+    if (data.occurrences.some((o) => o.key === key)) { renderCard(); return; }
     const s = seriesFor(key);
-    const cycleLabel = document.querySelector(`.rec-row[data-key="${CSS.escape(key)}"] .rec-row-cycle`);
-    if (cycleLabel && s.next_date) cycleLabel.textContent = `Next ${fmtShortDate(s.next_date)}`;
+    const target = s.next_date ? s.next_date.slice(0, 7) : null;
+    if (!target || target === month) { closeCard(); return; }
+
+    month = target;
+    closeCard();
+    expandedDays.clear();
+    await load();
+    const occ = data.occurrences.find((o) => o.key === key);
+    if (occ) openCard({ key, date: occ.date }, { pin: true });
+    const [y, m] = target.split('-').map(Number);
+    window.UI?.toast?.(`${s.display_name || s.description} next lands in ${MONTHS[m - 1]} ${y}.`);
   }
 
-  // Unlike cadence, a direction change doesn't move any dates around — it
-  // only recolors this schedule everywhere it appears — so it's a pure
-  // client-side patch + calendar repaint, no re-fetch needed.
-  function onTypeChange(select) {
-    const key = select.dataset.key;
-    const i = seriesIndex(key);
-    if (i === -1) return;
-    data.series[i].direction = select.value;
-    for (const occ of data.occurrences) {
-      if (occ.key === key) occ.direction = select.value;
+  // ─── Detect ──────────────────────────────────────────────────────────────
+  // Detection runs only when asked. The picker lists what the backend found
+  // and hasn't been adopted yet (GET /api/recurring/candidates) — every box
+  // ticked to start, since the common answer is "yes, all of these" — and
+  // adopting the ticked ones (POST /api/recurring/adopt) is what puts them on
+  // the calendar. Nothing is written by opening the dialog, so cancelling
+  // leaves the database exactly as it was.
+
+  function candidateRowHtml(s, i) {
+    const label = s.display_name || s.description;
+    const detail = [
+      CYCLE_LABEL[s.cycle] || s.cycle,
+      `${s.occurrences} charge${s.occurrences === 1 ? '' : 's'}`,
+      `next ${fmtShortDate(s.next_date)}`,
+    ].join(' · ');
+    return `<label class="rec-cand-row">
+      <input type="checkbox" class="rec-cand-cb" data-key="${escapeHtml(s.key)}" data-index="${i}" checked>
+      ${merchantAvatarHtml(label)}
+      <span class="rec-cand-text">
+        <span class="rec-cand-name">${escapeHtml(label)}</span>
+        <span class="rec-cand-detail">${escapeHtml(detail)}</span>
+      </span>
+      <span class="rec-cand-amount rec-amount-${s.direction}">${escapeHtml(formatCurrency(s.amount, true))}</span>
+    </label>`;
+  }
+
+  async function openDetectDialog() {
+    closeCard();
+    const res = await apiFetch('/api/recurring/candidates');
+    if (!res.ok) {
+      window.UI?.toast?.("Couldn't scan your transactions — try again.", { type: 'error' });
+      return;
     }
-    renderCalendar();
-    const row = document.querySelector(`.rec-row[data-key="${CSS.escape(key)}"]`);
-    const amountCell = row?.querySelector('.rec-amount');
-    if (amountCell) {
-      amountCell.classList.remove('rec-amount-income', 'rec-amount-expense', 'rec-amount-transfer');
-      amountCell.classList.add(`rec-amount-${select.value}`);
+    const { candidates } = await res.json();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'confirm-overlay';
+    const close = () => overlay.remove();
+
+    if (!candidates.length) {
+      overlay.innerHTML = `
+      <div class="confirm-dialog rec-detect-dialog">
+        <button class="dialog-close-btn" aria-label="Close">×</button>
+        <p><strong>No new recurring schedules found</strong></p>
+        <p class="rec-detect-note">A pattern needs a few charges at a steady interval before it can be spotted. Import more history, or add a schedule by hand from the ⋮ menu.</p>
+        <div class="confirm-actions">
+          <button class="confirm-cancel">Close</button>
+        </div>
+      </div>`;
+      document.body.appendChild(overlay);
+      overlay.querySelector('.dialog-close-btn').addEventListener('click', close);
+      overlay.querySelector('.confirm-cancel').addEventListener('click', close);
+      return;
     }
-    saveOverride(key, { direction: select.value });
+
+    overlay.innerHTML = `
+    <div class="confirm-dialog rec-detect-dialog">
+      <button class="dialog-close-btn" aria-label="Close">×</button>
+      <p><strong>Recurring schedules found</strong></p>
+      <p class="rec-detect-note">These transactions look like they repeat. Keep the ones you want to track — you can correct any detail afterwards.</p>
+      <label class="rec-cand-all">
+        <input type="checkbox" id="rec-cand-all" checked>
+        <span>Select all (${candidates.length})</span>
+      </label>
+      <div class="rec-cand-list">${candidates.map(candidateRowHtml).join('')}</div>
+      <div class="confirm-actions">
+        <button class="confirm-cancel">Cancel</button>
+        <button class="confirm-add" id="rec-cand-ok">Add selected</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+
+    const allBox = overlay.querySelector('#rec-cand-all');
+    const boxes = [...overlay.querySelectorAll('.rec-cand-cb')];
+    const okBtn = overlay.querySelector('#rec-cand-ok');
+    const checked = () => boxes.filter((b) => b.checked);
+
+    // "Add selected" with nothing selected has nothing to do, and the backend
+    // rejects an empty list — so the button reflects that rather than
+    // producing an error the user can't act on.
+    function syncState() {
+      const n = checked().length;
+      allBox.checked = n === boxes.length;
+      allBox.indeterminate = n > 0 && n < boxes.length;
+      okBtn.disabled = n === 0;
+      okBtn.textContent = n ? `Add ${n} schedule${n === 1 ? '' : 's'}` : 'Add selected';
+    }
+    syncState();
+
+    allBox.addEventListener('change', () => {
+      boxes.forEach((b) => { b.checked = allBox.checked; });
+      syncState();
+    });
+    overlay.querySelector('.rec-cand-list').addEventListener('change', syncState);
+    overlay.querySelector('.dialog-close-btn').addEventListener('click', close);
+    overlay.querySelector('.confirm-cancel').addEventListener('click', close);
+
+    okBtn.addEventListener('click', async () => {
+      const keys = checked().map((b) => b.dataset.key);
+      if (!keys.length) return;
+      const adopt = await apiFetch('/api/recurring/adopt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keys }),
+      });
+      if (!adopt.ok) {
+        window.UI?.toast?.("Couldn't add those schedules — try again.", { type: 'error' });
+        return;
+      }
+      close();
+      await load();
+    });
   }
 
   // ─── Add / remove ─────────────────────────────────────────────────────────
 
   /** Small confirm dialog, same .confirm-* shell the rest of the app uses for
-   *  destructive prompts. */
+   *  destructive prompts. The wording names what is actually lost: the
+   *  schedule, not the transactions it was detected from. */
   function confirmRemoveSchedule(key) {
     const s = seriesFor(key);
     const label = s.display_name || s.description || key;
@@ -327,10 +600,11 @@
     overlay.innerHTML = `
     <div class="confirm-dialog">
       <button class="dialog-close-btn" aria-label="Close">×</button>
-      <p>Remove <strong>${escapeHtml(label)}</strong> from Recurring?</p>
+      <p>Delete the <strong>${escapeHtml(label)}</strong> schedule?</p>
+      <p class="rec-detect-note">Its transactions stay in your ledger, and detection can offer it again later.</p>
       <div class="confirm-actions">
         <button class="confirm-cancel">Cancel</button>
-        <button class="confirm-delete">Remove</button>
+        <button class="confirm-delete">Delete</button>
       </div>
     </div>`;
     document.body.appendChild(overlay);
@@ -341,21 +615,22 @@
       close();
       const res = await apiFetch(`/api/recurring/schedule/${encodeURIComponent(key)}`, { method: 'DELETE' });
       if (!res.ok) {
-        window.UI?.toast?.("Couldn't remove it — try again.", { type: 'error' });
+        window.UI?.toast?.("Couldn't delete it — try again.", { type: 'error' });
         return;
       }
-      if (selectedKey === key) selectedKey = null;
+      closeCard();
       await load();
     });
   }
 
   /** Form dialog for a schedule with no transactions behind it yet — e.g.
    *  "I know I'll be charged $12/mo starting next month." Every field is
-   *  required (unlike editing an existing row, where each field is
+   *  required (unlike editing an existing schedule, where each field is
    *  independently optional): a manual schedule with a gap in any of them
    *  can't project anything, so the dialog only submits once all five are
    *  filled in validly. */
   function openAddDialog() {
+    closeCard();
     const overlay = document.createElement('div');
     overlay.className = 'confirm-overlay';
     overlay.innerHTML = `
@@ -424,11 +699,15 @@
         return;
       }
       close();
+      // Jump to the month the new schedule first lands in, so it is visible on
+      // the grid straight away — the calendar is the only place it appears,
+      // and its first occurrence is often months out.
+      month = dateInput.value.slice(0, 7);
       await load();
     });
   }
 
-  // ─── Toolbar + linked selection ─────────────────────────────────────────
+  // ─── Toolbar ─────────────────────────────────────────────────────────────
 
   function renderToolbar() {
     const [y, m] = month.split('-').map(Number);
@@ -436,28 +715,11 @@
     if (label) label.textContent = `${MONTHS[m - 1]} ${y}`;
   }
 
-  function applySelection() {
-    document.querySelectorAll('.rec-dot[data-key]').forEach((el) => {
-      el.classList.toggle('rec-dot-selected', el.dataset.key === selectedKey);
-    });
-    document.querySelectorAll('.rec-row[data-key]').forEach((el) => {
-      el.classList.toggle('rec-row-selected', el.dataset.key === selectedKey);
-    });
-  }
-
-  function selectKey(key) {
-    selectedKey = selectedKey === key ? null : key;
-    applySelection();
-    if (selectedKey) {
-      const row = document.querySelector(`.rec-row[data-key="${CSS.escape(selectedKey)}"]`);
-      if (row) row.scrollIntoView({ block: 'nearest' });
-    }
-  }
-
   function render() {
     renderToolbar();
+    renderEmpty();
     renderCalendar();
-    renderTable();
+    if (activeOcc) renderCard();
   }
 
   async function load() {
@@ -467,17 +729,16 @@
     render();
   }
 
+  function goToMonth(key) {
+    month = key;
+    closeCard();
+    expandedDays.clear();
+    load();
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('rec-month-prev').addEventListener('click', () => {
-      month = addMonthKey(month, -1);
-      selectedKey = null;
-      load();
-    });
-    document.getElementById('rec-month-next').addEventListener('click', () => {
-      month = addMonthKey(month, 1);
-      selectedKey = null;
-      load();
-    });
+    document.getElementById('rec-month-prev').addEventListener('click', () => goToMonth(addMonthKey(month, -1)));
+    document.getElementById('rec-month-next').addEventListener('click', () => goToMonth(addMonthKey(month, 1)));
 
     // The label is a picker, like Dashboard's month stepper — .stepper-label draws a
     // caret and a pointer cursor, so it has to open something. The window runs
@@ -493,7 +754,7 @@
         items.push({
           label: `${MONTHS[m - 1]} ${y}`,
           selected: key === month,
-          action: () => { month = key; selectedKey = null; load(); },
+          action: () => goToMonth(key),
         });
       }
       UI.openMenu(e.currentTarget, items);
@@ -501,47 +762,115 @@
 
     document.getElementById('rec-kebab-btn').addEventListener('click', (e) => {
       UI.openMenu(e.currentTarget, [
+        { label: 'Find recurring schedules', action: openDetectDialog },
         { label: 'Add recurring schedule', action: openAddDialog },
       ]);
     });
 
-    const layout = document.getElementById('rec-layout');
-    // Row selection is a click/keydown on the row itself; a click/keydown
-    // that landed in one of the row's own editable controls (or its remove
-    // button) should act on that control, not also toggle the
-    // calendar-linked selection underneath it.
-    layout.addEventListener('click', (e) => {
-      const removeBtn = e.target.closest('.rec-remove-btn');
-      if (removeBtn) { confirmRemoveSchedule(removeBtn.dataset.key); return; }
-      if (e.target.closest('input, select')) return;
-      const el = e.target.closest('[data-key]');
-      if (el) selectKey(el.dataset.key);
+    const calendar = document.getElementById('rec-calendar');
+    const pop = popEl();
+
+    // ── Chip → card ──
+    // mouseover/mouseout (they bubble, unlike mouseenter/leave) so one pair of
+    // listeners covers every chip across every re-render.
+    calendar.addEventListener('mouseover', (e) => {
+      const chip = e.target.closest('.rec-occ');
+      if (!chip || editingKey) return;
+      openCard({ key: chip.dataset.key, date: chip.dataset.date });
     });
-    layout.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter' && e.key !== ' ') return;
-      if (e.target.closest('input, select, button')) return;
-      const el = e.target.closest('[data-key]');
-      if (!el) return;
-      e.preventDefault();
-      selectKey(el.dataset.key);
+    calendar.addEventListener('mouseout', (e) => {
+      if (!e.target.closest('.rec-occ')) return;
+      // Moving between two chips fires mouseout before the next mouseover —
+      // the delayed close lets that mouseover cancel it, so the card doesn't
+      // flicker as the pointer crosses a day cell.
+      scheduleClose();
+    });
+    // Tabbing to a chip previews it exactly as hovering does. Deliberately not
+    // pinned: focus also lands on a chip the instant it is clicked, and a
+    // pre-pinned card would make that click read as the second (dismissing)
+    // one of a toggle.
+    calendar.addEventListener('focusin', (e) => {
+      const chip = e.target.closest('.rec-occ');
+      if (!chip || editingKey) return;
+      openCard({ key: chip.dataset.key, date: chip.dataset.date });
+    });
+    calendar.addEventListener('click', (e) => {
+      const expand = e.target.closest('[data-expand]');
+      if (expand) {
+        const iso = expand.dataset.expand;
+        if (expandedDays.has(iso)) expandedDays.delete(iso); else expandedDays.add(iso);
+        renderCalendar();
+        if (activeOcc) renderCard();
+        return;
+      }
+      const chip = e.target.closest('.rec-occ');
+      if (!chip) return;
+      // Clicking the open chip again puts the card away; otherwise a click
+      // pins it, so the pointer can leave the chip to reach the pencil/trash.
+      const same = activeOcc && activeOcc.key === chip.dataset.key && activeOcc.date === chip.dataset.date;
+      if (same && pinned) { closeCard(); return; }
+      openCard({ key: chip.dataset.key, date: chip.dataset.date }, { pin: true });
     });
 
-    const list = document.getElementById('rec-list');
-    list.addEventListener('input', (e) => {
-      if (e.target.classList.contains('rec-input-name')) onNameInput(e.target);
-      else if (e.target.classList.contains('rec-input-amount')) onAmountInput(e.target);
+    // ── Inside the card ──
+    pop.addEventListener('mouseenter', () => clearTimeout(closeTimer));
+    pop.addEventListener('mouseleave', scheduleClose);
+    pop.addEventListener('click', (e) => {
+      const btn = e.target.closest('.rec-action-btn');
+      if (!btn) return;
+      const { action, key } = btn.dataset;
+      if (action === 'edit') startEdit(key);
+      else if (action === 'save') commitEdit(key);
+      else if (action === 'cancel') cancelEdit();
+      else if (action === 'delete') confirmRemoveSchedule(key);
     });
-    // blur doesn't bubble, so this needs the capture phase to reach the list
-    // via delegation instead of one listener per input.
-    list.addEventListener('blur', (e) => {
-      if (e.target.classList.contains('rec-input-name')) onNameBlur(e.target);
-      else if (e.target.classList.contains('rec-input-amount')) onAmountBlur(e.target);
+    // Enter commits the open card, so an edit can be finished from the
+    // keyboard without hunting for the ✓ — the dialogs elsewhere in the app
+    // behave the same way. Escape is handled once, at the document level
+    // below, so it can't both cancel the edit and close the card.
+    pop.addEventListener('keydown', (e) => {
+      if (editingKey && e.key === 'Enter') { e.preventDefault(); commitEdit(editingKey); }
+    });
+    pop.addEventListener('input', (e) => {
+      if (e.target.classList.contains('rec-input-amount')) applyCurrencyFormat(e.target);
+      // Typing is the fix for whatever the ✓ attempt flagged, so clear it as
+      // soon as they start rather than leaving a red box under a corrected value.
+      if (e.target.classList.contains('rec-input')) e.target.classList.remove('invalid');
+    });
+
+    document.getElementById('rec-empty').addEventListener('click', (e) => {
+      if (e.target.closest('[data-empty-action="detect"]')) openDetectDialog();
+    });
+
+    // A pinned card is dismissed the way every other transient surface in the
+    // app is: Escape, or a click anywhere that isn't it.
+    //
+    // Capture phase, deliberately: the card's own buttons re-render it, which
+    // detaches the very node that was clicked. By the time a bubbling listener
+    // ran, e.target would be orphaned and closest() would find no #rec-pop
+    // ancestor — so pressing the pencil would read as an outside click and
+    // close the card instead of opening the editor.
+    document.addEventListener('click', (e) => {
+      if (!pinned || e.target.closest('#rec-pop, .rec-occ, .confirm-overlay')) return;
+      closeCard();
     }, true);
-    list.addEventListener('change', (e) => {
-      if (!e.target.classList.contains('rec-select')) return;
-      if (e.target.dataset.field === 'cycle') onCycleChange(e.target);
-      else if (e.target.dataset.field === 'direction') onTypeChange(e.target);
+    // Escape steps back one level at a time: out of an edit first, out of the
+    // card second. A dialog on top owns its own Escape.
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape' || document.querySelector('.confirm-overlay')) return;
+      if (editingKey) cancelEdit();
+      else if (activeOcc) closeCard();
     });
+
+    // The card is fixed-positioned against its chip, so it has to follow the
+    // page under it (the .page scroll container scrolls, not the window).
+    const reanchor = () => {
+      if (!activeOcc) return;
+      const chip = chipFor(activeOcc);
+      if (chip) positionCard(chip); else closeCard();
+    };
+    window.addEventListener('resize', reanchor);
+    document.addEventListener('scroll', reanchor, true);
 
     window.addEventListener('currencychange', render);
     load();

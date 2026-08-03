@@ -29,10 +29,13 @@
         <button type="button" class="p-menu-btn" id="rec-kebab-btn" title="Recurring options" aria-label="Recurring options" aria-haspopup="menu">⋮</button>
     </div>
 
-    <div class="rec-layout" id="rec-layout">
-        <div class="rec-calendar" id="rec-calendar"></div>
-        <div class="rec-list" id="rec-list"></div>
-    </div>
+    <!-- The calendar IS the listing: each occurrence is a chip carrying its own
+         schedule's data, and hovering (or clicking, which pins it) opens the
+         full row in #rec-pop — built by recurring.js and parked on <body> so
+         it can't be clipped by the page's scroll container. #rec-empty only
+         appears while no schedule has been adopted yet. -->
+    <div class="rec-empty" id="rec-empty" hidden></div>
+    <div class="rec-calendar" id="rec-calendar"></div>
 
 </div>
 

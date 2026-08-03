@@ -130,23 +130,50 @@
   // month's occurrences (calendar dots + list). The real backend recomputes
   // per `month`; this fixture returns the same shape for any month since
   // query strings aren't modeled (see fixtureResponse() below).
+  //
+  // These stand for schedules the user has already ADOPTED — on the real
+  // backend nothing lands here until they pick it out of the detection dialog
+  // (whose own candidates live in recurringCandidatesFixture below), but a
+  // populated page is what pure-UI work on the list/calendar needs to see.
   const recurringFixture = (() => {
     const pad = (n) => String(n).padStart(2, '0');
     const today = new Date();
     const ym = `${today.getFullYear()}-${pad(today.getMonth() + 1)}`;
     const iso = (day) => `${ym}-${pad(Math.min(day, 28))}`;
     const series = [
-      { key: 'netflix', description: 'NETFLIX.COM', display_name: 'Netflix', direction: 'expense', amount: 15.49, cycle: 'monthly', occurrences: 6, confidence: 0.92, last_date: iso(14), next_date: iso(14) },
-      { key: 'city_fitness', description: 'CITY FITNESS CLUB', display_name: 'City Fitness', direction: 'expense', amount: 42.0, cycle: 'monthly', occurrences: 5, confidence: 0.85, last_date: iso(3), next_date: iso(3) },
-      { key: 'rent', description: 'RENT', display_name: null, direction: 'expense', amount: 1500, cycle: 'monthly', occurrences: 8, confidence: 0.98, last_date: iso(1), next_date: iso(1) },
-      { key: 'spotify', description: 'SPOTIFY', display_name: 'Spotify', direction: 'expense', amount: 11.99, cycle: 'monthly', occurrences: 6, confidence: 0.9, last_date: iso(24), next_date: iso(24) },
-      { key: 'acme_payroll', description: 'ACME PAYROLL', display_name: 'Acme Corp', direction: 'income', amount: 3000, cycle: 'biweekly', occurrences: 10, confidence: 0.95, last_date: iso(15), next_date: iso(15) },
+      { key: 'netflix', description: 'NETFLIX.COM', display_name: 'Netflix', direction: 'expense', category_id: 5, category: 'Entertainment', amount: 15.49, cycle: 'monthly', occurrences: 6, confidence: 0.92, last_date: iso(14), next_date: iso(14) },
+      { key: 'city_fitness', description: 'CITY FITNESS CLUB', display_name: 'City Fitness', direction: 'expense', category_id: 6, category: 'Health & Fitness', amount: 42.0, cycle: 'monthly', occurrences: 5, confidence: 0.85, last_date: iso(3), next_date: iso(3) },
+      { key: 'rent', description: 'RENT', display_name: null, direction: 'expense', category_id: 2, category: 'Rent / Mortgage', amount: 1500, cycle: 'monthly', occurrences: 8, confidence: 0.98, last_date: iso(1), next_date: iso(1) },
+      // Uncategorized — the card's amber "needs review" pill (.rec-type-empty).
+      { key: 'spotify', description: 'SPOTIFY', display_name: 'Spotify', direction: 'expense', category_id: null, category: null, amount: 11.99, cycle: 'monthly', occurrences: 6, confidence: 0.9, last_date: iso(24), next_date: iso(24) },
+      { key: 'acme_payroll', description: 'ACME PAYROLL', display_name: 'Acme Corp', direction: 'income', category_id: 1, category: 'Primary Income', amount: 3000, cycle: 'biweekly', occurrences: 10, confidence: 0.95, last_date: iso(15), next_date: iso(15) },
     ];
     const occurrences = series.map((s) => ({
       date: s.next_date, key: s.key, direction: s.direction, amount: s.amount,
       actual: Number(s.next_date.slice(-2)) <= today.getDate(),
     }));
     return { month: ym, series, occurrences };
+  })();
+
+  // The Recurring page's detection picker (⋮ → "Find recurring schedules").
+  // Deliberately disjoint from recurringFixture above — these are patterns
+  // detection found that are NOT yet on the page, which is exactly what the
+  // dialog is for. POST /api/recurring/adopt isn't modeled (fixtures are
+  // read-only), so in a plain browser the dialog opens, ticks and closes
+  // without the list growing.
+  const recurringCandidatesFixture = (() => {
+    const pad = (n) => String(n).padStart(2, '0');
+    const today = new Date();
+    const ym = `${today.getFullYear()}-${pad(today.getMonth() + 1)}`;
+    const iso = (day) => `${ym}-${pad(Math.min(day, 28))}`;
+    return {
+      candidates: [
+        { key: 'metro power', description: 'METRO POWER & LIGHT', display_name: null, direction: 'expense', amount: 88.4, cycle: 'monthly', occurrences: 7, confidence: 0.94, last_date: iso(9), next_date: iso(9) },
+        { key: 'brightline internet', description: 'BRIGHTLINE INTERNET', display_name: 'Brightline', direction: 'expense', amount: 59.99, cycle: 'monthly', occurrences: 5, confidence: 0.88, last_date: iso(19), next_date: iso(19) },
+        { key: 'lakeside storage', description: 'LAKESIDE STORAGE UNIT', display_name: null, direction: 'expense', amount: 75, cycle: 'monthly', occurrences: 4, confidence: 0.81, last_date: iso(27), next_date: iso(27) },
+        { key: 'vault auto save', description: 'VAULT AUTO SAVE', display_name: null, direction: 'transfer', amount: 250, cycle: 'biweekly', occurrences: 9, confidence: 0.76, last_date: iso(12), next_date: iso(26) },
+      ],
+    };
   })();
 
   // Static GET responses keyed by path (query strings are stripped before
@@ -273,6 +300,7 @@
     // top-N "due soon" endpoint). Empty here since fixtures don't model it.
     '/api/predictions/upcoming': { upcoming: [] },
     '/api/recurring': recurringFixture,
+    '/api/recurring/candidates': recurringCandidatesFixture,
     // static/js/pages/trends.js — 12-month per-category spend series for
     // the Spending Trends chart.
     '/api/trends': {
