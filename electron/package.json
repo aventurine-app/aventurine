@@ -1,6 +1,6 @@
 {
   "name": "aventurine",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "description": "Aventurine desktop app — Electron shell + in-process Node backend (electron/backend/).",
   "main": "main.js",
   "private": true,
