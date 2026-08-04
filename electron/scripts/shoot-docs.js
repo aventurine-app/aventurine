@@ -868,14 +868,36 @@ app.whenReady().then(async () => {
       await shotEl('site-transactions', '.tx-wrapper', 0);
 
       // Month stepper and the calendar with its occurrence chips — the whole
-      // feature, minus the chrome around it.
+      // feature, minus the chrome around it. Shot with one schedule's card
+      // pinned open: the chips carry only a name and an amount, so a bare
+      // calendar shows the shape of the feature but none of its data, and the
+      // card is where type/cadence/amount live now. Which chip is pinned is
+      // load-bearing for the crop: the card is a fixed 460px centred on its
+      // chip and clamped to the WINDOW, so one on an edge column overhangs
+      // .rec-page and gets cut by the crop — it has to be a middle column. The
+      // name is the card's only flexible field (~130px before it ellipses), so
+      // a short merchant keeps the shot free of "…". A monthly subscription is
+      // both, and is what the site's caption is about.
       await adoptRecurring();
       await nav('/recurring', 3200);
       if (!(await js(`(() => document.querySelectorAll('.rec-occ').length)()`))) {
         throw new Error('recurring calendar showed no occurrences');
       }
       await unhover();
+      const pinned = await js(`(() => {
+        const chip = [...document.querySelectorAll('.rec-occ')].find((el) =>
+          (el.querySelector('.rec-occ-name')?.textContent || '').includes('STREAMBOX'));
+        if (chip) chip.click();
+        return !!chip;
+      })()`);
+      if (!pinned) throw new Error('no STREAMBOX chip to pin the card on');
+      await sleep(400);
+      if (!(await js(`(() => { const p = document.getElementById('rec-pop'); return p && !p.hidden; })()`))) {
+        throw new Error('recurring card did not open');
+      }
       await shotEl('site-recurring', '.rec-page', 0);
+      await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
+      await sleep(200);
 
       // The Sankey card alone — the tab bar above it is page furniture.
       await nav('/reports', 3200);
