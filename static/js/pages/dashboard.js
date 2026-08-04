@@ -9,7 +9,7 @@
 //      transfers totals, each bar subdivided into its categories, from the
 //      Cash Flow statement — /api/data)
 //   2. Spending (bar chart: the month's expense total per category, same data)
-//   3. Capital Snapshot (donut by account type, latest known balances)
+//   3. Balances (donut by account type, latest known balances)
 //
 // "Over Time" — the long-run view:
 //   4. Net worth over time (line chart from balance data)
@@ -92,7 +92,7 @@
     // liability rather than an asset.
 
     /** Pull the four slice colours from the accent-derived --chart-* tokens so the
-     *  Capital Snapshot pie follows the UI accent and retones on a palette/theme swap.
+     *  Balances pie follows the UI accent and retones on a palette/theme swap.
      *  Four well-separated stops keep the slices distinguishable within the single-hue
      *  accent family; the green/red tokens stay reserved for the numeric figures. */
     function getAccountsPieColors() {
@@ -124,10 +124,10 @@
             legendEl.innerHTML = hasAnyData ? UI.emptyState({
                 icon: 'donut', compact: true,
                 title: `No balances by ${dashboardMonthLabel()}`,
-                desc: 'Your first recorded balance is in a later month — step forward to see your capital snapshot.',
+                desc: 'Your first recorded balance is in a later month — step forward to see your balances.',
             }) : UI.emptyState({
                 icon: 'donut', compact: true,
-                title: 'No capital to show yet',
+                title: 'No balances to show yet',
                 desc: 'Add your account balances and Aventurine will chart how your assets and debts split.',
                 action: { label: 'Add balances', href: '/statements#balance-sheet', icon: 'plus', primary: true },
             });
@@ -242,7 +242,7 @@
      * Each populated month's value carries every column's most recent value
      * forward (the running `latest` map), so a month that only updates one
      * account still reports net worth across all accounts instead of dropping
-     * to that single entry — the same carry-forward the Capital Snapshot pie uses
+     * to that single entry — the same carry-forward the Balances pie uses
      * (latestValueByColumn). A column contributes nothing until its first entry.
      */
     function computeNetWorth(data) {
@@ -1306,7 +1306,7 @@
         const month = sliceStatementMonth(data);
         renderMonthlyCashflow(month.totals, month.segments);
         renderSpendingChart(month.categories);
-        // The Capital Snapshot donut is month-scoped too. Balance data isn't in
+        // The Balances donut is month-scoped too. Balance data isn't in
         // yet on the first call from init() — that path renders the pie itself
         // once the fetch lands.
         if (appData) renderAccountsPie(appData);
@@ -1328,6 +1328,11 @@
         const label = document.getElementById('dashboard-month-label');
         if (prev) prev.addEventListener('click', () => shiftDashboardMonth(-1));
         if (next) next.addEventListener('click', () => shiftDashboardMonth(1));
+        // Every month name the picker can list, sized once: the label holds that
+        // width for good, so stepping from May to September neither moves the
+        // arrows nor resizes the menu. Any 4-digit year measures the same (the
+        // label is tabular-nums), so today's stands in for all of them.
+        if (label) UI.lockPickerWidth(label, MONTHS.map(m => `${m} ${new Date().getFullYear()}`));
         // The label opens a picker of the last 12 months (the arrows still reach
         // further back); the displayed month is marked as current.
         if (label) label.addEventListener('click', e => {

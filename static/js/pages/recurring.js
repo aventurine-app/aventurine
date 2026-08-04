@@ -18,8 +18,11 @@
   // The user runs it from the ⋮ menu ("Find recurring schedules"), ticks the
   // patterns they recognize in the picker (openDetectDialog → GET
   // /api/recurring/candidates, POST /api/recurring/adopt), and those start
-  // appearing on the grid. Schedules can also be added by hand (⋮ → Add) and
-  // removed from the card's trash can. See "Detect" and "Add / remove".
+  // appearing on the grid. Schedules can also be added by hand from the + a
+  // day cell reveals on hover — which is what makes the due date a thing the
+  // user points at rather than a field they fill in — and removed from the
+  // card's trash can, one at a time or all at once (⋮ → "Clear all recurring
+  // schedules"). See "Detect" and "Add / remove".
   //
   // Globals (loaded before this script): apiFetch (api.js), escapeHtml
   // (escape.js), formatCurrency/applyCurrencyFormat/stripCurrencyValue
@@ -50,13 +53,16 @@
   const CLOSE_DELAY_MS = 180;
 
   // Inlined so the card's actions don't depend on an icon font / external
-  // sprite — same set (and same 20-box, 1.5-stroke drawing) the Transactions
-  // ledger uses for its row actions, since these are the same two verbs.
+  // sprite. pencil/check/cross/trash are the same drawings (and the same
+  // 20-box, 1.5-stroke language) the Transactions ledger uses for its row
+  // actions, since those are the same verbs; `plus` is the day cell's own
+  // add affordance, drawn to match.
   const ICONS = {
     pencil: '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M14.5 3.5l2 2-9.5 9.5-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
     check:  '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 10.5l3.5 3.5L15 6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     cross:  '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
     trash:  '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2M6 6l1 10h6l1-10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    plus:   '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
   };
 
   function currentMonthKey() {
@@ -175,8 +181,17 @@
         + (expanded && c.occs.length > MAX_CHIPS_PER_DAY
           ? `<button type="button" class="rec-day-more" data-expand="${c.iso}">Show less</button>`
           : '');
+      // Add-here button, revealed by hovering the cell (recurring.css). Adding
+      // by hand is an act about a DATE — "I get charged $12 on the 3rd" — so
+      // it belongs on the day itself, where the answer to "which date" is
+      // already the cell the pointer is in, rather than in a menu that then
+      // has to ask.
+      const add = `<button type="button" class="rec-day-add" data-add="${c.iso}"
+        title="Add a recurring schedule due ${escapeHtml(fmtShortDate(c.iso))}"
+        aria-label="Add a recurring schedule due ${escapeHtml(fmtShortDate(c.iso))}">${ICONS.plus}</button>`;
       return `<div class="rec-day${c.iso === today ? ' rec-day-today' : ''}">
         <span class="rec-day-num">${c.day}</span>
+        ${add}
         <div class="rec-day-occs">${chips}</div>
       </div>`;
     }).join('');
@@ -196,7 +211,7 @@
     host.innerHTML = UI.emptyState({
       icon: 'calendar',
       title: 'No recurring schedules yet',
-      desc: 'Look through your transactions for subscriptions, bills and paychecks that repeat on a steady schedule, and pick the ones to track. You can also add one by hand from the ⋮ menu.',
+      desc: 'Look through your transactions for subscriptions, bills and paychecks that repeat on a steady schedule, and pick the ones to track. To add one by hand, hover the day it falls on and press the + in the corner.',
       action: { label: 'Find recurring schedules', name: 'detect', primary: true },
       compact: true,
     });
@@ -261,6 +276,28 @@
     return `<span class="rec-type-pill rec-type-${direction}" title="${escapeHtml(s.category)}">${escapeHtml(s.category)}</span>`;
   }
 
+  /** The card's merchant identity — avatar + name — as a link into the ledger,
+   *  pre-filtered to this schedule's transactions. A chip on the calendar is a
+   *  prediction with no visible evidence behind it; this is the "why is this
+   *  here?" answer, and it lands on the rows detection actually grouped (the
+   *  backend hands over a search term drawn from their descriptions, not from
+   *  the schedule's label — which may be a user override that matches nothing).
+   *
+   *  It lives on the card rather than on the chip because a chip is itself a
+   *  <button>: an <a> nested in one is invalid, and a second click target
+   *  inside it would fight the click that pins the card. The card is already
+   *  where this schedule's actions live, and it's one hover away.
+   *
+   *  A hand-added schedule has nothing behind it (search is null), so it stays
+   *  plain text — a link to an empty table answers nothing. */
+  function merchantHtml(label, s) {
+    const inner = `${merchantAvatarHtml(label)}<span class="rec-pop-name">${escapeHtml(label)}</span>`;
+    if (!s.search) return `<span class="rec-pop-merchant" title="${escapeHtml(label)}">${inner}</span>`;
+    return `<a class="rec-pop-merchant rec-pop-merchant-link"
+      href="/transactions?name=${encodeURIComponent(s.search)}"
+      title="See ${escapeHtml(label)} transactions in the ledger">${inner}</a>`;
+  }
+
   /** Display mode: one flat row — name · category · amount · cadence — then the
    *  actions. Every field sits on the same line at the same rhythm; nothing is
    *  a sub-line of anything else. The amount shown is the OCCURRENCE's — a past
@@ -269,8 +306,7 @@
   function cardDisplayHtml(occ, s) {
     const label = occLabel(occ);
     return `<div class="rec-pop-row">
-      ${merchantAvatarHtml(label)}
-      <span class="rec-pop-name" title="${escapeHtml(label)}">${escapeHtml(label)}</span>
+      ${merchantHtml(label, s)}
       ${categoryPillHtml(s, occ.direction)}
       <span class="rec-pop-amount rec-amount-${occ.direction}">${escapeHtml(formatCurrency(occ.amount, true))}</span>
       <span class="rec-pop-cadence">${escapeHtml(CYCLE_LABEL[s.cycle] || s.cycle || '')}</span>
@@ -517,7 +553,7 @@
       <div class="confirm-dialog rec-detect-dialog">
         <button class="dialog-close-btn" aria-label="Close">×</button>
         <p><strong>No new recurring schedules found</strong></p>
-        <p class="rec-detect-note">A pattern needs a few charges at a steady interval before it can be spotted. Import more history, or add a schedule by hand from the ⋮ menu.</p>
+        <p class="rec-detect-note">A pattern needs a few charges at a steady interval before it can be spotted. Import more history, or add a schedule by hand with the + on the day it falls on.</p>
         <div class="confirm-actions">
           <button class="confirm-cancel">Close</button>
         </div>
@@ -623,13 +659,54 @@
     });
   }
 
+  /** ⋮ → "Clear all recurring schedules": the card's trash can applied to
+   *  every schedule at once, under exactly the same rule — detected ones are
+   *  un-adopted (back in the picker, corrections intact), hand-added ones are
+   *  dropped. So what this clears is the CALENDAR, and the wording says so
+   *  rather than implying the history behind it is going anywhere. */
+  function confirmClearAll() {
+    closeCard();
+    const n = data.series.length;
+    const overlay = document.createElement('div');
+    overlay.className = 'confirm-overlay';
+    overlay.innerHTML = `
+    <div class="confirm-dialog">
+      <button class="dialog-close-btn" aria-label="Close">×</button>
+      <p>Clear all <strong>${n}</strong> recurring schedule${n === 1 ? '' : 's'}?</p>
+      <p class="rec-detect-note">The calendar goes back to blank. Your transactions stay in the ledger, and detection can offer the ones it found again.</p>
+      <div class="confirm-actions">
+        <button class="confirm-cancel">Cancel</button>
+        <button class="confirm-delete">Clear all</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.querySelector('.dialog-close-btn').addEventListener('click', close);
+    overlay.querySelector('.confirm-cancel').addEventListener('click', close);
+    overlay.querySelector('.confirm-delete').addEventListener('click', async () => {
+      close();
+      const res = await apiFetch('/api/recurring/schedules', { method: 'DELETE' });
+      if (!res.ok) {
+        window.UI?.toast?.("Couldn't clear your schedules — nothing was removed.", { type: 'error' });
+        return;
+      }
+      expandedDays.clear();
+      await load();
+    });
+  }
+
   /** Form dialog for a schedule with no transactions behind it yet — e.g.
    *  "I know I'll be charged $12/mo starting next month." Every field is
    *  required (unlike editing an existing schedule, where each field is
    *  independently optional): a manual schedule with a gap in any of them
    *  can't project anything, so the dialog only submits once all five are
-   *  filled in validly. */
-  function openAddDialog() {
+   *  filled in validly.
+   *
+   *  Opened from a day cell's +, so `iso` is that day: the due date arrives
+   *  already answered and the user starts on the name. It stays an editable
+   *  field rather than a fixed caption — the cell says which date they meant,
+   *  not that they can't have changed their mind about it. */
+  function openAddDialog(iso) {
     closeCard();
     const overlay = document.createElement('div');
     overlay.className = 'confirm-overlay';
@@ -656,7 +733,7 @@
       </label>
       <label class="rec-add-field">
         <span class="rec-add-label">Next due date</span>
-        <input type="date" class="rec-dialog-input" id="rec-add-date">
+        <input type="date" class="rec-dialog-input" id="rec-add-date" value="${escapeHtml(iso || '')}">
       </label>
       <div class="confirm-actions">
         <button class="confirm-cancel">Cancel</button>
@@ -700,8 +777,9 @@
       }
       close();
       // Jump to the month the new schedule first lands in, so it is visible on
-      // the grid straight away — the calendar is the only place it appears,
-      // and its first occurrence is often months out.
+      // the grid straight away — the calendar is the only place it appears.
+      // Usually a no-op now that the date comes from a cell in the visible
+      // month; it still matters when the user moves the date while in here.
       month = dateInput.value.slice(0, 7);
       await load();
     });
@@ -745,6 +823,15 @@
     // a few months ahead of today rather than stopping there the way Dashboard's
     // does: this report projects upcoming charges. The arrows still reach past
     // either end.
+    // Same static width as Dashboard's stepper: the label is pinned to the
+    // widest month name it can carry, so walking the calendar leaves the arrows
+    // and the picker under them exactly where they were. Any 4-digit year
+    // measures the same (tabular-nums), so today's stands in for all of them.
+    window.UI?.lockPickerWidth?.(
+      document.getElementById('rec-month-label'),
+      MONTHS.map((m) => `${m} ${new Date().getFullYear()}`),
+    );
+
     document.getElementById('rec-month-label').addEventListener('click', (e) => {
       e.stopPropagation();
       const items = [];
@@ -760,11 +847,19 @@
       UI.openMenu(e.currentTarget, items);
     });
 
+    // Whole-page actions only: adding by hand is a property of a day now, so
+    // it lives on the day cells (see .rec-day-add).
+    //
+    // Clear-all is offered only when there is something to clear. UI.openMenu
+    // has no disabled state, and an item that opens a confirm dialog in order
+    // to do nothing is worse than one that isn't there — the empty state
+    // already says the page is blank.
     document.getElementById('rec-kebab-btn').addEventListener('click', (e) => {
-      UI.openMenu(e.currentTarget, [
-        { label: 'Find recurring schedules', action: openDetectDialog },
-        { label: 'Add recurring schedule', action: openAddDialog },
-      ]);
+      const items = [{ label: 'Find recurring schedules', action: openDetectDialog }];
+      if (data.series.length) {
+        items.push({ label: 'Clear all recurring schedules', action: confirmClearAll, danger: true });
+      }
+      UI.openMenu(e.currentTarget, items);
     });
 
     const calendar = document.getElementById('rec-calendar');
@@ -795,6 +890,10 @@
       openCard({ key: chip.dataset.key, date: chip.dataset.date });
     });
     calendar.addEventListener('click', (e) => {
+      // The day's + — the schedule being added is due on that day, so the
+      // dialog opens with the date already filled in.
+      const add = e.target.closest('[data-add]');
+      if (add) { openAddDialog(add.dataset.add); return; }
       const expand = e.target.closest('[data-expand]');
       if (expand) {
         const iso = expand.dataset.expand;

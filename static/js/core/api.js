@@ -140,13 +140,20 @@
     const today = new Date();
     const ym = `${today.getFullYear()}-${pad(today.getMonth() + 1)}`;
     const iso = (day) => `${ym}-${pad(Math.min(day, 28))}`;
+    // `search` is the term the card's merchant link hands to the Transactions
+    // ledger — the substring shared by every transaction in the series, which
+    // for these single-description fixtures is just the description itself.
     const series = [
-      { key: 'netflix', description: 'NETFLIX.COM', display_name: 'Netflix', direction: 'expense', category_id: 5, category: 'Entertainment', amount: 15.49, cycle: 'monthly', occurrences: 6, confidence: 0.92, last_date: iso(14), next_date: iso(14) },
-      { key: 'city_fitness', description: 'CITY FITNESS CLUB', display_name: 'City Fitness', direction: 'expense', category_id: 6, category: 'Health & Fitness', amount: 42.0, cycle: 'monthly', occurrences: 5, confidence: 0.85, last_date: iso(3), next_date: iso(3) },
-      { key: 'rent', description: 'RENT', display_name: null, direction: 'expense', category_id: 2, category: 'Rent / Mortgage', amount: 1500, cycle: 'monthly', occurrences: 8, confidence: 0.98, last_date: iso(1), next_date: iso(1) },
+      { key: 'netflix', description: 'NETFLIX.COM', display_name: 'Netflix', direction: 'expense', category_id: 5, category: 'Entertainment', search: 'NETFLIX.COM', amount: 15.49, cycle: 'monthly', occurrences: 6, confidence: 0.92, last_date: iso(14), next_date: iso(14) },
+      { key: 'city_fitness', description: 'CITY FITNESS CLUB', display_name: 'City Fitness', direction: 'expense', category_id: 6, category: 'Health & Fitness', search: 'CITY FITNESS CLUB', amount: 42.0, cycle: 'monthly', occurrences: 5, confidence: 0.85, last_date: iso(3), next_date: iso(3) },
+      { key: 'rent', description: 'RENT', display_name: null, direction: 'expense', category_id: 2, category: 'Rent / Mortgage', search: 'RENT', amount: 1500, cycle: 'monthly', occurrences: 8, confidence: 0.98, last_date: iso(1), next_date: iso(1) },
       // Uncategorized — the card's amber "needs review" pill (.rec-type-empty).
-      { key: 'spotify', description: 'SPOTIFY', display_name: 'Spotify', direction: 'expense', category_id: null, category: null, amount: 11.99, cycle: 'monthly', occurrences: 6, confidence: 0.9, last_date: iso(24), next_date: iso(24) },
-      { key: 'acme_payroll', description: 'ACME PAYROLL', display_name: 'Acme Corp', direction: 'income', category_id: 1, category: 'Primary Income', amount: 3000, cycle: 'biweekly', occurrences: 10, confidence: 0.95, last_date: iso(15), next_date: iso(15) },
+      { key: 'spotify', description: 'SPOTIFY', display_name: 'Spotify', direction: 'expense', category_id: null, category: null, search: 'SPOTIFY', amount: 11.99, cycle: 'monthly', occurrences: 6, confidence: 0.9, last_date: iso(24), next_date: iso(24) },
+      { key: 'acme_payroll', description: 'ACME PAYROLL', display_name: 'Acme Corp', direction: 'income', category_id: 1, category: 'Primary Income', search: 'ACME PAYROLL', amount: 3000, cycle: 'biweekly', occurrences: 10, confidence: 0.95, last_date: iso(15), next_date: iso(15) },
+      // Hand-added: no transactions behind it, so no occurrence count, no
+      // category and no `search` — the card shows its name as plain text
+      // rather than as a link to a ledger view that would come back empty.
+      { key: 'locker rental', description: 'Locker Rental', display_name: 'Locker Rental', direction: 'expense', category_id: null, category: null, search: null, amount: 8, cycle: 'monthly', occurrences: 0, confidence: 1, last_date: iso(26), next_date: iso(26) },
     ];
     const occurrences = series.map((s) => ({
       date: s.next_date, key: s.key, direction: s.direction, amount: s.amount,
@@ -168,10 +175,10 @@
     const iso = (day) => `${ym}-${pad(Math.min(day, 28))}`;
     return {
       candidates: [
-        { key: 'metro power', description: 'METRO POWER & LIGHT', display_name: null, direction: 'expense', amount: 88.4, cycle: 'monthly', occurrences: 7, confidence: 0.94, last_date: iso(9), next_date: iso(9) },
-        { key: 'brightline internet', description: 'BRIGHTLINE INTERNET', display_name: 'Brightline', direction: 'expense', amount: 59.99, cycle: 'monthly', occurrences: 5, confidence: 0.88, last_date: iso(19), next_date: iso(19) },
-        { key: 'lakeside storage', description: 'LAKESIDE STORAGE UNIT', display_name: null, direction: 'expense', amount: 75, cycle: 'monthly', occurrences: 4, confidence: 0.81, last_date: iso(27), next_date: iso(27) },
-        { key: 'vault auto save', description: 'VAULT AUTO SAVE', display_name: null, direction: 'transfer', amount: 250, cycle: 'biweekly', occurrences: 9, confidence: 0.76, last_date: iso(12), next_date: iso(26) },
+        { key: 'metro power', description: 'METRO POWER & LIGHT', display_name: null, direction: 'expense', search: 'METRO POWER & LIGHT', amount: 88.4, cycle: 'monthly', occurrences: 7, confidence: 0.94, last_date: iso(9), next_date: iso(9) },
+        { key: 'brightline internet', description: 'BRIGHTLINE INTERNET', display_name: 'Brightline', direction: 'expense', search: 'BRIGHTLINE INTERNET', amount: 59.99, cycle: 'monthly', occurrences: 5, confidence: 0.88, last_date: iso(19), next_date: iso(19) },
+        { key: 'lakeside storage', description: 'LAKESIDE STORAGE UNIT', display_name: null, direction: 'expense', search: 'LAKESIDE STORAGE UNIT', amount: 75, cycle: 'monthly', occurrences: 4, confidence: 0.81, last_date: iso(27), next_date: iso(27) },
+        { key: 'vault auto save', description: 'VAULT AUTO SAVE', display_name: null, direction: 'transfer', search: 'VAULT AUTO SAVE', amount: 250, cycle: 'biweekly', occurrences: 9, confidence: 0.76, last_date: iso(12), next_date: iso(26) },
       ],
     };
   })();

@@ -9,7 +9,8 @@
 // autosave/auto-invest transfer is exactly the kind of thing this page exists
 // to surface. Every schedule's label/direction/cadence/amount is a
 // correctable prediction (recurring_overrides), and a schedule can also be
-// added by hand or removed — see the handler doc comments below.
+// added by hand, removed, or cleared en masse (DELETE
+// /api/recurring/schedules) — see the handler doc comments below.
 //
 // ADOPTION (the reason there are two listing endpoints): detection is a
 // guess, so it doesn't get to populate the page by itself. GET /api/recurring
@@ -149,13 +150,92 @@ function categoryByKey(rows) {
   return winners;
 }
 
+/** Longest common substring of two strings, matched case-insensitively and
+ *  returned in `a`'s own casing. Rolling-row DP — the running substring
+ *  collapses to a few dozen characters after the first pair, so the quadratic
+ *  step is paid once per merchant rather than once per transaction. */
+function longestCommonSubstring(a, b) {
+  const la = a.toLowerCase();
+  const lb = b.toLowerCase();
+  let best = 0;
+  let end = 0;
+  let prev = new Array(lb.length + 1).fill(0);
+  for (let i = 1; i <= la.length; i++) {
+    const row = new Array(lb.length + 1).fill(0);
+    for (let j = 1; j <= lb.length; j++) {
+      if (la[i - 1] !== lb[j - 1]) continue;
+      row[j] = prev[j - 1] + 1;
+      if (row[j] > best) { best = row[j]; end = i; }
+    }
+    prev = row;
+  }
+  return a.slice(end - best, end);
+}
+
+/** Tidy a common substring into something a person would plausibly have typed
+ *  into the ledger's Name filter, or null if there's nothing usable left.
+ *  Cutting characters only ever widens a substring search, so this can't cost
+ *  the recall the term is chosen for — it's purely about what the filter chip
+ *  ends up reading. */
+function tidySearchTerm(term) {
+  let t = String(term).trim();
+  // A common substring routinely ends (or starts) mid-way through a store or
+  // reference number the group's descriptions disagreed on — "NETFLIX.COM
+  // 86677" out of ...8667797 and ...8667799. That fragment is noise, and the
+  // letters beside it are already doing the identifying.
+  const stripped = t.replace(/[^A-Za-z0-9]*\d+$/, '').replace(/^\d+[^A-Za-z0-9]*/, '');
+  if (/[A-Za-z]/.test(stripped)) t = stripped;
+  t = t.replace(/^[^A-Za-z0-9]+/, '').replace(/[^A-Za-z0-9]+$/, '');
+  // Too little to search on — a lone "&", or two characters that would drag in
+  // half the ledger. The caller falls back to a full description instead.
+  return /[A-Za-z]/.test(t) && t.length >= 3 ? t : null;
+}
+
+/**
+ * The ledger search term for each detection key: a substring shared by EVERY
+ * transaction in the group, which is what makes the Recurring card's merchant
+ * link land on the whole schedule rather than the one row whose description we
+ * happened to keep. Searching a single raw description would miss its own
+ * siblings the moment a trailing store number varies — the exact case the user
+ * clicks through to understand.
+ *
+ * Derived from the descriptions themselves, never from a name: the schedule's
+ * label can be a user override ("Movies" for NETFLIX.COM), and searching that
+ * would find nothing. Recall is guaranteed by construction (a common substring
+ * is a substring of every row); precision is not, and doesn't need to be — the
+ * result lands in an ordinary, visible Name filter chip the user can edit.
+ */
+function searchTermByKey(rows) {
+  const common = new Map(); // detection key -> running common substring
+  const latest = new Map(); // detection key -> most recent raw description
+  for (const t of rows) {
+    const key = normaliseDesc(t.description);
+    if (!key) continue;
+    const desc = String(t.description || '');
+    latest.set(key, desc); // rows arrive date-ordered, so the last one wins
+    const running = common.get(key);
+    common.set(key, running === undefined ? desc : longestCommonSubstring(running, desc));
+  }
+
+  const terms = new Map();
+  for (const [key, sub] of common) {
+    const full = latest.get(key);
+    // Only tidy a substring the group DISAGREED on. When every description
+    // matched, the term is already a whole real description — reference number
+    // and all — and trimming it there would widen a search that was exact.
+    terms.set(key, sub === full ? full : tidySearchTerm(sub) || full);
+  }
+  return terms;
+}
+
 /**
  * Every series detectRecurringSeries finds in the ledger right now, each
- * tagged with the direction of the bucket it was detected in and the category
- * its transactions carry. No override layering and no adoption filter — the
- * raw detection result, shared by the listing (which then keeps the adopted
- * ones), the candidate picker (which keeps the rest) and delete (which only
- * needs to know whether a key is detected at all).
+ * tagged with the direction of the bucket it was detected in, the category its
+ * transactions carry, and the term that finds those transactions in the
+ * ledger. No override layering and no adoption filter — the raw detection
+ * result, shared by the listing (which then keeps the adopted ones), the
+ * candidate picker (which keeps the rest) and delete (which only needs to know
+ * whether a key is detected at all).
  */
 function detectAll(db, todayIso) {
   const cats = db.prepare('SELECT id, name, cat_type FROM categories').all();
@@ -166,6 +246,7 @@ function detectAll(db, todayIso) {
     .all()
     .map((t) => serialiseTx(t, catTypeById));
   const catByKey = categoryByKey(rows);
+  const searchByKey = searchTermByKey(rows);
 
   return DIRECTION_NAMES.flatMap((direction) =>
     detectRecurringSeries(rows.filter((t) => t.tx_type === direction), { today: todayIso })
@@ -176,6 +257,7 @@ function detectAll(db, todayIso) {
           direction,
           category_id: categoryId,
           category: categoryId == null ? null : catNameById.get(categoryId) ?? null,
+          search: searchByKey.get(s.key) ?? null,
         };
       })
   );
@@ -192,6 +274,10 @@ function serialiseSeries(s) {
     // hand-added schedule (nothing backs it) or one nothing has categorized.
     category_id: s.category_id ?? null,
     category: s.category ?? null,
+    // What to type into the ledger's Name filter to see this schedule's
+    // transactions (searchTermByKey). Null on a hand-added schedule — nothing
+    // backs it, so there is nothing to go and look at.
+    search: s.search ?? null,
     amount: s.amount,
     cycle: s.cycle,
     occurrences: s.occurrences,
@@ -434,6 +520,34 @@ function recurringScheduleDelete(ctx, { params }) {
   return { ok: true };
 }
 
+/**
+ * Take the whole page back to blank — the bulk form of the delete above, and
+ * it follows exactly the same rule schedule-by-schedule: detected series are
+ * un-adopted (corrections kept, back in the picker), manual ones are dropped
+ * outright. So this clears the CALENDAR, not the user's history: everything
+ * detection can find is one "Find recurring schedules" run away from coming
+ * back, and no transaction is touched.
+ *
+ * Idempotent — clearing an already-empty page is a 200 with cleared: 0, not an
+ * error. There is nothing to confirm at this layer; the UI owns that prompt.
+ */
+function recurringClearAll(ctx) {
+  const db = ctx.db();
+  const detected = new Set(detectAll(db, localTodayIso()).map((s) => s.key));
+  const adopted = db
+    .prepare('SELECT "key" FROM recurring_overrides WHERE adopted = 1')
+    .all()
+    .map((o) => o.key);
+
+  const unadopt = db.prepare('UPDATE recurring_overrides SET adopted = 0 WHERE "key" = ?');
+  const drop = db.prepare('DELETE FROM recurring_overrides WHERE "key" = ?');
+  db.transaction(() => {
+    for (const key of adopted) (detected.has(key) ? unadopt : drop).run(key);
+  })();
+
+  return { ok: true, cleared: adopted.length };
+}
+
 const routes = [
   ['GET', '/api/recurring', recurringGet],
   ['GET', '/api/recurring/candidates', recurringCandidates],
@@ -441,6 +555,7 @@ const routes = [
   ['POST', '/api/recurring/override', recurringOverrideUpsert],
   ['POST', '/api/recurring/schedule', recurringScheduleCreate],
   ['DELETE', '/api/recurring/schedule/<key>', recurringScheduleDelete],
+  ['DELETE', '/api/recurring/schedules', recurringClearAll],
 ];
 
 module.exports = { routes };

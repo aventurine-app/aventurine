@@ -11,6 +11,8 @@
    amount. Hovering or clicking a chip opens .rec-pop — a floating card with
    the full row (name, type, cadence, amount, pencil, trash). There is no side
    table any more; the chip IS the row's home, so the two can't drift apart.
+   Hovering a day cell also reveals its own .rec-day-add "+", which is where
+   adding a schedule by hand starts — on the date it is due, not in a menu.
 
    The confirm-dialog shell (.confirm-*) and the ⋮ menu trigger (.p-menu-btn)
    the Detect/Add/Remove flows use are shared globals (style.css §7b) —
@@ -114,6 +116,8 @@
 .rec-day {
     min-height: 118px;
     min-width: 0;
+    /* Anchors the add button in the corner (see .rec-day-add). */
+    position: relative;
     /* Only two edges each — the neighbour draws the other two (see
        .rec-cal-grid). Back to the app's standard hairline now that a line is
        drawn once instead of twice back-to-back. */
@@ -157,6 +161,68 @@
     flex-direction: column;
     gap: 3px;
     min-width: 0;
+}
+
+/* ─── Add-here button ─────────────────────────────────────────────────────── */
+/* The day's own "+", opposite its number. Adding a schedule by hand is an act
+   about a date, so the affordance sits on the date — the cell the pointer is
+   already in answers "which day", and the dialog opens with it filled in.
+   Absolutely positioned so 31 of these reserve no space in the layout: the
+   grid's rhythm is the chips', and a permanent gutter for a button that is
+   invisible most of the time would bend it.
+   Hidden until the cell is hovered — a + on all 42 cells at rest would out-
+   shout every chip on the page — and `pointer-events` rides along with the
+   opacity so an invisible one can't be clicked by accident. Keyboard users
+   never depend on hover: :focus-visible reveals it identically, which is why
+   the focus ring lives here next to the rule that makes it visible at all
+   rather than in buttons.css with the rest. */
+.rec-day-add {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, background 0.12s ease, color 0.12s ease;
+}
+.rec-day-add svg { width: 14px; height: 14px; }
+
+.rec-day:hover .rec-day-add,
+.rec-day-add:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Same one-rung-up fill the chips and the "+n more" toggle use for hover, so
+   pointing at the button reads as the same kind of response everywhere on the
+   grid. */
+.rec-day-add:hover {
+    background: var(--surface3);
+    color: var(--text-primary);
+}
+.rec-day-add:active { color: var(--accent-primary); }
+.rec-day-add:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 1px;
+}
+
+/* No hover to reveal it on a touch screen, so it just stays out. */
+@media (hover: none) {
+    .rec-day-add { opacity: 1; pointer-events: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rec-day-add { transition: none; }
 }
 
 /* ─── Occurrence chip ─────────────────────────────────────────────────────── */
@@ -354,6 +420,47 @@ html[data-theme="dark"] .rec-occ {
     font-family: var(--font-menu);
     font-size: var(--size-small);
     font-weight: var(--weight-medium);
+}
+
+/* Avatar + name, wrapped into one target. On a detected schedule it is a link
+   into the ledger filtered to the transactions behind this schedule
+   (recurring.js merchantHtml); on a hand-added one, which has no transactions,
+   it is the same markup as a plain <span>. It takes over the row's flexible
+   slot, so the name inside it still soaks up the leftover width and ellipses
+   exactly as before — and the 12px inner gap is the row's own, so the pair sits
+   where it did when these were two separate flex items. */
+.rec-pop-merchant {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1 1 auto;
+    min-width: 0;
+    color: inherit;
+    text-decoration: none;
+    border-radius: 999px;
+}
+
+/* Only the linked variant reacts to the pointer — a schedule with nothing to
+   show mustn't offer a click it can't honour. Two signals, because the avatar
+   is the thing that reads as clickable at a glance and the name is the thing
+   that says where it goes: the circle picks up the same accent ring the
+   calendar's chips use for direction, and the name underlines. Neither is
+   permanent — a standing underline in a card this dense reads as emphasis. */
+.rec-pop-merchant-link { cursor: pointer; }
+.rec-pop-merchant-link:hover .rec-pop-name,
+.rec-pop-merchant-link:focus-visible .rec-pop-name {
+    color: var(--accent-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+.rec-pop-merchant-link:hover .avatar-circle,
+.rec-pop-merchant-link:focus-visible .avatar-circle {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 1px;
+}
+.rec-pop-merchant-link:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
 }
 
 .rec-pop-amount {

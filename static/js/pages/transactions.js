@@ -1034,18 +1034,28 @@
     }
 
     // ─── Deep-link filters ───────────────────────────────────────────────────────
-    // The Cash Flow report links each category to
-    // /transactions?year=<year>&cat=<categoryKey>. On arrival with those params,
-    // pre-fill the filters — that year's Jan–Dec range plus the matching category —
-    // so the chips light up to reveal the active search. Must run after the category
-    // vocabulary and chips are in place (i.e. after txChipsInit).
+    // Other pages link into the ledger pre-filtered:
+    //   • Cash Flow  → /transactions?year=<year>&cat=<categoryKey>
+    //   • Recurring  → /transactions?name=<merchant search term>
+    // On arrival with those params, pre-fill the filters — that year's Jan–Dec
+    // range, the matching category, the name search — so the chips light up to
+    // reveal the active search. Every param maps onto an ordinary chip the user can
+    // edit or clear, so a deep link is a starting point, not a mode. Must run after
+    // the category vocabulary and chips are in place (i.e. after txChipsInit).
     function txApplyUrlFilters() {
         let params;
         try { params = new URLSearchParams(location.search); }
         catch { return; }
         const yearRaw = params.get('year');
         const catKey  = params.get('cat');
-        if (yearRaw == null && catKey == null) return;
+        const nameRaw = params.get('name');
+        if (yearRaw == null && catKey == null && nameRaw == null) return;
+
+        // The Recurring calendar's merchant link. Substring-matched against both the
+        // description and the display name (txRowMatchesFilters), which is why the
+        // term it sends is drawn from the raw descriptions of the schedule's own
+        // transactions — see searchTermByKey in handlers/recurring.js.
+        if (nameRaw && nameRaw.trim()) txState.filters.name = nameRaw.trim();
 
         const year = parseInt(yearRaw, 10);
         if (Number.isInteger(year) && year > 0) {

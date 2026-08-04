@@ -29,6 +29,12 @@
 //       month/year pickers). items: [{ label, action, danger?, selected? }].
 //       Styling: .p-table-dropdown / .p-dropdown-item in ui.css.
 //
+//   UI.lockPickerWidth(btn, captions)
+//       Pin a picker button (.stepper-label) to the width of the widest
+//       caption it can ever show, and pass that width to the menu below it as
+//       a floor. Used by the month steppers, whose caption length otherwise
+//       changes with the month.
+//
 //   UI.toast(message, { type = 'info', duration = 5000 })
 //       Small transient notice, bottom-center. type: 'info' | 'error'.
 //       One toast at a time: a repeat call replaces the text and restarts
@@ -141,6 +147,51 @@
             setTimeout(() => document.addEventListener('click', close, true), 0);
         }
 
+        // ── Static picker width ────────────────────────────────────────────────
+        // A month stepper's caption changes length as you step ("MAY 2026" ↔
+        // "SEPTEMBER 2026"), which shuffles the ‹ › arrows either side of it and
+        // resizes the menu that drops from it. Measure every caption the picker
+        // can ever show and pin the button to the widest one, so the control is
+        // a fixed block whatever month is on it.
+        //
+        // Measured with a hidden clone of the button itself — same classes, same
+        // parent — rather than a font string: text-transform, letter-spacing,
+        // tabular numerals and the padding that clears the caret all land in the
+        // number that way. Re-measured once document.fonts resolves, since the
+        // app's @font-face files land after first paint and the fallback face
+        // measures narrower. The lock is CSS pixels, which Chromium's zoom
+        // scales with everything else, so Ctrl +/- needs no re-measure.
+        function lockPickerWidth(btn, captions) {
+            if (!btn || !btn.parentElement || !captions || !captions.length) return;
+            const measure = () => {
+                const probe = btn.cloneNode(false);
+                probe.removeAttribute('id');
+                probe.removeAttribute('aria-live');
+                probe.setAttribute('aria-hidden', 'true');
+                probe.style.cssText = 'position:absolute;left:-9999px;top:0;'
+                    + 'visibility:hidden;pointer-events:none;'
+                    + 'width:auto;min-width:0;max-width:none;white-space:nowrap';
+                btn.parentElement.appendChild(probe);
+                let widest = 0;
+                for (const caption of captions) {
+                    probe.textContent = caption;
+                    widest = Math.max(widest, probe.getBoundingClientRect().width);
+                }
+                probe.remove();
+                if (!widest) return;   // stepper not laid out (hidden tab) — leave it alone
+                const width = Math.ceil(widest) + 'px';
+                btn.style.width = width;
+                // The menu opens into the stepper, so hand the same figure down
+                // as its floor (.stepper .p-table-dropdown in ui.css): the list
+                // is never narrower than the button it hangs off, and it stops
+                // depending on which months the window happens to hold.
+                (btn.closest('.stepper') || btn.parentElement)
+                    .style.setProperty('--picker-menu-min', width);
+            };
+            measure();
+            document.fonts?.ready?.then(measure);
+        }
+
         // ── Toast ──────────────────────────────────────────────────────────────
         // A single persistent element, shown/hidden by class so repeated calls
         // coalesce (see the header comment). textContent (never innerHTML) keeps
@@ -171,7 +222,7 @@
             _toastTimer = setTimeout(_hideToast, duration);
         }
 
-        return { emptyState, ICONS, skLine, skLines, skBlock, skChart, skRows, skeletonGuard, openMenu, toast };
+        return { emptyState, ICONS, skLine, skLines, skBlock, skChart, skRows, skeletonGuard, openMenu, lockPickerWidth, toast };
     })();
 
     window.UI = UI;

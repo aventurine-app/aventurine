@@ -294,6 +294,12 @@ html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
     right: auto;
     left: 50%;
     transform: translateX(-50%);
+    /* The month pickers pin their label to the widest caption it can show and
+     * publish that figure here (UI.lockPickerWidth), so the menu is exactly as
+     * wide as the control it drops from — one static block, rather than a list
+     * whose width tracks whichever months the 12-month window happens to hold.
+     * Steppers that don't set it keep the 160px default from the base rule. */
+    min-width: var(--picker-menu-min, 160px);
 }
 
 .p-dropdown-item, .range-selector-menu button {
