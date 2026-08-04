@@ -92,36 +92,63 @@
     const MS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const pad = (n) => String(n).padStart(2, '0');
     const today = new Date();
+    const iso = (offsetDays) => {
+      const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offsetDays);
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    };
     const startBalance = 5200;
     const series = [];
     let balance = startBalance;
     let lowest = null;
     for (let i = 0; i < 14; i++) {
-      const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i * 7);
-      const weekStart = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-      const label = `${MS[d.getMonth()]} ${d.getDate()}`;
-      const income = i % 4 === 0 ? 4200 : 0;          // biweekly-ish paycheck
+      const weekStart = iso(i * 7);
+      const [, m, dd] = weekStart.split('-').map(Number);
+      const label = `${MS[m - 1]} ${dd}`;
+      const income = i % 4 === 0 ? 4200 : 0;           // biweekly-ish paycheck
       const expense = 90 + (i % 4 === 2 ? 1500 : 0);   // smooth baseline + rent week
       const net = income - expense;
       balance += net;
       if (!lowest || balance < lowest.balance) lowest = { weekStart, label, balance };
-      series.push({ weekStart, label, income, expense, net, balance });
+      // weekEnd is where the point sits on the date axis (the balance shown is
+      // the one reached by the week's end) — see services/forecast.js.
+      series.push({ weekStart, weekEnd: iso(i * 7 + 6), label, income, expense, net, balance });
+    }
+    const last = series[series.length - 1];
+    // Actual weekly balances for the same span BEFORE today — the chart's left
+    // half, walked backward from the starting balance the same way the real
+    // service does (services/forecast.js historySeries).
+    const history = [];
+    let back = startBalance;
+    for (let i = 1; i <= 13; i++) {
+      back -= i % 4 === 1 ? 3900 : -1250;
+      history.unshift({ weekEnd: iso(-i * 7), label: `wk-${i}`, balance: Math.round(back) });
     }
     return {
       ok: true, months: 3, start_balance: startBalance, start_account: 'cash',
+      // The Balance Sheet month that balance came from, and how the projection
+      // was scoped — both drive the sentence above the chart.
+      start_as_of: `${today.getFullYear()}-${pad(today.getMonth() + 1)}`,
+      scope: 'account',
       include_transfers: true,
+      history_months: 6,
       accounts: [
-        { key: 'cash',     label: 'Cash',     type: 'cash', balance: startBalance },
-        { key: 'checking', label: 'Checking', type: 'cash', balance: 2480 },
+        { key: 'cash',     label: 'Cash',     type: 'cash', balance: startBalance, as_of: `${today.getFullYear()}-${pad(today.getMonth() + 1)}` },
+        { key: 'checking', label: 'Checking', type: 'cash', balance: 2480, as_of: `${today.getFullYear()}-${pad(today.getMonth() + 1)}` },
       ],
+      anchor: { date: iso(0), balance: startBalance },
+      domain: { start: iso(-13 * 7), end: iso(13 * 7) },
+      history,
       series,
       summary: {
-        endBalance: series[series.length - 1].balance,
+        endBalance: last.balance,
+        endDate: last.weekEnd,
         lowest, belowZero: false,
-        avgIncome: 4200, avgExpense: 3800, monthsUsed: 3,
+        dips: lowest.balance < startBalance,
+        avgIncome: 4200, avgExpense: 3800, monthsUsed: 6, window: 6,
       },
       planned: [
-        { id: 1, label: 'Property tax', amount: 2000, flow: 'expense', date: series[6].weekStart },
+        { id: 1, label: 'Property tax', amount: 2000, flow: 'expense', date: iso(45) },
+        { id: 2, label: 'Bonus', amount: 1500, flow: 'income', date: iso(66) },
       ],
     };
   })();

@@ -92,155 +92,104 @@
 
 #forecast-chart { width: 100%; }
 
-.forecast-empty {
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: var(--size-small);
-    text-align: center;
-    margin: 0;
-    padding: 60px 0;
-}
-
-/* ─── Header controls: start balance + horizon picker ────────────────────── */
+/* ─── Header controls: account + horizon + ⋮ ─────────────────────────────────
+   Two knobs, because two are what the report is read through: whose balance,
+   and how far ahead. Everything else (counting transfers) is behind the ⋮ —
+   the same split the Recurring page's toolbar makes. */
 .forecast-controls {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: var(--space-8);
 }
 
-.forecast-start {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
+/* Both pickers are .range-selector (ui.css) — no bespoke control here. The
+   account one only needs a floor narrow enough that a short name like "Cash"
+   doesn't sit in a 118px box; UI.lockPickerWidth then pins it to the widest
+   account label so switching accounts can't shove the horizon picker sideways. */
+#forecast-account { --stepper-label-min: 90px; }
 
-.forecast-start-label {
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wider);
-    text-transform: uppercase;
-}
-
-.forecast-account-select {
-    max-width: 240px;
-    box-sizing: border-box;
-    height: var(--control-height);
-    background: var(--surface2);
-    border: var(--border-width) solid var(--border);
-    border-radius: 6px;
-    color: var(--text-primary);
-    font-family: var(--font-numeric);
-    font-size: var(--size-small);
-    font-variant-numeric: tabular-nums;
-    padding: 6px 10px;
-    cursor: pointer;
-}
-
-.forecast-account-select:focus {
-    outline: none;
-    border-color: var(--accent-secondary);
-}
-
-.forecast-account-select:disabled {
+#forecast-account .range-selector-btn:disabled {
     color: var(--text-tertiary);
     cursor: default;
 }
 
-/* Transfers toggle — same chip styling as the range button. */
-.forecast-transfers {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-}
+/* ─── The sentence ───────────────────────────────────────────────────────────
+   This report answers one question, so it says the answer in words before it
+   draws the shape — and in the ordinary case that sentence is the ONLY text
+   here. It replaces a three-stat grid (typical monthly net / projected end /
+   lowest point, each with its own info bubble) that made the reader assemble
+   the sentence themselves out of three numbers. Everything below it is
+   conditional: it renders only when something would make the number wrong to
+   read at face value.
 
-.forecast-toggle {
-    display: inline-flex;
-    align-items: center;
-    background: var(--surface2);
-    border: var(--border-width) solid var(--border);
-    border-radius: 6px;
-    color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wider);
-    text-transform: uppercase;
-    padding: 6px 12px;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-
-.forecast-toggle:hover {
-    background: var(--surface3);
-    color: var(--text-primary);
-    border-color: var(--text-tertiary);
-}
-
-.forecast-toggle.active {
-    background: color-mix(in srgb, var(--accent-secondary) 22%, var(--surface2));
-    border-color: var(--accent-secondary);
-    color: var(--text-primary);
-}
-
-/* Range selector lives in ui.css now (shared across Dashboard / Trends / Forecast). */
-
-/* ─── Summary strip ──────────────────────────────────────────────────────── */
+   Sentence case and a real measure throughout: the old provenance line was
+   uppercase micro-caps, which is a label treatment and unreadable as prose. */
 .forecast-summary {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    margin-bottom: 18px;
+    gap: var(--space-4);
+    margin-bottom: var(--space-16);
+    max-width: 78ch;
 }
 
-.forecast-stats {
-    display: flex;
-    gap: 48px;
-    flex-wrap: wrap;
+.fc-lead {
+    margin: 0;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-body);
+    font-weight: var(--weight-regular);
+    line-height: var(--lh-snug);
 }
 
-.forecast-stat {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.forecast-stat-label {
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wider);
-    text-transform: uppercase;
-}
-
-.forecast-stat-value {
+/* The figures the sentence turns on — the horizon, the landing balance and its
+   date. One weight up and in the primary ink so the eye can pick the answer out
+   of the prose, but still the sentence's own face: the numeric face is for
+   money, and setting a phrase like "3 months" in it just makes the sentence
+   look broken apart. */
+.fc-lead-value {
     color: var(--text-primary);
+    font-family: var(--font-menu);
+    font-weight: var(--weight-semibold);
+}
+
+/* Money keeps the app's numeric face + tabular figures, like every other
+   currency figure on screen. */
+.fc-lead-money {
     font-family: var(--font-numeric);
-    font-size: var(--size-h3);
-    font-weight: var(--weight-light);
-    letter-spacing: var(--track-tight);
     font-variant-numeric: tabular-nums;
 }
 
-.forecast-stat-value.neg { color: var(--accent-negative); }
+.fc-lead-value.fc-neg { color: var(--accent-negative); }
 
-.forecast-source {
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wider);
-    text-transform: uppercase;
-}
-
-.forecast-warning {
-    color: var(--accent-negative);
+/* Shown only when the line actually dips below where it started — on a rising
+   line the "lowest point" was week zero, which is true and no kind of warning.
+   Two steps: tight (a dip) is informational, broke (below zero) is the alarm. */
+.fc-risk {
+    margin: 0;
+    color: var(--text-secondary);
     font-family: var(--font-menu);
     font-size: var(--size-small);
+    line-height: var(--lh-normal);
+}
+
+.fc-risk-alarm {
+    color: var(--accent-negative);
     font-weight: var(--weight-semibold);
 }
+
+.fc-note {
+    margin: 0;
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    line-height: var(--lh-normal);
+}
+
+/* The starting balance is a Balance Sheet cell and can be months old while the
+   line starts today. That gap is stated, not hidden — and the note carries the
+   link to where it is fixed. */
+.fc-note-warn { color: var(--text-secondary); }
+.fc-note-warn a { color: var(--accent-primary); }
 
 /* ─── Chart frame chrome (namespaced .forecast-chart) ────────────────────── */
 .forecast-chart .chart-grid {
@@ -264,15 +213,50 @@
     letter-spacing: 0.05em;
 }
 
-.forecast-chart .chart-line {
+/* ── Past vs future ──────────────────────────────────────────────────────────
+   Today sits dead centre: recorded balances to its left, the projection to its
+   right. The difference is drawn, not just labelled — but with ONE hue. The app
+   carries "prediction, not record" as a step back in emphasis (.rec-occ-projected
+   on the Recurring calendar does exactly this), and red/green are spoken for by
+   gain/loss everywhere else, so a second colour here would say the wrong thing.
+   What separates the halves is the dash, the lighter fill, and the divider. */
+
+/* Actual: solid, full weight, and the half that gets the draw animation — the
+   line the eye should follow first. */
+.forecast-chart .fc-line-actual {
     stroke-dasharray: 1;
     stroke-dashoffset: 1;
     animation: fc-draw 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-.forecast-chart .chart-area-fill {
+/* Projected: dashed and one step back. No draw animation — it carries a real
+   dash pattern, which the pathLength normalisation that animation depends on
+   would stretch into a single dash. */
+.forecast-chart .fc-line-projected {
+    stroke-dasharray: 6 5;
+    stroke-linecap: butt;
+    opacity: 0;
+    animation: fc-fade 0.45s ease 0.5s forwards;
+}
+
+.forecast-chart .fc-area {
     opacity: 0;
     animation: fc-fade 0.5s ease 0.4s forwards;
+}
+
+/* The divider. Stronger than a grid line (it is a boundary, not a reading aid)
+   but still chrome — the lines either side are the content. */
+.forecast-chart .fc-today-rule {
+    stroke: var(--text-tertiary);
+    stroke-width: 1;
+    opacity: 0.55;
+}
+
+/* "Today" outranks the other tick labels: it is the one that explains the
+   chart's structure rather than just marking a date. */
+.forecast-chart .fc-today-label {
+    fill: var(--text-secondary);
+    font-weight: var(--weight-superbold);
 }
 
 .forecast-chart .chart-dot {
@@ -281,28 +265,52 @@
     transition: r 0.15s ease;
 }
 
-.forecast-chart .chart-dot:hover { r: 6; }
-.forecast-chart .chart-dot-low { stroke: var(--text-primary); stroke-width: 1.5; }
-.forecast-chart .chart-dot-neg { fill: var(--accent-negative) !important; }
+.forecast-chart .chart-dot:hover { r: 6; fill-opacity: 1; }
+
+/* Projected points sit a step back from recorded ones, via fill-opacity rather
+   than opacity — the entrance animation owns `opacity`, and setting it here
+   would be overwritten the moment that finishes. */
+.forecast-chart .chart-dot-projected { fill-opacity: 0.5; }
+
+/* The projected low point is a warning, so it comes back to full strength. */
+.forecast-chart .chart-dot-low {
+    stroke: var(--text-primary);
+    stroke-width: 1.5;
+    fill-opacity: 1;
+}
+.forecast-chart .chart-dot-neg { fill: var(--accent-negative) !important; fill-opacity: 1; }
+
+/* Today — where recorded history hands over to the projection, at the balance
+   before any projected flow is applied. Ringed so the handover reads as a real
+   point on both lines rather than the first weekly estimate. */
+.forecast-chart .chart-dot-anchor {
+    stroke: var(--text-primary);
+    stroke-width: 1.5;
+    fill-opacity: 1;
+}
 
 @keyframes fc-draw { to { stroke-dashoffset: 0; } }
 @keyframes fc-fade { to { opacity: 1; } }
 
-.chart-no-anim .chart-line {
+/* Redraws (resize, data change) skip the entrance. The projected line keeps its
+   dash pattern here — only the ACTUAL line's dasharray is animation machinery. */
+.chart-no-anim .fc-line-actual {
     animation: none;
     stroke-dasharray: none;
     stroke-dashoffset: 0;
 }
-.chart-no-anim .chart-area-fill,
+.chart-no-anim .fc-line-projected,
+.chart-no-anim .fc-area,
 .chart-no-anim .chart-dot { animation: none; opacity: 1; }
 
 @media (prefers-reduced-motion: reduce) {
-    .forecast-chart .chart-line {
+    .forecast-chart .fc-line-actual {
         animation: none;
         stroke-dasharray: none;
         stroke-dashoffset: 0;
     }
-    .forecast-chart .chart-area-fill,
+    .forecast-chart .fc-line-projected,
+    .forecast-chart .fc-area,
     .forecast-chart .chart-dot { animation: none; opacity: 1; }
 }
 
@@ -383,130 +391,369 @@
     .cashflow-sankey.sankey-enter { animation: none; opacity: 1; }
 }
 
-/* ─── Planned items ──────────────────────────────────────────────────────── */
-.forecast-hint {
-    color: var(--text-tertiary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    line-height: 1.5;
-    margin: 0 0 16px;
+/* ─── Planned items: pins on the line ────────────────────────────────────────
+   Planned items used to be a second card holding a table and an inline form.
+   They are now pins ON the projected line at the date they fall, and the pin is
+   where that item's data lives: hovering opens a card carrying the whole row
+   (label, date, amount) with its pencil and trash. That is deliberately the
+   Recurring calendar's interaction (.rec-occ chip → #rec-pop card, see
+   recurring.css) applied to a chart instead of a grid — same reason there: the
+   thing you point at should be the thing you edit, and a list beside the visual
+   is the same data drawn twice.
+
+   The classes are restated here rather than shared because recurring.css is not
+   loaded on this page (Recurring has its own route now), and this file already
+   re-states the chart chrome it needs from dashboard.css for the same reason.
+   Values are kept in step with their .rec-* counterparts. */
+
+/* The plot box positions the overlay over the SVG. */
+.forecast-plot {
+    position: relative;
+    width: 100%;
 }
 
-/* .forecast-add-btn (neutral eyebrow action button) now lives in buttons.css. */
+/* The pin/guide layer. It is pointer-events:none as a whole so hovering the
+   plot still reaches the SVG's own <title> tooltips; the pins and the add
+   button switch it back on for themselves. */
+.fc-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
 
-.planned-empty { padding: 28px 0; }
-
-.planned-rows {
-    list-style: none;
-    margin: 0;
+/* A planned item, centred on its point on the line. Small and quiet at rest —
+   it is an annotation on the projection, not a second series. */
+.fc-pin {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 13px;
+    height: 13px;
     padding: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-.planned-row {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 12px 0;
-    border-bottom: var(--border-width) solid var(--stroke-divider);
-}
-
-.planned-row:last-child { border-bottom: none; }
-
-.planned-flow {
-    flex: 0 0 auto;
-    width: 8px;
-    height: 8px;
+    border: 2px solid var(--surface1);
     border-radius: 50%;
+    background: var(--accent-negative);
+    cursor: pointer;
+    pointer-events: auto;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
-.planned-flow-income  { background: var(--accent-secondary); }
-.planned-flow-expense { background: var(--accent-negative); }
 
-.planned-text {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
+.fc-pin-income { background: var(--accent-positive); }
+
+.fc-pin:hover,
+.fc-pin-active {
+    transform: translate(-50%, -50%) scale(1.25);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 35%, transparent);
+}
+
+.fc-pin:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+/* ─── Add-here guide ─────────────────────────────────────────────────────────
+   The chart's answer to the Recurring calendar's day-cell "+": planning an item
+   is an act about a DATE, so the affordance follows the pointer along the date
+   axis and the dialog opens with the day already answered. Hidden until the
+   plot is hovered — a permanent control drawn across the chart would out-shout
+   the line it annotates. */
+.fc-guide {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    pointer-events: none;
+}
+
+.fc-guide[hidden] { display: none; }
+
+.fc-guide-line {
+    position: absolute;
+    top: 24px;
+    bottom: 30px;
+    left: 0;
+    width: 0;
+    border-left: 1px dashed var(--text-tertiary);
+    opacity: 0.5;
+}
+
+/* One pill caps the guide: the + and the date it would use. They are a single
+   control because they answer one question together ("add an item — here"), and
+   because a separate date label under the axis landed on top of the tick
+   labels it was sitting beside. */
+.fc-guide-add {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: translateX(-50%);
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
     gap: 3px;
-}
-
-.planned-label {
-    color: var(--text-primary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
+    padding: 0 8px 0 5px;
+    border: var(--border-width) solid var(--border);
+    border-radius: 999px;
+    background: var(--surface2);
+    color: var(--text-secondary);
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 
-.planned-date {
-    color: var(--text-tertiary);
+/* Near either end of the plot, anchor the pill to the inside edge — centred it
+   would hang outside the card, which clips it. */
+.fc-guide-add-start { transform: translateX(0); }
+.fc-guide-add-end   { transform: translateX(-100%); }
+
+.fc-guide-add svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+.fc-guide-date {
     font-family: var(--font-h3);
     font-size: var(--size-micro);
     font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wider);
 }
 
-.planned-amount {
-    font-family: var(--font-numeric);
-    font-size: var(--size-small);
-    font-weight: var(--weight-regular);
-    font-variant-numeric: tabular-nums;
-    flex-shrink: 0;
-}
-.planned-amount-income  { color: var(--accent-secondary); }
-.planned-amount-expense { color: var(--text-primary); }
-
-.planned-actions {
-    flex-shrink: 0;
-    display: flex;
-    gap: 8px;
+.fc-guide-add:hover {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--button-text);
 }
 
-.planned-actions button {
-    background: transparent;
-    border: none;
-    color: var(--text-tertiary);
-    font-family: var(--font-menu);
-    font-size: var(--size-micro);
-    letter-spacing: var(--track-wide);
-    text-transform: uppercase;
-    cursor: pointer;
-    padding: 2px 4px;
+.fc-guide-add:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
 }
-.planned-actions button:hover { color: var(--text-primary); }
-.planned-delete:hover { color: var(--accent-negative) !important; }
 
-/* Add/edit form — one responsive row of inputs above the list. */
-.planned-form {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px;
-    padding: 14px;
-    margin-bottom: 16px;
-    background: var(--surface2);
+@media (prefers-reduced-motion: reduce) {
+    .fc-pin, .fc-guide-add { transition: none; }
+}
+
+/* ─── The hover card (mirrors .rec-pop) ──────────────────────────────────────
+   One floating element reused for whichever pin is active. Fixed-positioned by
+   forecast.js against the pin's rect so the page's scroll container can't clip
+   it; a fixed width keeps that measurement stable on the very first show. */
+.fc-pop {
+    position: fixed;
+    z-index: 60;
+    /* Sized by the EDIT row, which is the wider of the two states: type +
+       date + amount + ✓/✗ all on one line. */
+    width: 440px;
+    max-width: calc(100vw - 16px);
+    box-sizing: border-box;
     border: var(--border-width) solid var(--border);
     border-radius: 8px;
+    background: var(--surface1);
+    /* --shadow-menu, the app's popover elevation — this card floats over the
+       chart exactly like the ⋮ menus and filter popovers do. */
+    box-shadow: var(--shadow-menu);
+    padding: 10px 12px;
 }
 
-.pf-input {
-    box-sizing: border-box;
-    height: var(--control-height);
-    background: var(--background);
-    border: var(--border-width) solid var(--border);
-    border-radius: 6px;
+.fc-pop[hidden] { display: none; }
+
+/* Pinned by a click: it now survives the pointer leaving, so it says so. */
+.fc-pop-pinned { border-color: var(--accent-primary); }
+
+/* label · date · amount, then the actions — one flat line, no field nested
+   under another. The label is the sole flexible one, soaking up whatever is
+   left and ellipsing when it runs out. */
+.fc-pop-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.fc-pop-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     color: var(--text-primary);
     font-family: var(--font-menu);
     font-size: var(--size-small);
-    padding: 4px 10px;
+    font-weight: var(--weight-medium);
 }
-.pf-input:focus { outline: none; border-color: var(--accent-secondary); }
+
+.fc-pop-date {
+    flex: 0 0 auto;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    white-space: nowrap;
+}
+
+.fc-pop-amount {
+    flex: 0 0 auto;
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* Same polarity the rest of the app uses for direction — with no legend, this
+   pairing is what carries it. */
+.fc-amount-expense { color: var(--accent-negative); }
+.fc-amount-income  { color: var(--accent-positive); }
+
+/* Edit mode stacks: the description gets a full row, the three controls and the
+   ✓/✗ share the one below. Cramming all four onto the display-mode line leaves
+   the description — usually the reason the card was opened — a few dozen px. */
+.fc-pop-editing {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+}
+
+.fc-pop-edit-fields {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* The type dropdown takes the leftover, but never below its own label: a flex
+   item with `min-width: 0` and a zero basis will happily shrink to just its
+   caret if the row is even slightly over budget. Everything else is sized to
+   its content and the row is budgeted to fit inside the card's width. */
+.fc-pop-edit-fields .fc-select { flex: 1 1 auto; min-width: 96px; }
+.fc-pop-edit-fields .fc-input-date { flex: 0 0 132px; }
+.fc-pop-edit-fields .fc-input-amount { flex: 0 0 90px; }
+/* Pushed hard right, under the display-mode buttons they replace, so ✓ lands
+   where the pencil just was. */
+.fc-pop-edit-fields .fc-action-group { margin-left: auto; }
+
+/* ─── Card actions (pencil / trash, ✓ / ✗) — mirrors .rec-action-btn ───────── */
+.fc-action-group {
+    flex: 0 0 auto;
+    display: inline-flex;
+    gap: 6px;
+    justify-content: flex-end;
+}
+
+.fc-action-btn {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: var(--border-width) solid var(--border);
+    border-radius: 6px;
+    background: var(--surface2);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.fc-action-btn:hover {
+    background: var(--surface3);
+    color: var(--text-primary);
+    border-color: var(--text-tertiary);
+}
+
+.fc-action-btn svg { width: 15px; height: 15px; }
+
+.fc-action-btn:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+/* Neutral until hover — a trash can sitting permanently red reads as an alarm
+   rather than an action. */
+.fc-action-btn.fc-action-delete:hover {
+    background: var(--accent-negative);
+    border-color: var(--accent-negative);
+    color: #fff;
+}
+
+/* ✓ carries the primary accent — it's the commit, and the one button in the row
+   that changes stored data. ✗ keeps the neutral base treatment. */
+.fc-action-btn.fc-action-save,
+.fc-action-btn.fc-action-save:hover {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--text-primary);
+}
+
+/* ─── Card + dialog inputs (mirrors .rec-input / .rec-select) ──────────────── */
+.fc-input-label {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    background: transparent;
+    border: none;
+    border-bottom: var(--border-width) solid transparent;
+    border-radius: 0;
+    padding: 1px 0 2px;
+    color: var(--text-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-medium);
+}
+.fc-input-label:hover { border-bottom-color: var(--frost-dim); }
+.fc-input-label:focus { border-bottom-color: var(--frost-focus); outline: none; }
+
+.fc-select {
+    width: 100%;
+    box-sizing: border-box;
+    height: var(--control-height);
+    background: var(--frost-2);
+    border: var(--border-width) solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    color: var(--text-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    cursor: pointer;
+}
+.fc-select:hover { background: var(--frost-3); }
+.fc-select:focus { border-color: var(--frost-focus); outline: none; }
+.fc-select option { background: var(--surface1); color: var(--text-primary); }
+
+/* Explicit widths on both inputs, not just a flex-basis: a flex item's
+   automatic minimum size is its INTRINSIC width, and an <input>'s intrinsic
+   width (~180px, from the default `size`) outranks a smaller basis. Left to
+   `min-width: auto` the amount field held 182px against `flex: 0 0 100px`,
+   overflowed the row, and the type dropdown collapsed to a bare caret to pay
+   for it. (Same reason .rec-input-amount carries a width.) */
+.fc-input-date {
+    width: 132px;
+    box-sizing: border-box;
+    height: var(--control-height);
+    background: var(--frost-2);
+    border: var(--border-width) solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    color: var(--text-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+}
+.fc-input-date:hover { background: var(--frost-3); }
+.fc-input-date:focus { border-color: var(--frost-focus); outline: none; }
+
+.fc-input-amount {
+    width: 90px;
+    box-sizing: border-box;
+    height: var(--control-height);
+    background: var(--frost-2);
+    border: var(--border-width) solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    color: inherit;
+    text-align: right;
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-variant-numeric: tabular-nums;
+    caret-color: var(--frost-caret);
+}
+.fc-input-amount:hover { background: var(--frost-3); }
+.fc-input-amount:focus { border-color: var(--frost-focus); outline: none; }
 
 /* Replace the native date-picker glyph with the themed --calendar-icon SVG.
    See the .tx-input rule in transactions.css. */
-.pf-input::-webkit-calendar-picker-indicator {
+.fc-input-date::-webkit-calendar-picker-indicator,
+.fc-dialog-input::-webkit-calendar-picker-indicator {
     -webkit-appearance: none;
             appearance: none;
     width: 14px;
@@ -515,35 +762,54 @@
     background: var(--calendar-icon) center / contain no-repeat;
 }
 
-#pf-label  { flex: 1 1 200px; }
-#pf-flow   { flex: 0 0 110px; }
-#pf-amount { flex: 0 0 130px; font-family: var(--font-numeric); text-align: right; }
-#pf-date   { flex: 0 0 150px; }
+/* A field the ✓ (or Add) attempt rejected. Shared with the dialog's inputs. */
+.fc-input.invalid,
+.fc-dialog-input.invalid,
+.fc-select.invalid { border-color: var(--accent-negative); }
+.fc-input-label.invalid { border-bottom-color: var(--accent-negative); }
 
-.pf-save {
-    border: none;
-    border-radius: 6px;
-    padding: 8px 16px;
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-}
+/* ─── Add dialog (mirrors .rec-add-dialog) ────────────────────────────────── */
+.fc-add-dialog { width: 380px; max-width: 100%; }
+.fc-add-dialog p { margin: 0 0 8px; }
 
-.pf-cancel {
-    background: transparent;
-    border: none;
+.fc-dialog-note {
     color: var(--text-tertiary);
     font-family: var(--font-menu);
     font-size: var(--size-small);
-    cursor: pointer;
+    line-height: var(--lh-normal);
 }
-.pf-cancel:hover { color: var(--text-primary); }
 
-.pf-error {
-    flex: 1 0 100%;
-    margin: 0;
-    color: var(--accent-negative);
+.fc-add-field {
+    display: flex;
+    align-items: center;
+    gap: var(--space-12);
+    margin-bottom: var(--space-8);
+}
+
+.fc-add-label {
+    flex: 0 0 110px;
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+}
+
+.fc-dialog-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    box-sizing: border-box;
+    height: var(--control-height);
+    background: var(--frost-2);
+    border: var(--border-width) solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    color: var(--text-primary);
     font-family: var(--font-menu);
     font-size: var(--size-small);
 }
+.fc-dialog-input:hover { background: var(--frost-3); }
+.fc-dialog-input:focus { border-color: var(--frost-focus); outline: none; }
+
+.fc-add-field .fc-select { flex: 1 1 auto; }

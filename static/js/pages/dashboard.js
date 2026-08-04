@@ -308,13 +308,10 @@
         return ticks;
     }
 
-    function fmtAxis(n) {
-        const abs = Math.abs(n);
-        const sign = n < 0 ? '-' : '';
-        if (abs >= 1_000_000) return sign + CURRENCY_SYMBOL + (abs / 1_000_000).toFixed(1) + 'M';
-        if (abs >= 1_000)     return sign + CURRENCY_SYMBOL + (abs / 1_000).toFixed(0) + 'K';
-        return sign + CURRENCY_SYMBOL + abs.toFixed(0);
-    }
+    // Axis labels come from axisFormatter (currency.js), which is handed the whole
+    // tick set. Formatting ticks one at a time made distinct gridlines share a
+    // label whenever the nice-tick step wasn't a round thousand — a 9,000-9,400
+    // axis (step 200) read "$9K, $9K, $9K".
 
     function fmtTooltip(n) {
         return formatCurrency(n, true);
@@ -433,10 +430,11 @@
         // Horizontal grid + Y labels (right-aligned in the left gutter).
         // Styling lives in dashboard.css (.chart-grid / .chart-label) so the frame
         // chrome follows the theme instead of hard-coded dark-mode rgba values.
+        const fmtAxis = axisFormatter(yTicks);
         for (const v of yTicks) {
             const y = yScale(v);
             svg += `<line class="chart-grid" x1="${PL}" y1="${y}" x2="${W - PR}" y2="${y}"/>`;
-            svg += `<text class="chart-label" x="${PL - 10}" y="${y}" text-anchor="end" dominant-baseline="middle">${fmtAxis(v)}</text>`;
+            svg += `<text class="chart-label" x="${PL - 10}" y="${y}" text-anchor="end" dominant-baseline="middle">${escapeHtml(fmtAxis(v))}</text>`;
         }
 
         // Zero line — emphasised when values straddle zero.
@@ -1050,10 +1048,11 @@
 
         let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" class="dashboard-chart${animate ? '' : ' chart-no-anim'}" style="display:block;">`;
 
+        const fmtAxis = axisFormatter(xTicks);
         for (const v of xTicks) {
             const x = xScale(v);
             svg += `<line class="chart-grid" x1="${f2(x)}" y1="${PT}" x2="${f2(x)}" y2="${plotBottom}"/>`;
-            svg += `<text class="chart-label" x="${f2(x)}" y="${plotBottom + 18}" text-anchor="middle">${fmtAxis(v)}</text>`;
+            svg += `<text class="chart-label" x="${f2(x)}" y="${plotBottom + 18}" text-anchor="middle">${escapeHtml(fmtAxis(v))}</text>`;
         }
 
         // Bar corners: rounded right end only — the bar must sit flat on the axis.
@@ -1176,10 +1175,11 @@
 
         let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" class="dashboard-chart${animate ? '' : ' chart-no-anim'}" style="display:block;">`;
 
+        const fmtAxis = axisFormatter(yTicks);
         for (const v of yTicks) {
             const y = yScale(v);
             svg += `<line class="chart-grid" x1="${PL}" y1="${y}" x2="${W - PR}" y2="${y}"/>`;
-            svg += `<text class="chart-label" x="${PL - 10}" y="${y}" text-anchor="end" dominant-baseline="middle">${fmtAxis(v)}</text>`;
+            svg += `<text class="chart-label" x="${PL - 10}" y="${y}" text-anchor="end" dominant-baseline="middle">${escapeHtml(fmtAxis(v))}</text>`;
         }
 
         const slotW = CW / bars.length;

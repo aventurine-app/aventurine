@@ -53,13 +53,9 @@
     return ticks;
   }
 
-  function fmtAxis(n) {
-    const abs = Math.abs(n);
-    const sign = n < 0 ? '-' : '';
-    if (abs >= 1_000_000) return sign + CURRENCY_SYMBOL + (abs / 1_000_000).toFixed(1) + 'M';
-    if (abs >= 1_000) return sign + CURRENCY_SYMBOL + (abs / 1_000).toFixed(0) + 'K';
-    return sign + CURRENCY_SYMBOL + abs.toFixed(0);
-  }
+  // Axis labels come from axisFormatter (currency.js), which is handed the whole
+  // tick set: formatting ticks one at a time made distinct gridlines share a
+  // label whenever the step wasn't a round thousand (step 200 → "$9K, $9K, $9K").
 
   function fmtTooltip(n) {
     return formatCurrency(n, true);
@@ -102,10 +98,11 @@
 
     let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" class="dashboard-chart${animate ? '' : ' chart-no-anim'}" style="display:block;">`;
 
+    const fmtAxis = axisFormatter(yTicks);
     for (const v of yTicks) {
       const y = yScale(v);
       svg += `<line class="chart-grid" x1="${PL}" y1="${y}" x2="${W - PR}" y2="${y}"/>`;
-      svg += `<text class="chart-label" x="${PL - 10}" y="${y}" text-anchor="end" dominant-baseline="middle">${fmtAxis(v)}</text>`;
+      svg += `<text class="chart-label" x="${PL - 10}" y="${y}" text-anchor="end" dominant-baseline="middle">${escapeHtml(fmtAxis(v))}</text>`;
     }
 
     if (minVal < 0 && maxVal > 0) {

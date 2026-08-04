@@ -508,12 +508,15 @@ html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
     color: var(--text-primary);
 }
 
-/* Caret flips to point up while the picker is open. Both halves key off the
+/* Caret flips to point up while the picker is open. Every half keys off the
    menu's presence via :has() rather than a JS class, so they stay in sync with
-   every open/close path (button toggle, item pick, outside click): the stepper's
-   menu is appended into the anchor's parent by UI.openMenu and removed on close;
-   the range selector's lives in the page and toggles [hidden]. */
+   every open/close path (button toggle, item pick, outside click). Both menu
+   mechanisms are covered, because a .range-selector may use either: an in-page
+   menu it toggles [hidden] on (Dashboard, Trends, the Forecast horizon), or one
+   UI.openMenu builds and destroys (the stepper labels, the Forecast account
+   picker — which needs a list built from data rather than baked into markup). */
 .stepper:has(.p-table-dropdown) .stepper-label,
+.range-selector:has(.p-table-dropdown) .range-selector-btn,
 .range-selector:has(.range-selector-menu:not([hidden])) .range-selector-btn {
     background-image: conic-gradient(from 135deg at 50% 0%,
                       currentColor 90deg, transparent 0);

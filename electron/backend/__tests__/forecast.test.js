@@ -1,6 +1,6 @@
 'use strict';
 
-// Cash Flow Forecast (Reports). This feature is NEW (not a Python port), so
+// Balance Forecast (Reports). This feature is NEW (not a Python port), so
 // there is no oracle fixture — the WEEKLY hybrid projection is pinned by the
 // deterministic unit tests below (a fixed `today` removes the only time
 // dependency), and the endpoints + planned-items CRUD by API tests. The v1→v2
@@ -13,7 +13,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const {
-  forecast, trailingAverage, monthlyTotals,
+  forecast, trailingAverage, monthlyTotals, HISTORY_MONTHS, historySeries,
   recurringPatterns, placeRecurring, weekCount, horizonEnd, addMonthKey,
 } = require('../services/forecast');
 const { localTodayIso } = require('../services/predictions');
@@ -75,10 +75,178 @@ test('forecast: recurring rent + paycheck are placed on the weeks they recur', (
   assert.equal(r.summary.endBalance, 8500);
   assert.deepStrictEqual(r.summary.lowest, { weekStart: '2026-06-15', label: 'Jun 15', balance: 3500 });
   assert.equal(r.summary.belowZero, false);
-  // The summary's "typical month" still reflects the FULL average.
+  // The summary's "typical month" still reflects the FULL average — over the
+  // trailing HISTORY_MONTHS window (Jan-May here, clamped to the first month of
+  // data), NOT the 3-month horizon this call asked to draw.
   assert.equal(r.summary.avgIncome, 4000);
   assert.equal(r.summary.avgExpense, 1500);
-  assert.equal(r.summary.monthsUsed, 3);
+  assert.equal(r.summary.monthsUsed, 5);
+});
+
+// ── horizon and history window are independent knobs ─────────────────────────
+
+test('forecast: the horizon does not change the estimated slope', () => {
+  // Spending stepped down three months ago. Back when the trailing window WAS
+  // the horizon, asking for a longer view silently re-estimated the burn rate
+  // from the older, higher months — 3 months projected ~1000/mo, 6 months
+  // ~3000/mo, off the same ledger. All three horizons must now agree.
+  const expense = [
+    exp('2025-12-10', 5000, 'Old habit A'), exp('2026-01-10', 5000, 'Old habit B'),
+    exp('2026-02-10', 5000, 'Old habit C'), exp('2026-03-10', 1000, 'New habit A'),
+    exp('2026-04-10', 1000, 'New habit B'), exp('2026-05-10', 1000, 'New habit C'),
+  ];
+  const burn = (months) => {
+    const r = forecast({
+      startBalance: 10000, income: [], expense, planned: [], months,
+      window: 3, today: '2026-06-01',
+    });
+    return (10000 - r.summary.endBalance) / months;
+  };
+  // window: 3 → Mar/Apr/May → 1000/mo, whichever horizon is drawn.
+  for (const months of [1, 3, 6]) {
+    assert.ok(Math.abs(burn(months) - 1000) < 25, `horizon ${months}mo implied ${burn(months)}/mo`);
+  }
+});
+
+test('forecast: months the ledger never saw are not averaged in as zeros', () => {
+  // A steady 3000/mo with Feb and Mar missing (never imported). Counting the
+  // gap as two months of zero spending deflated the typical month to 2000.
+  const expense = [
+    exp('2025-12-10', 3000, 'Spend A'), exp('2026-01-10', 3000, 'Spend B'),
+    exp('2026-04-10', 3000, 'Spend C'), exp('2026-05-10', 3000, 'Spend D'),
+  ];
+  const activeMonths = new Set(['2025-12', '2026-01', '2026-04', '2026-05']);
+  const r = forecast({
+    startBalance: 0, income: [], expense, planned: [], months: 3,
+    window: 6, activeMonths, today: '2026-06-01',
+  });
+  assert.equal(r.summary.avgExpense, 3000);
+  assert.equal(r.summary.monthsUsed, 4);
+
+  // A month that IS in the ledger but held no income/expense stays a real zero.
+  const withRealZero = new Set([...activeMonths, '2026-02', '2026-03']);
+  const r2 = forecast({
+    startBalance: 0, income: [], expense, planned: [], months: 3,
+    window: 6, activeMonths: withRealZero, today: '2026-06-01',
+  });
+  assert.equal(r2.summary.avgExpense, 2000);
+  assert.equal(r2.summary.monthsUsed, 6);
+});
+
+// ── the chart's opening point ────────────────────────────────────────────────
+
+test('forecast: the anchor is today at the untouched starting balance', () => {
+  // series[0] is already a week of flows in, so a chart drawing only the series
+  // opens at the wrong height under a label reading today.
+  const planned = [{ amount: 1200, flow: 'expense', date: '2026-06-01' }];
+  const r = forecast({ startBalance: 5000, income: [], expense: [], planned, months: 1, today: '2026-06-01' });
+  assert.deepStrictEqual(r.anchor, { date: '2026-06-01', balance: 5000 });
+  assert.equal(r.series[0].balance, 3800);
+  // Each week also carries the last day it covers — where its point belongs on
+  // a date axis, since the balance shown is the one reached by the week's end.
+  assert.equal(r.series[0].weekStart, '2026-06-01');
+  assert.equal(r.series[0].weekEnd, '2026-06-07');
+  assert.equal(r.summary.endDate, r.series[r.series.length - 1].weekEnd);
+});
+
+// ── actual history: the left half of the chart ───────────────────────────────
+
+test('historySeries: walks the ledger backward from the starting balance', () => {
+  // $1,000 out on May 4, $400 in on May 18, today's balance 5000. Each point is
+  // the balance at the END of that day, so a flow dated ON a boundary is already
+  // reflected in it and only LATER flows are undone.
+  const income = [inc('2026-05-18', 400, 'Refund')];
+  const expense = [exp('2026-05-04', 1000, 'Car repair')];
+  const h = historySeries({
+    endBalance: 5000, income, expense, spanDays: 35, today: '2026-06-01',
+  });
+  assert.deepStrictEqual(h.map((p) => [p.weekEnd, p.balance]), [
+    ['2026-05-04', 4600], // the car repair has landed; the refund has not
+    ['2026-05-11', 4600],
+    ['2026-05-18', 5000], // refund landed
+    ['2026-05-25', 5000],
+  ]);
+  // The 35-day span reaches Apr 27, but the ledger starts May 4 — see below.
+  assert.equal(h[0].weekEnd, '2026-05-04');
+});
+
+test('historySeries: stops at the first transaction, never invents a flat past', () => {
+  // The balance before the ledger's first row IS arithmetically derivable (no
+  // flows to undo, so it is just today's balance walked back). It is still not
+  // DRAWN: a flat line stretching left of the first transaction asserts the
+  // account sat at that figure, when all we actually know is that we have no
+  // rows for the period — which for this app usually means "not imported yet",
+  // not "nothing happened". Same reasoning as windowAverages' activeMonths.
+  const expense = [exp('2026-05-20', 100, 'Coffee run')];
+  const h = historySeries({
+    endBalance: 900, income: [], expense, spanDays: 90, today: '2026-06-01',
+  });
+  assert.deepStrictEqual(h.map((p) => [p.weekEnd, p.balance]), [['2026-05-25', 900]]);
+
+  // No transactions at all ⇒ nothing to draw, and the chart is projection-only.
+  assert.deepStrictEqual(
+    historySeries({ endBalance: 900, income: [], expense: [], spanDays: 90, today: '2026-06-01' }), []
+  );
+});
+
+test('forecast: history and projection meet at today, over a symmetric domain', () => {
+  const income = ['01', '02', '03', '04', '05'].map((m) => inc(`2026-${m}-01`, 4000));
+  const expense = ['01', '02', '03', '04', '05'].map((m) => exp(`2026-${m}-15`, 1500));
+  const r = forecast({ startBalance: 1000, income, expense, planned: [], months: 3, today: '2026-06-01' });
+
+  // Today is exactly the midpoint of the axis the renderer is handed: Jun 1 is
+  // 92 days after Mar 1 and 92 days before Sep 1.
+  assert.deepStrictEqual(r.domain, { start: '2026-03-01', end: '2026-09-01' });
+  assert.equal(r.anchor.date, '2026-06-01');
+  assert.ok(r.history.length > 0);
+  // Every history point is in the past half, every series point in the future.
+  assert.ok(r.history.every((p) => p.weekEnd >= r.domain.start && p.weekEnd < '2026-06-01'));
+  assert.ok(r.series.every((s) => s.weekEnd >= '2026-06-01' && s.weekEnd <= r.domain.end));
+
+  // The junction is continuous: the last history point plus that week's real
+  // flows lands on the anchor, which is also where the projection starts.
+  assert.equal(r.anchor.balance, 1000);
+  // Rent on May 15 is the only flow in the final history week (May 25 → Jun 1)?
+  // No — nothing falls there, so the last history point equals the anchor.
+  assert.equal(r.history[r.history.length - 1].balance, 1000);
+});
+
+test('forecast: `dips` separates a real cash crunch from a line that only climbs', () => {
+  const income = ['01', '02', '03', '04', '05'].map((m) => inc(`2026-${m}-01`, 4000));
+  const up = forecast({ startBalance: 1000, income, expense: [], planned: [], months: 3, today: '2026-06-01' });
+  // `lowest` is week 0 on a rising line — true, and no kind of warning.
+  assert.equal(up.summary.lowest.balance, 5000);
+  assert.equal(up.summary.dips, false);
+
+  const down = forecast({
+    startBalance: 1000, income: [], expense: [], months: 1, today: '2026-06-01',
+    planned: [{ amount: 800, flow: 'expense', date: '2026-06-10' }],
+  });
+  assert.equal(down.summary.dips, true);
+});
+
+// ── an overdue-but-live charge lands imminently, not a cycle from now ────────
+
+test('placeRecurring: a charge overdue within tolerance is caught up to today', () => {
+  // Rent on the 15th, last seen May 15 — by Jun 18 the June charge is 3 days
+  // late. recurringPatterns still considers the pattern live (3 <= the monthly
+  // 5-day tolerance), so the money is owed now, not on Jul 15.
+  const rent = ['01', '02', '03', '04', '05'].map((m) => exp(`2026-${m}-15`, 1500));
+  const patterns = recurringPatterns(rent, '2026-06-18');
+  assert.equal(patterns.length, 1);
+
+  const skipped = placeRecurring(patterns, '2026-06-18', '2026-08-01');
+  assert.deepStrictEqual(skipped.map((o) => o.date), ['2026-07-15']);
+
+  const caught = placeRecurring(patterns, '2026-06-18', '2026-08-01', { catchUpOverdue: true });
+  assert.deepStrictEqual(caught.map((o) => o.date), ['2026-06-18', '2026-07-15']);
+
+  // A pattern that is not overdue at all is untouched by the option.
+  const onTime = recurringPatterns(rent, '2026-06-10');
+  assert.deepStrictEqual(
+    placeRecurring(onTime, '2026-06-10', '2026-08-01', { catchUpOverdue: true }).map((o) => o.date),
+    ['2026-06-15', '2026-07-15']
+  );
 });
 
 // ── the smooth baseline: irregular spending is spread evenly per-day ──────────
@@ -206,6 +374,81 @@ test('forecast API: transfer flows can be excluded from the projection', (t) => 
   assert.equal(exc.body.include_transfers, false);
   assert.equal(exc.body.summary.avgExpense, 0);
   assert.ok(exc.body.summary.endBalance > inc.body.summary.endBalance);
+});
+
+test('forecast API: the projection follows the CHOSEN account, not the whole ledger', (t) => {
+  const c = makeClient(t);
+  const year = c.get('/api/balance/data').body.years[0];
+  for (const k of ['checking', 'savings']) c.adopt(k);
+  c.post('/api/balance/entry', { year, month: 'January', category: 'checking', value: 5000 });
+  c.post('/api/balance/entry', { year, month: 'January', category: 'savings', value: 50000 });
+
+  // Three months of heavy spending out of SAVINGS, and a trickle out of
+  // CHECKING — so each account owns rows and neither can claim the fallback.
+  const today = localTodayIso();
+  const spend = (back, amount, account) => {
+    const r = c.post('/api/transactions', {
+      date: `${addMonthKey(today.slice(0, 7), -back)}-15`,
+      description: `${account} spend ${back}`, tx_type: 'expense', amount,
+    });
+    c.put(`/api/transactions/${r.body.transaction.id}`, { account_key: account });
+  };
+  for (const back of [1, 2, 3]) {
+    spend(back, 2000, 'savings');
+    spend(back, 100, 'checking');
+  }
+
+  const sav = c.get('/api/forecast?account=savings');
+  assert.equal(sav.body.scope, 'account');
+  assert.equal(sav.body.summary.avgExpense, 2000);
+
+  // Checking sees only its own 100/mo. It used to inherit the full 2100 —
+  // being projected into the red off money spent from another account.
+  const chk = c.get('/api/forecast?account=checking');
+  assert.equal(chk.body.scope, 'account');
+  assert.equal(chk.body.summary.avgExpense, 100);
+  assert.equal(chk.body.summary.belowZero, false);
+  assert.ok(chk.body.summary.endBalance > 4000, JSON.stringify(chk.body.summary));
+});
+
+test('forecast API: an unassigned ledger still drives every account', (t) => {
+  const c = makeClient(t);
+  const year = c.get('/api/balance/data').body.years[0];
+  c.adopt('checking');
+  c.post('/api/balance/entry', { year, month: 'January', category: 'checking', value: 5000 });
+
+  // Pre-v10 shape: rows with no account_key at all. Scoping strictly here would
+  // forecast a flat line for a user whose ledger is entirely this account.
+  const today = localTodayIso();
+  for (const back of [1, 2, 3]) {
+    c.post('/api/transactions', {
+      date: `${addMonthKey(today.slice(0, 7), -back)}-15`,
+      description: `Unassigned spend ${back}`, tx_type: 'expense', amount: 900,
+    });
+  }
+  const r = c.get('/api/forecast?account=checking');
+  assert.equal(r.body.scope, 'ledger');
+  assert.equal(r.body.summary.avgExpense, 900);
+});
+
+test('forecast API: the starting balance reports the month it came from', (t) => {
+  const c = makeClient(t);
+  const year = c.get('/api/balance/data').body.years[0];
+  c.adopt('checking');
+  c.post('/api/balance/entry', { year, month: 'March', category: 'checking', value: 1234 });
+
+  const r = c.get('/api/forecast');
+  assert.equal(r.body.start_balance, 1234);
+  assert.equal(r.body.start_as_of, `${year}-03`);
+  assert.equal(r.body.accounts.find((a) => a.key === 'checking').as_of, `${year}-03`);
+  // The anchor is today at that balance, before any projected flow.
+  assert.deepStrictEqual(r.body.anchor, { date: localTodayIso(), balance: 1234 });
+  assert.equal(r.body.history_months, HISTORY_MONTHS);
+
+  // No entries at all ⇒ nothing to date.
+  const c2 = makeClient(t);
+  c2.adopt('checking');
+  assert.equal(c2.get('/api/forecast').body.start_as_of, null);
 });
 
 test('forecast API: months is clamped to {1,3,6}', (t) => {

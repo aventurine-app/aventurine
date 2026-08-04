@@ -177,7 +177,7 @@ const DDL = [
      FOREIGN KEY (account_key) REFERENCES balance_columns ("key")
    )`,
   `CREATE TABLE forecast_planned (
-     -- Planned one-off future income/expenses for the Cash Flow Forecast.
+     -- Planned one-off future income/expenses for the Balance Forecast.
      -- amount is a positive magnitude; flow decides its sign in the projection.
      id INTEGER NOT NULL,
      label VARCHAR(100) NOT NULL,

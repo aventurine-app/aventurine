@@ -20,7 +20,7 @@ function tableExists(db, name) {
 // by the version they bring the DB TO; each runs only when the stored
 // user_version is below its key. Keep them additive + idempotent.
 const MIGRATIONS = [
-  // v2 — Cash Flow Forecast: planned-items table (see schema.js baseline).
+  // v2 — Balance Forecast (then named Cash Flow Forecast): planned-items table (see schema.js baseline).
   [2, (db) => {
     db.exec(`CREATE TABLE IF NOT EXISTS forecast_planned (
        id INTEGER NOT NULL,

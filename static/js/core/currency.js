@@ -292,6 +292,78 @@
         input.setSelectionRange(newPos, newPos);
     }
 
+    // ─── Chart axis labels ──────────────────────────────────────────────────────
+
+    /**
+     * Build the tick formatter for ONE chart axis, from the WHOLE tick set.
+     *
+     * Formatting each tick independently is what made axes repeat themselves:
+     * every renderer abbreviated thousands with `(n / 1000).toFixed(0) + 'K'`,
+     * but the nice-tick step is 2/5/10 × a power of ten, so a step of 500 or 200
+     * is routine — and at those steps whole-thousand labels collapse. A range of
+     * 9,000–9,400 (step 200) rendered as "$9K, $9K, $9K"; 1,200–2,100 (step 500)
+     * as "$1K, $2K, $2K, $3K". Distinct gridlines MUST carry distinct labels, or
+     * the axis is unreadable exactly where the data is interesting.
+     *
+     * Two rules fix it, and both need the full set to apply:
+     *   1. ONE scale for the whole axis, picked from the largest tick — so an
+     *      axis never mixes "$800" with "$1K". The scale is only taken when the
+     *      step is big enough to survive it (≥ 0.1 of the divisor), so a tiny
+     *      range on a large balance drops back to plain numbers instead of
+     *      needing three decimals to stay distinct.
+     *   2. The FEWEST decimals that still tell every tick apart (0, then 1, then
+     *      2) — so the common case stays "$8K, $9K" and only a fine step pays
+     *      for "$9.0K, $9.2K, $9.4K".
+     *
+     * Zero is always plain "0": "$0.0K" is noise on the one label that needs
+     * none. Returns (n) => string.
+     */
+    function axisFormatter(ticks) {
+        const list = Array.isArray(ticks) && ticks.length ? ticks : [0];
+        const nonZero = list.map(Math.abs).filter((v) => v > 0);
+        const smallest = nonZero.length ? Math.min(...nonZero) : 0;
+
+        /** One tick, at a given scale and precision. Honours the user's
+         *  group/decimal separators and symbol position, which the per-chart
+         *  copies of this never did — every axis in the app hard-coded a
+         *  leading symbol and no grouping. */
+        const fmt = (n, div, suffix, decimals) => {
+            const body = (() => {
+                if (n === 0) return '0';
+                const parts = (Math.abs(n) / div).toFixed(decimals).split('.');
+                const intStr = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, NUMBER_FORMAT.group);
+                return (parts[1] ? intStr + NUMBER_FORMAT.decimal + parts[1] : intStr) + suffix;
+            })();
+            const withSymbol = SYMBOL_POSITION === 'suffix'
+                ? body + CURRENCY_SYMBOL : CURRENCY_SYMBOL + body;
+            // Plain leading minus: an axis label is too tight for the
+            // parenthesised negative style, and the sign must stay scannable.
+            return n < 0 ? '-' + withSymbol : withSymbol;
+        };
+
+        // Scales worth trying, largest first — but only where every non-zero
+        // tick survives it, so an axis never abbreviates to less than one unit
+        // ("$0.5K" for 500, when "$500" was available and clearer).
+        const scales = [];
+        if (smallest >= 1e6) scales.push([1e6, 'M']);
+        if (smallest >= 1e3) scales.push([1e3, 'K']);
+        scales.push([1, '']);
+
+        // First combination that gives every tick its own label, preferring the
+        // largest scale and the fewest decimals. Dropping a scale is part of the
+        // search: at 8,000–8,004 no number of sensible decimals separates the
+        // ticks in thousands, but plain numbers do it immediately.
+        for (const [div, suffix] of scales) {
+            for (let decimals = 0; decimals <= 2; decimals++) {
+                const f = (n) => fmt(n, div, suffix, decimals);
+                if (new Set(list.map(f)).size === list.length) return f;
+            }
+        }
+        // Only reachable if the tick list itself repeats a value — nothing to
+        // separate, so use the most precise plain form.
+        return (n) => fmt(n, 1, '', 2);
+    }
+
     // ─── Helpers ────────────────────────────────────────────────────────────────
 
     /** Escape a string for safe use inside a RegExp constructor. */
@@ -305,6 +377,7 @@
     // mirrored (not aliased): setCurrencySymbol re-syncs window on change.
     window.CURRENCY_SYMBOL = CURRENCY_SYMBOL;
     window.formatCurrency = formatCurrency;
+    window.axisFormatter = axisFormatter;
     window.applyCurrencyFormat = applyCurrencyFormat;
     window.stripCurrencyValue = stripCurrencyValue;
     window.formatDate = formatDate;

@@ -5,8 +5,10 @@
      • Dialog button   (.db-btn / -primary / -link)  — normal-case, small text.
        Modals, settings, inline Browse/Cancel.  Defined in dbmodal.css.
      • Action button   (.button-primary / -secondary) — uppercase micro "eyebrow".
-       The page call-to-action (Add Year, Export, Add Card …) plus a tail of
-       page-specific aliases (forecast-add) that share this shape.
+       The page call-to-action (Add Year, Export, Add Card …). The tail of
+       page-specific aliases that used to share this shape is gone; the last of
+       them (.forecast-add-btn) went with the Forecast's Planned Items card,
+       whose items are pins on the projected line now.
 
    The per-shape fill/size still lives in each component file for now; what this
    file owns is the CROSS-CUTTING INTERACTION STATES — keyboard focus ring,
@@ -25,7 +27,6 @@
 .button-primary:focus-visible,
 .button-secondary:focus-visible,
 .tx-add-btn:focus-visible,
-.forecast-add-btn:focus-visible,
 .budget-nav-btn:focus-visible,
 /* icon / close buttons — these all lacked a focus ring entirely */
 .tx-action-btn:focus-visible,
@@ -41,7 +42,6 @@
    A 1px nudge on active press. Skipped for disabled buttons. */
 .button-primary:not(:disabled):active,
 .button-secondary:not(:disabled):active,
-.forecast-add-btn:not(:disabled):active,
 .tx-action-btn:not(:disabled):active,
 .p-menu-btn:not(:disabled):active {
     transform: translateY(0px);
@@ -54,7 +54,6 @@
 .button-primary:disabled,
 .button-secondary:disabled,
 .tx-add-btn:disabled,
-.forecast-add-btn:disabled,
 .tx-action-btn:disabled {
     cursor: not-allowed;
     opacity: 0.6;
@@ -71,8 +70,7 @@
    Standardized here: radius 6, 8/16 padding (4px grid), widest tracking, and
    the --button-text colour on accent fills. Per-page LAYOUT (flex sizing) stays
    in the page file; only the button SHAPE moved here. */
-.button-primary, .button-secondary,
-.forecast-add-btn {
+.button-primary, .button-secondary {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -102,30 +100,26 @@
 /* The display:inline-flex above outranks the UA's [hidden] rule, so the
    hidden attribute (import/export progress states hide their action button
    with it) would silently do nothing without this. */
-.button-primary[hidden], .button-secondary[hidden],
-.forecast-add-btn[hidden] {
+.button-primary[hidden], .button-secondary[hidden] {
     display: none;
 }
 
 /* Outlined accent — secondary emphasis (Manage Columns, Add row …).
    Neutral fill with the accent carried by the text + border, so it reads as a
    quieter sibling of the accent-filled primary action. */
-.button-secondary,
-.forecast-add-btn {
+.button-secondary {
    color: var(--accent-neutral);
    font-weight: var(--weight-superbold);
    border: 1px solid var(--color-base-200);
 }
 /* On hover the outlined secondary fills in with neutral charcoal + contrast
    text, so it reads as a quiet neutral sibling of the accent-filled primary. */
-.button-secondary:not(:disabled):hover,
-.forecast-add-btn:not(:disabled):hover {
+.button-secondary:not(:disabled):hover {
     background: var(--color-base-200);
 }
 /* Disabled outlined secondary — drop the accent so it reads inert: gray text
    and border instead of carrying the primary accent at reduced opacity. */
-.button-secondary:disabled,
-.forecast-add-btn:disabled {
+.button-secondary:disabled {
     color: var(--text-tertiary);
     border-color: var(--border);
 }

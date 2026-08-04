@@ -43,6 +43,7 @@ const appGlobals = {
   // core/currency.js
   CURRENCY_SYMBOL: 'readonly',
   formatCurrency: 'readonly',
+  axisFormatter: 'readonly',
   applyCurrencyFormat: 'readonly',
   stripCurrencyValue: 'readonly',
   formatDate: 'readonly',

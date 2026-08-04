@@ -99,26 +99,32 @@
 
 <div class="forecast-page">
 
+    <!-- ONE card: the projected line is the report, and the sentence above it
+         states the answer in words before the chart shows the shape. Planned
+         items used to live in a second card with their own form; they are now
+         pins ON the line (see forecast.js) — same idiom as the Recurring
+         calendar's chips, where the thing you point at is the thing you edit.
+         Secondary knobs (counting transfers) sit behind the ⋮, so the header
+         carries only the two the report is actually read through: which account
+         and how far ahead. -->
     <div class="forecast-card forecast-card-main">
         <div class="dashboard-card-header">
-            <span class="dashboard-card-title">Cash Flow Forecast<span class="fc-info" tabindex="0" role="note"
-                aria-label="Projects your balance forward week by week, so cash crunches inside a month are visible. Each week adds your typical irregular spending and income (averaged from recent months and spread evenly) plus any recurring bills or paychecks detected in your history, dropped on the week they're due. Planned items you add below land in their own week too. Hover any point to see that week's balance and net. Everything is computed on your device — nothing leaves it."
-                data-tip="Projects your balance forward week by week, so cash crunches inside a month are visible. Each week adds your typical irregular spending and income (averaged from recent months and spread evenly) plus any recurring bills or paychecks detected in your history, dropped on the week they're due. Planned items you add below land in their own week too. Hover any point to see that week's balance and net. Everything is computed on your device — nothing leaves it.">i</span></span>
+            <!-- "Balance Forecast", not "Cash Flow Forecast": what it projects is
+                 one account's BALANCE, and the sibling tab is already called Cash
+                 Flow. The method — and the way to pin a planned item — lives in
+                 this one tooltip rather than in standing text above the chart. -->
+            <span class="dashboard-card-title">Balance Forecast<span class="fc-info" tabindex="0" role="note"
+                aria-label="Projects one account's balance forward, week by week, so a cash crunch inside a month is visible instead of averaged away. Each week combines your typical spending and income (averaged over recent complete months) with the recurring bills and paychecks detected in that account's history, placed on the week they fall. Hover the line to pin a one-off payment or receipt to a date; hover a point for that week's balance. Everything is computed on your device — nothing leaves it."
+                data-tip="Projects one account's balance forward, week by week, so a cash crunch inside a month is visible instead of averaged away. Each week combines your typical spending and income (averaged over recent complete months) with the recurring bills and paychecks detected in that account's history, placed on the week they fall. Hover the line to pin a one-off payment or receipt to a date; hover a point for that week's balance. Everything is computed on your device — nothing leaves it.">i</span></span>
             <div class="forecast-controls">
-                <label class="forecast-start">
-                    <span class="forecast-start-label">Starting account<span class="fc-info fc-info-right" tabindex="0" role="note"
-                        aria-label="Pick a cash account from your Balance Sheet to start the forecast from. The app uses that account's latest available balance as the starting balance."
-                        data-tip="Pick a cash account from your Balance Sheet to start the forecast from. The app uses that account's latest available balance as the starting balance.">i</span></span>
-                    <select id="forecast-account-select" class="forecast-account-select"></select>
-                </label>
-                <span class="forecast-transfers">
-                    <button type="button" class="forecast-toggle active" id="forecast-transfers-toggle" aria-pressed="true">
-                        Include transfers
-                    </button>
-                    <span class="fc-info fc-info-right" tabindex="0" role="note"
-                        aria-label="When on, money you move to savings or a brokerage counts as an outflow, so the forecast shows your real spendable balance. Turn it off to see the balance as if that money had stayed in this account."
-                        data-tip="When on, money you move to savings or a brokerage counts as an outflow, so the forecast shows your real spendable balance. Turn it off to see the balance as if that money had stayed in this account.">i</span>
-                </span>
+                <!-- Account and horizon are the SAME widget (ui.css's menu-opener
+                     button) rather than a native <select> next to a styled one —
+                     two lookalike pickers side by side is exactly the drift
+                     .range-selector/.stepper were folded together to stop. -->
+                <div class="range-selector" id="forecast-account">
+                    <button class="range-selector-btn" id="forecast-account-btn" type="button"
+                        aria-haspopup="menu" title="Account to forecast">Account</button>
+                </div>
                 <div class="range-selector" id="forecast-range">
                     <button class="range-selector-btn" id="forecast-range-btn" type="button">3 Months</button>
                     <div class="range-selector-menu" id="forecast-range-menu" hidden>
@@ -127,29 +133,23 @@
                         <button data-months="6" type="button">6 Months</button>
                     </div>
                 </div>
+                <button type="button" class="p-menu-btn" id="forecast-kebab-btn" title="Forecast options"
+                    aria-label="Forecast options" aria-haspopup="menu">⋮</button>
             </div>
         </div>
 
-        <!-- starting-account hint + projected end / lowest point / warning, by forecast.js -->
+        <!-- The answer in a sentence, then a dip warning only when the line
+             actually dips, then provenance. Built by forecast.js. -->
         <div class="forecast-summary" id="forecast-summary"></div>
 
+        <!-- The plot and its pointer overlay (the add-here guide) share this
+             box; forecast.js sizes the overlay to the SVG it just drew. -->
         <div class="chart-area">
-            <div id="forecast-chart"></div>
+            <div class="forecast-plot" id="forecast-plot">
+                <div id="forecast-chart"></div>
+                <div class="fc-overlay" id="forecast-overlay" aria-hidden="true"></div>
+            </div>
         </div>
-    </div>
-
-    <div class="forecast-card">
-        <div class="dashboard-card-header">
-            <span class="dashboard-card-title">Planned Items</span>
-            <button class="forecast-add-btn" id="planned-add-btn" type="button">+ Add item</button>
-        </div>
-        <p class="forecast-hint">
-            One-off or scheduled income and expenses you already know about — these
-            bend the projected line on top of the recurring charges detected from your
-            transactions.
-        </p>
-        <!-- Rows + the add/edit form are rendered by forecast.js. -->
-        <div id="planned-list" class="planned-list"></div>
     </div>
 
 </div>

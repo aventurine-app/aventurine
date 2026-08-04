@@ -1,12 +1,12 @@
 'use strict';
 
-// Cash Flow Forecast (Reports) blueprint. Read endpoint projects a running
+// Balance Forecast (Reports) blueprint. Read endpoint projects a running
 // weekly balance; the planned-items endpoints are plain CRUD over the
 // forecast_planned table (schema v2). Projection logic lives in
 // services/forecast.js; this handler only gathers inputs and validates writes.
 
 const { bad, cleanLabel, isFiniteNumber, round2, parseIsoDate } = require('../validate');
-const { forecast } = require('../services/forecast');
+const { forecast, HISTORY_MONTHS } = require('../services/forecast');
 
 const ALLOWED_MONTHS = new Set([1, 3, 6]);
 const DEFAULT_MONTHS = 3;
@@ -31,6 +31,15 @@ function plannedList(db) {
  * as a starting point. `balance` is null when the account has no entries yet.
  * `month` is stored as 1-12, so recency is by (year, month).
  * Ordered by column position so the picker mirrors the Balance Sheet's order.
+ *
+ * `as_of` is the 'YYYY-MM' that balance was recorded for, and it is reported
+ * rather than assumed to be current: the Balance Sheet is month-granular and
+ * hand-editable, so a user who last imported in March gets a March figure while
+ * the projection starts from today. The gap can't be closed here (the
+ * transactions between are already spent, and re-deriving a live balance from
+ * them would double-count anything the sheet cell already includes), so the
+ * renderer discloses the date instead of quietly presenting a stale number as
+ * "your balance".
  *
  * This is what the renderer's account drop-down is built from, and what the
  * starting balance is resolved against (see resolveStart).
@@ -60,6 +69,7 @@ function accountBalances(db) {
       label: c.label,
       type: c.col_type,
       balance: l ? round2(l.value) : null,
+      as_of: l ? `${l.year}-${String(l.idx).padStart(2, '0')}` : null,
     };
   });
 }
@@ -80,26 +90,51 @@ function resolveStart(accounts, accountKey) {
   return accounts[0] || null;
 }
 
-/** Split transactions into income/expense the same way /api/transactions and
- *  the predictions card do: a categorized row's direction follows its
- *  Category.cat_type; an uncategorized row keeps its stored tx_type. With
- *  `includeTransfers`, transfer-typed rows are folded into the expense (outflow)
- *  bucket — money moved out of the cash account on its way to savings/a
- *  brokerage; with it off they're dropped, so the projection shows the balance
- *  as if that money had stayed put. */
-function directionSplit(db, includeTransfers) {
+/**
+ * Split transactions into income/expense the same way /api/transactions and the
+ * predictions card do: a categorized row's direction follows its
+ * Category.cat_type; an uncategorized row keeps its stored tx_type. With
+ * `includeTransfers`, transfer-typed rows are folded into the expense (outflow)
+ * bucket — money moved out of the cash account on its way to savings/a
+ * brokerage; with it off they're dropped, so the projection shows the balance as
+ * if that money had stayed put.
+ *
+ * SCOPE: the projection tracks ONE account's balance, so it must be driven by
+ * that account's flows. Reading the whole ledger meant a Checking forecast was
+ * bent by money spent on a credit card or out of savings — in a two-account
+ * ledger where every charge belonged to Savings, Checking was still projected
+ * $1,000 into the red. Rows carry `account_key` since v10.
+ *
+ * The fallback matters as much as the rule: an account with NO rows of its own
+ * falls back to the whole ledger rather than forecasting a flat line. That is
+ * the shape of every pre-v10 import (account_key NULL throughout) and of a
+ * single-account user who never picked one, and for them the whole ledger IS
+ * this account's activity. Which of the two happened is returned as `scope` so
+ * the renderer can say so rather than leave the number unexplained.
+ *
+ * `activeMonths` is every 'YYYY-MM' the scoped rows touch — including months
+ * that are all transfers with transfers switched off, which are real months the
+ * user simply had no spendable flow in (see windowAverages).
+ */
+function directionSplit(db, { includeTransfers, accountKey }) {
   const catTypes = new Map(
     db.prepare('SELECT id, cat_type FROM categories').all().map((c) => [c.id, c.cat_type])
   );
+  const all = db.prepare('SELECT * FROM transactions ORDER BY date').all();
+  const owned = accountKey ? all.filter((t) => t.account_key === accountKey) : [];
+  const rows = owned.length ? owned : all;
+
   const income = [];
   const expense = [];
-  for (const t of db.prepare('SELECT * FROM transactions ORDER BY date').all()) {
+  const activeMonths = new Set();
+  for (const t of rows) {
+    if (t.date) activeMonths.add(t.date.slice(0, 7));
     const dir = t.category_id != null ? catTypes.get(t.category_id) ?? t.tx_type : t.tx_type;
     if (dir === 'income') income.push(t);
     else if (dir === 'expense') expense.push(t);
     else if (includeTransfers && dir === 'transfer') expense.push(t);
   }
-  return { income, expense };
+  return { income, expense, activeMonths, scope: owned.length ? 'account' : 'ledger' };
 }
 
 function getForecast(ctx, { query }) {
@@ -120,17 +155,35 @@ function getForecast(ctx, { query }) {
   // so the projection reflects only spendable income vs expenses.
   const includeTransfers = query.include_transfers !== '0' && query.include_transfers !== 'false';
 
-  const { income, expense } = directionSplit(db, includeTransfers);
+  const accountKey = startAccount ? startAccount.key : null;
+  const { income, expense, activeMonths, scope } = directionSplit(db, {
+    includeTransfers, accountKey,
+  });
   const planned = plannedList(db);
 
-  const result = forecast({ startBalance, income, expense, planned, months });
+  const result = forecast({
+    startBalance, income, expense, planned, months,
+    window: HISTORY_MONTHS, activeMonths,
+  });
   return {
     ok: true,
     months,
     start_balance: startBalance,
-    start_account: startAccount ? startAccount.key : null,
+    start_account: accountKey,
+    // Which month the starting balance was recorded for — null when there is no
+    // balance at all. The renderer says so when it isn't recent (accountBalances).
+    start_as_of: startAccount ? startAccount.as_of : null,
+    // 'account' when the projection is driven by the chosen account's own rows,
+    // 'ledger' when it fell back to every transaction (see directionSplit).
+    scope,
     accounts,
     include_transfers: includeTransfers,
+    history_months: HISTORY_MONTHS,
+    anchor: result.anchor,
+    domain: result.domain,
+    // Actual weekly balances for the same span BEFORE today — the left half of
+    // the chart, against which the projection on the right is read.
+    history: result.history,
     series: result.series,
     summary: result.summary,
     planned,
