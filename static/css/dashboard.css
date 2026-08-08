@@ -220,6 +220,37 @@
     height: 100%;
 }
 
+/* Empty states are the exception to the bottom-pinning above: with no chart to
+   line up, `margin-top: auto` left the notice sitting on the card's bottom edge
+   while the space above it stayed blank. When the body holds one, the host
+   grows into the height the grid row gave the card and centres its child in it,
+   so the heading + CTA land in the middle of whatever space is left under the
+   header (and under the selector chips, where a card has them). The min-height
+   is for the all-empty dashboard, where no neighbour is stretching the row and
+   the cards would otherwise collapse to a line of text. */
+.dashboard-card .chart-area:has(.empty-state),
+.dashboard-card .accounts-body:has(.empty-state) {
+    flex: 1 1 auto;
+    margin-top: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 180px;
+}
+
+/* The net-worth chart is the one 100%-height chart host; that height resolves
+   against a stretched parent, which the centring flex above no longer is. */
+#networth-chart:has(.empty-state) { height: auto; }
+
+/* The legend is flex: 1 in the row layout, which in the column above would make
+   it grow to the full height and strand the notice at its top. */
+.accounts-body:has(.empty-state) .accounts-legend { flex: 0 0 auto; }
+
+/* .empty-state's own generous padding is chart-sized air. Inside a card it is
+   already vertically centred, so the padding only fights the centring on short
+   cards — the block supplies its own gap between heading and CTA. */
+.dashboard-card .empty-state { padding: var(--space-16) var(--space-8); }
+
 .chart-empty {
     color: var(--text-tertiary);
     font-family: var(--font-h3);
@@ -242,6 +273,11 @@
     gap: 2px;
     margin-bottom: 18px;
 }
+
+/* No balances anywhere: the summary would be two em dashes above the empty
+   state. dashboard.js sets .is-empty so the notice gets the whole card body
+   (and its centre). A range that simply has no points keeps the figures. */
+.networth-card.is-empty .networth-summary { display: none; }
 
 /* Hero numerical value — paired with the small eyebrow above for contrast
    (semibold tiny label sitting on top of a light display number). */
@@ -412,6 +448,10 @@
     gap: 8px;
     margin-bottom: 20px;
 }
+
+/* With no series there are no chips, and the empty row's margin would push the
+   card's empty state off centre by half a gap. */
+.account-selector:empty { display: none; }
 
 .account-toggle {
     display: flex;

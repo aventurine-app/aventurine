@@ -6,7 +6,8 @@
 // so every page builds these the same way. Styling lives in static/css/ui.css.
 //
 //   UI.emptyState({ icon, title, desc, action, compact })  → HTML string
-//       icon   : key into UI.ICONS (a 24px stroke glyph). Defaults to 'info'.
+//       icon   : key into UI.ICONS (a 24px stroke glyph). Defaults to 'info';
+//                pass null for no glyph tile at all.
 //       title  : short headline (required).
 //       desc   : one supporting sentence (optional).
 //       action : { label, href }            → in-app navigation (<a>)
@@ -76,9 +77,12 @@
         }
 
         function emptyState({ icon = 'info', title = '', desc = '', action = null, compact = false } = {}) {
-            const glyph = ICONS[icon] || ICONS.info;
+            // icon: null renders the block with no glyph tile at all — the
+            // Dashboard's card empties, where six icons across a grid read as
+            // clutter rather than illustration.
+            const glyph = icon === null ? '' : (ICONS[icon] || ICONS.info);
             return `<div class="empty-state${compact ? ' empty-state-compact' : ''}">
-            <div class="empty-state-icon">${glyph}</div>
+            ${glyph ? `<div class="empty-state-icon">${glyph}</div>` : ''}
             <div class="empty-state-text">
                 <div class="empty-state-title">${escapeHtml(title)}</div>
                 ${desc ? `<div class="empty-state-desc">${escapeHtml(desc)}</div>` : ''}

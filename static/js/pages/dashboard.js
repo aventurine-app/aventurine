@@ -122,13 +122,11 @@
             // that predates the first recorded balance.
             const hasAnyData = Object.keys(latestValueByColumn(entries)).length > 0;
             legendEl.innerHTML = hasAnyData ? UI.emptyState({
-                icon: 'donut', compact: true,
+                icon: null, compact: true,
                 title: `No balances by ${dashboardMonthLabel()}`,
-                desc: 'Your first recorded balance is in a later month — step forward to see your balances.',
             }) : UI.emptyState({
-                icon: 'donut', compact: true,
+                icon: null, compact: true,
                 title: 'No balances to show yet',
-                desc: 'Add your account balances and Aventurine will chart how your assets and debts split.',
                 action: { label: 'Add balances', href: '/statements#balance-sheet', icon: 'plus', primary: true },
             });
             return;
@@ -158,9 +156,9 @@
             pieEl.style.display = 'none';
             pieEl.innerHTML = '';
             legendEl.innerHTML = UI.emptyState({
-                icon: 'donut', compact: true,
+                icon: null, compact: true,
                 title: 'All balances are zero',
-                desc: 'Enter some non-zero account balances to see how your assets and debts split.',
+                action: { label: 'Edit balances', href: '/statements#balance-sheet', icon: 'plus', primary: true },
             });
             return;
         }
@@ -681,18 +679,23 @@
         const container = document.getElementById('networth-chart');
         if (!container) return;
 
+        // With no balances at all the summary is two em dashes over an empty
+        // state — placeholder stacked on placeholder, and it pushes the notice
+        // off the card's centre. Drop it and let the empty state have the card.
+        // A range that merely happens to be empty keeps it: those figures are real.
+        document.querySelector('.networth-card')
+            ?.classList.toggle('is-empty', all.points.length === 0);
+
         if (filtered.length === 0) {
             container.innerHTML = all.points.length === 0
                 ? UI.emptyState({
-                    icon: 'chart',
+                    icon: null,
                     title: 'No net worth to chart yet',
-                    desc: 'Track your account balances and Aventurine will plot your net worth over time.',
                     action: { label: 'Add balances', href: '/statements#balance-sheet', icon: 'plus', primary: true },
                 })
                 : UI.emptyState({
-                    icon: 'search', compact: true,
+                    icon: null, compact: true,
                     title: 'Nothing in this range',
-                    desc: 'There’s no balance data for the selected period — try a longer range.',
                 });
             return;
         }
@@ -835,9 +838,8 @@
 
         if (!hasAnyData) {
             container.innerHTML = UI.emptyState({
-                icon: 'wallet',
+                icon: null,
                 title: 'No income or expenses yet',
-                desc: 'Add your monthly income and expense figures to chart your cash flow.',
                 action: { label: 'Open Statements', href: '/statements#cash-flow', icon: 'plus', primary: true },
             });
             const selEl = document.getElementById('ie-selector');
@@ -857,18 +859,16 @@
 
         if (visible.length === 0) {
             container.innerHTML = UI.emptyState({
-                icon: 'chart', compact: true,
+                icon: null, compact: true,
                 title: 'Nothing selected',
-                desc: 'Pick Income or Expenses above to plot it.',
             });
             chartObservers.get('ie-chart')?.disconnect();
             return;
         }
         if (!visible.some(s => s.points.length > 0)) {
             container.innerHTML = UI.emptyState({
-                icon: 'search', compact: true,
+                icon: null, compact: true,
                 title: 'Nothing in this range',
-                desc: 'Try a longer range to see your cash flow.',
             });
             chartObservers.get('ie-chart')?.disconnect();
             return;
@@ -891,11 +891,19 @@
 
         const keys = [...selectedAccounts];
         if (keys.length === 0) {
-            container.innerHTML = UI.emptyState({
-                icon: 'chart', compact: true,
-                title: 'Nothing selected',
-                desc: 'Pick an account above to compare balances over time.',
-            });
+            // Nothing selected vs nothing selectable: with no accounts at all
+            // there are no chips above to act on, so the card points at the
+            // Balance Sheet the way its neighbours do.
+            container.innerHTML = (appData.columns || []).length === 0
+                ? UI.emptyState({
+                    icon: null,
+                    title: 'No accounts to compare yet',
+                    action: { label: 'Add balances', href: '/statements#balance-sheet', icon: 'plus', primary: true },
+                })
+                : UI.emptyState({
+                    icon: null, compact: true,
+                    title: 'Nothing selected',
+                });
             chartObservers.get('account-chart')?.disconnect();
             return;
         }
@@ -927,9 +935,8 @@
         const hasAnyData = series.some(s => s.points.length > 0);
         if (!hasAnyData) {
             container.innerHTML = UI.emptyState({
-                icon: 'search', compact: true,
+                icon: null, compact: true,
                 title: 'Nothing in this range',
-                desc: 'These accounts have no balances in the selected period.',
             });
             chartObservers.get('account-chart')?.disconnect();
             return;
@@ -1140,11 +1147,13 @@
 
         if (!rows.some(r => r.value > 0)) {
             chartObservers.get('mcf-chart')?.disconnect();
-            // Compact here — the Spending card below carries the section's one CTA.
+            // The month card leads to the statement, its neighbours to balances
+            // and the ledger — one destination each, so the row doesn't repeat
+            // the same button three times.
             container.innerHTML = UI.emptyState({
-                icon: 'chart', compact: true,
+                icon: null, compact: true,
                 title: isCurrentDashboardMonth() ? 'No activity this month yet' : `Nothing in ${dashboardMonthLabel()}`,
-                desc: 'Transactions you import and figures you enter on your Cash Flow statement show up here as income, expenses, and transfers.',
+                action: { label: 'Open Statements', href: '/statements#cash-flow', icon: 'plus', primary: true },
             });
             return;
         }
@@ -1254,15 +1263,13 @@
             chartObservers.get('spending-chart')?.disconnect();
             container.innerHTML = isCurrentDashboardMonth()
                 ? UI.emptyState({
-                    icon: 'wallet',
+                    icon: null,
                     title: 'No spending this month yet',
-                    desc: 'Import transactions — or fill in your Cash Flow statement by hand — and Aventurine will break your month\'s spending down by category.',
                     action: { label: 'Add transactions', href: '/transactions', icon: 'plus', primary: true },
                 })
                 : UI.emptyState({
-                    icon: 'search', compact: true,
+                    icon: null, compact: true,
                     title: `Nothing in ${dashboardMonthLabel()}`,
-                    desc: 'No expenses were recorded in this month.',
                 });
             return;
         }
