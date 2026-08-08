@@ -25,8 +25,10 @@
 //                          single en-masse update applied to all of them
 //   txState.revealedIds  — ids whose original (raw bank) description is
 //                          expanded under the clean display name
-//   txState.filters      — Transactions Search controls, raw input values;
-//                          a blank value means that filter is off
+//   txState.filters      — Transactions Search controls, raw input values; a
+//                          blank value (or, for the Type/Category/Account
+//                          multi-selects, an empty array) means that filter
+//                          is off
 
 (function () {
     // Rows per page. The ledger is loaded and filtered entirely client-side, so
@@ -50,13 +52,16 @@
         // Ordered the same as the filter chips render. Type has no column of its
         // own any more (it's merged into the Category pill's colour) but stays a
         // filter, since a row's direction is still a useful thing to narrow by.
+        // Type/Category/Account are multi-select: an ARRAY of picked values that
+        // matches as OR (empty = filter off, i.e. "All"). The other fields are
+        // scalars, where a blank string means off.
         filters: {
             dateFrom:  '',
             dateTo:    '',
             name:      '',
-            type:      '',
-            category:  '',   // '' all | 'none' uncategorized | category id
-            account:   '',   // '' all | 'none' unassigned | account_key
+            type:      [],   // [] all | 'income' | 'expense' | 'transfer'
+            category:  [],   // [] all | 'none' uncategorized | category id
+            account:   [],   // [] all | 'none' unassigned | account_key
             amountMin: '',
             amountMax: '',
         },
@@ -539,16 +544,17 @@
         if (name
             && !(t.description  || '').toLowerCase().includes(name)
             && !(t.display_name || '').toLowerCase().includes(name)) return false;
-        if (f.type && t.tx_type !== f.type) return false;
-        if (f.category === 'none') {
-            if (t.category_id != null) return false;
-        } else if (f.category) {
-            if (t.category_id !== parseInt(f.category, 10)) return false;
+        // The three multi-selects match as OR within a field (and AND across
+        // fields, like every other filter): a row passes if its value is one of
+        // the picked ones. An empty pick list is the filter being off.
+        if (f.type.length && !f.type.includes(t.tx_type)) return false;
+        if (f.category.length) {
+            const picked = t.category_id == null ? 'none' : String(t.category_id);
+            if (!f.category.includes(picked)) return false;
         }
-        if (f.account === 'none') {
-            if (t.account_key != null) return false;
-        } else if (f.account) {
-            if (t.account_key !== f.account) return false;
+        if (f.account.length) {
+            const picked = t.account_key == null ? 'none' : t.account_key;
+            if (!f.account.includes(picked)) return false;
         }
         const min = txParseAmountFilter(f.amountMin);
         const max = txParseAmountFilter(f.amountMax);
@@ -654,11 +660,12 @@
         if (f.dateFrom)     out.date_from = f.dateFrom;
         if (f.dateTo)       out.date_to   = f.dateTo;
         if (f.name.trim())  out.description = f.name.trim();
-        if (f.type)         out.tx_type = f.type;
-        if (f.category === 'none')  out.category_id = null;
-        else if (f.category)        out.category_id = parseInt(f.category, 10);
-        if (f.account === 'none')   out.account_key = null;
-        else if (f.account)         out.account_key = f.account;
+        // The multi-selects ship as lists the backend ORs together; the 'none'
+        // sentinel becomes a literal null in the list (= uncategorized /
+        // unassigned), which is how a single pick was already expressed.
+        if (f.type.length)     out.tx_type = [...f.type];
+        if (f.category.length) out.category_id = f.category.map(v => (v === 'none' ? null : parseInt(v, 10)));
+        if (f.account.length)  out.account_key = f.account.map(v => (v === 'none' ? null : v));
         const min = txParseAmountFilter(f.amountMin);
         const max = txParseAmountFilter(f.amountMax);
         if (min !== null)   out.amount_min = min;
@@ -690,6 +697,26 @@
         account:  ['account'],
         amount:   ['amountMin', 'amountMax'],
     };
+
+    // The fields holding a list of picked values rather than a scalar (see
+    // txState.filters). Their "off" value is an empty array, not a blank string.
+    const TX_MULTI_FIELDS = new Set(['type', 'category', 'account']);
+
+    // The empty (filter-off) value for one txState.filters key.
+    function txBlankFilter(field) {
+        return TX_MULTI_FIELDS.has(field) ? [] : '';
+    }
+
+    // Toggle one value in/out of a multi-select field, preserving option order so
+    // the chip always names the same value however the boxes were ticked.
+    function txToggleMulti(key, value, order) {
+        const current = txState.filters[key];
+        const next = current.includes(value)
+            ? current.filter(v => v !== value)
+            : [...current, value];
+        next.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+        txSetFilter({ [key]: next });
+    }
 
     // Quick ranges offered in the Date popover. Each resolves to the full calendar
     // period containing today, so "This year" produces the same Jan 1 – Dec 31 range
@@ -756,6 +783,15 @@
         return minRaw ? `≥ ${fmt(minRaw)}` : `≤ ${fmt(maxRaw)}`;
     }
 
+    // Chip text for a multi-select: the first pick by itself, or the first pick
+    // plus a "+N" tail. Naming one value keeps the chip legible at a glance —
+    // a bare "3 selected" would make the user open the popover to learn anything.
+    function txFilterMultiText(values, labelFor) {
+        if (!values.length) return null;
+        const first = labelFor(values[0]);
+        return values.length === 1 ? first : `${first} +${values.length - 1}`;
+    }
+
     // The active-chip value text for a filter, or null when that filter is off.
     function txFilterValueText(key) {
         const f = txState.filters;
@@ -763,15 +799,13 @@
             case 'date':   return txFilterDateText();
             case 'name':   return f.name.trim() || null;
             case 'amount': return txFilterAmountText();
-            case 'type':   return f.type ? TX_TYPE_LABELS[f.type] : null;
+            case 'type':   return txFilterMultiText(f.type, v => TX_TYPE_LABELS[v] || 'Type');
             case 'category':
-                if (f.category === '' || f.category == null) return null;
-                if (f.category === 'none') return 'Uncategorized';
-                return txCategoryName(parseInt(f.category, 10)) || 'Category';
+                return txFilterMultiText(f.category, v =>
+                    (v === 'none' ? 'Uncategorized' : txCategoryName(parseInt(v, 10)) || 'Category'));
             case 'account':
-                if (f.account === '' || f.account == null) return null;
-                if (f.account === 'none') return 'No account';
-                return txAccountName(f.account) || 'Account';
+                return txFilterMultiText(f.account, v =>
+                    (v === 'none' ? 'No account' : txAccountName(v) || 'Account'));
             default: return null;
         }
     }
@@ -806,27 +840,25 @@
         txRender();
     }
 
-    // Drop the category filter if it points at a category that no longer exists
-    // (after an import or a category delete). Called on every (re)load.
+    // Drop any picked category that no longer exists (after an import or a
+    // category delete), keeping the rest. Called on every (re)load.
     function txReconcileCategoryFilter() {
-        const c = txState.filters.category;
-        if (c === '' || c === 'none' || c == null) return;
-        if (!txCategoryById(parseInt(c, 10))) txState.filters.category = '';
+        txState.filters.category = txState.filters.category
+            .filter(c => c === 'none' || txCategoryById(parseInt(c, 10)));
     }
 
     // Same for the account filter: a Balance Sheet column deleted since it was
-    // chosen leaves a key that names no account, so clear it. Called on (re)load.
+    // chosen leaves a key that names no account, so drop it. Called on (re)load.
     function txReconcileAccountFilter() {
-        const a = txState.filters.account;
-        if (a === '' || a === 'none' || a == null) return;
-        if (!(a in txState.accountsByKey)) txState.filters.account = '';
+        txState.filters.account = txState.filters.account
+            .filter(a => a === 'none' || a in txState.accountsByKey);
     }
 
     // Clear one chip's filter (its leading ×).
     function txClearFilter(key) {
         txCloseFilterPopover();
         const patch = {};
-        for (const field of TX_FILTER_FIELDS[key]) patch[field] = '';
+        for (const field of TX_FILTER_FIELDS[key]) patch[field] = txBlankFilter(field);
         txSetFilter(patch);
     }
 
@@ -835,7 +867,7 @@
     function txClearFilters() {
         txCloseFilterPopover();
         for (const fields of Object.values(TX_FILTER_FIELDS)) {
-            for (const field of fields) txState.filters[field] = '';
+            for (const field of fields) txState.filters[field] = txBlankFilter(field);
         }
         txState.page = 1;
         txSyncChips();
@@ -844,8 +876,9 @@
 
     // ─── Filter popovers ─────────────────────────────────────────────────────────
     // One popover open at a time, built on demand under the clicked chip and removed
-    // on close. Date/Name/Amount popovers carry live inputs; Type/Category popovers
-    // are single-select option lists that apply and close on pick.
+    // on close. Date/Name/Amount popovers carry live inputs; Type/Category/Account
+    // popovers are multi-select checkbox lists that stay open across picks (the
+    // whole point of ticking several), applying each one live to the table.
 
     // The currently-open popover, or null: { el, chip, key, onOutside, onKey }.
     let txOpenPopover = null;
@@ -867,32 +900,55 @@
         });
     }
 
-    // A single-select option list for the Type/Category popovers. Picking an option
-    // writes the filter and closes the popover; the current value is checked.
-    // An entry of { header } renders as a non-interactive group label instead
-    // of an option (the Category list groups by cat_type).
+    // Reflect a pick list back onto an open option list. The popover now outlives
+    // a click (see txBuildOptionList), so its boxes have to tick under the user.
+    // The leading "All" row (value '') reads as ticked when nothing else is.
+    function txSyncOptionList(list, values) {
+        list.querySelectorAll('.tx-pop-option').forEach(btn => {
+            const v   = btn.dataset.value;
+            const sel = v === '' ? values.length === 0 : values.includes(v);
+            btn.classList.toggle('is-selected', sel);
+            btn.setAttribute('aria-selected', String(sel));
+        });
+    }
+
+    // A multi-select checkbox list for the Type/Category/Account popovers.
+    // Clicking an option toggles it and the popover STAYS open, so several can be
+    // ticked in one visit; the leading "All" row is the way back to no filter.
+    // `current` is the field's array of picked values. An entry of { header }
+    // renders as a non-interactive group label instead of an option (the Category
+    // list groups by cat_type).
     function txBuildOptionList(key, options, current) {
         const list = document.createElement('div');
         list.className = 'tx-pop-options';
         list.setAttribute('role', 'listbox');
-        let grouped = false;   // true once a header appears — options under it indent
+        list.setAttribute('aria-multiselectable', 'true');
+        // Render order of the real options; picks are kept in it, so the chip
+        // names the same value however the boxes were ticked (txToggleMulti).
+        const order = options.filter(e => !e.header).map(([value]) => value);
         list.innerHTML = options.map((entry) => {
             if (entry.header) {
-                grouped = true;
                 return `<div class="tx-pop-group-label" role="presentation">${txEsc(entry.header)}</div>`;
             }
             const [value, label] = entry;
-            const sel = value === current;
-            return `<button type="button" class="tx-pop-option${grouped ? ' is-grouped' : ''}${sel ? ' is-selected' : ''}" role="option" aria-selected="${sel}" data-value="${txEsc(value)}">
+            // No indent under a group header: the eyebrow already marks the
+            // group, and one straight column of tick boxes is easier to scan
+            // (and to hit) than one that steps in halfway down the list.
+            return `<button type="button" class="tx-pop-option" role="option" aria-selected="false" data-value="${txEsc(value)}">
+                    <span class="tx-pop-box" aria-hidden="true">
+                        <svg class="tx-pop-check" viewBox="0 0 20 20" fill="none"><path d="M5 10.5l3.5 3.5L15 6.5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
                     <span class="tx-pop-option-label">${txEsc(label)}</span>
-                    <svg class="tx-pop-check" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 10.5l3.5 3.5L15 6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>`;
         }).join('');
+        txSyncOptionList(list, current);
         list.addEventListener('click', (e) => {
             const btn = e.target.closest('.tx-pop-option');
             if (!btn) return;
-            txCloseFilterPopover();
-            txSetFilter({ [key]: btn.dataset.value });
+            const value = btn.dataset.value;
+            if (value === '') txSetFilter({ [key]: [] });   // "All" drops every pick
+            else txToggleMulti(key, value, order);
+            txSyncOptionList(list, txState.filters[key]);
         });
         return list;
     }
@@ -972,7 +1028,7 @@
         } else if (key === 'type') {
             wrap.appendChild(txBuildOptionList('type', [
                 ['', 'All'], ['income', 'Income'], ['expense', 'Expense'], ['transfer', 'Transfer'],
-            ], f.type || ''));
+            ], f.type));
         } else if (key === 'category') {
             // Grouped by cat_type under eyebrow headers. The locked uncat_*
             // system buckets are skipped: no transaction is ever assigned to
@@ -987,14 +1043,14 @@
                 opts.push({ header: label });
                 cats.forEach(c => opts.push([String(c.id), c.name]));
             });
-            wrap.appendChild(txBuildOptionList('category', opts, f.category || ''));
+            wrap.appendChild(txBuildOptionList('category', opts, f.category));
         } else if (key === 'account') {
             // Accounts are the Balance Sheet columns (txState.accountsByKey),
             // listed in their column order. A row with no account renders as "—"
             // in the table; the 'none' sentinel filters to exactly those.
             const opts = [['', 'All'], ['none', 'No account']];
             Object.entries(txState.accountsByKey).forEach(([acctKey, label]) => opts.push([acctKey, label]));
-            wrap.appendChild(txBuildOptionList('account', opts, f.account || ''));
+            wrap.appendChild(txBuildOptionList('account', opts, f.account));
         }
         return wrap;
     }
@@ -1073,7 +1129,7 @@
             // assignments — filtering by their id matches nothing, so the Cash
             // Flow "Uncategorized" band maps to the 'none' filter instead.
             const cat = txState.categories.find(c => c.key === catKey);
-            if (cat) txState.filters.category = cat.locked ? 'none' : String(cat.id);
+            if (cat) txState.filters.category = [cat.locked ? 'none' : String(cat.id)];
         }
 
         txState.page = 1;

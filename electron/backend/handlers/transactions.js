@@ -449,6 +449,22 @@ const EXPORT_CHUNK = 500;
 // and the renderer use, so the file matches what the table shows.
 const EXPORT_TX_TYPES = ['income', 'expense', 'transfer'];
 
+// tx_type / category_id / account_key each accept either a single value (the
+// shape a one-pick filter has always sent) or a LIST of them OR-ed together —
+// those three chips are multi-select. An empty list is rejected rather than
+// read as "no filter": a filter with nothing picked must never quietly widen
+// the export to the whole ledger.
+function filterList(value, field) {
+  const list = Array.isArray(value) ? value : [value];
+  if (!list.length) bad(`filters.${field} must not be an empty list`);
+  return list;
+}
+
+// `t.<col> IN (?, ?)` — or the bare `= ?` when there is only one value.
+function inClause(col, values) {
+  return values.length === 1 ? `${col} = ?` : `${col} IN (${values.map(() => '?').join(', ')})`;
+}
+
 function exportFilterSql(filters) {
   if (filters == null) return { where: '', args: [] };
   if (typeof filters !== 'object' || Array.isArray(filters)) bad('filters must be an object');
@@ -489,34 +505,45 @@ function exportFilterSql(filters) {
     args.push(filters.amount_max);
   }
   if (filters.tx_type != null) {
-    if (!EXPORT_TX_TYPES.includes(filters.tx_type)) {
-      bad(`filters.tx_type must be one of: ${EXPORT_TX_TYPES.join(', ')}`);
+    const types = filterList(filters.tx_type, 'tx_type');
+    for (const type of types) {
+      if (!EXPORT_TX_TYPES.includes(type)) {
+        bad(`filters.tx_type must be one of: ${EXPORT_TX_TYPES.join(', ')}`);
+      }
     }
-    conds.push('COALESCE(c.cat_type, t.tx_type) = ?');
-    args.push(filters.tx_type);
+    conds.push(inClause('COALESCE(c.cat_type, t.tx_type)', types));
+    args.push(...types);
   }
   if ('category_id' in filters) {
-    // Explicit null means "uncategorized only"; an absent key means no filter.
-    if (filters.category_id === null) {
-      conds.push('t.category_id IS NULL');
-    } else if (Number.isInteger(filters.category_id)) {
-      conds.push('t.category_id = ?');
-      args.push(filters.category_id);
-    } else {
-      bad('filters.category_id must be an integer or null');
+    // A null means "uncategorized"; an integer names one category; an absent
+    // key means no filter. Mixing the two in a list is allowed — the
+    // Uncategorized row is just another box in the chip's list.
+    const ids = [];
+    let anyNull = false;
+    for (const value of filterList(filters.category_id, 'category_id')) {
+      if (value === null) anyNull = true;
+      else if (Number.isInteger(value)) ids.push(value);
+      else bad('filters.category_id must be an integer or null');
     }
+    const parts = [];
+    if (ids.length) { parts.push(inClause('t.category_id', ids)); args.push(...ids); }
+    if (anyNull) parts.push('t.category_id IS NULL');
+    conds.push(parts.length > 1 ? `(${parts.join(' OR ')})` : parts[0]);
   }
   if ('account_key' in filters) {
-    // Explicit null means "unassigned only" (no Balance Sheet account); a
-    // string names one account; an absent key means no filter.
-    if (filters.account_key === null) {
-      conds.push('t.account_key IS NULL');
-    } else if (typeof filters.account_key === 'string') {
-      conds.push('t.account_key = ?');
-      args.push(filters.account_key);
-    } else {
-      bad('filters.account_key must be a string or null');
+    // Same shape: a null means "unassigned" (no Balance Sheet account), a
+    // string names one account, an absent key means no filter.
+    const keys = [];
+    let anyNull = false;
+    for (const value of filterList(filters.account_key, 'account_key')) {
+      if (value === null) anyNull = true;
+      else if (typeof value === 'string') keys.push(value);
+      else bad('filters.account_key must be a string or null');
     }
+    const parts = [];
+    if (keys.length) { parts.push(inClause('t.account_key', keys)); args.push(...keys); }
+    if (anyNull) parts.push('t.account_key IS NULL');
+    conds.push(parts.length > 1 ? `(${parts.join(' OR ')})` : parts[0]);
   }
   return { where: conds.length ? ` WHERE ${conds.join(' AND ')}` : '', args };
 }

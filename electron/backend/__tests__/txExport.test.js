@@ -233,6 +233,47 @@ test('export filters by account_key (a specific account, and the unassigned rows
   assert.match(fs.readFileSync(dest, 'utf8'), /Cash Tip/);
 });
 
+test('export filters accept a list of values, OR-ed together', (t) => {
+  const c = makeClient(t);
+  const income = firstCat(c, 'income');
+  const expense = firstCat(c, 'expense');
+  createTx(c, 'Paycheck', { catId: income.id, amount: 1000, d: '2026-01-15', account: 'checking' });
+  createTx(c, 'Grocery Run', { catId: expense.id, amount: 42, d: '2026-01-16', account: 'savings' });
+  createTx(c, 'Cash Tip', { amount: 5, d: '2026-01-17' }); // no account, no category
+
+  // Two accounts at once — the multi-select Account chip.
+  let dest = path.join(c.dir, 'both-accounts.csv');
+  let body = exportAll(c, dest, 'csv', { filters: { account_key: ['checking', 'savings'] } });
+  assert.equal(body.exported, 2);
+
+  // A list may mix null (the "No account" box) with named accounts.
+  dest = path.join(c.dir, 'acct-or-none.csv');
+  body = exportAll(c, dest, 'csv', { filters: { account_key: ['checking', null] } });
+  assert.equal(body.exported, 2);
+  const rows = fs.readFileSync(dest, 'utf8');
+  assert.match(rows, /Paycheck/);
+  assert.match(rows, /Cash Tip/);
+
+  // Same for categories: one real category OR the uncategorized rows.
+  dest = path.join(c.dir, 'cat-or-none.csv');
+  body = exportAll(c, dest, 'csv', { filters: { category_id: [income.id, null] } });
+  assert.equal(body.exported, 2);
+
+  // And for tx_type, which compares the DERIVED direction.
+  dest = path.join(c.dir, 'types.csv');
+  body = exportAll(c, dest, 'csv', { filters: { tx_type: ['income', 'transfer'] } });
+  assert.equal(body.exported, 1);
+
+  // Lists still AND with the other filters: two of the three directions, but
+  // only the one row inside the date range.
+  dest = path.join(c.dir, 'types-and-date.csv');
+  body = exportAll(c, dest, 'csv', {
+    filters: { tx_type: ['income', 'expense'], date_to: '2026-01-15' },
+  });
+  assert.equal(body.exported, 1);
+  assert.match(fs.readFileSync(dest, 'utf8'), /Paycheck/);
+});
+
 test('export validates filters', (t) => {
   const c = makeClient(t);
   const dest = path.join(c.dir, 'x.csv');
@@ -262,6 +303,15 @@ test('export validates filters', (t) => {
   r = post({ account_key: 42 }); // must be a string key or null
   assert.equal(r.status, 400);
   assert.match(r.body.error, /account_key must be a string or null/);
+
+  r = post({ tx_type: ['income', 'savings'] }); // every member of a list is checked
+  assert.equal(r.status, 400);
+  assert.match(r.body.error, /tx_type must be one of/);
+
+  // An empty list is a filter with nothing picked — never "export everything".
+  r = post({ category_id: [] });
+  assert.equal(r.status, 400);
+  assert.match(r.body.error, /category_id must not be an empty list/);
 
   // Empty filters object behaves exactly like no filters.
   createTx(c, 'Something');

@@ -27,8 +27,10 @@
          Import / Export). Inactive filter chips read as a
          dashed outline with just the field name; clicking one drops a popover of
          options, and once a value is picked the chip fills with the primary
-         accent and reads "Field : value" with a leading × to clear it. The
-         option popovers are built on demand in transactions.js. -->
+         accent and reads "Field : value" with a leading × to clear it. Type,
+         Account and Category take several values at once (checkbox lists,
+         OR-matched), and their chips read "value +N". The option popovers are
+         built on demand in transactions.js. -->
     <div class="tx-chips">
         <div class="tx-chips-group tx-chips-left" id="tx-filter-chips">
             <div class="tx-filter-chip" data-filter="date">
