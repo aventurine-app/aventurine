@@ -43,8 +43,8 @@
     min-width: 0;
 }
 
-/* Tab styles live in ui.css — the segmented control shared with .dashboard-tab and
-   .stmt-tab. The column above stretches its children; keep the track hugging
+/* Tab styles live in ui.css — the segmented control shared with .stmt-tab
+   (Statements). The column above stretches its children; keep the track hugging
    its labels like the other pages' toolbars do. */
 .rep-tabs { align-self: flex-start; }
 

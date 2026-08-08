@@ -245,14 +245,18 @@
     overflow: clip;
     overflow-clip-margin: 3px;
     padding: 4px 6px;
-    /* A rounded tile, no border. --surface2 (the control-fill rung) sits one
-       step lighter than the hover state below, so a resting chip is quiet and
-       the pointer still gets a clear response. The tile is what makes a chip
-       read as an object you can point at, now that the day cells' shared
-       ruling is the only other structure on the grid.
-       Held in a custom property so the dark theme can restate the resting
-       colour (see below) without out-specifying the :hover rule. */
-    --rec-chip-bg: var(--surface2);
+    /* A rounded tile, no border, carrying the ACCENT fill of a primary button
+       rather than a neutral grey: a schedule is the page's content, and a grid
+       of grey tiles on a grey-ruled calendar read as chrome. The tile is what
+       makes a chip an object you can point at.
+       Same three tokens .button-primary uses (buttons.css), in the same roles —
+       --accent-primary at rest, --color-accent-500 on hover, --button-text for
+       the label — so a chip is the same green as every primary button on the
+       page and follows the accent wherever a theme repoints it, rather than
+       naming a ramp rung of its own.
+       Held in a custom property so the theme layer can restate the resting
+       colour without out-specifying the :hover rule. */
+    --rec-chip-bg: var(--accent-primary);
     border: 0;
     border-radius: 6px;
     background: var(--rec-chip-bg);
@@ -282,7 +286,14 @@
    income/expense read at a glance. Red/green reuses the polarity pairing
    reportcard.js's changePill already uses for the same income-good/
    expense-bad semantic, and the ~190° hue gap is unambiguous even before the
-   name, the amount and the card kick in. */
+   name, the amount and the card kick in.
+   Each ring is mixed halfway to --button-text FOR THE CHIP ONLY (the card's
+   pill and amount keep the full-strength tokens): the tile is the accent fill
+   now, and at full strength the ring sank into it — red measured 1.0:1 against
+   the light theme's fill, green 1.5:1. Mixing toward the label colour steps the
+   ring whichever way the theme has contrast to give (pale on light, deep on
+   dark) and keeps the hue that carries the meaning. It buys ~2-3:1, the most a
+   mid-tone fill allows; hue does the rest, and the card spells direction out. */
 .rec-occ .avatar-circle {
     width: 18px;
     height: 18px;
@@ -291,26 +302,35 @@
     outline-style: solid;
     outline-offset: 0;
 }
-.rec-occ-expense  .avatar-circle { outline-color: var(--accent-negative); }
-.rec-occ-income   .avatar-circle { outline-color: var(--accent-positive); }
-.rec-occ-transfer .avatar-circle { outline-color: var(--accent-info); }
+.rec-occ-expense  .avatar-circle { outline-color: color-mix(in srgb, var(--accent-negative) 50%, var(--button-text)); }
+.rec-occ-income   .avatar-circle { outline-color: color-mix(in srgb, var(--accent-positive) 50%, var(--button-text)); }
+.rec-occ-transfer .avatar-circle { outline-color: color-mix(in srgb, var(--accent-info) 50%, var(--button-text)); }
 
 /* Normal weight, both halves — the bold day numbers and the chips' own tiles
    already give the grid its structure, so the labels don't need weight on top
-   of it. Their hierarchy is carried by colour (primary name, secondary
-   amount). */
+   of it.
+   BOTH halves take --button-text at FULL strength: the token every filled
+   accent button labels itself with, not the --text-* tokens, which are written
+   for the page's surfaces and would flip to near-black on the fill in the light
+   theme. They used to fade toward the fill (name 100% / amount 82%, projected
+   72%) to rank them, but at --size-micro on a mid-tone fill antialiasing
+   already eats most of a label's contrast — the faded pair read as washed-out
+   grey rather than as a quieter white, and the chip stopped matching the crisp
+   label of the primary button it borrows its fill from. Rank is carried by
+   order and the numeric face instead. */
 .rec-occ-name {
     flex: 1;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--text-primary);
+    color: var(--button-text);
 }
-/* A projected charge hasn't happened yet, so it reads one step back from a
-   real one. With every ring now solid, this is what carries "prediction, not
-   record" on the grid itself — the card spells it out in full. */
-.rec-occ-projected .rec-occ-name { color: var(--text-secondary); }
+/* A projected charge is NOT stepped back on the grid any more: dimming its name
+   was the same washed-grey problem as above, and it cost the chip the one thing
+   a label has at this size. "Charged Aug 27" vs "Projected Aug 27" on the hover
+   card carries the distinction instead. The class stays on the element as the
+   hook it always was. */
 
 .rec-occ-amount {
     flex: 0 1 auto;
@@ -320,32 +340,24 @@
     font-family: var(--font-numeric);
     font-size: var(--size-micro);
     font-variant-numeric: tabular-nums;
-    color: var(--text-secondary);
+    color: var(--button-text);
 }
 
-/* Dark theme has no rung between the cell fill and the hover state:
-   --surface2 resolves to the same palette stop as --surface1, so a resting
-   tile would be invisible there. Half a step toward --surface3 restores the
-   same quiet-tile/clear-hover relationship the light theme gets from the
-   tokens. Only the custom property is restated — setting `background` here
-   would out-specify .rec-occ:hover and kill the hover state in dark. */
-html[data-theme="dark"] .rec-occ {
-    --rec-chip-bg: color-mix(in srgb, var(--surface3) 55%, var(--surface1));
-}
-
-/* Hover steps up one rung, to --surface3 — a neutral grey, no accent tint.
+/* Hover takes --color-accent-500, the exact fill .button-primary hovers to
+   (buttons.css) — on an accent fill the lift is toward the light end of the
+   ramp, unlike the grey surfaces this used to borrow from.
    .rec-occ-active takes the SAME fill, and must: recurring.js sets it on every
    chip of a schedule the moment its card opens, which is the moment the
    pointer lands on one of them. Any other colour here would be what "hover"
    actually looks like, since the hovered chip is always active too. Lighting
    up the schedule's whole run across the month is the point — a monthly bill
-   shows all its dates at once — and grey says that without recolouring the
-   grid. (Pinned-vs-previewing is carried by the card's own accent border.) */
+   shows all its dates at once. (Pinned-vs-previewing is carried by the card's
+   own accent border.) */
 .rec-occ:hover,
 .rec-occ:focus-visible,
 .rec-occ-active,
 .rec-occ-active:hover {
-    background: var(--surface3);
+    background: var(--color-accent-500);
     outline: none;
 }
 
@@ -603,11 +615,16 @@ html[data-theme="dark"] .rec-occ {
 }
 
 /* ✓ carries the primary accent — it's the commit, and the one button in the
-   row that changes stored data. ✗ keeps the neutral base treatment. */
+   row that changes stored data. ✗ keeps the neutral base treatment.
+   The glyph strokes currentColor, so the colour here IS the check mark: it
+   takes --button-text, the token every filled accent surface labels itself
+   with (.button-primary, the calendar chips), NOT --text-primary — that one is
+   written for the page's surfaces and resolves to near-black on the fill in the
+   light theme, which is exactly what it did here. */
 .rec-action-btn.rec-action-save {
     background: var(--accent-primary);
     border-color: var(--accent-primary);
-    color: var(--text-primary);
+    color: var(--button-text);
 }
 .rec-action-btn.rec-action-save:hover {
     background: var(--accent-primary);

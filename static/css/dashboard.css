@@ -7,7 +7,7 @@
    hard-coded rem values in this file.
 
    Section layout:
-     1. Page layout (view tabs + two-column flex, 70/30, responsive collapse)
+     1. Page layout (two stacked sections, each a one-row three-column card grid)
      2. Card shell
      3. Card header — eyebrow title + optional right-side widget
      4. Shared chart container + empty state
@@ -17,7 +17,7 @@
      8. Range-selector dropdown
      9. Upcoming Expenses card (predicted recurring spends)
     10. Charts: unified frame chrome + entrance animation
-    11. This Month panel (month stepper, cash-flow + spending bar charts)
+    11. Month to Month section (month stepper, cash-flow + spending bar charts)
    ============================================================================ */
 
 
@@ -37,7 +37,7 @@
 
 /* ─── First-run hero ──────────────────────────────────────────────────────────
    Shown INSTEAD of the dashboard while the database holds nothing the user put
-   there (dashboard.js maybeOfferOnboarding). The dashboard's controls and panels are
+   there (dashboard.js maybeOfferOnboarding). Both dashboard sections are
    marked .is-preempted rather than removed, so skipping restores them without a
    reload — and so a database with data never has to wait on the check.
 
@@ -103,36 +103,65 @@
 
 .dashboard-firstrun-skip:hover { color: var(--text-primary); text-decoration: underline; }
 
-/* Toolbar row — month stepper (Month to Month) or range picker (Year to
-   Year) far left, view tabs far right. The segmented tab control itself is
-   shared with Statements via ui.css. margin-left:auto (not space-between)
-   pins the tabs right, so they stay put when the left control swaps. */
-.dashboard-toolbar {
+/* A section = one heading row + one row of cards. Both sections are on the
+   page at once, so each carries its own title and its own scope control
+   (the month stepper / the range picker) instead of a shared toolbar. */
+.dashboard-section {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    flex-direction: column;
+    gap: 12px;
 }
 
-.dashboard-toolbar .dashboard-tabs { margin-left: auto; }
+/* Title left, scope control right. min-height keeps the two heading rows the
+   same height even though a stepper and a range button measure differently,
+   so the sections read as siblings down the page. */
+.dashboard-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 32px;
+}
 
-/* The shared .range-selector-menu (ui.css) right-aligns to its button — made
-   for pickers on a card header's right edge. This instance sits at the row's
-   LEFT edge, where a rightward-anchored menu grows off the content area, so
-   anchor it left instead. */
-#dashboard-range .range-selector-menu { right: auto; left: 0; }
+/* One step above the cards' all-caps eyebrow titles (§3), which is what makes
+   the three cards below read as belonging to this heading. */
+.dashboard-section-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-family: var(--font-h2);
+    font-size: var(--size-h2);
+    font-weight: var(--weight-semibold);
+    line-height: var(--lh-tight);
+    letter-spacing: var(--track-tight);
+}
 
-/* Both panels: cards in a 2×2 grid of equal-width columns, as direct grid
-   children. An odd card count leaves the last cell empty. */
+/* Both sections hold exactly three cards, laid out as one row of three equal
+   columns. Cards are direct grid children and stretch to the row's height, so
+   the row reads as one band.
+   The fold points are generous rather than last-possible: the sidebar and page
+   padding take ~280px off the viewport, so the row keeps three columns only on a
+   genuinely wide window — above 1600px, where each card still clears ~430px —
+   drops to two below that, and goes single-column below 1100px rather than
+   squeezing a third card in. */
 .dashboard-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
     align-items: stretch;
     gap: 16px;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1600px) {
+    .dashboard-grid { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 1100px) {
     .dashboard-grid { grid-template-columns: 1fr; }
 }
+
+/* Sections need more air between them than a section leaves between its own
+   heading and its cards, or the page reads as six loose cards rather than two
+   groups. This rides on top of .dashboard-page's 16px gap. */
+.dashboard-section + .dashboard-section { margin-top: 16px; }
 
 
 /* ─── 2. Card shell ──────────────────────────────────────────────────────── */
@@ -176,9 +205,14 @@
 
 
 /* ─── 4. Shared chart container ──────────────────────────────────────────── */
+/* A chart's height is derived from its width, so it can't stretch to fill a
+   card the grid row has made taller than its content. margin-top:auto drops it
+   to the card's bottom edge instead of leaving it stranded under the header —
+   which also puts every card's chart on one baseline across the row. */
 .chart-area {
     width: 100%;
     overflow: hidden;
+    margin-top: auto;
 }
 
 #networth-chart {
@@ -231,20 +265,28 @@
 
 
 /* ─── 6. Accounts card (donut + legend) ──────────────────────────────────── */
-/* Legend list on the left, ring on the right — the card spans a half-width
-   grid column, so both fit side by side. */
+/* Legend list on the left, ring on the right. The card sits in a third-width
+   grid column, which a fixed 220px ring would eat whole, so the ring is sized
+   as a share of the body (square via aspect-ratio, capped at its old 220px) and
+   the gap shrinks with it. Stacking instead would double the card's height
+   while its chart-card neighbours stayed short — the legend's four rows already
+   set the card's height, so side by side is what keeps the row even. */
 .accounts-body {
     display: flex;
     align-items: center;
-    gap: 32px;
+    gap: clamp(14px, 5%, 32px);
 }
 
-.accounts-legend { flex: 1; }
+.accounts-legend { flex: 1 1 auto; }
 
+/* The ring is the elastic half: it reads fine at any size (everything inside it
+   is viewBox-scaled), while the legend has a floor — below roughly 175px its
+   account names and figures start ellipsing. Hence the modest share. */
 .accounts-pie {
-    flex: 0 0 auto;
-    width: 220px;
-    height: 220px;
+    flex: 0 1 auto;
+    width: min(38%, 220px);
+    aspect-ratio: 1;
+    height: auto;
 }
 
 .accounts-pie-svg {
@@ -313,6 +355,15 @@
     min-width: 0;
 }
 
+/* Label and share share a line; the label yields first when space runs out. */
+.accounts-legend-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+}
+
 /* Same eyebrow treatment as the card title — visually links the legend row
    to the card it belongs to. */
 .accounts-legend-label {
@@ -342,6 +393,7 @@
 }
 
 .accounts-legend-pct {
+    flex: 0 0 auto;
     color: var(--text-secondary);
     font-family: var(--font-numeric);
     font-size: var(--size-small);
@@ -499,9 +551,9 @@
 }
 
 
-/* ─── 11. This Month panel (cash-flow + spending bar charts) ─────────────── */
+/* ─── 11. Month to Month section (cash-flow + spending bar charts) ──────── */
 
-/* The month picker sits on the toolbar row (see §1) — it's the shared
+/* The month picker sits on the section's heading row (see §1) — it's the shared
    .stepper component (ui.css); Statements' year stepper uses the same one. */
 
 /* Bars grow up from the baseline on entrance; per-bar delays are set inline

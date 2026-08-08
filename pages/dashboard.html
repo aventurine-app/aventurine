@@ -42,43 +42,24 @@
     </div>
 
 
-    <!-- Toolbar: month stepper far left, segmented view tabs far right
-         (layout in dashboard.css; the tab control itself is shared with Statements
-         via ui.css). Same ARIA tablist pattern as Cash Flow Reports: a
-         .dashboard-tab button here + a matching .dashboard-panel[data-panel] below.
-         Controller: wireTabs() in dashboard.js. -->
-    <div class="dashboard-toolbar">
-        <!-- The stepper scopes every card on the Month to Month panel: current
-             month by default, arrows walk back to any earlier month; clicking
-             the label opens a recent-months picker. wireTabs() hides it while
-             Year to Year is active (those cards have their own range pickers). -->
-        <div class="stepper" id="dashboard-month" aria-label="Dashboard month">
-            <button class="stepper-btn button-primary" id="dashboard-month-prev" type="button" aria-label="Previous month">&#8249;</button>
-            <button class="stepper-label" id="dashboard-month-label" type="button" aria-live="polite"
-                aria-haspopup="menu" title="Choose month">&nbsp;</button>
-            <button class="stepper-btn button-primary" id="dashboard-month-next" type="button" aria-label="Next month" disabled>&#8250;</button>
-        </div>
-        <!-- One range picker scoping every card on the Year to Year panel
-             (the stepper's counterpart: wireTabs() swaps which one shows). -->
-        <div class="range-selector" id="dashboard-range" hidden>
-            <button class="range-selector-btn" id="dashboard-range-btn" type="button">This Year</button>
-            <div class="range-selector-menu" id="dashboard-range-menu" hidden>
-                <button data-range="year"   type="button">This Year</button>
-                <button data-range="12mo"   type="button">Last 12 Months</button>
-                <button data-range="24mo"   type="button">Last 24 Months</button>
-                <button data-range="5yr"    type="button">Last 5 Years</button>
+    <!-- The dashboard is two stacked sections, both on the page at once (they
+         used to be two tabs of one panel): Month to Month first, Year to Year
+         under it. Each owns its heading row — title left, the one control that
+         scopes that section's three cards right — and its own 3×1 card grid.
+         Layout in dashboard.css §1. -->
+    <section class="dashboard-section" id="dashboard-section-month" aria-labelledby="dashboard-heading-month">
+        <div class="dashboard-section-header">
+            <h2 class="dashboard-section-title" id="dashboard-heading-month">Month to Month</h2>
+            <!-- The stepper scopes every card in this section: current month by
+                 default, arrows walk back to any earlier month; clicking the
+                 label opens a recent-months picker. -->
+            <div class="stepper" id="dashboard-month" aria-label="Dashboard month">
+                <button class="stepper-btn button-primary" id="dashboard-month-prev" type="button" aria-label="Previous month">&#8249;</button>
+                <button class="stepper-label" id="dashboard-month-label" type="button" aria-live="polite"
+                    aria-haspopup="menu" title="Choose month">&nbsp;</button>
+                <button class="stepper-btn button-primary" id="dashboard-month-next" type="button" aria-label="Next month" disabled>&#8250;</button>
             </div>
         </div>
-        <div class="dashboard-tabs" role="tablist" aria-label="Dashboard views">
-            <button type="button" class="dashboard-tab active" id="dashboard-tab-month" role="tab"
-                data-tab="month" aria-controls="dashboard-panel-month" aria-selected="true">Month to Month</button>
-            <button type="button" class="dashboard-tab" id="dashboard-tab-overtime" role="tab"
-                data-tab="overtime" aria-controls="dashboard-panel-overtime" aria-selected="false" tabindex="-1">Year to Year</button>
-        </div>
-    </div>
-
-    <div class="dashboard-panel" id="dashboard-panel-month" role="tabpanel"
-        data-panel="month" aria-labelledby="dashboard-tab-month" tabindex="0">
 
     <div class="dashboard-grid">
 
@@ -118,10 +99,23 @@
 
     </div>
 
-    </div><!-- /.dashboard-panel -->
+    </section><!-- /#dashboard-section-month -->
 
-    <div class="dashboard-panel" id="dashboard-panel-overtime" role="tabpanel"
-        data-panel="overtime" aria-labelledby="dashboard-tab-overtime" tabindex="0" hidden>
+    <section class="dashboard-section" id="dashboard-section-overtime" aria-labelledby="dashboard-heading-overtime">
+        <div class="dashboard-section-header">
+            <h2 class="dashboard-section-title" id="dashboard-heading-overtime">Year to Year</h2>
+            <!-- The stepper's counterpart: one range picker scoping every card
+                 in this section. -->
+            <div class="range-selector" id="dashboard-range">
+                <button class="range-selector-btn" id="dashboard-range-btn" type="button">This Year</button>
+                <div class="range-selector-menu" id="dashboard-range-menu" hidden>
+                    <button data-range="year"   type="button">This Year</button>
+                    <button data-range="12mo"   type="button">Last 12 Months</button>
+                    <button data-range="24mo"   type="button">Last 24 Months</button>
+                    <button data-range="5yr"    type="button">Last 5 Years</button>
+                </div>
+            </div>
+        </div>
 
     <div class="dashboard-grid">
 
@@ -162,7 +156,7 @@
 
     </div>
 
-    </div><!-- /.dashboard-panel -->
+    </section><!-- /#dashboard-section-overtime -->
 
 </div>
         </div>

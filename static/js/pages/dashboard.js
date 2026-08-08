@@ -1,25 +1,25 @@
 'use strict';
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
-// Two tab panels (ARIA tablist, same pattern as Cash Flow Reports):
+// Two stacked sections, both on the page at once, each with its own heading
+// row carrying the one control that scopes its three cards:
 //
-// "This Month" — the monthly view, defaulting to the current month with a
-// panel-level stepper to look back at earlier months:
+// "Month to Month" — the monthly view, defaulting to the current month with a
+// section-level stepper to look back at earlier months:
 //   1. Monthly Cash Flow (horizontal bars: the month's income / expenses /
 //      transfers totals, each bar subdivided into its categories, from the
 //      Cash Flow statement — /api/data)
 //   2. Spending (bar chart: the month's expense total per category, same data)
 //   3. Balances (donut by account type, latest known balances)
 //
-// "Over Time" — the long-run view:
+// "Year to Year" — the long-run view, scoped by its own range picker:
 //   4. Net worth over time (line chart from balance data)
 //   5. Income & Expenses monthly totals (line chart)
 //   6. Per-account balances (line chart, user picks which accounts to compare)
 //
 // All charts are built as inline SVG by hand — no chart library. The
-// ResizeObserver-based observeChart() helper redraws on container resize; for
-// charts in the hidden panel it also performs the first (animated) paint when
-// the panel is revealed and the container gains a width.
+// ResizeObserver-based observeChart() helper redraws on container resize, and
+// performs the first (animated) paint once a container has a width.
 
 (function () {
     const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -83,7 +83,7 @@
 
     // ─── Accounts pie ────────────────────────────────────────────────────────────
     // Single donut summarising the balance sheet as of the month shown by the
-    // panel stepper (dashboardMonth). One slice per account type — Investments, Cash,
+    // section stepper (dashboardMonth). One slice per account type — Investments, Cash,
     // Retirement, Debt — sized by the sum of each column's most recent value at
     // or before that month (carried forward via latestValueByColumn, so a
     // partially-filled month doesn't blank out accounts that were only updated
@@ -216,13 +216,19 @@
 
         legendEl.innerHTML = slices.map(s => {
             const pct = (s.value / total) * 100;
+            // Share rides on the label's line rather than in a column of its own,
+            // so the figure below it gets the legend's full width — in a
+            // third-width card a separate percent column costs the dollars their
+            // last digits.
             return `<div class="accounts-legend-item">
             <span class="accounts-legend-dot" style="background:${s.color}"></span>
             <div class="accounts-legend-text">
-                <div class="accounts-legend-label">${s.label}</div>
+                <div class="accounts-legend-head">
+                    <div class="accounts-legend-label">${s.label}</div>
+                    <div class="accounts-legend-pct">${pct.toFixed(1)}%</div>
+                </div>
                 <div class="accounts-legend-value">${fmtValue(s.signed)}</div>
             </div>
-            <div class="accounts-legend-pct">${pct.toFixed(1)}%</div>
         </div>`;
         }).join('');
     }
@@ -573,10 +579,10 @@
         render(target.clientWidth);
     }
 
-    // ─── Time range (Year to Year panel) ─────────────────────────────────────────
+    // ─── Time range (Year to Year section) ───────────────────────────────────────
     //
-    // One shared range for every Year to Year chart, picked from the toolbar
-    // dropdown (the stepper's counterpart on that tab). Changing it re-derives
+    // One shared range for every Year to Year chart, picked from the dropdown on
+    // that section's heading row (the stepper's counterpart). Changing it re-derives
     // each chart's slots, filtered points, and the Net Worth % change.
     //
     // Ranges:
@@ -976,13 +982,13 @@
         });
     }
 
-    // ─── This Month (one month of the Cash Flow statement) ──────────────────────
-    // The panel's two charts read one month of the Cash Flow statement (the
-    // same /api/data payload the Over Time charts use): per-type totals feed
+    // ─── Month to Month (one month of the Cash Flow statement) ──────────────────
+    // The section's two charts read one month of the Cash Flow statement (the
+    // same /api/data payload the Year to Year charts use): per-type totals feed
     // the Monthly Cash Flow horizontal bars, per-expense-category values feed
     // the Spending bars. The statement is the blend point — synced cells are
-    // computed from transactions, the rest are hand-entered — so the panel
-    // lights up for import users and manual bookkeepers alike. The panel-level
+    // computed from transactions, the rest are hand-entered — so the section
+    // lights up for import users and manual bookkeepers alike. The section-level
     // stepper defaults to the current month — month-to-date — and walks back to
     // any earlier month; both charts follow it (no fetch: the month is sliced
     // out of the already-loaded dataset).
@@ -1134,7 +1140,7 @@
 
         if (!rows.some(r => r.value > 0)) {
             chartObservers.get('mcf-chart')?.disconnect();
-            // Compact here — the Spending card below carries the tab's one CTA.
+            // Compact here — the Spending card below carries the section's one CTA.
             container.innerHTML = UI.emptyState({
                 icon: 'chart', compact: true,
                 title: isCurrentDashboardMonth() ? 'No activity this month yet' : `Nothing in ${dashboardMonthLabel()}`,
@@ -1160,11 +1166,37 @@
     function buildBarChartSVG({ bars, W, animate = true }) {
         if (bars.length === 0) return null;
 
-        const H = Math.max(Math.round(W * CHART_RATIO), 170);
-        const { l: PL, r: PR, t: PT, b: PB } = CHART_PAD;
-        const CW = W - PL - PR;
-        const CH = H - PT - PB;
+        const { l: PL, r: PR, t: PT } = CHART_PAD;
+        const CW    = W - PL - PR;
+        const slotW = CW / bars.length;
         const f2 = (n) => Math.round(n * 100) / 100;
+
+        // Each name gets one band. In a third-width card with a month's worth of
+        // categories that band is a few characters wide, which turns every label
+        // into an initial ("Uti…", "Ent…"), so past that point the names tilt
+        // instead — and the chart buys the room out of its bottom padding rather
+        // than out of the plot. Labels short enough to sit flat still do.
+        const LABEL_PX  = 6.5;   // ≈ one character at the 11px label size
+        const flatChars = Math.max(4, Math.floor(slotW / LABEL_PX));
+        const longest   = Math.max(...bars.map(b => b.label.length));
+        const rotate    = flatChars < Math.min(longest, 8);
+        const TILT      = 35;
+        // A tilted label runs down-right from its bar's centre, so the leftmost
+        // bar's label is the one that can run off the chart — cap every label at
+        // what fits under that one (the SVG is clipped by .chart-area, so an
+        // overrun is a cut-off word, not an overflow).
+        const fitChars  = Math.floor((PL + slotW / 2) / (LABEL_PX * Math.cos(TILT * Math.PI / 180)));
+        const maxChars  = rotate ? Math.max(6, Math.min(16, fitChars)) : flatChars;
+        const labels = bars.map(b => (b.label.length > maxChars
+            ? b.label.slice(0, maxChars - 1).trimEnd() + '…'
+            : b.label));
+
+        const extra = rotate
+            ? Math.round(Math.max(...labels.map(l => l.length)) * LABEL_PX * Math.sin(TILT * Math.PI / 180))
+            : 0;
+        const PB = CHART_PAD.b + extra;
+        const H  = Math.max(Math.round(W * CHART_RATIO), 170) + extra;
+        const CH = H - PT - PB;
 
         // Spending is always ≥ 0, so the axis is anchored at zero and snapped to
         // nice ticks above the tallest bar.
@@ -1182,8 +1214,7 @@
             svg += `<text class="chart-label" x="${PL - 10}" y="${y}" text-anchor="end" dominant-baseline="middle">${escapeHtml(fmtAxis(v))}</text>`;
         }
 
-        const slotW = CW / bars.length;
-        const barW  = Math.min(slotW * 0.6, 64);
+        const barW = Math.min(slotW * 0.6, 64);
 
         bars.forEach((b, i) => {
             const cx = PL + slotW * (i + 0.5);
@@ -1201,13 +1232,13 @@
             <title>${escapeHtml(b.label)}: ${fmtTooltip(b.value)}</title>
         </path>`;
 
-            // Category name under the bar, truncated to its band (the tooltip
-            // carries the full name). ~6.5px per character at the 11px label size.
-            const maxChars = Math.max(4, Math.floor(slotW / 6.5));
-            const label = b.label.length > maxChars
-                ? b.label.slice(0, maxChars - 1).trimEnd() + '…'
-                : b.label;
-            svg += `<text class="chart-label" x="${f2(cx)}" y="${H - PB + 18}" text-anchor="middle">${escapeHtml(label)}</text>`;
+            // Category name under the bar (the tooltip carries the full one when
+            // even the tilted label has to be cut).
+            const ly = H - PB + 18;
+            svg += rotate
+                ? `<text class="chart-label" x="${f2(cx)}" y="${ly}" text-anchor="end"
+                    transform="rotate(-${TILT} ${f2(cx)} ${ly})">${escapeHtml(labels[i])}</text>`
+                : `<text class="chart-label" x="${f2(cx)}" y="${ly}" text-anchor="middle">${escapeHtml(labels[i])}</text>`;
         });
 
         svg += '</svg>';
@@ -1352,63 +1383,6 @@
         });
     }
 
-    // ─── Tabs ────────────────────────────────────────────────────────────────────
-
-    /**
-     * "This Month" / "Over Time" tab bar — standard ARIA tablist, same controller
-     * as the Reports page (reports.js): click or arrow/Home/End to switch
-     * panels, with roving tabindex so only the active tab is in the tab order.
-     * Charts inside the hidden panel paint (animated) on first reveal: their
-     * ResizeObserver fires when the container gains a width.
-     */
-    function wireTabs() {
-        const tablist = document.querySelector('.dashboard-tabs');
-        if (!tablist) return;
-
-        const tabs = Array.from(tablist.querySelectorAll('.dashboard-tab'));
-        const panels = Array.from(document.querySelectorAll('.dashboard-panel'));
-        if (!tabs.length) return;
-
-        function select(tab, focus) {
-            const id = tab.dataset.tab;
-            tabs.forEach((t) => {
-                const on = t === tab;
-                t.classList.toggle('active', on);
-                t.setAttribute('aria-selected', on ? 'true' : 'false');
-                t.tabIndex = on ? 0 : -1;
-            });
-            panels.forEach((p) => { p.hidden = p.dataset.panel !== id; });
-            // The month stepper and the range picker share the toolbar row
-            // (outside the panels) but each scopes one panel's cards — show
-            // whichever matches the active tab.
-            const stepper = document.getElementById('dashboard-month');
-            if (stepper) stepper.hidden = id !== 'month';
-            const rangeSel = document.getElementById('dashboard-range');
-            if (rangeSel) rangeSel.hidden = id !== 'overtime';
-            if (focus) tab.focus();
-        }
-
-        tablist.addEventListener('click', (e) => {
-            const tab = e.target.closest('.dashboard-tab');
-            if (tab) select(tab);
-        });
-
-        tablist.addEventListener('keydown', (e) => {
-            const i = tabs.indexOf(document.activeElement);
-            if (i < 0) return;
-            let j = -1;
-            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') j = (i + 1) % tabs.length;
-            else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') j = (i - 1 + tabs.length) % tabs.length;
-            else if (e.key === 'Home') j = 0;
-            else if (e.key === 'End') j = tabs.length - 1;
-            if (j >= 0) { e.preventDefault(); select(tabs[j], true); }
-        });
-
-        // Sync initial state (roving tabindex + panel visibility) to the markup's
-        // pre-selected tab.
-        select(tabs.find((t) => t.getAttribute('aria-selected') === 'true') || tabs[0]);
-    }
-
     // ─── Bootstrap ───────────────────────────────────────────────────────────────
 
     /** Inject loading skeletons into the dashboard's chart and list slots. Shown
@@ -1419,7 +1393,9 @@
         fill('networth-chart',  UI.skChart(220));
         fill('ie-chart',        UI.skChart(220));
         fill('account-chart',   UI.skChart(220));
-        fill('accounts-pie',    '<div class="skeleton skeleton-circle" style="width:200px;height:200px"></div>');
+        // Fluid, like the ring it stands in for (.accounts-pie is a share of the
+        // card body, not a fixed 220px) — a fixed skeleton overflows the column.
+        fill('accounts-pie',    '<div class="skeleton skeleton-circle" style="width:100%;aspect-ratio:1"></div>');
         fill('accounts-legend', UI.skRows(3));
     }
 
@@ -1449,9 +1425,9 @@
 
         const setHero = (on) => {
             hero.hidden = !on;
-            // The stepper/tabs and both panels scope the dashboard; while the
-            // hero stands in for them they'd only offer controls over nothing.
-            document.querySelectorAll('.dashboard-toolbar, .dashboard-panel')
+            // Each section carries its own scope control; while the hero stands
+            // in for them they'd only offer controls over nothing.
+            document.querySelectorAll('.dashboard-section')
                 .forEach(el => el.classList.toggle('is-preempted', on));
         };
         setHero(true);
@@ -1477,7 +1453,7 @@
                     // A completed import changes every dataset this page holds —
                     // a new account, new transactions, and the Cash Flow cells
                     // computed from them. Reload rather than re-run init(): the
-                    // dashboard's wiring (tabs, stepper, Store subscriptions) is
+                    // dashboard's wiring (stepper, range picker, Store subscriptions) is
                     // bound once per load and would double up on a second pass.
                     Store.invalidate('balance');
                     Store.invalidate('ie');
@@ -1489,10 +1465,9 @@
 
     /** Fetch both datasets in parallel and render all dashboard sections. */
     async function init() {
-        wireTabs();
         wireMonthStepper();
-        // Kick this off first so the "This Month" panel loads alongside the
-        // Over Time charts (its statement fetch is deduped with the one below).
+        // Kick this off first so the Month to Month section loads alongside the
+        // Year to Year charts (its statement fetch is deduped with the one below).
         renderMonthSection();
         const cancelSkeletons = UI.skeletonGuard(showDashboardSkeletons);
         const [balanceData, ieDataFetched] = await Promise.all([fetchBalanceData(), fetchIEData()]);

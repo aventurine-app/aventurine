@@ -348,14 +348,14 @@ html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
  *
  * The toolbar row layouts differ per page and live in each page's stylesheet:
  * Statements (statements.css) pins its year stepper dead-center between the
- * tabs and the ⋮ menu; Dashboard (dashboard.css) puts the month stepper far left and
- * the tabs far right. */
+ * tabs and the ⋮ menu; Dashboard (dashboard.css) has no tab bar — its month
+ * stepper sits on the Month to Month section's heading row. */
 
 /* The stepper is display:flex, which beats the UA's [hidden] { display: none }
- * — restate it at author level (Dashboard hides its month stepper on Year to Year). */
+ * — restate it at author level for any page that hides one. */
 .stepper[hidden] { display: none; }
 
-.stmt-tabs, .dashboard-tabs, .rep-tabs {
+.stmt-tabs, .rep-tabs {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -372,7 +372,7 @@ html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
 /* Type + box tokens mirror the action-button shape (buttons.css) — same
    32px control height, uppercase micro type — so the segments read as
    siblings of the other 32px controls across the row. */
-.stmt-tab, .dashboard-tab, .rep-tab {
+.stmt-tab, .rep-tab {
     appearance: none;
     background: transparent;
     /* Transparent hairline reserves the active tab's border so the label never
@@ -398,7 +398,7 @@ html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
 
 /* One stop along the base ramp from the track, rather than a translucent frost
    tint — an opaque rung reads the same wherever the toolbar sits. */
-.stmt-tab:hover, .dashboard-tab:hover, .rep-tab:hover {
+.stmt-tab:hover, .rep-tab:hover {
     color: var(--text-primary);
     background: var(--segctl-hover);
 }
@@ -407,14 +407,13 @@ html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
    track that width change would shove the sibling tab sideways. The accent fill
    carries the selected state on its own. */
 .stmt-tab.active, .stmt-tab[aria-selected="true"],
-.dashboard-tab.active, .dashboard-tab[aria-selected="true"],
 .rep-tab.active, .rep-tab[aria-selected="true"] {
     color: var(--segctl-active-text);
     background: var(--segctl-active);
     border-color: var(--segctl-active);
 }
 
-.stmt-tab:focus-visible, .dashboard-tab:focus-visible, .rep-tab:focus-visible {
+.stmt-tab:focus-visible, .rep-tab:focus-visible {
     outline: 2px solid var(--color-accent-400);
     outline-offset: -2px;
 }
@@ -422,13 +421,12 @@ html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
 /* Inset on an accent fill, the accent ring vanishes — draw the active tab's
    ring in the label colour instead. */
 .stmt-tab.active:focus-visible, .stmt-tab[aria-selected="true"]:focus-visible,
-.dashboard-tab.active:focus-visible, .dashboard-tab[aria-selected="true"]:focus-visible,
 .rep-tab.active:focus-visible, .rep-tab[aria-selected="true"]:focus-visible {
     outline-color: var(--segctl-active-text);
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .stmt-tab, .dashboard-tab, .rep-tab { transition: none; }
+    .stmt-tab, .rep-tab { transition: none; }
 }
 
 /* The current choice in picker-style menus (stepper month/year). */

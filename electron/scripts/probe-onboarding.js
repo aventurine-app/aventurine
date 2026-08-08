@@ -87,7 +87,7 @@ app.whenReady().then(async () => {
     await sleep(600);
     check('hero visible', await js('!document.getElementById("dashboard-firstrun").hidden'));
     check('dashboard preempted',
-      await js('document.querySelectorAll(".dashboard-panel.is-preempted").length === 2'));
+      await js('document.querySelectorAll(".dashboard-section.is-preempted").length === 2'));
     check('hero is actually laid out (the [hidden] trap)',
       await js('document.getElementById("dashboard-firstrun").getBoundingClientRect().height > 100'));
     await shot('01-hero');
@@ -264,7 +264,7 @@ app.whenReady().then(async () => {
     await js('document.querySelector(".onb-skip").click()');
     await sleep(2500);
     check('dashboard restored after finishing',
-      await js('document.querySelectorAll(".dashboard-panel.is-preempted").length === 0'));
+      await js('document.querySelectorAll(".dashboard-section.is-preempted").length === 0'));
     check('hero gone', await js('document.getElementById("dashboard-firstrun") === null || document.getElementById("dashboard-firstrun").hidden'));
     await shot('07-dashboard');
 

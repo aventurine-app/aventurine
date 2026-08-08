@@ -412,20 +412,22 @@ app.whenReady().then(async () => {
         throw new Error('month cards did not render data: ' + JSON.stringify(filled));
       }
       await unhover();
-      await shotPage('dashboard-month-to-month', '.dashboard-panel:not([hidden]) .dashboard-card');
+      await shotPage('dashboard-month-to-month', '#dashboard-section-month .dashboard-card');
       await shotEl('dashboard-month-stepper', '#dashboard-month', 8);
-      await shotEl('dashboard-monthly-cash-flow', '.dashboard-grid .dashboard-card:nth-child(1)');
-      await shotEl('dashboard-capital-snapshot', '.dashboard-grid .accounts-card');
-      await shotEl('dashboard-spending', '.dashboard-grid .dashboard-card:nth-child(3)');
+      await shotEl('dashboard-monthly-cash-flow', '#dashboard-section-month .dashboard-card:nth-child(1)');
+      await shotEl('dashboard-capital-snapshot', '#dashboard-section-month .accounts-card');
+      await shotEl('dashboard-spending', '#dashboard-section-month .dashboard-card:nth-child(3)');
 
-      await click('#dashboard-tab-overtime');
+      // Year to Year is the second section down the same page (it used to be a
+      // tab), so it has to be scrolled to rather than clicked to.
+      await scrollTo('#dashboard-section-overtime');
       await sleep(2600);
       await unhover();
-      await shotPage('dashboard-year-to-year', '.dashboard-panel:not([hidden]) .dashboard-card');
+      await shotEl('dashboard-year-to-year', '#dashboard-section-overtime', 24);
       await shotEl('dashboard-range-picker', '#dashboard-range', 8);
       await shotEl('dashboard-net-worth', '.networth-card');
-      await shotEl('dashboard-account-balances', '#dashboard-panel-overtime .dashboard-card:nth-child(2)');
-      await shotEl('dashboard-income-expenses', '#dashboard-panel-overtime .dashboard-card:nth-child(3)');
+      await shotEl('dashboard-account-balances', '#dashboard-section-overtime .dashboard-card:nth-child(2)');
+      await shotEl('dashboard-income-expenses', '#dashboard-section-overtime .dashboard-card:nth-child(3)');
     }
 
     // ═══ Phase 3: window chrome ══════════════════════════════════════════════
