@@ -581,13 +581,17 @@
         return visible.slice(start, start + TX_PAGE_SIZE);
     }
 
-    // Jump to a page and redraw, scrolling the table back into view so the user
+    // Jump to a page and redraw, scrolling the rows back to the top so the user
     // isn't left staring at the old scroll position after the rows swap out.
+    // <tbody> is the scroller (transactions.css §1); the horizontal position is
+    // left alone, since which columns you're looking at is a viewing preference
+    // that shouldn't reset under you on every page turn.
     function txGoToPage(p) {
         if (!Number.isFinite(p)) return;
         txState.page = p;
         txRender();
-        document.querySelector('.tx-wrapper')?.scrollIntoView({ block: 'nearest' });
+        const tbody = document.getElementById('tx-tbody');
+        if (tbody) tbody.scrollTop = 0;
     }
 
     // Page numbers to show: always first + last + a window around the current page,
@@ -608,14 +612,14 @@
     function txRenderPagination(totalVisible) {
         const el = document.getElementById('tx-pagination');
         if (!el) return;
-        const row = document.getElementById('tx-footer-row');
+        const band = document.getElementById('tx-footer');
         const pages = txPageCount(totalVisible);
         if (totalVisible === 0 || pages <= 1) {
-            if (row) row.hidden = true;
+            if (band) band.hidden = true;
             el.innerHTML = '';
             return;
         }
-        if (row) row.hidden = false;
+        if (band) band.hidden = false;
         const page  = txState.page;
         const start = (page - 1) * TX_PAGE_SIZE + 1;
         const end   = Math.min(page * TX_PAGE_SIZE, totalVisible);
@@ -1083,6 +1087,18 @@
 
     // ─── Render orchestration ────────────────────────────────────────────────────
 
+    // The header band can't scroll itself (transactions.css §1: <tbody> owns both
+    // scrollbars so they stay pinned to the rows the user is looking at), so the
+    // one thing left for JS is to drag the header sideways in step with the body.
+    // Set synchronously in the scroll event — a rAF hop here is exactly what makes
+    // a frozen header lag a frame behind its columns.
+    function txSyncHeaderScroll() {
+        const tbody = document.getElementById('tx-tbody');
+        const thead = document.querySelector('.tx-table > thead');
+        if (!tbody || !thead) return;
+        thead.scrollLeft = tbody.scrollLeft;
+    }
+
     // Every ledger row is its own independent one-row table (transactions.css
     // §1 — the header/body bands scroll separately), so nothing keeps a
     // column's width in sync across rows automatically. This measures the
@@ -1154,6 +1170,9 @@
         tbody.innerHTML = out.join('');
         txRenderPagination(visible.length);
         txSyncColumnWidths();
+        // Column widths just changed, which can change how far the rows overflow —
+        // realign the header with wherever the body's scroll position landed.
+        txSyncHeaderScroll();
         const newRow = document.querySelector('tr.tx-new');
         if (newRow) txWireDirectionLock(newRow);
         txFocusFirstInput();
@@ -1981,6 +2000,11 @@
         tbody?.addEventListener('click',   txOnTableClick);
         tbody?.addEventListener('keydown', txOnTableKey);
         tbody?.addEventListener('change',  txOnTableChange);
+        tbody?.addEventListener('scroll',  txSyncHeaderScroll, { passive: true });
+        // Widening the window (or zooming out) clamps the body's scrollLeft as a
+        // layout side effect, which doesn't reliably fire a scroll event — resync
+        // explicitly so the header can't be left offset from its columns.
+        window.addEventListener('resize', txSyncHeaderScroll);
         document.querySelector('.tx-add-btn')?.addEventListener('click', txOnAddClick);
 
         // Selection-driven header actions + the select-all header checkbox.

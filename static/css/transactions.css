@@ -20,8 +20,17 @@
 /* The Transactions page fills the viewport rather than letting the table grow
    the page taller than the window: the page area itself stops scrolling, and
    the table region (.tx-wrapper) claims the height left under the header + chip
-   row. Inside it the table is a flex column whose <tbody> is the only vertical
-   scroller, so the header and footer stay put as fixed bands (see .tx-table). */
+   row. Inside it <tbody> is the only scroller on EITHER axis, so both bars are
+   confined to the data rows: the header band above stays put vertically (and is
+   pulled sideways in step by txSyncHeaderScroll), and the pagination footer
+   below — a plain div outside the table — never moves at all, so the "Showing …"
+   count and the centered page controls stay put however narrow the window gets.
+
+   The alternative (scrolling the whole wrapper horizontally, which is what this
+   did before) put the body's vertical bar at the ROW's right edge — 1250px out —
+   so it slid off-screen the moment the window was narrow enough to need
+   horizontal scrolling, which read as the bar vanishing. Bars belong to the
+   viewport they scroll, so both now live on the band the user is looking at. */
 .page:has(.tx-page) {
     overflow: hidden;
 }
@@ -44,35 +53,36 @@
        items (.nav li a) so those three surfaces read the same. */
     border-radius: 8px;
     background: var(--surface1);
-    /* Claims the height left under the header + chips. It scrolls the table
-       HORIZONTALLY only (the table keeps its 1250px min-width); the VERTICAL
-       scroll is delegated to <tbody> below, so the bar is confined to the data
-       rows and stays out of the rounded corners — the header and footer sit in
-       those corners instead. min-height:0 lets the flex child shrink to scroll. */
+    /* Claims the height left under the header + chips, then hands that height to
+       the flex column inside (table + footer). It is NOT a scroller any more —
+       overflow:hidden is only here to clip the bands to the rounded corners.
+       min-height:0 lets the flex child shrink so the body can scroll. */
     flex: 1;
     min-height: 0;
-    overflow-x: auto;
-    overflow-y: hidden;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     /* .page (style.css) sets scrollbar-color, an inherited property, so it
        cascades in here — and in Chromium a set scrollbar-color makes the
        ::-webkit-scrollbar rules below be ignored (falling back to the native
        17px bar with arrow buttons). Reset it so our custom bar applies; it
-       inherits down to thead/tbody/tfoot too. */
+       inherits down to thead/tbody too. */
     scrollbar-color: auto;
     scrollbar-width: auto;
 }
 
 /* The table is a flex COLUMN so the body can take the leftover height and scroll
-   on its own: the header and footer are fixed bands and <tbody> is the only
-   vertical scroller. */
+   on its own, with the header a fixed band above it. The table itself is only
+   as wide as the wrapper — the 1250px floor lives on the ROWS (§2), which is
+   what lets the bands stay viewport-width while their rows overflow. */
 .tx-table {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
-.tx-table > thead,
-.tx-table > tfoot {
+.tx-table > thead {
     display: block;
     flex: none;
 }
@@ -83,54 +93,60 @@
     min-height: 0;
 }
 
-/* All three bands reserve a vertical-scrollbar gutter via the SAME mechanism
-   (overflow-y: scroll), so their content boxes are narrowed identically and the
-   columns line up to the pixel regardless of the platform's scrollbar width.
-   Only <tbody> ever has overflowing rows, so only its bar gets a thumb; the
-   header/footer bars are rendered invisible (below). overflow-x is hidden here
-   because horizontal scrolling belongs to .tx-wrapper, which moves all three
-   bands together. */
-.tx-table > thead,
-.tx-table > tbody,
-.tx-table > tfoot {
+/* <tbody> owns BOTH bars. overflow-y stays `scroll` rather than `auto` so the
+   gutter is reserved whether or not the rows overflow, and <thead> reserves the
+   same gutter by the same mechanism — identical content-box narrowing is what
+   keeps the two bands' columns aligned to the pixel regardless of the platform's
+   scrollbar width. The header never scrolls horizontally on its own (hidden, not
+   auto): txSyncHeaderScroll drives its scrollLeft from the body's. */
+.tx-table > thead {
     overflow-y: scroll;
     overflow-x: hidden;
 }
 
+.tx-table > tbody {
+    overflow-y: scroll;
+    overflow-x: auto;
+}
+
 /* Re-promote each row to its own fixed-layout table so every band sizes its
    columns from the same .tx-col-* widths; collapse drops the default 2px
-   inter-cell spacing that would otherwise creep in once the rows are tables. */
+   inter-cell spacing that would otherwise creep in once the rows are tables.
+   width:100% fills the band, min-width (§2) is the design floor that makes the
+   row overflow it — the rows are what scroll sideways, not the table. */
 .tx-table > thead > tr,
-.tx-table > tbody > tr,
-.tx-table > tfoot > tr {
+.tx-table > tbody > tr {
     display: table;
     width: 100%;
     table-layout: fixed;
     border-collapse: collapse;
 }
 
-/* Header / footer dividers live on the bands now (full width), so they no longer
-   need the per-cell sticky + box-shadow workaround. */
+/* The header divider lives on the band (full width), so it no longer needs the
+   per-cell sticky + box-shadow workaround. */
 .tx-table > thead { border-bottom: var(--table-border-width) solid var(--border); }
-.tx-table > tfoot { border-top: var(--table-border-width) solid var(--border); }
 
 /* ── Scrollbars ──────────────────────────────────────────────────────────────
-   One thin frosted treatment (matching .page / .db-wrapper) for the wrapper's
-   horizontal bar and the body's vertical bar; the native bar's arrow buttons and
-   square track clashed with the rounded corners. The header/footer vertical bars
-   exist only to reserve the gutter, so they're rendered fully invisible — which
-   keeps the corners clean and the rows aligned with the header/footer. */
-.tx-wrapper::-webkit-scrollbar,
+   One thin frosted treatment (matching .page / .db-wrapper) for both of the
+   body's bars; the native bar's arrow buttons and square track clashed with the
+   rounded corners. The header's vertical bar exists only to reserve the gutter,
+   so it's rendered fully invisible — which keeps the top corners clean and the
+   rows aligned with the header. */
 .tx-table > thead::-webkit-scrollbar,
-.tx-table > tbody::-webkit-scrollbar,
-.tx-table > tfoot::-webkit-scrollbar {
+.tx-table > tbody::-webkit-scrollbar {
     width: 10px;
     height: 10px;
 }
 
-.tx-wrapper::-webkit-scrollbar-track,
 .tx-table > tbody::-webkit-scrollbar-track {
     background: var(--surface1);
+}
+
+/* The body's horizontal track carries a top divider, mirroring the vertical
+   one below: the rows read as a framed channel rather than bleeding into the
+   pagination footer underneath. */
+.tx-table > tbody::-webkit-scrollbar-track:horizontal {
+    border-top: var(--table-border-width) solid var(--border);
 }
 
 /* The body's vertical track carries a left divider so the rows read as a framed
@@ -140,7 +156,6 @@
 }
 
 /* Pill thumb floating inside the channel — same recipe as div.page. */
-.tx-wrapper::-webkit-scrollbar-thumb,
 .tx-table > tbody::-webkit-scrollbar-thumb {
     background: var(--surface4);
     border-radius: 5px;
@@ -148,25 +163,32 @@
     background-clip: padding-box;
 }
 
-.tx-wrapper::-webkit-scrollbar-thumb:hover,
 .tx-table > tbody::-webkit-scrollbar-thumb:hover {
     background: var(--text-tertiary);
     background-clip: padding-box;
 }
 
-/* Header + footer gutters reserve their width but paint nothing. */
+/* The header gutter reserves its width but paints nothing. */
 .tx-table > thead::-webkit-scrollbar-track,
-.tx-table > tfoot::-webkit-scrollbar-track,
-.tx-table > thead::-webkit-scrollbar-thumb,
-.tx-table > tfoot::-webkit-scrollbar-thumb {
+.tx-table > thead::-webkit-scrollbar-thumb {
     background: transparent;
     border: none;
 }
 
-/* Blend the square where the wrapper's two bars meet. */
-.tx-wrapper::-webkit-scrollbar-corner,
+/* Blend the square where the body's two bars meet. */
 .tx-table > tbody::-webkit-scrollbar-corner {
     background: var(--surface1);
+}
+
+/* ── Pagination footer band ──────────────────────────────────────────────────
+   Outside the table and outside every scroller, so it keeps the wrapper's full
+   visible width: the horizontal bar above slides the rows past it instead of
+   dragging it along, and the centered page controls stay centered on the frame
+   the user can see. Styling for what's inside it is §7. */
+.tx-footer {
+    flex: none;
+    padding: 12px 16px;
+    border-top: var(--table-border-width) solid var(--border);
 }
 
 
@@ -569,19 +591,26 @@
 .tx-table {
     border-collapse: collapse;
     width: 100%;
-    /* table-layout: fixed's "hand the one auto column whatever's left" step
-       doesn't reliably respect that column's own min-width when the other
-       columns' explicit widths already claim the row's available space (see
-       §2) — notes (the flex column now) could render under its 120px floor.
-       Forcing the table itself to always be at least wide enough for every
-       other column's current width plus that floor guarantees the row has
-       that floor to hand over; .tx-wrapper's horizontal scroll (§1) absorbs
-       the rest on a narrow window. Never below the original 1250px design
-       floor either, so a lightly populated ledger still reads spacious.
-       Description can't be a term in that sum any more — it's 30% of this
-       very width (§2), which would be circular. It's solved for instead:
-       if description takes 30% of the table, the px columns below have to
-       fit in the other 70%, so the table's floor is their total / 0.7. */
+}
+
+/* table-layout: fixed's "hand the one auto column whatever's left" step doesn't
+   reliably respect that column's own min-width when the other columns' explicit
+   widths already claim the row's available space (see §2) — notes (the flex
+   column now) could render under its 120px floor. Forcing every row to always
+   be at least wide enough for every other column's current width plus that
+   floor guarantees the row has that floor to hand over; <tbody>'s horizontal
+   scroll (§1) absorbs the rest on a narrow window. Never below the original
+   1250px design floor either, so a lightly populated ledger still reads
+   spacious. Description can't be a term in that sum — it's 30% of this very
+   width (§2), which would be circular. It's solved for instead: if description
+   takes 30% of the row, the px columns below have to fit in the other 70%, so
+   the floor is their total / 0.7.
+
+   This lives on the ROWS rather than on .tx-table because the table and its two
+   bands stay viewport-width — that's what keeps the body's vertical scrollbar
+   at the visible right edge instead of 1250px out (§1). */
+.tx-table > thead > tr,
+.tx-table > tbody > tr {
     min-width: max(1250px, calc((
         60px + 44px + var(--tx-w-date, 140px) + var(--tx-w-account, 150px) +
         var(--tx-w-category, 140px) + var(--tx-w-amount, 140px) + 120px
@@ -657,11 +686,15 @@
    it the row stays 100% of its band, and automatic table layout responds by
    proportionally handing every auto column a share of THAT leftover space —
    inflating date/category/etc. past their real content width — instead of
-   each column shrinking to only what it needs. */
+   each column shrinking to only what it needs. min-width: 0 for the same
+   reason: the row's 1250px design floor (§2) would otherwise stop it shrinking
+   to max-content and automatic layout would hand the slack to the very columns
+   being measured. */
 .tx-table.tx-measuring > thead > tr,
 .tx-table.tx-measuring > tbody > tr {
     table-layout: auto;
     width: max-content;
+    min-width: 0;
 }
 .tx-table.tx-measuring .tx-col-date,
 .tx-table.tx-measuring .tx-col-account,
@@ -2146,18 +2179,13 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 
 
 /* ─── 7. Pagination ──────────────────────────────────────────────────────────
-   A dedicated footer row at the bottom of the table: a "Showing X–Y of Z"
-   caption on the left and the prev / numbered / next controls centered. The
-   whole <tr> is hidden (via the [hidden] attribute, set in JS) whenever
-   everything fits on one page. */
-/* A fixed band below the scrolling body (see .tx-table); the divider lives on
-   <tfoot>, so the cell only carries its padding. */
-.tx-footer-row td {
-    padding: 12px 16px;
-}
+   The contents of the .tx-footer band (§1): a "Showing X–Y of Z" caption on the
+   left and the prev / numbered / next controls centered. The band is hidden (via
+   the [hidden] attribute, set in JS — nothing here may set `display`, or hidden
+   would stop working) whenever everything fits on one page. */
 
 /* Three columns — info, controls, empty spacer — so the controls stay centered
-   in the row regardless of how wide the "Showing …" caption gets. */
+   in the band regardless of how wide the "Showing …" caption gets. */
 .tx-pagination {
     display: grid;
     grid-template-columns: 1fr auto 1fr;

@@ -126,17 +126,15 @@
                 </tr>
             </thead>
             <tbody id="tx-tbody"></tbody>
-            <!-- Pagination row — client-side, 100 rows per page over the filtered
-                 rows. The whole footer row is hidden by JS whenever everything
-                 fits on a single page. -->
-            <tfoot>
-                <tr class="tx-footer-row" id="tx-footer-row" hidden>
-                    <td colspan="8">
-                        <div class="tx-pagination" id="tx-pagination"></div>
-                    </td>
-                </tr>
-            </tfoot>
         </table>
+        <!-- Pagination — client-side, 100 rows per page over the filtered rows.
+             Deliberately OUTSIDE the table: it's a fixed band under the body's
+             two scrollbars (transactions.css §1), so the horizontal bar scrolls
+             the header + rows past a footer that never moves. Hidden by JS
+             whenever everything fits on a single page. -->
+        <div class="tx-footer" id="tx-footer" hidden>
+            <div class="tx-pagination" id="tx-pagination"></div>
+        </div>
     </div>
 </div>
         </div>
