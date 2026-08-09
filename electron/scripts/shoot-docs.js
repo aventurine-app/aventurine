@@ -851,14 +851,32 @@ app.whenReady().then(async () => {
     // out, so the image carries no app chrome. Opt in by naming it; a plain docs
     // run skips it, which is why this is `ONLY.has` rather than `phase()`:
     //
-    //   SHOT_ONLY=site SHOT_W=1900 SHOT_H=1150 SHOT_OUT=… \
+    //   SHOT_ONLY=site SHOT_W=1900 SHOT_H=1400 SHOT_OUT=… \
     //     electron --no-sandbox --force-device-scale-factor=1.5 scripts/shoot-docs.js
     //
     // The width matters: below ~1900 the Recurring merchant column clips its
     // names (they are <input>s, so they cut mid-word rather than ellipsing) and
-    // the ledger's Notes column falls off the right edge.
+    // the ledger's Notes column falls off the right edge. The height matters to
+    // the dashboard shot alone — see it below.
     if (ONLY && ONLY.has('site')) {
       console.log('\n— site —');
+
+      // Both dashboard bands — Month to Month over Year to Year, six cards.
+      // Unlike the crops below this one is padded: those are cards, whose own
+      // rounded edge is the frame, while the dashboard's outermost things are a
+      // section heading and a stepper, and text flush to the crop edge reads as
+      // clipped. 20 is the most that fits — the page's own gutter is 20 either
+      // side, so any more and the rect is clamped to the window and the frame
+      // goes lopsided. Needs SHOT_H ≥ 1400: at 1150 the second band is cut.
+      // Stepped back one month first: the seeded ledger stops at today, so the
+      // current month is a part-month and the top band would open on a half
+      // paycheque against a half month of spending. The month before it is the
+      // whole picture the card is meant to show.
+      await nav('/', 3200);
+      await click('#dashboard-month-prev');
+      await sleep(900);
+      await unhover();
+      await shotEl('site-dashboard', '.dashboard-page', 20);
 
       // The ledger card: header row through the pagination footer, which is a
       // row of the same table, so one element covers it.
