@@ -19,18 +19,31 @@
     'July', 'August', 'September', 'October', 'November', 'December'];
   const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  // Fallback palette — mirrors the light-theme accent ramp for the rare first
-  // paint before styles resolve. The live colours are read from the accent-derived
-  // --chart-* tokens (style.css) at colorMap() time, so every series follows the
-  // UI accent and retones on a palette/theme swap.
+  // Two series palettes, both read from CSS tokens at colorMap() time so they
+  // retone on a theme swap; the arrays are only first-paint fallbacks for the
+  // rare frame before styles resolve.
+  //
+  //   'accent' (default) — the accent-derived --chart-* ramp (style.css). One
+  //       measure over time; the series are variations of the same thing, so
+  //       following the UI accent is exactly right.
+  //   'categorical'      — the merchant spectrum, --cat-* (style.css). For a
+  //       chart whose series are CATEGORIES, where hue is the label rather
+  //       than decoration and eight rungs of one accent can't be told apart.
   const PALETTE = [
     '#8fb088', '#5c7152', '#a9c1a4', '#33402d',
     '#7c9670', '#b6c8b2', '#647a59', '#5a6f50',
   ];
+  const CAT_PALETTE = [
+    '#404e77', '#776a40', '#407777', '#5c7740',
+    '#77406a', '#40774e', '#5c4077', '#774040',
+  ];
 
-  function readPalette() {
+  function readPalette(name) {
     const cs = getComputedStyle(document.documentElement);
-    return PALETTE.map((fb, i) => cs.getPropertyValue(`--chart-${i + 1}`).trim() || fb);
+    const [fallbacks, token] = name === 'categorical'
+      ? [CAT_PALETTE, 'cat']
+      : [PALETTE, 'chart'];
+    return fallbacks.map((fb, i) => cs.getPropertyValue(`--${token}-${i + 1}`).trim() || fb);
   }
 
   const CHART_RATIO = 200 / 800;
@@ -204,10 +217,12 @@
     draw(target.clientWidth);
   }
 
-  function colorMap(keys) {
-    const palette = readPalette();
-    return new Map(keys.map((k, i) => [k, palette[i % palette.length]]));
+  /** Map<key, colour>, assigned in order. `palette` is 'accent' (default) or
+   *  'categorical' — see the palette block at the top of this file. */
+  function colorMap(keys, palette) {
+    const colors = readPalette(palette);
+    return new Map(keys.map((k, i) => [k, colors[i % colors.length]]));
   }
 
-  window.FinanceChart = { render, colorMap, PALETTE };
+  window.FinanceChart = { render, colorMap, PALETTE, CAT_PALETTE };
 }());

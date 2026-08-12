@@ -21,26 +21,39 @@
   const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
 
-  // The whole diagram stays in the UI accent family and follows the accent on a
-  // palette/theme swap. Inflow vs. outflow separate by SATURATION, not hue:
-  // income takes the saturated accent (--chart-* tokens) and leads on the base
-  // accent at the central Net Inflow node; expenses take the greyed muted-accent
-  // ramp (--chart-muted-*). Colours are read from the tokens at render time
-  // (readSankeyPalettes) — the arrays below are first-paint fallbacks mirroring
-  // the light-theme accent ramp.
-  const NET_FALLBACK = '#8fb088';
-  const INCOME_FALLBACK = ['#8fb088', '#a9c1a4', '#7c9670', '#647a59', '#5c7152', '#b6c8b2'];
-  const EXPENSE_FALLBACK = ['#7d8a78', '#5f6b5b', '#737f6e', '#8b9785'];
+  // The two sides are coloured on DIFFERENT principles, which is what tells
+  // inflow from outflow at a glance:
+  //
+  //   income (left)   — the accent ramp (--chart-*). It's a handful of sources,
+  //       usually one dominant one, so they don't each need an identity; keeping
+  //       the whole inflow in the UI accent, leading into an accent hub, reads
+  //       as one stream arriving.
+  //   expenses (right)— the merchant spectrum (--cat-*), a hue per category, the
+  //       same eight colours the Spending report and the ledger's avatars use.
+  //       This side is where a dozen bands fan out and each one is a thing the
+  //       user recognises; on the old greyed-accent ramp they sorted by
+  //       lightness and read as one undifferentiated flow, with no rung the eye
+  //       could carry back to a label.
+  //
+  // The hub takes the accent too — it isn't a category, and staying out of the
+  // spectrum is what says so. Colours are read from the tokens at render time so
+  // an accent/theme swap retones the diagram; the arrays below are first-paint
+  // fallbacks mirroring the light theme.
+  const NET_FALLBACK = '#497e74';
+  const INCOME_FALLBACK = ['#497e74', '#79b2a7', '#365e56', '#25413b', '#5b9f92', '#9bc5bd'];
+  const CAT_FALLBACK = [
+    '#404e77', '#776a40', '#407777', '#5c7740',
+    '#77406a', '#40774e', '#5c4077', '#774040',
+  ];
 
   function readSankeyPalettes() {
     const cs = getComputedStyle(document.documentElement);
     const v = (name, fb) => cs.getPropertyValue(name).trim() || fb;
     return {
-      net: v('--chart-1', NET_FALLBACK),
+      net: v('--accent-primary', NET_FALLBACK),
       income: ['--chart-1', '--chart-3', '--chart-5', '--chart-7', '--chart-2', '--chart-6']
         .map((n, i) => v(n, INCOME_FALLBACK[i])),
-      expense: ['--chart-muted-1', '--chart-muted-2', '--chart-muted-3', '--chart-muted-4']
-        .map((n, i) => v(n, EXPENSE_FALLBACK[i])),
+      expense: CAT_FALLBACK.map((fb, i) => v(`--cat-${i + 1}`, fb)),
     };
   }
 
@@ -141,7 +154,7 @@
     const { income, expense, totalIncome, totalExpense } = aggregate(state.year);
     if (totalIncome <= 0 && totalExpense <= 0) return null; // caller → empty state
 
-    // Accent-derived colours, read fresh so a palette/theme swap retones the diagram.
+    // Read fresh so an accent/theme swap retones the diagram.
     const { net: NET_COLOR, income: INCOME_PALETTE, expense: EXPENSE_PALETTE } = readSankeyPalettes();
 
     // Tall enough that every category label on the busier side gets its own

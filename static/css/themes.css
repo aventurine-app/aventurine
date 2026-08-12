@@ -67,6 +67,22 @@ html[data-theme="dark"],
 
     --accent-info: var(--accent-info-light);
 
+    /* Categorical series palette (Reports: Spending + Cash Flow). The accent
+       ramp doesn't need a per-theme block — every stop is a mix of tokens that
+       flip here — but the merchant spectrum is fixed hex, so it does. Charts
+       paint the colour as INK on the page, and the ink that carries on a
+       near-black background is the PALE step; the mid-tones this resolves to in
+       the light theme would sink into it. (The avatars flip the other way,
+       ui.css — there the colour is a fill under dark initials.) */
+    --cat-1: var(--spectrum-pale-1);
+    --cat-2: var(--spectrum-pale-2);
+    --cat-3: var(--spectrum-pale-3);
+    --cat-4: var(--spectrum-pale-4);
+    --cat-5: var(--spectrum-pale-5);
+    --cat-6: var(--spectrum-pale-6);
+    --cat-7: var(--spectrum-pale-7);
+    --cat-8: var(--spectrum-pale-8);
+
     /* ── Frost layer tokens ──────────────────────────────────────────────
      * Translucent overlays that tint surfaces in the current theme's
      * direction.  Dark (default): white-tinted.  Light: black-tinted.

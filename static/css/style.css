@@ -176,11 +176,12 @@
    --accent-info-light: #4177ff;
 
    /* ── Chart series palette ───────────────────────────────────────────────
-    * Every graph — net-worth, forecast, income/expense, Balances pie,
-    * account balances, Trends, the cash-flow Sankey — draws its line/slice/
-    * node colours from these tokens so the charts FOLLOW THE UI ACCENT and
-    * retone whenever the accent is swapped. They are deliberately separate
-    * from the green/red gain-loss tokens (--accent-positive / --accent-negative),
+    * The measure-over-time graphs — net-worth, forecast, income/expense,
+    * Balances pie, account balances — draw their line/slice colours from these
+    * tokens so the charts FOLLOW THE UI ACCENT and retone whenever the accent
+    * is swapped — as does the income side of the Cash Flow Sankey. (The
+    * category-shaped surfaces take --cat-* instead; see below.) They are
+    * deliberately separate from the green/red gain-loss tokens (--accent-positive / --accent-negative),
     * which stay reserved for the NUMERIC figures: +/- deltas, ROI, and ledger
     * amounts. Charts = accent; numbers = green/red.
     *
@@ -199,14 +200,62 @@
    --chart-7: color-mix(in srgb, var(--accent-primary) 90%, var(--text-primary));
    --chart-8: color-mix(in srgb, var(--accent-primary) 38%, var(--text-primary));
 
-   /* Muted accent ramp — the Sankey splits inflow vs outflow within the accent
-    * family by SATURATION: income keeps the saturated --chart-* accent, expenses
-    * use these greyed (accent-toward-neutral) variants, so the two sides still
-    * read apart without leaving the accent. */
-   --chart-muted-1: color-mix(in srgb, var(--accent-primary) 55%, var(--text-tertiary));
-   --chart-muted-2: color-mix(in srgb, var(--accent-primary) 40%, var(--text-primary));
-   --chart-muted-3: color-mix(in srgb, var(--accent-primary) 42%, var(--text-tertiary));
-   --chart-muted-4: color-mix(in srgb, var(--accent-primary) 68%, var(--text-tertiary));
+   /* (A --chart-muted-* ramp lived here — greyed accent stops for the Sankey's
+      expense side, back when both sides were the accent and saturation was what
+      separated them. That side is categorical now, and nothing else used it.) */
+
+   /* ── Merchant spectrum ──────────────────────────────────────────────────
+    * Eight desaturated hues, evenly spaced 45° apart. Originally the merchant
+    * avatar swatches (ui.css .avatar-circle-0..7), hoisted here because the
+    * Reports charts now draw from the same spectrum and two copies of sixteen
+    * hexes would drift. Each hue has two steps:
+    *   pale — a light tint, for a colour used as a FILL under dark ink
+    *          (the avatar circles in the light theme).
+    *   mid  — a muted mid-tone, for a colour used as INK on a surface
+    *          (chart lines, Sankey expense bands) or as a fill on a dark one.
+    * Unlike --chart-* these are fixed values, not accent mixes: their whole
+    * job is to tell categories apart, which a single-hue family can't do. */
+   --spectrum-pale-1: #bec7e4;   /* blue */
+   --spectrum-pale-2: #e4dbbe;   /* orange */
+   --spectrum-pale-3: #bee4e4;   /* aqua */
+   --spectrum-pale-4: #d1e4be;   /* yellow */
+   --spectrum-pale-5: #e4bedb;   /* magenta */
+   --spectrum-pale-6: #bee4c7;   /* green */
+   --spectrum-pale-7: #d1bee4;   /* violet */
+   --spectrum-pale-8: #e4bebe;   /* red */
+
+   --spectrum-mid-1: #404e77;
+   --spectrum-mid-2: #776a40;
+   --spectrum-mid-3: #407777;
+   --spectrum-mid-4: #5c7740;
+   --spectrum-mid-5: #77406a;
+   --spectrum-mid-6: #40774e;
+   --spectrum-mid-7: #5c4077;
+   --spectrum-mid-8: #774040;
+
+   /* ── Categorical series palette ──────────────────────────────────────────
+    * Where a chart's series are CATEGORIES, hue is the label, not decoration:
+    * the Reports page's Spending report (one line per expense category) and the
+    * expense side of its Cash Flow Sankey (one band each) draw from these
+    * instead of the --chart-* ramp. A ramp of one accent asks the eye to rank
+    * eight lines by lightness, which it can't, so neighbouring categories bled
+    * together. Everything that plots ONE measure over time — net worth,
+    * forecast, balances, and the Sankey's income side — keeps the accent ramp,
+    * so the app still reads as accent-coloured.
+    *
+    * These are the spectrum's ink step: mid-tone on the light theme, and the
+    * pale step on dark (see themes.css) — whichever side of the page
+    * background carries contrast. The avatars use the two steps the other way
+    * round, because there the colour is the fill and the initials are the ink.
+    * Ordered hue-alternating (cool/warm) so adjacent series stay apart. */
+   --cat-1: var(--spectrum-mid-1);
+   --cat-2: var(--spectrum-mid-2);
+   --cat-3: var(--spectrum-mid-3);
+   --cat-4: var(--spectrum-mid-4);
+   --cat-5: var(--spectrum-mid-5);
+   --cat-6: var(--spectrum-mid-6);
+   --cat-7: var(--spectrum-mid-7);
+   --cat-8: var(--spectrum-mid-8);
 
    /* Neutral charcoal — secondary (outlined) buttons read as a quiet neutral
       sibling of the accent-filled primary instead of carrying the olive accent.

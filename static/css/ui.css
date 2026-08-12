@@ -193,39 +193,39 @@
     color: #0b0b0b;
 }
 
-/* 8 fixed slots, same hue family as the dataviz skill's categorical palette
-   (references/palette.md) but re-stepped light/desaturated (not reused
-   as-is) — avatars are a calm identity cue, not a chart series that needs
-   full-saturation ink to carry meaning. Hues are evenly spaced (45° apart)
-   rather than the chart palette's hand-tuned angles: at this low a
-   saturation, hues that sit close together (e.g. the chart palette's red at
-   0.4° and orange at 17°) collapse into the same pale tone, so even spacing
-   is what keeps all 8 tell-apart-able. Every swatch in a theme now lands at
-   the same lightness, so — unlike the chart palette — one ink colour per
-   theme covers all 8 instead of a per-swatch pick. */
-.avatar-circle-0 { background: #bec7e4; } /* blue */
-.avatar-circle-1 { background: #e4dbbe; } /* orange */
-.avatar-circle-2 { background: #bee4e4; } /* aqua */
-.avatar-circle-3 { background: #d1e4be; } /* yellow */
-.avatar-circle-4 { background: #e4bedb; } /* magenta */
-.avatar-circle-5 { background: #bee4c7; } /* green */
-.avatar-circle-6 { background: #d1bee4; } /* violet */
-.avatar-circle-7 { background: #e4bebe; } /* red */
+/* 8 fixed slots off the merchant spectrum (--spectrum-* in style.css, which
+   also documents how the hues were picked). The values used to live here; they
+   moved to the token file when the Reports charts started drawing categories
+   from the same eight hues, so a category's line on the Spending chart and its
+   merchants' avatars in the ledger come from one list.
 
-/* Dark mode steps the same 8 hues to a muted mid-tone for the dark surface
-   (not a separate palette) — pastel-light would glow against a near-black
-   background, the opposite of "desaturated"; a darker, less saturated step
-   reads as calm there instead. Ink flips to white for all 8 (see light-mode
-   comment above for why one ink colour suffices). */
+   An avatar paints the colour as a FILL with initials on top, so it takes the
+   PALE step here and the MID step on dark — the reverse of the charts, which
+   paint it as ink on the page (see --cat-* in style.css). Every swatch in a
+   theme lands at the same lightness, so one ink colour per theme covers all 8
+   instead of a per-swatch pick. */
+.avatar-circle-0 { background: var(--spectrum-pale-1); } /* blue */
+.avatar-circle-1 { background: var(--spectrum-pale-2); } /* orange */
+.avatar-circle-2 { background: var(--spectrum-pale-3); } /* aqua */
+.avatar-circle-3 { background: var(--spectrum-pale-4); } /* yellow */
+.avatar-circle-4 { background: var(--spectrum-pale-5); } /* magenta */
+.avatar-circle-5 { background: var(--spectrum-pale-6); } /* green */
+.avatar-circle-6 { background: var(--spectrum-pale-7); } /* violet */
+.avatar-circle-7 { background: var(--spectrum-pale-8); } /* red */
+
+/* Dark mode steps the same 8 hues to the muted mid-tone (not a separate
+   palette) — pastel-light would glow against a near-black background, the
+   opposite of "desaturated"; a darker, less saturated step reads as calm there
+   instead. Ink flips to white for all 8 (see above for why one ink suffices). */
 html[data-theme="dark"] .avatar-circle { color: #ffffff; }
-html[data-theme="dark"] .avatar-circle-0 { background: #404e77; }
-html[data-theme="dark"] .avatar-circle-1 { background: #776a40; }
-html[data-theme="dark"] .avatar-circle-2 { background: #407777; }
-html[data-theme="dark"] .avatar-circle-3 { background: #5c7740; }
-html[data-theme="dark"] .avatar-circle-4 { background: #77406a; }
-html[data-theme="dark"] .avatar-circle-5 { background: #40774e; }
-html[data-theme="dark"] .avatar-circle-6 { background: #5c4077; }
-html[data-theme="dark"] .avatar-circle-7 { background: #774040; }
+html[data-theme="dark"] .avatar-circle-0 { background: var(--spectrum-mid-1); }
+html[data-theme="dark"] .avatar-circle-1 { background: var(--spectrum-mid-2); }
+html[data-theme="dark"] .avatar-circle-2 { background: var(--spectrum-mid-3); }
+html[data-theme="dark"] .avatar-circle-3 { background: var(--spectrum-mid-4); }
+html[data-theme="dark"] .avatar-circle-4 { background: var(--spectrum-mid-5); }
+html[data-theme="dark"] .avatar-circle-5 { background: var(--spectrum-mid-6); }
+html[data-theme="dark"] .avatar-circle-6 { background: var(--spectrum-mid-7); }
+html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
 
 
 /* ─── Range selector ───────────────────────────────────────────────────────
