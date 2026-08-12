@@ -306,9 +306,10 @@
 .rec-occ-income   .avatar-circle { outline-color: color-mix(in srgb, var(--accent-positive) 50%, var(--button-text)); }
 .rec-occ-transfer .avatar-circle { outline-color: color-mix(in srgb, var(--accent-info) 50%, var(--button-text)); }
 
-/* Normal weight, both halves — the bold day numbers and the chips' own tiles
-   already give the grid its structure, so the labels don't need weight on top
-   of it.
+/* Bold, both halves. At --size-micro on a mid-tone accent fill, weight is the
+   cheapest contrast there is: the extra stem width survives antialiasing where
+   a colour step does not (see the faded-label note below), so the chip's two
+   labels stay legible at the size the grid forces on them.
    BOTH halves take --button-text at FULL strength: the token every filled
    accent button labels itself with, not the --text-* tokens, which are written
    for the page's surfaces and would flip to near-black on the fill in the light
@@ -324,6 +325,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    font-weight: var(--weight-bold);
     color: var(--button-text);
 }
 /* A projected charge is NOT stepped back on the grid any more: dimming its name
@@ -339,6 +341,7 @@
     text-overflow: ellipsis;
     font-family: var(--font-numeric);
     font-size: var(--size-micro);
+    font-weight: var(--weight-bold);
     font-variant-numeric: tabular-nums;
     color: var(--button-text);
 }
