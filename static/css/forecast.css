@@ -700,7 +700,7 @@
 .fc-action-btn.fc-action-delete:hover {
     background: var(--accent-negative);
     border-color: var(--accent-negative);
-    color: #fff;
+    color: var(--danger-text);
 }
 
 /* ✓ carries the primary accent — it's the commit, and the one button in the row
@@ -709,7 +709,7 @@
 .fc-action-btn.fc-action-save:hover {
     background: var(--accent-primary);
     border-color: var(--accent-primary);
-    color: var(--text-primary);
+    color: var(--button-text);
 }
 
 /* ─── Card + dialog inputs (mirrors .rec-input / .rec-select) ──────────────── */

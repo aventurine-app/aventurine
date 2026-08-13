@@ -151,11 +151,30 @@
       can flip to a dark colour per theme if a light accent ever needs it. */
    --button-text:      var(--color-accent-050);
 
+   /* Text on the neutral-charcoal hover fill (--accent-neutral-fill). Not
+      --button-text: that one flips per theme to stay legible on the GREEN
+      accent, and it flips to a DARK value on dark, which is the wrong way round
+      over a charcoal fill. The charcoal is dark in both themes, so its text is
+      light in both and needs no per-theme block. */
+   --accent-neutral-text: var(--color-base-050);
+
+   /* Text on a filled --accent-negative (danger) button. Same reasoning: the
+      red is one value in both themes, so the text on it is too. Was hard-coded
+      as #fff in three places and as --button-text in a fourth, which made the
+      dark theme render dark-on-red in that one spot. */
+   --danger-text:      #fff;
+
     /* Accent — the page/UI accent: buttons, focus rings, selection, toggles,
     active tabs, links. Uses the --color-accent ramp, distinct from the gain
     green below so UI chrome recolours independently of the gain/income
     indicators. */
     --accent-primary:   var(--color-accent-600);
+    /* Hover fill for accent-filled surfaces (.button-primary, the Recurring
+       calendar chip). One rung LIGHTER than --accent-primary, so it must be a
+       token rather than a named rung: the dark theme rests the accent a rung
+       higher (500), where naming 500 here made hover resolve to the resting
+       colour and the hover state vanished entirely on dark. */
+    --accent-primary-hover: var(--color-accent-500);
     --accent-secondary: #1e87b8;
     --accent-quatenary: #a74fc2;
     --warning:          #dd9e00;
@@ -889,7 +908,7 @@ div.page::-webkit-scrollbar-thumb:hover {
 .confirm-delete:hover {
     background: var(--accent-negative);
     border-color: var(--accent-negative);
-    color: #fff;
+    color: var(--danger-text);
 }
 
 /* ⋮ menu trigger — a circle button anchoring UI.openMenu's dropdown. The
@@ -915,8 +934,11 @@ div.page::-webkit-scrollbar-thumb:hover {
     transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
+/* surface3 is the rung that MEANS hover (see the surface token comments); the
+   surface1 → surface2 step this used to make is a no-op on dark, where both
+   resolve to base-900, leaving the colour/border deltas to carry it alone. */
 .p-menu-btn:hover {
-    background: var(--surface2);
+    background: var(--surface3);
     color: var(--text-primary);
     border-color: var(--text-tertiary);
 }

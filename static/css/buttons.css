@@ -113,9 +113,16 @@
    border: 1px solid var(--color-base-200);
 }
 /* On hover the outlined secondary fills in with neutral charcoal + contrast
-   text, so it reads as a quiet neutral sibling of the accent-filled primary. */
+   text, so it reads as a quiet neutral sibling of the accent-filled primary.
+   That is what --accent-neutral-fill is FOR, and both themes have defined it
+   all along (light base-800 / dark base-700) while this rule hard-coded a ramp
+   rung instead. The rung does not flip: base-200 is a LIGHT grey, so on dark the
+   button filled pale and kept its --accent-neutral (base-300) label, landing at
+   ~1.35:1 — a hover state you could not read. The text has to move with the
+   fill, hence the colour line; leaving it out is how the old rule got there. */
 .button-secondary:not(:disabled):hover {
-    background: var(--color-base-200);
+    background: var(--accent-neutral-fill);
+    color: var(--accent-neutral-text);
 }
 /* Disabled outlined secondary — drop the accent so it reads inert: gray text
    and border instead of carrying the primary accent at reduced opacity. */
@@ -130,7 +137,10 @@
     border: 0px solid var(--accent-primary);
     color: var(--button-text);
 }
+/* The lift is a TOKEN, not a ramp rung: the themes rest the accent on different
+   rungs (600 light / 500 dark), so a named rung is the resting colour in one of
+   them and the hover state disappears. */
 .button-primary:not(:disabled):hover {
-    background: var(--color-accent-500);
+    background: var(--accent-primary-hover);
     border-color: var(--accent-primary);
 }

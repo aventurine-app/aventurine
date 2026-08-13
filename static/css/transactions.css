@@ -1147,15 +1147,20 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 
 /* The add row's Save button carries the primary accent; Cancel keeps the gray
    base treatment. */
+/* --button-text, not --text-primary: this is an accent FILL, and the token for
+   ink on an accent fill is the one that flips with it. --text-primary is the
+   page's ink, which on light resolves to a near-black on mid-green. */
 .tx-action-btn.tx-action-save {
     background: var(--accent-primary);
     border-color: var(--accent-primary);
-    color: var(--text-primary);
+    color: var(--button-text);
 }
 
+/* Hover has to LEAVE the resting fill — restating --accent-primary here meant
+   this button had no hover state at all, in either theme. */
 .tx-action-btn.tx-action-save:hover {
-    background: var(--accent-primary);
-    border-color: var(--accent-primary);
+    background: var(--accent-primary-hover);
+    border-color: var(--accent-primary-hover);
 }
 
 
@@ -1816,9 +1821,12 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     border-color: var(--accent-negative);
 }
 
+/* --danger-text, not --button-text: --button-text flips to a DARK value on the
+   dark theme (it is sized to the green accent), which put near-black ink on
+   this red fill in exactly one place in the app. */
 .tx-delete-btn:not(:disabled):hover {
     background: var(--accent-negative);
-    color: var(--button-text);
+    color: var(--danger-text);
     border-color: var(--accent-negative);
 }
 
@@ -2341,9 +2349,11 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 
+/* surface3 is the rung that MEANS hover; surface1 → surface2 is a no-op on
+   dark, where both resolve to base-900 (same fix as .p-menu-btn). */
 .tx-page-btn:hover:not(:disabled),
 .tx-page-num:hover:not(.tx-page-current) {
-    background: var(--surface2);
+    background: var(--surface3);
     color: var(--text-primary);
 }
 
@@ -2355,7 +2365,9 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 .tx-page-current {
     background: var(--accent-primary);
     border-color: var(--accent-primary);
-    color: var(--background);
+    /* --button-text is the ink-on-accent token; --background happened to be
+       close to it on dark and is the page colour, not a foreground. */
+    color: var(--button-text);
     font-weight: var(--weight-semibold);
     cursor: default;
 }

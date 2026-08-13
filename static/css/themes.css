@@ -47,6 +47,11 @@ html[data-theme="dark"],
        style.css), distinct from the gain green (--accent-positive, style.css) so
        UI chrome recolours independently of the gain/income indicators. */
     --accent-primary: var(--color-accent-500);   /* base — buttons, links, focus, selection, hover/active fills */
+    /* The resting accent sits a rung lighter here than in the light theme, so
+       the hover lift steps up with it (400, not the light theme's 500) — the
+       lift on an accent fill goes toward the light end of the ramp in both
+       themes. */
+    --accent-primary-hover: var(--color-accent-400);
 
     /* Button text — text/icons on filled accent (or neutral-hover) buttons. */
     --button-text:    var(--color-base-900);

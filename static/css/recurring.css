@@ -250,7 +250,7 @@
        of grey tiles on a grey-ruled calendar read as chrome. The tile is what
        makes a chip an object you can point at.
        Same three tokens .button-primary uses (buttons.css), in the same roles —
-       --accent-primary at rest, --color-accent-500 on hover, --button-text for
+       --accent-primary at rest, --accent-primary-hover on hover, --button-text for
        the label — so a chip is the same green as every primary button on the
        page and follows the accent wherever a theme repoints it, rather than
        naming a ramp rung of its own.
@@ -346,9 +346,12 @@
     color: var(--button-text);
 }
 
-/* Hover takes --color-accent-500, the exact fill .button-primary hovers to
+/* Hover takes --accent-primary-hover, the exact fill .button-primary hovers to
    (buttons.css) — on an accent fill the lift is toward the light end of the
-   ramp, unlike the grey surfaces this used to borrow from.
+   ramp, unlike the grey surfaces this used to borrow from. It has to be that
+   token and not a ramp rung: the themes rest the accent on different rungs, so
+   a named rung lands on the resting colour in one of them and stops reading as
+   a hover at all.
    .rec-occ-active takes the SAME fill, and must: recurring.js sets it on every
    chip of a schedule the moment its card opens, which is the moment the
    pointer lands on one of them. Any other colour here would be what "hover"
@@ -360,7 +363,7 @@
 .rec-occ:focus-visible,
 .rec-occ-active,
 .rec-occ-active:hover {
-    background: var(--color-accent-500);
+    background: var(--accent-primary-hover);
     outline: none;
 }
 
@@ -614,7 +617,7 @@
 .rec-action-btn.rec-action-delete:hover {
     background: var(--accent-negative);
     border-color: var(--accent-negative);
-    color: #fff;
+    color: var(--danger-text);
 }
 
 /* ✓ carries the primary accent — it's the commit, and the one button in the
@@ -629,9 +632,11 @@
     border-color: var(--accent-primary);
     color: var(--button-text);
 }
+/* Hover has to LEAVE the resting fill — restating --accent-primary here meant
+   this button had no hover state at all, in either theme. */
 .rec-action-btn.rec-action-save:hover {
-    background: var(--accent-primary);
-    border-color: var(--accent-primary);
+    background: var(--accent-primary-hover);
+    border-color: var(--accent-primary-hover);
 }
 
 /* ─── Edit mode ─────────────────────────────────────────────────────────────

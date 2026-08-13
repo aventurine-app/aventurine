@@ -91,22 +91,29 @@
 }
 .empty-state-action svg { width: 16px; height: 16px; flex-shrink: 0; }
 
+/* Same fill/text pair as .button-secondary (buttons.css) — this control is that
+   shape, so it takes the same two tokens rather than the ramp rung it used to
+   copy from it. */
 .empty-state-action:hover {
-    background: var(--color-base-200);
+    background: var(--accent-neutral-fill);
+    color: var(--accent-neutral-text);
 }
 .empty-state-action:focus-visible {
     outline: none;
     box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--accent-primary);
 }
 
-/* Primary-accent variant — matches .button-primary exactly. */
+/* Primary-accent variant — matches .button-primary exactly, which it now
+   actually does: the border named --accent-color-400, a token that has never
+   existed (the ramp is --color-accent-*), and the hover named a third rung
+   (300) rather than the one .button-primary lifts to. */
 .empty-state-action-primary {
     background: var(--accent-primary);
-    border: 0px solid var(--accent-color-400);
+    border: 0px solid var(--accent-primary);
     color: var(--button-text);
 }
 .empty-state-action-primary:hover {
-    background: var(--color-accent-300);
+    background: var(--accent-primary-hover);
     border-color: var(--accent-primary);
     color: var(--button-text);
 }

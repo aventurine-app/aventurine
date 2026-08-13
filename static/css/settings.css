@@ -61,7 +61,7 @@
 .db-btn-danger:not(:disabled):not(.db-btn-link):not(.db-btn-primary):hover {
   background: var(--accent-negative);
   border-color: var(--accent-negative);
-  color: #fff;
+  color: var(--danger-text);
 }
 
 .settings-row {
@@ -335,15 +335,30 @@
   user-select: none;
 }
 
+/* Selected takes the .button-primary triple (buttons.css) — solid accent fill,
+   accent border, --button-text ink — rather than the 20%-accent wash it used to
+   draw. That wash was this file's own one-off: nothing else in the app used it,
+   and the app's other selected-segment control (.stmt-tab / .rep-tab, ui.css)
+   already resolves --segctl-active / --segctl-active-text to exactly these two
+   tokens. One idiom for "this segment is chosen" instead of two. */
 .settings-match-option input[type="radio"]:checked + .settings-match-label {
-  background: color-mix(in srgb, var(--accent-primary) 20%, transparent);
+  background: var(--accent-primary);
   border-color: var(--accent-primary);
-  color: var(--accent-primary);
+  color: var(--button-text);
 }
 
 .settings-match-option:hover .settings-match-label {
   border-color: var(--text-tertiary);
   color: var(--text-primary);
+}
+
+/* The checked rule above outranks the hover rule (it carries an extra class and
+   attribute), so without this a selected option was the one control on the page
+   that went dead under the pointer. Same lift every other accent fill takes. */
+.settings-match-option:hover input[type="radio"]:checked + .settings-match-label {
+  background: var(--accent-primary-hover);
+  border-color: var(--accent-primary-hover);
+  color: var(--button-text);
 }
 
 /* ── Fuzzy match strength slider ───────────────────────────────────────

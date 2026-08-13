@@ -222,10 +222,10 @@
     white-space: nowrap;
 }
 
-/* Border lightens on hover too: in the dark theme --surface2 (the button's base)
-   and --surface3 resolve to the same base-800, so a background-only hover is
-   invisible there. The border-color delta keeps the affordance visible in both
-   themes — same pattern as .range-selector-btn / .empty-state-action. */
+/* Border lightens on hover too, belt-and-braces: the surface2 → surface3 step is
+   a real one in both themes now (dark resolves 900 → 800), but the border-color
+   delta keeps the affordance legible where the fill step is subtle — same
+   pattern as .range-selector-btn / .empty-state-action. */
 .db-btn:not(:disabled):not(.db-btn-link):not(.db-btn-primary):hover { background: var(--surface3); border-color: var(--text-tertiary); }
 
 .db-btn-primary {
@@ -234,7 +234,11 @@
     color: var(--button-text);
 }
 
-.db-btn-primary:not(:disabled):hover { filter: brightness(1.1); background: var(--accent-primary); }
+/* Same lift as the action-shape primary (.button-primary, buttons.css) rather
+   than a brightness() filter, so the app's two button shapes hover to the same
+   colour. The filter also lightened the LABEL along with the fill, which the
+   token swap leaves alone. */
+.db-btn-primary:not(:disabled):hover { background: var(--accent-primary-hover); border-color: var(--accent-primary-hover); }
 .db-btn-primary:disabled { opacity: 0.6; cursor: default; }
 
 .db-btn-link {

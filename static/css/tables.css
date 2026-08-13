@@ -585,16 +585,6 @@
     color: var(--text-primary);
 }
 
-/* Destructive — red outline that fills on hover, matching .db-btn-danger
-   (the Delete All Transactions modal) and the Transactions delete chip. */
-.confirm-delete {
-    background: transparent;
-    border: var(--border-width) solid var(--accent-negative);
-    color: var(--accent-negative);
-}
-
-.confirm-delete:hover {
-    background: var(--accent-negative);
-    border-color: var(--accent-negative);
-    color: #fff;
-}
+/* Destructive (.confirm-delete) lives in style.css — this file carried a
+   byte-identical second copy of both its rules, and style.css is global, so the
+   copy could only ever restate what was already in effect. */
