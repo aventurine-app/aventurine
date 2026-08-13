@@ -171,12 +171,13 @@
 
 
 /* ─── Merchant avatar ─────────────────────────────────────────────────────
- * A deterministic colour + initials circle for a merchant label (avatar.js:
- * merchantAvatarHtml). Global, not page-scoped, so every page that lists
- * merchants — the Transactions ledger, the Recurring schedule table — renders
- * the same merchant the same colour without a lookup table to maintain. No
- * real merchant logos are bundled or fetched (offline, no network calls —
- * see PRODUCT.md). */
+ * A merchant's mark for a label (avatar.js: merchantAvatarHtml) — a bundled
+ * brand icon when the lexicon shipped one, else a deterministic colour +
+ * initials circle. Global, not page-scoped, so every page that lists merchants
+ * — the Transactions ledger, the Recurring calendar — renders the same
+ * merchant the same way without a lookup table to maintain. The icons are
+ * committed assets under static/merchant-icons/; nothing is fetched at runtime
+ * (offline, no network calls — see PRODUCT.md). */
 .avatar-circle {
     display: inline-flex;
     align-items: center;
@@ -226,6 +227,45 @@ html[data-theme="dark"] .avatar-circle-4 { background: var(--spectrum-mid-5); }
 html[data-theme="dark"] .avatar-circle-5 { background: var(--spectrum-mid-6); }
 html[data-theme="dark"] .avatar-circle-6 { background: var(--spectrum-mid-7); }
 html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
+
+/* Brand-icon variants. A real logo brings its OWN colour, so these slots take
+   none of the eight above — the circle is what they have in common, and it is
+   the point: a column of merchants reads as one column of discs instead of a
+   ransom note of squares, roundels and wordmarks.
+
+   Two treatments, picked per icon at build time from whether its artwork
+   reaches the corners (avatar.js: isFullBleed, measured in
+   fetch-merchant-icons.js — CSS cannot ask an image about its own pixels):
+
+   .avatar-circle-icon — a mark on transparency (Apple's apple, Chevron's
+     chevron). Inset on a pale disc, because these are drawn for a browser tab
+     and are usually dark-on-nothing: over the light theme bare transparency is
+     fine, on dark the mark would disappear. The SAME pale disc under both
+     themes is what lets one downloaded file serve both, instead of needing a
+     light and a dark render of every brand. `contain` never crops, so a 4:1
+     wordmark letterboxes and stays legible rather than losing its ends.
+
+   .avatar-circle-bleed — the brand's colour tile, mark included (Netflix's red
+     square, Burger King's). It already IS a disc once clipped, so it fills the
+     circle edge to edge. Inset on a grey pill the same icon reads as a tiny
+     square stamp, which is what made this split worth the build step. `cover`
+     rather than `contain`: these are square by construction, and a clipped
+     hair beats a ring of grey around a colour tile. */
+.avatar-circle-icon {
+    background: #f0f0f2;
+    overflow: hidden;
+}
+.avatar-circle-icon img {
+    width: 78%;
+    height: 78%;
+    object-fit: contain;
+    pointer-events: none;
+}
+.avatar-circle-bleed img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
 
 
 /* ─── Range selector ───────────────────────────────────────────────────────

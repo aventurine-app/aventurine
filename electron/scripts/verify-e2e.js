@@ -97,6 +97,32 @@ app.whenReady().then(async () => {
       '!!(window.TxParse && window.TxParse.parseFile && window.TxFileImport && window.TxFileImport.run)'
     ));
 
+    // Merchant brand icons degrade SILENTLY — drop the generated manifest's
+    // <script> tag, or the asset dir from the package, and every avatar quietly
+    // falls back to initials, which is exactly what a working app looks like if
+    // you don't know the icons were meant to be there. So assert all three
+    // links of the chain from inside the real renderer: the manifest loaded,
+    // avatar.js emits an <img> for a merchant we ship an icon for, and that
+    // file actually resolves over app://.
+    check('merchant icon manifest loaded', await evalJs(
+      '!!(window.MERCHANT_ICONS && Object.keys(window.MERCHANT_ICONS).length > 0'
+      + ' && Array.isArray(window.MERCHANT_ICONS_BLEED))'
+    ));
+    check('merchant avatar renders a brand icon', await evalJs(`(() => {
+      const slug = Object.keys(window.MERCHANT_ICONS)[0];
+      const file = window.MERCHANT_ICONS[slug];
+      const html = merchantAvatarHtml(slug);
+      return html.includes('avatar-circle-icon')
+          && html.includes('/static/merchant-icons/' + file + '.png');
+    })()`));
+    check('merchant icon asset resolves', await evalJs(`new Promise(res => {
+      const img = new Image();
+      img.onload = () => res(img.naturalWidth > 0);
+      img.onerror = () => res(false);
+      img.src = '/static/merchant-icons/'
+        + window.MERCHANT_ICONS[Object.keys(window.MERCHANT_ICONS)[0]] + '.png';
+    })`));
+
     // Every page is assembled from pages/partials/ at serve time — walk all
     // routes and prove the shared chrome landed on each one.
     const routes = {
