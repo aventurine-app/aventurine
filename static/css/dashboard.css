@@ -220,6 +220,24 @@
     height: 100%;
 }
 
+/* Monthly Cash Flow is the exception to the bottom-pinning above: its height is
+   a fixed three rows rather than a width-derived aspect, so there is nothing to
+   line up with and pinning just left a band of dead space under the header
+   whenever the taller Balances card set the row's height. Instead the chart
+   host takes whatever height the row gave the card and buildHBarChartSVG()
+   spreads its three bands over it. The two lengths are what keep that from
+   oscillating: flex-basis 0 keeps the SVG out of the card's height, and the
+   explicit min-height replaces a column flex item's automatic content-based
+   minimum, which would otherwise let the SVG we just drew push the card taller
+   and ask for a taller SVG. Its value is the chart's natural three-band size
+   (8 top + 3 x 44 + 30 axis), so the card also still stands up on its own in
+   the single-column layout, where no neighbour is stretching anything. */
+.mcf-card .chart-area {
+    flex: 1 1 0;
+    min-height: 170px;
+    margin-top: 0;
+}
+
 /* Empty states are the exception to the bottom-pinning above: with no chart to
    line up, `margin-top: auto` left the notice sitting on the card's bottom edge
    while the space above it stayed blank. When the body holds one, the host

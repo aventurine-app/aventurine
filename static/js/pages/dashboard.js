@@ -532,8 +532,15 @@
      * entrance so the chart doesn't strobe while dragging. The width guard
      * also swallows the ResizeObserver's immediate same-size callback, which
      * would otherwise cancel the entrance animation one frame in.
+     *
+     * `fillHeight` opts a chart into being redrawn when the host's HEIGHT
+     * changes too, and hands that height to renderFn as its third argument.
+     * Only a chart that derives its height from the host rather than from its
+     * own width may ask for this (Monthly Cash Flow, see dashboard.css §4) —
+     * for every other chart the host's height is an echo of the SVG just drawn
+     * into it, so tracking it would repaint on our own output.
      */
-    function observeChart(containerId, renderFn) {
+    function observeChart(containerId, renderFn, { fillHeight = false } = {}) {
         const existing = chartObservers.get(containerId);
         if (existing) existing.disconnect();
         const el = document.getElementById(containerId);
@@ -544,18 +551,22 @@
 
         let animate     = true;   // flips off after the first successful paint
         let lastW       = 0;
+        let lastH       = 0;
         let sawInitial  = false;  // has the observer delivered its first callback?
-        const render = (w) => {
+        const render = (w, h) => {
             w = Math.round(w);
-            if (w > 0 && w !== lastW) {
+            h = Math.round(h);
+            if (w > 0 && (w !== lastW || (fillHeight && h !== lastH))) {
                 lastW = w;
-                el.innerHTML = renderFn(w, animate) || '';
+                lastH = h;
+                el.innerHTML = renderFn(w, animate, h) || '';
                 animate = false;
             }
         };
 
         const obs = new ResizeObserver(entries => {
             const w = Math.round(entries[0].contentRect.width);
+            const h = Math.round(entries[0].contentRect.height);
             // A ResizeObserver always fires once immediately after observe().
             // If the synchronous paint below already ran (animate is now false),
             // that first callback is synthetic, not a real resize — adopt its
@@ -564,17 +575,29 @@
             // this apart by width alone: the sync paint uses clientWidth, this
             // reports contentRect.width, and a layout shift in between (e.g. the
             // page scrollbar appearing as other cards populate) makes them differ.
+            //
+            // The height is the exception for a fillHeight chart: the sync paint
+            // measured the host before the row's other cards had finished
+            // filling, so a first callback reporting a DIFFERENT height is real
+            // news (a neighbour just made the card taller) and has to be drawn.
+            // It is still the first thing the user sees — this callback lands
+            // before the frame paints — so the entrance is re-armed rather than
+            // spent.
             if (!sawInitial) {
                 sawInitial = true;
-                if (!animate) { lastW = w; return; }
+                if (!animate) {
+                    lastW = w;
+                    if (!fillHeight || h === lastH) { lastH = h; return; }
+                    animate = true;
+                }
             }
-            render(w);
+            render(w, h);
         });
         obs.observe(target);
         chartObservers.set(containerId, obs);
         // Immediate first paint (animated). If layout isn't ready yet (width 0),
         // the observer's first callback above performs the animated paint instead.
-        render(target.clientWidth);
+        render(target.clientWidth, target.clientHeight);
     }
 
     // ─── Time range (Year to Year section) ───────────────────────────────────────
@@ -1028,8 +1051,16 @@
      * Build one inline SVG horizontal bar chart: one row per flow type, amount on
      * the X axis. Same frame chrome as the other charts (nice-tick axis, dashed
      * grid, label typography); each bar is annotated with its exact value at the
-     * end, so the month's statement reads without hovering. Height comes from the
-     * fixed row count, not the width.
+     * end, so the month's statement reads without hovering.
+     *
+     * Height comes from the HOST, not from the width: three rows have no aspect
+     * ratio to honour, so the chart takes the height its card was given (`avail`,
+     * measured by observeChart's fillHeight mode) and shares it out between the
+     * bands, which is what lets it fill a card stretched tall by its neighbour
+     * instead of leaving dead space. Band growth moves the bars apart; bar
+     * thickness follows only part of the way and stops, so a very tall card gets
+     * an airy chart rather than three slabs. Without a measurement it falls back
+     * to the natural band, i.e. the height this chart has always drawn at.
      *
      * Each bar is subdivided into its categories: `segments` tile the bar in
      * proportion to their share of the type, shaded from the type's base colour
@@ -1043,13 +1074,16 @@
      * SECURITY: segment names are user-controlled category labels — escaped in
      * the <title> tooltip.
      */
-    function buildHBarChartSVG({ rows, W, animate = true }) {
+    function buildHBarChartSVG({ rows, W, avail = 0, animate = true }) {
         if (rows.length === 0) return null;
 
         // Left gutter fits the row labels, right gutter the value annotations.
         const PL = 96, PR = 96, PT = 8, PB = 30;
-        const BAND = 44;                       // vertical space per bar row
-        const BAR  = 16;                       // bar thickness within its band
+        const MIN_BAND = 44;                   // natural vertical space per bar row
+        const BAND = Math.max(MIN_BAND, Math.round((avail - PT - PB) / rows.length));
+        // 0.36 is the natural 16-in-44 ratio, so a band at its floor draws the
+        // bar it always did; 34 is where a bar stops reading as a bar.
+        const BAR  = Math.round(Math.min(34, BAND * 0.36));
         const H  = PT + rows.length * BAND + PB;
         const CW = W - PL - PR;
         const f2 = (n) => Math.round(n * 100) / 100;
@@ -1069,7 +1103,9 @@
         }
 
         // Bar corners: rounded right end only — the bar must sit flat on the axis.
-        const RR  = Math.min(4, BAR / 2);
+        // The radius tracks the thickness (4 at the natural 16) so a bar that
+        // grew with the card doesn't keep a cap sized for a thinner one.
+        const RR  = Math.min(BAR / 4, 6);
         const GAP = 2;                         // hairline gap between category segments
 
         rows.forEach((r, i) => {
@@ -1158,7 +1194,11 @@
             return;
         }
 
-        observeChart('mcf-chart', (W, animate) => buildHBarChartSVG({ rows, W, animate }));
+        observeChart(
+            'mcf-chart',
+            (W, animate, H) => buildHBarChartSVG({ rows, W, avail: H, animate }),
+            { fillHeight: true },
+        );
     }
 
     /**
