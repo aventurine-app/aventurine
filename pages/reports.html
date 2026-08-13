@@ -132,9 +132,10 @@
          items used to live in a second card with their own form; they are now
          pins ON the line (see forecast.js) — same idiom as the Recurring
          calendar's chips, where the thing you point at is the thing you edit.
-         Secondary knobs (counting transfers) sit behind the ⋮, so the header
-         carries only the two the report is actually read through: which account
-         and how far ahead. -->
+         The header carries the three knobs the report is read through: whether
+         money moved between your own accounts counts, which account, and how
+         far ahead. The ⋮ holds only the housekeeping action, and only when
+         there is something for it to clear. -->
     <div class="forecast-card forecast-card-main">
         <div class="dashboard-card-header">
             <!-- "Balance Forecast", not "Cash Flow Forecast": what it projects is
@@ -145,6 +146,16 @@
                 aria-label="Projects one account's balance forward, week by week, so a cash crunch inside a month is visible instead of averaged away. Each week combines your typical spending and income (averaged over recent complete months) with the recurring bills and paychecks detected in that account's history, placed on the week they fall. Hover the line to pin a one-off payment or receipt to a date; hover a point for that week's balance. Everything is computed on your device — nothing leaves it."
                 data-tip="Projects one account's balance forward, week by week, so a cash crunch inside a month is visible instead of averaged away. Each week combines your typical spending and income (averaged over recent complete months) with the recurring bills and paychecks detected in that account's history, placed on the week they fall. Hover the line to pin a one-off payment or receipt to a date; hover a point for that week's balance. Everything is computed on your device — nothing leaves it.">i</span></span>
             <div class="forecast-controls">
+                <!-- A checkbox, not a third picker: this is one yes/no answer
+                     and its state has to be readable at a glance, because it
+                     changes what every number on the card means. Checked (the
+                     default) is the reading most people want — moving your own
+                     money between your own accounts is not spending. -->
+                <label class="fc-toggle" for="forecast-ignore-transfers"
+                    title="Leave money moved between your own accounts out of the projection">
+                    <input type="checkbox" id="forecast-ignore-transfers" checked>
+                    <span>Ignore transfers</span>
+                </label>
                 <!-- Account and horizon are the SAME widget (ui.css's menu-opener
                      button) rather than a native <select> next to a styled one —
                      two lookalike pickers side by side is exactly the drift
@@ -161,8 +172,11 @@
                         <button data-months="6" type="button">6 Months</button>
                     </div>
                 </div>
+                <!-- Hidden until it has something to offer: its only entry is
+                     clearing planned items that fell outside the forecast, so an
+                     always-present ⋮ would open on an empty menu. -->
                 <button type="button" class="p-menu-btn" id="forecast-kebab-btn" title="Forecast options"
-                    aria-label="Forecast options" aria-haspopup="menu">⋮</button>
+                    aria-label="Forecast options" aria-haspopup="menu" hidden>⋮</button>
             </div>
         </div>
 

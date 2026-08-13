@@ -92,15 +92,51 @@
 
 #forecast-chart { width: 100%; }
 
-/* ─── Header controls: account + horizon + ⋮ ─────────────────────────────────
-   Two knobs, because two are what the report is read through: whose balance,
-   and how far ahead. Everything else (counting transfers) is behind the ⋮ —
-   the same split the Recurring page's toolbar makes. */
+/* ─── Header controls: transfers + account + horizon + ⋮ ─────────────────────
+   Three knobs, because three are what the report is read through: whether your
+   own transfers count, whose balance, and how far ahead. The ⋮ is left with
+   housekeeping only, and hides itself when it has none. */
 .forecast-controls {
     display: flex;
     align-items: center;
     gap: var(--space-8);
 }
+
+/* The transfers switch. A checkbox rather than a third .range-selector: it is
+   one yes/no answer, and unlike a picker it states its own state without being
+   opened — which matters, because it changes what every figure on the card
+   means. It leads the row (before the two pickers) since it defines what is
+   being counted, and the pickers only narrow it. */
+.fc-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-8);
+    height: var(--control-height);
+    padding: 0 var(--space-4);
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+}
+
+.fc-toggle:hover { color: var(--text-primary); }
+
+/* accent-color, like every other checkbox in the app — the browser default
+   blue belongs to no theme here. */
+.fc-toggle input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    accent-color: var(--accent-primary);
+    cursor: pointer;
+}
+
+.fc-toggle:focus-within { color: var(--text-primary); }
+
+/* .p-menu-btn sets display:inline-flex, which outranks the hidden attribute. */
+#forecast-kebab-btn[hidden] { display: none; }
 
 /* Both pickers are .range-selector (ui.css) — no bespoke control here. The
    account one only needs a floor narrow enough that a short name like "Cash"

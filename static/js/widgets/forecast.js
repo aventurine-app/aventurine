@@ -18,9 +18,11 @@
 // provenance footnote and the "hover the line to…" instruction that briefly
 // replaced it were just more words in the same place. What is left renders
 // conditionally and only when it changes how the number should be read: the dip
-// (when the line actually goes below where it started), the scope fallback, the
-// transfers switch, and a stale starting balance. Method notes live in the
-// card title's one tooltip.
+// (when the line actually goes below where it started), the scope fallback, and
+// a stale starting balance. The transfers switch used to write a line here too;
+// it is a labelled checkbox in the header now, and a control that states its own
+// state does not also need prose restating it. Method notes live in the card
+// title's one tooltip.
 //
 // PLANNED ITEMS live ON the line. Each is a pin at its date, hovering (or
 // clicking, which pins the card) opens a floating card carrying label, amount,
@@ -64,7 +66,9 @@
   const state = {
     months: 3,
     account: null,          // selected Balance-Sheet account key; null = server default
-    includeTransfers: true, // count transfers (money moved out) as outflows
+    // Money moved between your own accounts is not spending, so the default is
+    // to leave it out — and the header checkbox says so without being opened.
+    includeTransfers: false,
     data: null,             // last /api/forecast payload
     activeId: null,         // planned item whose card is open, or null
     pinned: false,          // click-pinned card survives the pointer leaving
@@ -135,6 +139,7 @@
 
   function render() {
     syncAccountSelect();
+    syncKebab();
     renderSummary();
     renderChartResponsive();
     if (state.activeId != null) renderCard();
@@ -258,14 +263,11 @@
     // whole of the text here, and the method lives in the title's tooltip. What
     // survives is what would make the number wrong to read at face value, so
     // anything showing up below is worth the room it takes.
-    const notes = [];
     if (d.scope === 'ledger' && account) {
       // The projection fell back to every transaction because this account owns
       // none — worth saying, since the reader picked an account by name.
-      notes.push('Based on every transaction — none are assigned to this account yet.');
+      html += '<p class="fc-note">Based on every transaction — none are assigned to this account yet.</p>';
     }
-    if (!d.include_transfers) notes.push('Transfers are not counted as spending.');
-    if (notes.length) html += `<p class="fc-note">${escapeHtml(notes.join(' '))}</p>`;
 
     // The Balance Sheet is month-granular, so a start balance can be months old
     // while the line starts today. Say so — and say where to fix it — rather
@@ -1014,30 +1016,39 @@
     });
   }
 
+  /** The transfers switch. It lives in the header as a labelled checkbox rather
+   *  than behind the ⋮ because it changes what every figure on the card means,
+   *  and a control that answers that has to be readable without being opened.
+   *  Checked = leave transfers out, which is the default. */
+  function wireTransfersToggle() {
+    const cb = document.getElementById('forecast-ignore-transfers');
+    if (!cb) return;
+    cb.checked = !state.includeTransfers;
+    cb.addEventListener('change', () => {
+      state.includeTransfers = !cb.checked;
+      closeCard();
+      load();
+    });
+  }
+
+  /** The ⋮ now carries housekeeping only, so it hides when there is none —
+   *  an always-present trigger that opens an empty menu is a dead control. */
+  function syncKebab() {
+    const btn = document.getElementById('forecast-kebab-btn');
+    if (btn) btn.hidden = !strandedItems().length;
+  }
+
   function wireKebab() {
     const btn = document.getElementById('forecast-kebab-btn');
     if (!btn) return;
     btn.addEventListener('click', (e) => {
-      const items = [{
-        // Counting transfers is a real question but a rarely-changed one, so it
-        // sits behind the ⋮ rather than spending a third slot in the header.
-        label: 'Count transfers as spending',
-        selected: state.includeTransfers,
-        action: () => {
-          state.includeTransfers = !state.includeTransfers;
-          closeCard();
-          load();
-        },
-      }];
       const n = strandedItems().length;
-      if (n) {
-        items.push({
-          label: `Clear ${n} planned item${n === 1 ? '' : 's'} outside the forecast`,
-          action: confirmClearStranded,
-          danger: true,
-        });
-      }
-      UI.openMenu(e.currentTarget, items);
+      if (!n) return;
+      UI.openMenu(e.currentTarget, [{
+        label: `Clear ${n} planned item${n === 1 ? '' : 's'} outside the forecast`,
+        action: confirmClearStranded,
+        danger: true,
+      }]);
     });
   }
 
@@ -1139,6 +1150,7 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     wireRangePicker();
+    wireTransfersToggle();
     wireKebab();
     wirePlot();
     const acc = accountBtn();
