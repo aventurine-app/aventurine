@@ -53,6 +53,18 @@
 
   // ─── Chart ─────────────────────────────────────────────────────────────────
 
+  // Every row is its own grid, so the amount column has to be told how wide to
+  // be or each row sizes it to its own number and the bars stop sharing a right
+  // edge. The leader isn't reliably the longest string (a thousands separator
+  // or dropped cents can make a smaller number wider), so measure them all.
+  // `ch` is the digit advance in the tabular numeric font, and the symbol and
+  // separators are narrower than a digit, so this is never short.
+  function amountColumnWidth(list) {
+    let widest = 0;
+    for (const m of list) widest = Math.max(widest, formatCurrency(m.total, true).length);
+    return `${Math.max(widest, 5)}ch`;
+  }
+
   function barRow(m, rank, max) {
     // Bars are scaled against the leader, so the longest fills the track and
     // the rest are read as fractions of it. A zero-length bar can't happen —
@@ -104,7 +116,8 @@
 
     // The list arrives ranked, so the leader is simply the first row.
     const max = list[0].total;
-    el.innerHTML = `<ol class="tm-rows">${list.map((m, i) => barRow(m, i + 1, max)).join('')}</ol>`;
+    const rows = list.map((m, i) => barRow(m, i + 1, max)).join('');
+    el.innerHTML = `<ol class="tm-rows" style="--tm-amount-w:${amountColumnWidth(list)}">${rows}</ol>`;
   }
 
   // ─── Controls ──────────────────────────────────────────────────────────────

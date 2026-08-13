@@ -102,9 +102,14 @@
    the magnitude, and a colour per merchant would be encoding rank.
    ────────────────────────────────────────────────────────────────────────── */
 
+/* The list bleeds out to the card's edges (--tm-bleed mirrors .trends-card's
+   horizontal padding) and each row pays that padding back on its own, so the
+   row content sits exactly where it did while the hover band runs the full
+   width of the card. */
 .tm-rows {
+    --tm-bleed: 28px;
     list-style: none;
-    margin: 0;
+    margin: 0 calc(-1 * var(--tm-bleed));
     padding: 0;
     display: flex;
     flex-direction: column;
@@ -113,15 +118,22 @@
 
 /* The merchant column is capped, not sized to the longest name: a fixed
    baseline down the left edge of the bars is what makes twenty lengths
-   comparable at a glance, and one long name must not shove it around. */
+   comparable at a glance, and one long name must not shove it around.
+   The amount column is fixed too (--tm-amount-w, sized by the controller to
+   the longest amount in the list): every row is its own grid, so an `auto`
+   track let each row's amount size itself and the tracks stopped agreeing —
+   the bars ended at twenty different right edges, which turns the one thing
+   the reader compares into noise. Rank is left-aligned against the row's own
+   left edge so the column lines up with the card title above it. */
 .tm-row {
     display: grid;
-    grid-template-columns: 18px minmax(0, 190px) minmax(90px, 1fr) minmax(0, auto);
+    grid-template-columns: 18px minmax(0, 190px) minmax(90px, 1fr) var(--tm-amount-w, 7ch);
     align-items: center;
     gap: 12px;
-    padding: 4px 6px;
-    border-radius: 6px;
+    padding: 4px var(--tm-bleed);
 }
+/* Square, full-bleed band: a rounded pill floating inside the card read as a
+   button, and the row is a row of a list, not a control. */
 .tm-row:hover { background: var(--frost-2); }
 
 .tm-rank {
@@ -129,7 +141,7 @@
     font-family: var(--font-numeric);
     font-size: var(--size-micro);
     font-variant-numeric: tabular-nums;
-    text-align: right;
+    text-align: left;
 }
 
 .tm-merchant {
@@ -190,7 +202,7 @@
 /* Narrow window: the amount keeps its column, the merchant name gives up width
    first — it has an ellipsis and a tooltip, the bar has neither. */
 @media (max-width: 900px) {
-    .tm-row { grid-template-columns: 18px minmax(0, 130px) minmax(70px, 1fr) minmax(0, auto); gap: 10px; }
+    .tm-row { grid-template-columns: 18px minmax(0, 130px) minmax(70px, 1fr) var(--tm-amount-w, 7ch); gap: 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
