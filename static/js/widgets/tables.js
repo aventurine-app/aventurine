@@ -510,6 +510,30 @@
     const cellLayerValue = (layer, year, month, col) =>
         layer?.[String(year)]?.[month]?.[col];
 
+    /**
+     * Re-render a settled cell at full precision: "$1,240" becomes "$1,240.00".
+     *
+     * A statement column is read down its decimal point, so every amount in it
+     * has to break at the same place — one whole-dollar cell without cents
+     * shifts its digits a character right and the eye loses the column.
+     * Server-loaded values already arrive through formatCurrency and carry the
+     * cents; a value the user TYPES does not, because applyCurrencyFormat
+     * deliberately echoes back exactly what was typed (padding mid-keystroke
+     * would fight the caret). So the padding lands here instead, once the cell
+     * is settled — on blur, and on the re-present after a save.
+     *
+     * No-op on an empty cell (the placeholder has to show through) and on
+     * anything that doesn't parse, which is the user's text to keep, not ours
+     * to rewrite. Provenance pages get the same padding from
+     * applyCellPresentation, which rebuilds the value from the layers.
+     */
+    function normaliseCellValue(input) {
+        if (input.value === '') return;
+        const val = parseFloat(stripCurrencyValue(input.value));
+        if (isNaN(val)) return;
+        input.value = formatCurrency(val, false, { editable: true });
+    }
+
     // Shown once ever, the first time the user overrides a computed cell —
     // teaches both halves of the model at the exact moment it changes.
     const OVERRIDE_HINT_KEY = 'cf-override-hint-shown';
@@ -607,11 +631,14 @@
         // doubles as the registry that blur and pagehide flush against, so
         // moving focus or navigating away never drops an in-progress edit.
 
-        // Re-apply a cell's provenance presentation (value/styling/tooltip/↺).
-        // No-op on pages without the layers. Defined up front so fireSaveFor
-        // and the revert button share it.
-        const present = (input, month, col, opts = {}) =>
+        // Re-apply a cell's provenance presentation (value/styling/tooltip/↺),
+        // or — on pages without the layers, i.e. the Balance Sheet — just pad
+        // the settled value back out to cents so the column stays aligned.
+        // Defined up front so fireSaveFor and the revert button share it.
+        const present = (input, month, col, opts = {}) => {
+            if (!ctx.computed) return normaliseCellValue(input);
             applyCellPresentation(input, currentYear, month, col, ctx, { onRevert, ...opts });
+        };
 
         const fireSaveFor = (input, month, col) => {
             _pendingCellSaves.delete(input);

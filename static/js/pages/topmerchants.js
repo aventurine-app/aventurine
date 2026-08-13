@@ -55,13 +55,14 @@
 
   // Every row is its own grid, so the amount column has to be told how wide to
   // be or each row sizes it to its own number and the bars stop sharing a right
-  // edge. The leader isn't reliably the longest string (a thousands separator
-  // or dropped cents can make a smaller number wider), so measure them all.
-  // `ch` is the digit advance in the tabular numeric font, and the symbol and
-  // separators are narrower than a digit, so this is never short.
+  // edge. Measure them all rather than trusting the leader to be the longest
+  // string: that only holds while every amount is formatted the same way, and
+  // the width is cheap over twenty rows. `ch` is the digit advance in the
+  // tabular numeric font, and the symbol and separators are narrower than a
+  // digit, so this is never short.
   function amountColumnWidth(list) {
     let widest = 0;
-    for (const m of list) widest = Math.max(widest, formatCurrency(m.total, true).length);
+    for (const m of list) widest = Math.max(widest, formatCurrency(m.total).length);
     return `${Math.max(widest, 5)}ch`;
   }
 
@@ -85,13 +86,17 @@
       : `<span class="tm-merchant" title="${label}">${inner}</span>`;
 
     const times = `${m.count} transaction${m.count === 1 ? '' : 's'}`;
+    // Cents are always drawn, even on a whole-dollar total. Twenty amounts in
+    // one right-aligned column read as a column only if they all break at the
+    // same place — a lone "$1,240" among "$1,238.47"s shifts the digits that
+    // matter and the eye has to re-find the decimal point on every row.
     return `<li class="tm-row">
       <span class="tm-rank">${rank}</span>
       ${merchant}
       <span class="tm-track" title="${label}: ${times}">
         <span class="tm-fill" style="width:${pct.toFixed(2)}%;animation-delay:${delay}ms"></span>
       </span>
-      <span class="tm-amount">${escapeHtml(formatCurrency(m.total, true))}</span>
+      <span class="tm-amount">${escapeHtml(formatCurrency(m.total))}</span>
     </li>`;
   }
 

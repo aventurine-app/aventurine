@@ -187,11 +187,14 @@
     animation: tm-grow 0.55s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
+/* Regular weight, not semibold: the bar beside it already carries the emphasis,
+   so bolding the number too made the column shout over the merchant names it is
+   read against. */
 .tm-amount {
     color: var(--text-primary);
     font-family: var(--font-numeric);
     font-size: var(--size-small);
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-regular);
     font-variant-numeric: tabular-nums;
     text-align: right;
     white-space: nowrap;
