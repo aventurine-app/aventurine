@@ -127,45 +127,114 @@
         return bleedSet.has(file);
     }
 
-    /** The merchant avatar for `label`: a bundled brand icon when we have one,
-     *  otherwise the deterministic colour + initials circle. `label` is expected
-     *  pre-escaped-safe (callers pass it through escapeHtml themselves, matching
-     *  how every other renderer in this app builds HTML strings). */
+    // ── The user's say in it (Settings → Appearance → Merchant Icons) ───────
+    // Tier 1 is opt-OUT: on by default, and turning it off falls every avatar
+    // back to tier 2, which is the same abstention a merchant we ship no icon
+    // for already gets. localStorage-backed like the other display prefs (see
+    // settings.js); read per render rather than cached at load, so a page that
+    // draws rows later already honours the current setting.
+    const ICONS_PREF_KEY = 'merchant_icons';
+
+    function merchantIconsEnabled() {
+        // Guarded: merchantIcons.test.js runs this file in a bare vm sandbox
+        // with no localStorage, and the icons are on there.
+        if (typeof localStorage === 'undefined') return true;
+        return localStorage.getItem(ICONS_PREF_KEY) !== '0';
+    }
+
+    function iconMarkup(file, initials, slot) {
+        const fit = isFullBleed(file) ? ' avatar-circle-bleed' : '';
+        // The initials circle this icon replaced is carried along on the
+        // element, so the error path below can restore the real fallback
+        // instead of an empty disc. Computing it here costs nothing and is
+        // the only place the label is still in hand.
+        return `<span class="avatar-circle avatar-circle-icon${fit}" aria-hidden="true"` +
+            ` data-icon="${escapeHtml(file)}" data-fallback="${escapeHtml(initials)}" data-slot="${slot}">` +
+            `<img src="/static/merchant-icons/${encodeURIComponent(file)}.png" alt="" loading="lazy"></span>`;
+    }
+
+    // `file` is the icon this merchant WOULD have shown, when there is one and
+    // the setting is off. Keeping its name on the element is what lets the
+    // toggle put the icon back in place (refreshMerchantAvatars) instead of
+    // making every page re-render its rows.
+    function initialsMarkup(initials, slot, file) {
+        const carried = file
+            ? ` data-icon="${escapeHtml(file)}" data-fallback="${escapeHtml(initials)}" data-slot="${slot}"`
+            : '';
+        return `<span class="avatar-circle avatar-circle-${slot}" aria-hidden="true"${carried}>${escapeHtml(initials)}</span>`;
+    }
+
+    /** The merchant avatar for `label`: a bundled brand icon when we have one
+     *  and the user hasn't turned them off, otherwise the deterministic colour
+     *  + initials circle. `label` is expected pre-escaped-safe (callers pass it
+     *  through escapeHtml themselves, matching how every other renderer in this
+     *  app builds HTML strings). */
     function merchantAvatarHtml(label) {
         const initials = avatarInitials(label);
         const colorKey = avatarColorKey(label);
         const slot = colorKey ? avatarHashString(colorKey) % AVATAR_SLOTS : 0;
 
         const file = merchantIconFile(label);
-        if (file) {
-            const fit = isFullBleed(file) ? ' avatar-circle-bleed' : '';
-            // The initials circle this icon replaced is carried along on the
-            // element, so the error path below can restore the real fallback
-            // instead of an empty disc. Computing it here costs nothing and is
-            // the only place the label is still in hand.
-            return `<span class="avatar-circle avatar-circle-icon${fit}" aria-hidden="true"` +
-                ` data-fallback="${escapeHtml(initials)}" data-slot="${slot}">` +
-                `<img src="/static/merchant-icons/${encodeURIComponent(file)}.png" alt="" loading="lazy"></span>`;
-        }
-        return `<span class="avatar-circle avatar-circle-${slot}" aria-hidden="true">${escapeHtml(initials)}</span>`;
+        return (file && merchantIconsEnabled())
+            ? iconMarkup(file, initials, slot)
+            : initialsMarkup(initials, slot, file);
+    }
+
+    // ── Swapping tiers in place ─────────────────────────────────────────────
+    // Both directions on an avatar already in the DOM, from the data the
+    // markup above always carries. No page has to know the setting exists.
+
+    function showInitials(box) {
+        box.classList.remove('avatar-circle-icon', 'avatar-circle-bleed');
+        box.classList.add(`avatar-circle-${box.dataset.slot || 0}`);
+        box.textContent = box.dataset.fallback || '?';
+    }
+
+    function showIcon(box) {
+        const file = box.dataset.icon;
+        if (!file) return;
+        box.classList.remove(`avatar-circle-${box.dataset.slot || 0}`);
+        box.classList.add('avatar-circle-icon');
+        box.classList.toggle('avatar-circle-bleed', isFullBleed(file));
+        box.textContent = '';
+        const img = document.createElement('img');
+        img.alt = '';
+        img.loading = 'lazy';
+        img.src = `/static/merchant-icons/${encodeURIComponent(file)}.png`;
+        box.appendChild(img);
+    }
+
+    /** Bring every avatar already on the page in line with the current setting.
+     *  Called by settings.js when the toggle flips, so the change lands on the
+     *  open page without a reload and without any page re-fetching its rows.
+     *  Only avatars with an icon to show or hide carry [data-icon]. */
+    function refreshMerchantAvatars(root) {
+        const on = merchantIconsEnabled();
+        (root || document).querySelectorAll('.avatar-circle[data-icon]').forEach(box => {
+            if (box.classList.contains('avatar-circle-icon') === on) return;
+            if (on) showIcon(box);
+            else showInitials(box);
+        });
     }
 
     // A brand icon that fails to load (file pruned, asset dir missing from a
     // package) would otherwise leave a broken-image glyph in the ledger. Swap
     // it for the initials circle it would have been — same size, same colour it
     // would have hashed to, so the row is indistinguishable from one whose
-    // merchant we never had an icon for. Capture-phase, because <img> error
-    // events do not bubble; one listener on the document covers every avatar
-    // any page renders, including the ones drawn later.
+    // merchant we never had an icon for. The icon's name goes with it: a file
+    // that just failed shouldn't come back on the next toggle. Capture-phase,
+    // because <img> error events do not bubble; one listener on the document
+    // covers every avatar any page renders, including the ones drawn later.
     document.addEventListener('error', (ev) => {
         const img = ev.target;
         const box = img && img.tagName === 'IMG' ? img.parentElement : null;
         if (!box || !box.classList.contains('avatar-circle-icon')) return;
-        box.classList.remove('avatar-circle-icon', 'avatar-circle-bleed');
-        box.classList.add(`avatar-circle-${box.dataset.slot || 0}`);
-        box.textContent = box.dataset.fallback || '?';
+        showInitials(box);
+        delete box.dataset.icon;
     }, true);
 
     window.merchantAvatarHtml = merchantAvatarHtml;
     window.merchantIconSlug = merchantIconSlug;
+    window.merchantIconsEnabled = merchantIconsEnabled;
+    window.refreshMerchantAvatars = refreshMerchantAvatars;
 }());

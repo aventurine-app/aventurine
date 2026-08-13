@@ -105,6 +105,13 @@
         else delete document.documentElement.dataset.density;
         localStorage.setItem('ui-density', v);
     });
+    // Merchant brand icons (avatar.js), on by default. Off falls every avatar
+    // back to the initials circle; refreshMerchantAvatars converts the ones
+    // already drawn, so the change lands on the open page without a reload.
+    wirePrefRadios('merchant_icons', 'merchant_icons', '1', (v) => {
+        localStorage.setItem('merchant_icons', v);
+        if (window.refreshMerchantAvatars) window.refreshMerchantAvatars();
+    });
     // These setters (currency.js) persist and fire 'currencychange' for re-render.
     wirePrefRadios('symbol_position', 'symbol_position', 'prefix', (v) => setSymbolPosition(v));
     wirePrefRadios('hide_cents', 'hide_cents', '', (v) => setHideCents(v === '1'));
@@ -177,7 +184,7 @@
     // reset (though it only touches settings, never financial data).
 
     const PREF_KEYS = [
-        'color-theme', 'ui-density', 'currency_symbol', 'number_format',
+        'color-theme', 'ui-density', 'merchant_icons', 'currency_symbol', 'number_format',
         'symbol_position', 'hide_cents', 'negative_style', 'date_format', 'week_start',
         'zoom_level',
     ];
