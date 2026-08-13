@@ -90,6 +90,34 @@
         </div>
     </div>
 
+    <!-- Top Merchants. The card above answers "what did I spend it on"
+         (categories, month by month); this one answers "who did I spend it
+         with" (merchants, totalled), so it reads as the same ledger turned a
+         quarter turn rather than a second trend line. Its window picker is its
+         own — a report's controls live in its header, never hoisted into the
+         tab bar (see the note at the top of this file). Controller:
+         static/js/pages/topmerchants.js. -->
+    <div class="trends-card">
+        <div class="dashboard-card-header">
+            <span class="dashboard-card-title">Top Merchants<span class="fc-info" tabindex="0" role="note"
+                aria-label="The twenty merchants you spent the most with over the selected window, longest bar first. Only spending counts, so income and transfers between your own accounts are left out. Transactions are grouped by merchant, so one shop's charges add up even when its description changes from row to row. Click a bar to see that merchant's transactions in the ledger."
+                data-tip="The twenty merchants you spent the most with over the selected window, longest bar first. Only spending counts, so income and transfers between your own accounts are left out. Transactions are grouped by merchant, so one shop's charges add up even when its description changes from row to row. Click a bar to see that merchant's transactions in the ledger.">i</span></span>
+            <div class="trends-controls">
+                <div class="range-selector" id="merchants-range">
+                    <button class="range-selector-btn" id="merchants-range-btn" type="button">12 Months</button>
+                    <div class="range-selector-menu" id="merchants-range-menu" hidden>
+                        <button data-window="3"   type="button">3 Months</button>
+                        <button data-window="6"   type="button">6 Months</button>
+                        <button data-window="12"  type="button">12 Months</button>
+                        <button data-window="all" type="button">All Time</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="merchants-chart"></div>
+    </div>
+
 </div>
 
     </div><!-- /.rep-panel -->
@@ -167,5 +195,6 @@
     <script src="/static/js/widgets/forecast.js"></script>
     <script src="/static/js/widgets/cashflow-sankey.js"></script>
     <script src="/static/js/pages/trends.js"></script>
+    <script src="/static/js/pages/topmerchants.js"></script>
 </body>
 </html>

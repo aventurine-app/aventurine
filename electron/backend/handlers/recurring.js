@@ -26,6 +26,9 @@ const {
   detectRecurringSeries, normaliseDesc, localTodayIso, addMonths, addDays, daysBetween, CYCLE_MONTHS, CYCLE_DAYS,
 } = require('../services/predictions');
 const { addMonthKey, placeRecurring } = require('../services/forecast');
+// The merchant link's search term — the same rule the Top Merchants report
+// links its bars through (services/merchantSearch.js, extracted from here).
+const { searchTermByKey } = require('../services/merchantSearch');
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 const CYCLE_NAMES = Object.keys(CYCLE_DAYS);
@@ -148,84 +151,6 @@ function categoryByKey(rows) {
     winners.set(key, bestId);
   }
   return winners;
-}
-
-/** Longest common substring of two strings, matched case-insensitively and
- *  returned in `a`'s own casing. Rolling-row DP — the running substring
- *  collapses to a few dozen characters after the first pair, so the quadratic
- *  step is paid once per merchant rather than once per transaction. */
-function longestCommonSubstring(a, b) {
-  const la = a.toLowerCase();
-  const lb = b.toLowerCase();
-  let best = 0;
-  let end = 0;
-  let prev = new Array(lb.length + 1).fill(0);
-  for (let i = 1; i <= la.length; i++) {
-    const row = new Array(lb.length + 1).fill(0);
-    for (let j = 1; j <= lb.length; j++) {
-      if (la[i - 1] !== lb[j - 1]) continue;
-      row[j] = prev[j - 1] + 1;
-      if (row[j] > best) { best = row[j]; end = i; }
-    }
-    prev = row;
-  }
-  return a.slice(end - best, end);
-}
-
-/** Tidy a common substring into something a person would plausibly have typed
- *  into the ledger's Name filter, or null if there's nothing usable left.
- *  Cutting characters only ever widens a substring search, so this can't cost
- *  the recall the term is chosen for — it's purely about what the filter chip
- *  ends up reading. */
-function tidySearchTerm(term) {
-  let t = String(term).trim();
-  // A common substring routinely ends (or starts) mid-way through a store or
-  // reference number the group's descriptions disagreed on — "NETFLIX.COM
-  // 86677" out of ...8667797 and ...8667799. That fragment is noise, and the
-  // letters beside it are already doing the identifying.
-  const stripped = t.replace(/[^A-Za-z0-9]*\d+$/, '').replace(/^\d+[^A-Za-z0-9]*/, '');
-  if (/[A-Za-z]/.test(stripped)) t = stripped;
-  t = t.replace(/^[^A-Za-z0-9]+/, '').replace(/[^A-Za-z0-9]+$/, '');
-  // Too little to search on — a lone "&", or two characters that would drag in
-  // half the ledger. The caller falls back to a full description instead.
-  return /[A-Za-z]/.test(t) && t.length >= 3 ? t : null;
-}
-
-/**
- * The ledger search term for each detection key: a substring shared by EVERY
- * transaction in the group, which is what makes the Recurring card's merchant
- * link land on the whole schedule rather than the one row whose description we
- * happened to keep. Searching a single raw description would miss its own
- * siblings the moment a trailing store number varies — the exact case the user
- * clicks through to understand.
- *
- * Derived from the descriptions themselves, never from a name: the schedule's
- * label can be a user override ("Movies" for NETFLIX.COM), and searching that
- * would find nothing. Recall is guaranteed by construction (a common substring
- * is a substring of every row); precision is not, and doesn't need to be — the
- * result lands in an ordinary, visible Name filter chip the user can edit.
- */
-function searchTermByKey(rows) {
-  const common = new Map(); // detection key -> running common substring
-  const latest = new Map(); // detection key -> most recent raw description
-  for (const t of rows) {
-    const key = normaliseDesc(t.description);
-    if (!key) continue;
-    const desc = String(t.description || '');
-    latest.set(key, desc); // rows arrive date-ordered, so the last one wins
-    const running = common.get(key);
-    common.set(key, running === undefined ? desc : longestCommonSubstring(running, desc));
-  }
-
-  const terms = new Map();
-  for (const [key, sub] of common) {
-    const full = latest.get(key);
-    // Only tidy a substring the group DISAGREED on. When every description
-    // matched, the term is already a whole real description — reference number
-    // and all — and trimming it there would widen a search that was exact.
-    terms.set(key, sub === full ? full : tidySearchTerm(sub) || full);
-  }
-  return terms;
 }
 
 /**

@@ -94,6 +94,109 @@
 }
 
 
+/* ─── Top Merchants: a ranked horizontal bar chart ────────────────────────────
+   Rows of HTML rather than an SVG plot (see topmerchants.js for why): each bar
+   carries the merchant avatar and is a link into the ledger. The chart's frame
+   is the row grid — rank, merchant, one shared left baseline for every bar, and
+   a right-aligned amount column. Bars all wear ONE hue: length already encodes
+   the magnitude, and a colour per merchant would be encoding rank.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.tm-rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* The merchant column is capped, not sized to the longest name: a fixed
+   baseline down the left edge of the bars is what makes twenty lengths
+   comparable at a glance, and one long name must not shove it around. */
+.tm-row {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 190px) minmax(90px, 1fr) minmax(0, auto);
+    align-items: center;
+    gap: 12px;
+    padding: 4px 6px;
+    border-radius: 6px;
+}
+.tm-row:hover { background: var(--frost-2); }
+
+.tm-rank {
+    color: var(--text-tertiary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-micro);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.tm-merchant {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    color: var(--text-primary);
+    text-decoration: none;
+}
+.tm-name {
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* The link is the whole merchant cell, but only the name underlines — an
+   underline running under a 28px avatar reads as a strikethrough. */
+.tm-merchant-link:hover .tm-name { text-decoration: underline; }
+.tm-merchant-link:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+.tm-track {
+    height: 12px;
+    border-radius: 3px;
+    background: var(--frost-2);
+    overflow: hidden;
+}
+
+/* Square where it meets the baseline, rounded at the data end — the bar's tip
+   is the value, and rounding both ends would blunt it. */
+.tm-fill {
+    display: block;
+    height: 100%;
+    border-radius: 0 3px 3px 0;
+    background: var(--accent-primary);
+    transform: scaleX(0);
+    transform-origin: left center;
+    animation: tm-grow 0.55s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.tm-amount {
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+}
+
+@keyframes tm-grow { to { transform: scaleX(1); } }
+
+/* Narrow window: the amount keeps its column, the merchant name gives up width
+   first — it has an ellipsis and a tooltip, the bar has neither. */
+@media (max-width: 900px) {
+    .tm-row { grid-template-columns: 18px minmax(0, 130px) minmax(70px, 1fr) minmax(0, auto); gap: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tm-fill { animation: none; transform: scaleX(1); }
+}
+
 /* ─── Chart frame chrome (consumed by chart.js' .dashboard-chart SVG) ──────────── */
 .dashboard-chart .chart-grid { stroke: var(--border); stroke-width: 1; stroke-dasharray: 3 5; }
 .dashboard-chart .chart-zero { stroke: var(--text-tertiary); stroke-width: 1; stroke-dasharray: 5 4; opacity: 0.55; }
