@@ -34,8 +34,10 @@ const globals = require('globals');
 const appGlobals = {
   // core/escape.js
   escapeHtml: 'readonly',
-  // core/avatar.js
+  // core/avatar.js (core/merchant-icons.js is generated and only sets
+  // window.MERCHANT_ICONS{,_BLEED}, which avatar.js reads off `window`)
   merchantAvatarHtml: 'readonly',
+  merchantIconSlug: 'readonly',
   // core/api.js
   apiFetch: 'readonly',
   // core/store.js
