@@ -291,33 +291,18 @@
         return opts.join('');
     }
 
-    // The editable field cells (date / description / [type] / account /
-    // category / amount / notes) for one transaction. Each input carries a
-    // data-field so txReadFields() can read it back. Used both as <td>s in the
-    // inline add row and as cells in the edit modal.
+    // The editable field cells (date / description / account / category /
+    // amount / notes) for one transaction, as <td>s for the inline add row.
+    // Each input carries a data-field so txReadFields() can read it back.
     //
-    // `includeType` gates the Type <select>. The main ledger merged Type into the
-    // Category column, so the inline add row (which lives in that table and must
-    // stay column-aligned) omits it — a new row's direction follows the category
-    // it's given. The edit modal keeps its own table, so it retains the Type
-    // control: it's the one place to set direction on a row left uncategorized.
-    function txEditFieldsCells(t, { includeType = true } = {}) {
-        const txType = t.tx_type || 'expense';
-        const typeCell = includeType ? `
-        <td class="tx-col-type">
-            <select class="tx-select tx-input-type" data-field="tx_type">
-                <option value="expense"  ${txType === 'expense'  ? 'selected' : ''}>Expense</option>
-                <option value="income"   ${txType === 'income'   ? 'selected' : ''}>Income</option>
-                <option value="transfer" ${txType === 'transfer' ? 'selected' : ''}>Transfer</option>
-            </select>
-        </td>` : '';
-        // Account sits between Type and Category, matching the ledger's column
-        // order; both the inline add row and the edit modal carry it, so a
+    // No Type <select>: the main ledger merged Type into the Category column, and
+    // this row lives in that table and must stay column-aligned — a new row's
+    // direction follows the category it's given. The edit modal, which lays its
+    // fields out on its own, is where an uncategorized row's direction is set.
+    function txEditFieldsCells(t) {
+        // Account sits between Description and Category, matching the ledger's
+        // column order; both the inline add row and the edit modal carry it, so a
         // transaction's account can be set on creation and changed on edit.
-        const accountCell = `
-        <td class="tx-col-account">
-            <select class="tx-select tx-input-account" data-field="account_key">${txAccountOptions(t.account_key)}</select>
-        </td>`;
         return `
         <td class="tx-col-date">
             <input type="date" class="tx-input tx-input-date" data-field="date"
@@ -327,8 +312,9 @@
             <input type="text" class="tx-input tx-input-description" data-field="description"
                    value="${txEsc(t.description || '')}" placeholder="Description">
         </td>
-        ${typeCell}
-        ${accountCell}
+        <td class="tx-col-account">
+            <select class="tx-select tx-input-account" data-field="account_key">${txAccountOptions(t.account_key)}</select>
+        </td>
         <td class="tx-col-category">
             <select class="tx-select tx-input-category" data-field="category_id">${txCategoryOptions(t.category_id)}</select>
         </td>
@@ -341,6 +327,48 @@
                    value="${txEsc(t.notes || '')}" placeholder="Optional">
         </td>
     `;
+    }
+
+    // The same fields as a labelled form, for the single-transaction shape of the
+    // edit modal. A row of controls is what the en-masse shape needs (every column
+    // has to line up with the preview rows underneath it) and it is the wrong
+    // frame for one transaction: there is nothing to line up with, and a date
+    // mask, selects and text boxes sharing one dialog width left every control too
+    // narrow to read its own value. Same class names and data-field names, so
+    // txReadFields() reads this exactly as it read the row it replaces.
+    //
+    // No Type control: the direction rule gives a categorized row its direction
+    // from its category, so the field spent nearly all its time locked, restating
+    // the answer the Category select above it had already given. It is the ledger's
+    // own arrangement (Type merged into the Category column) and the inline add
+    // row's. Nothing is lost on save — a payload without tx_type leaves an
+    // uncategorized row's own direction alone, and a categorized one takes its
+    // category's either way.
+    function txEditFieldsForm(t) {
+        const field = (label, control, { wide = false } = {}) => `
+            <label class="tx-edit-field${wide ? ' tx-edit-field-wide' : ''}">
+                <span class="tx-edit-field-label">${label}</span>
+                ${control}
+            </label>`;
+        return `
+        <div class="tx-edit-form tx-edit-row" data-id="${t.id}">
+            ${field('Date', `
+                <input type="date" class="tx-input tx-input-date" data-field="date"
+                       value="${txEsc(t.date || '')}">`)}
+            ${field('Amount', `
+                <input type="text" inputmode="decimal" class="tx-input tx-input-amount" data-field="amount"
+                       value="${t.amount != null ? t.amount : ''}" placeholder="0.00">`)}
+            ${field('Description', `
+                <input type="text" class="tx-input tx-input-description" data-field="description"
+                       value="${txEsc(t.description || '')}" placeholder="Description">`, { wide: true })}
+            ${field('Category', `
+                <select class="tx-select tx-input-category" data-field="category_id">${txCategoryOptions(t.category_id)}</select>`)}
+            ${field('Account', `
+                <select class="tx-select tx-input-account" data-field="account_key">${txAccountOptions(t.account_key)}</select>`)}
+            ${field('Notes', `
+                <input type="text" class="tx-input tx-input-notes" data-field="notes"
+                       value="${txEsc(t.notes || '')}" placeholder="Optional">`, { wide: true })}
+        </div>`;
     }
 
     // ─── En-masse edit controls ──────────────────────────────────────────────────
@@ -491,7 +519,7 @@
                 </div>
             </td>
             <td class="tx-col-avatar"></td>
-            ${txEditFieldsCells(t, { includeType: false })}
+            ${txEditFieldsCells(t)}
         </tr>
     `;
     }
@@ -1229,8 +1257,6 @@
         // Column widths just changed, which can change how far the rows overflow —
         // realign the header with wherever the body's scroll position landed.
         txSyncHeaderScroll();
-        const newRow = document.querySelector('tr.tx-new');
-        if (newRow) txWireDirectionLock(newRow);
         txFocusFirstInput();
         txUpdateSelectionUI();
 
@@ -1240,31 +1266,12 @@
         window.setUncatBadge?.(txState.rows.filter(r => r.category_id == null).length);
     }
 
-    /**
-     * Direction is owned by the category (Category.cat_type): when an edit control
-     * group has a category selected, its Type select mirrors it and locks; only
-     * Uncategorized rows pick their own type. The backend enforces the same rule,
-     * this just keeps the UI honest about it. `scope` is any element containing a
-     * .tx-input-category + .tx-input-type pair (the inline row or a modal row).
-     */
-    function txWireDirectionLock(scope) {
-        const catSel  = scope.querySelector('.tx-input-category');
-        const typeSel = scope.querySelector('.tx-input-type');
-        if (!catSel || !typeSel) return;
-
-        const syncType = () => {
-            const catId = catSel.value === '' ? null : parseInt(catSel.value, 10);
-            if (catId != null) {
-                const type = txCategoryType(catId);
-                if (type) typeSel.value = type;
-                typeSel.disabled = true;
-            } else {
-                typeSel.disabled = false;
-            }
-        };
-        catSel.addEventListener('change', syncType);
-        syncType();
-    }
+    // (The per-row direction lock that used to live here — mirror the category's
+    // cat_type into a Type select and disable it — went out with the last Type
+    // control the single-row editors had. The en-masse control row keeps its own
+    // copy of the rule, which has a wrinkle this one never did: a "Keep" sentinel
+    // to fall back to. Direction is still the category's to give; the backend is
+    // where that is enforced, and now the only place it is stated.)
 
     function txFocusFirstInput() {
         if (txState.editingId !== 'new') return;
@@ -1333,9 +1340,16 @@
         txRender();
     }
 
-    // Read one edit-control group (the inline add row or a per-row editor in the edit modal)
+    // Read one edit-control group (the inline add row or the edit modal's form)
     // into an update/create payload. `scope` is any element containing the
     // data-field inputs.
+    //
+    // Neither group carries a Type control any more — direction is the category's
+    // to give — so tx_type is sent only if one is actually there. Defaulting it to
+    // 'expense' in its absence would have flipped an uncategorized income row
+    // every time the user saved an unrelated field. Absent, the backend leaves an
+    // existing row's direction alone and gives a new one the same 'expense'
+    // default (applyTxFields), so the create path loses nothing either.
     function txReadFields(scope) {
         if (!scope) return null;
         const get = (field) => scope.querySelector(`[data-field="${field}"]`)?.value;
@@ -1343,10 +1357,11 @@
         const amount      = parseFloat(rawAmount);
         const categoryRaw = get('category_id');
         const accountRaw  = get('account_key');
+        const txType      = get('tx_type');
         return {
             date:        get('date'),
             description: (get('description') || '').trim(),
-            tx_type:     get('tx_type') || 'expense',
+            ...(txType ? { tx_type: txType } : {}),
             category_id: categoryRaw === '' ? null : parseInt(categoryRaw, 10),
             account_key: accountRaw == null || accountRaw === '' ? null : accountRaw,
             amount:      Number.isFinite(amount) ? amount : NaN,
@@ -1434,7 +1449,7 @@
 
     // Editing wizard → three steps inside one overlay:
     //   1. Edit — one of two shapes, depending on how much is selected:
-    //        · a single row is edited field by field, as it always was;
+    //        · a single row is a labelled two-column form, one field per control;
     //        · two or more become an **en-masse** update — one control row on
     //          top holds the edit, and the rows it will rewrite are listed
     //          read-only beneath it, columns struck through as they're claimed.
@@ -1473,20 +1488,13 @@
                     ${TX_BULK_COLGROUP}
                     <tbody>${txs.map(txBulkPreviewRow).join('')}</tbody>
                 </table>`
-            : `
-                <div class="tx-edit-table-wrap">
-                    <table class="tx-edit-table">
-                        <thead><tr>${TX_EDIT_HEAD_CELLS}</tr></thead>
-                        <tbody>${txs.map(t => `
-                            <tr class="tx-edit-row" data-id="${t.id}">${txEditFieldsCells(t)}</tr>`).join('')}</tbody>
-                    </table>
-                </div>`;
+            : txEditFieldsForm(txs[0]);
 
         const overlay = document.createElement('div');
         overlay.className = 'tx-edit-overlay';
         overlay.id = 'tx-edit-overlay';
         overlay.innerHTML = `
-        <div class="tx-edit-dialog">
+        <div class="tx-edit-dialog is-edit-step${bulk ? ' is-bulk-edit' : ''}">
             <div class="tx-edit-header">
                 <span class="tx-edit-title" id="tx-edit-title">Edit ${txs.length} transaction${plural}</span>
                 <button class="tx-import-close" id="tx-edit-close" aria-label="Close">&times;</button>
@@ -1522,9 +1530,6 @@
         </div>`;
         document.body.appendChild(overlay);
 
-        // Each row's Type select mirrors + locks to its category, same as the inline row.
-        overlay.querySelectorAll('.tx-edit-row').forEach(row => txWireDirectionLock(row));
-
         const $ = (sel) => overlay.querySelector(sel);
         const applyRow = bulk ? $('#tx-bulk-apply') : null;
         const steps = {
@@ -1553,6 +1558,9 @@
         function showStep(next) {
             step = next;
             for (const [k, el] of Object.entries(steps)) el.hidden = k !== step;
+            // Step 1 is settled content the dialog can size itself to; the wizard
+            // steps go back to the fixed height (transactions.css §11).
+            $('.tx-edit-dialog').classList.toggle('is-edit-step', step === 'edit');
             $('#tx-cascade-toggle').hidden = step !== 'edit';
             backBtn.hidden = step === 'edit';
             titleEl.textContent =

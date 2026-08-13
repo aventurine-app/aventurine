@@ -540,6 +540,7 @@
 /* Category-group headers inside the option list — the .tx-pop-label eyebrow
    voice, spaced off the group above. */
 .tx-pop-group-label {
+    flex: 0 0 auto;   /* same no-squash rule as the options below */
     padding: 8px 8px 3px;
     color: var(--text-tertiary);
     font-family: var(--font-menu);
@@ -555,6 +556,11 @@
     gap: 9px;
     width: 100%;
     height: 30px;
+    /* Hold that height: as flex children in a capped-height column, rows shrink
+       before the list agrees to scroll, so a long Account/Category list squashed
+       its rows (and its hover fill) to ~21px while the short Type list kept the
+       full 30. Every list scrolls at the same row height now. */
+    flex: 0 0 auto;
     padding: 0 8px;
     border: 0;
     border-radius: 6px;
@@ -756,6 +762,11 @@
 
 .tx-row td {
     height: var(--tx-row-height);
+    /* Matches the row's own hover transition above: the selected-row fill is
+       painted on the CELLS (it has to sit over the row's frost), so without
+       this the select/deselect step is the one background change on this table
+       that snaps. */
+    transition: background-color 0.15s ease;
     padding-top: 0;
     padding-bottom: 0;
     padding-left: 16px;
@@ -984,6 +995,21 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     color: var(--text-tertiary);
 }
 
+/* Category owns direction, so the en-masse control row's Type select locks the
+   moment a category is picked. Muted, not faded out: the value it shows is still
+   the honest answer, it just isn't the user's to set from there.
+   background-COLOR, not the shorthand: .tx-select draws its caret as a
+   background-image, and resetting that leaves the locked field the only control
+   in the row without an arrow. Text stays at --text-secondary because
+   --text-tertiary is the placeholder colour — at tertiary, a locked "Expense"
+   read as an empty field beside the "Keep" next to it. */
+.tx-input:disabled,
+.tx-select:disabled {
+    background-color: var(--surface1);
+    color: var(--text-secondary);
+    cursor: default;
+}
+
 /* Number/date/amount inputs use the numeric family + tabular numerals. */
 .tx-input-date,
 .tx-input-amount {
@@ -1062,9 +1088,17 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     vertical-align: middle;
 }
 
-/* Selected rows get a subtle accent wash (sits above the hover frost). */
+/* Selected rows get an accent wash, tuned per theme (style.css/themes.css) and
+   mixed over --surface1 (.tx-wrapper, the card these rows actually sit on).
+   The fill covers the row's :hover frost, so selected rows carry their own
+   hover step — without it a selected row is the one row that stops responding
+   to the pointer. */
 .tx-row.tx-selected td {
-    background: color-mix(in srgb, var(--accent-primary) 10%, var(--background));
+    background: var(--row-selected-bg);
+}
+
+.tx-row.tx-selected:hover td {
+    background: var(--row-selected-bg-hover);
 }
 
 .tx-action-group {
@@ -1791,10 +1825,11 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 
 /* ─── 11. Edit modal ─────────────────────────────────────────────────────── */
 /* Opened from the header Edit button, in one of two shapes: a single selected
-   transaction is laid out with all fields editable, while two or more become
-   an en-masse update — one control row over the rows it will rewrite. Either
-   way there's one Save-all button. Shell mirrors the similar / import modals;
-   it's wider to hold the seven editable columns. */
+   transaction is a labelled form, while two or more become an en-masse update —
+   one control row over the rows it will rewrite. Either way there's one Save-all
+   button. Shell mirrors the similar / import modals; the two shapes size
+   differently (see the modifiers below), because one is a form and the other is
+   a seven-column table. */
 
 /* Positioning + centering come from the shared overlay rule in style.css §8. */
 .tx-edit-overlay {
@@ -1808,8 +1843,6 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     display: flex;
     flex-direction: column;
     width: 94vw;
-    /* Wide enough for the seven edit columns (Date · Description · Type ·
-       Category · Account · Amount · Notes) — the same set the ledger shows. */
     max-width: 1040px;
     /* Fixed, not content-driven: the wizard's match list grows and shrinks
        with every slider query, and a height that tracked it would make the
@@ -1821,6 +1854,25 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
     overflow: hidden;
 }
+
+/* …except on step 1, whose content is settled the moment the dialog opens: a
+   form of fixed size, or a list of exactly the rows the user selected. Neither
+   resizes after that, so the dialog takes its height from what it holds instead
+   of standing 82vh tall around three preview rows. The fixed height comes back
+   for the wizard steps, whose match list is the thing that DOES resize under
+   the slider — showStep() owns the swap. */
+.tx-edit-dialog.is-edit-step {
+    height: auto;
+    max-height: 82vh;
+}
+
+/* The en-masse shape is the one that genuinely needs seven columns (Date ·
+   Description · Type · Category · Account · Amount · Notes — the ledger's own
+   set), so it gets the width to hold them: at 1040 the date cell clipped its
+   own mm/dd/yyyy mask. Set for the whole flow rather than per step, because a
+   dialog that changed width under the Next button would read as a different
+   dialog. */
+.tx-edit-dialog.is-bulk-edit { max-width: 1280px; }
 
 .tx-edit-header {
     display: flex;
@@ -1865,6 +1917,53 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     padding: 4px 8px;
     vertical-align: middle;
 }
+
+/* ── Single edit (exactly 1 row selected) ─────────────────────────────────
+   One transaction has no preview rows to stay column-aligned with, so it drops
+   the table: the fields become a two-column form, each control labelled above
+   itself. As a row of seven, a date mask, three selects and three text boxes
+   shared one dialog width and every one of them was too narrow to read its own
+   value — the account and category names truncated mid-word.
+
+   Capped and centred rather than stretched across the dialog. The dialog is
+   wide because the wizard's match list needs the room, not because a form
+   does, and a Notes box half a metre across reads as a mistake. Two columns
+   because the pairs are real ones: when something happened and for how much,
+   then what it was and which way it ran. */
+.tx-edit-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 8px 0;
+}
+
+.tx-edit-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    /* Grid items floor at min-content otherwise, and a long option would push
+       the column past its track instead of letting the select ellipsise. */
+    min-width: 0;
+}
+
+.tx-edit-field-wide { grid-column: 1 / -1; }
+
+/* The eyebrow voice the app labels dialog fields in (.rec-add-label) and the
+   same one the table header above used, so the shapes read as one control. */
+.tx-edit-field-label {
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+}
+
+/* Amount is right-aligned in the ledger's narrow column; given a whole field to
+   itself it reads left, where every other value in the form starts. */
+.tx-edit-form .tx-input-amount { text-align: left; }
 
 /* ── En-masse edit (2+ rows selected) ──────────────────────────────────────
    One control row on top, the transactions it will rewrite listed read-only

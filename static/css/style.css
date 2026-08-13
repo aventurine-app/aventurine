@@ -320,6 +320,18 @@
    --chip-active-bg-hover: var(--color-accent-300);
    --chip-active-stroke:   var(--color-accent-700);
    --chip-active-text:     var(--color-accent-700);
+
+   /* Selected table row (Transactions ledger) — an accent wash over the CARD
+      the rows sit on (--surface1), never over --background: the page behind the
+      card is a different rung in both themes, so mixing against it puts the
+      wash at the wrong lightness. The percentage is per-theme because the same
+      mix does not travel: a 10% accent wash reads clearly on a near-white card
+      and vanishes on a near-black one (see themes.css). Both themes hold two
+      rules — the wash must be louder than the plain :hover frost, or a hovered
+      unselected row outshouts a selected one, and hovering a selected row has
+      to move too, since the row fill covers the frost entirely. */
+   --row-selected-bg:       color-mix(in srgb, var(--accent-primary) 20%, var(--surface1));
+   --row-selected-bg-hover: color-mix(in srgb, var(--accent-primary) 28%, var(--surface1));
 }
 
 

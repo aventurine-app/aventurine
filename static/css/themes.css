@@ -132,6 +132,20 @@ html[data-theme="dark"],
     --chip-active-bg-hover: var(--color-accent-700);
     --chip-active-stroke:   var(--color-accent-600);
     --chip-active-text:     var(--color-accent-200);
+
+    /* Selected table row — the light theme's percentages carried over gave the
+       ledger a selection nobody could see: 20% of a mid accent over a near-black
+       card lands at the card's own lightness (1.0:1), and the plain hover frost
+       above it read LOUDER than a selection. A wash gets its contrast from the
+       gap between the mix and the surface, and there is far less room to darken
+       toward black than to lighten toward white, so dark needs more accent to
+       travel the same distance: 25% clears the card at 1.48:1 (light sits at
+       1.27:1, and low-luminance surfaces need the larger ratio to read as the
+       same step) and stays well clear of hover's 1.14:1. It also lands on the
+       same wash .db-table td.cell-selected already uses (tables.css), so row
+       selection and cell selection finally agree in this theme. */
+    --row-selected-bg:       color-mix(in srgb, var(--accent-primary) 25%, var(--surface1));
+    --row-selected-bg-hover: color-mix(in srgb, var(--accent-primary) 34%, var(--surface1));
 }
 
 
