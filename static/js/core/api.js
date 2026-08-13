@@ -347,6 +347,37 @@
         { key: '__uncategorized__', name: 'Uncategorized', monthly: trendSeries(90, 2) },
       ],
     },
+    // static/js/pages/topmerchants.js — the ranked merchant bars under the
+    // Spending Trends chart. One fixture serves every window (query strings are
+    // ignored here), so the picker changes the label and not the bars. Mixed on
+    // purpose: curated display names (which draw a brand icon and link by name)
+    // alongside raw bank descriptions (initials circle, linked by the substring
+    // their rows share) — both tiers have to look right in UI mode.
+    '/api/top-merchants': {
+      ok: true, window: 12, from: trendsMonths[0], limit: 20,
+      merchants: [
+        { key: 'n:trader joe\'s',  name: "Trader Joe's",     total: 2140.32, count: 61, last_date: `${year}-08-04`, search: "Trader Joe's" },
+        { key: 'n:costco',         name: 'Costco',           total: 1875.4,  count: 22, last_date: `${year}-08-02`, search: 'Costco' },
+        { key: 'n:amazon',         name: 'Amazon',           total: 1502.18, count: 47, last_date: `${year}-08-09`, search: 'Amazon' },
+        { key: 'd:city power gas', name: 'CITY POWER & GAS', total: 1284,    count: 12, last_date: `${year}-08-01`, search: 'CITY POWER' },
+        { key: 'n:target',         name: 'Target',           total: 964.77,  count: 19, last_date: `${year}-07-28`, search: 'Target' },
+        { key: 'n:chevron',        name: 'Chevron',          total: 812.5,   count: 24, last_date: `${year}-08-07`, search: 'Chevron' },
+        { key: 'n:verizon',        name: 'Verizon',          total: 780,     count: 12, last_date: `${year}-08-05`, search: 'Verizon' },
+        { key: 'n:comcast',        name: 'Comcast',          total: 719.88,  count: 12, last_date: `${year}-08-03`, search: 'Comcast' },
+        { key: 'd:harborside dental', name: 'HARBORSIDE DENTAL', total: 640, count: 3,  last_date: `${year}-06-19`, search: 'HARBORSIDE DENTAL' },
+        { key: 'n:chipotle',       name: 'Chipotle',         total: 486.25,  count: 33, last_date: `${year}-08-08`, search: 'Chipotle' },
+        { key: 'n:walgreens',      name: 'Walgreens',        total: 421.6,   count: 17, last_date: `${year}-07-31`, search: 'Walgreens' },
+        { key: 'n:uber',           name: 'Uber',             total: 388.14,  count: 29, last_date: `${year}-08-09`, search: 'Uber' },
+        { key: 'n:state farm',     name: 'State Farm',       total: 372,     count: 6,  last_date: `${year}-08-01`, search: 'State Farm' },
+        { key: 'd:pinehill hardware', name: 'PINEHILL HARDWARE', total: 296.4, count: 8, last_date: `${year}-07-22`, search: 'PINEHILL HARDWARE' },
+        { key: 'n:spotify',        name: 'Spotify',          total: 191.88,  count: 12, last_date: `${year}-08-06`, search: 'Spotify' },
+        { key: 'n:netflix',        name: 'Netflix',          total: 185.88,  count: 12, last_date: `${year}-08-04`, search: 'Netflix' },
+        { key: 'd:lakeview parking', name: 'LAKEVIEW PARKING', total: 164,   count: 41, last_date: `${year}-08-08`, search: 'LAKEVIEW PARKING' },
+        { key: 'n:lyft',           name: 'Lyft',             total: 142.6,   count: 11, last_date: `${year}-07-30`, search: 'Lyft' },
+        { key: 'd:rosewood bakery', name: 'ROSEWOOD BAKERY',  total: 118.45, count: 26, last_date: `${year}-08-07`, search: 'ROSEWOOD BAKERY' },
+        { key: 'n:shell',          name: 'Shell',            total: 96.2,    count: 4,  last_date: `${year}-07-25`, search: 'Shell' },
+      ],
+    },
     // static/js/widgets/forecast.js — see forecastFixture above.
     '/api/forecast': forecastFixture,
     // static/js/pages/reportcard.js — year-over-year income/expense summary
