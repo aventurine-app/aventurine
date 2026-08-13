@@ -440,7 +440,7 @@
    short viewports. */
 .settings-modal-tabbed {
     width: 660px;
-    height: 580px;
+    height: 696px;
 }
 
 .settings-modal-body {
@@ -449,6 +449,14 @@
     display: flex;
     flex-direction: column;
     gap: 24px;
+}
+
+/* In the fixed-height tabbed frame the body takes ALL the leftover space, so a
+   short tab leaves its slack inside the scroll area instead of pushing the
+   footer up the modal. min-height:0 lets it shrink for a tall tab and scroll. */
+.settings-modal-tabbed .settings-modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 /* ── Section tabs ───────────────────────────────────────────────────────
@@ -496,13 +504,18 @@
    toggled by settings.js). */
 .settings-tabpanel[hidden] { display: none; }
 
-/* Footer pinned below the scrollable body; holds the Restore Defaults action. */
+/* Footer pinned below the scrollable body; holds the Restore Defaults action.
+   Fixed height (and centred contents rather than stretched ones) so the bar
+   reads the same on every tab — a short tab must not shrink or move it. */
 .settings-modal-footer {
     flex-shrink: 0;
+    box-sizing: border-box;
+    height: 62px;
     display: flex;
+    align-items: center;
     justify-content: flex-end;
     gap: 8px;
-    padding: 14px 22px;
+    padding: 0 22px;
     border-top: var(--border-width) solid var(--border);
 }
 
