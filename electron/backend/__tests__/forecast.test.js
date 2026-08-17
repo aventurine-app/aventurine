@@ -211,20 +211,6 @@ test('forecast: history and projection meet at today, over a symmetric domain', 
   assert.equal(r.history[r.history.length - 1].balance, 1000);
 });
 
-test('forecast: `dips` separates a real cash crunch from a line that only climbs', () => {
-  const income = ['01', '02', '03', '04', '05'].map((m) => inc(`2026-${m}-01`, 4000));
-  const up = forecast({ startBalance: 1000, income, expense: [], planned: [], months: 3, today: '2026-06-01' });
-  // `lowest` is week 0 on a rising line — true, and no kind of warning.
-  assert.equal(up.summary.lowest.balance, 5000);
-  assert.equal(up.summary.dips, false);
-
-  const down = forecast({
-    startBalance: 1000, income: [], expense: [], months: 1, today: '2026-06-01',
-    planned: [{ amount: 800, flow: 'expense', date: '2026-06-10' }],
-  });
-  assert.equal(down.summary.dips, true);
-});
-
 // ── an overdue-but-live charge lands imminently, not a cycle from now ────────
 
 test('placeRecurring: a charge overdue within tolerance is caught up to today', () => {

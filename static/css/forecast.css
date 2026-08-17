@@ -197,9 +197,9 @@
 
 .fc-lead-value.fc-neg { color: var(--accent-negative); }
 
-/* Shown only when the line actually dips below where it started — on a rising
-   line the "lowest point" was week zero, which is true and no kind of warning.
-   Two steps: tight (a dip) is informational, broke (below zero) is the alarm. */
+/* Shown only when the projection runs out of money. A dip that stays above zero
+   gets no line: "tightest week" was a level the chart already draws, and on a
+   rising line the lowest point is week zero, which is no kind of warning. */
 .fc-risk {
     margin: 0;
     color: var(--text-secondary);
@@ -308,12 +308,6 @@
    would be overwritten the moment that finishes. */
 .forecast-chart .chart-dot-projected { fill-opacity: 0.5; }
 
-/* The projected low point is a warning, so it comes back to full strength. */
-.forecast-chart .chart-dot-low {
-    stroke: var(--text-primary);
-    stroke-width: 1.5;
-    fill-opacity: 1;
-}
 .forecast-chart .chart-dot-neg { fill: var(--accent-negative) !important; fill-opacity: 1; }
 
 /* Today — where recorded history hands over to the projection, at the balance

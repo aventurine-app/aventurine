@@ -143,7 +143,6 @@
         endBalance: last.balance,
         endDate: last.weekEnd,
         lowest, belowZero: false,
-        dips: lowest.balance < startBalance,
         avgIncome: 4200, avgExpense: 3800, monthsUsed: 6, window: 6,
       },
       planned: [

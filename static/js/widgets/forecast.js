@@ -17,12 +17,14 @@
 // made the reader assemble the sentence themselves out of three numbers; the
 // provenance footnote and the "hover the line to…" instruction that briefly
 // replaced it were just more words in the same place. What is left renders
-// conditionally and only when it changes how the number should be read: the dip
-// (when the line actually goes below where it started), the scope fallback, and
-// a stale starting balance. The transfers switch used to write a line here too;
-// it is a labelled checkbox in the header now, and a control that states its own
-// state does not also need prose restating it. Method notes live in the card
-// title's one tooltip.
+// conditionally and only when it changes how the number should be read: running
+// out of money, the scope fallback, and a stale starting balance. A merely
+// tighter week is not one of them — it is a level the line already draws, and
+// calling it out spent a sentence on something that was never a warning (the
+// dot that thickened at that week went with it). The transfers switch used to
+// write a line here too; it is a labelled checkbox in the header now, and a
+// control that states its own state does not also need prose restating it.
+// Method notes live in the card title's one tooltip.
 //
 // PLANNED ITEMS live ON the line. Each is a pin at its date, hovering (or
 // clicking, which pins the card) opens a floating card carrying label, amount,
@@ -247,15 +249,13 @@
         ${money(d.start_balance)} forward with only your planned items applied.</p>`;
     }
 
-    // ── Risk line, only when there is a risk. `dips` is false on a line that
-    // only climbs, where "lowest point" was just week zero wearing a warning.
+    // ── Risk line, only when there is a risk. Running out of money is the one
+    // dip worth a sentence: a merely tighter week is a level the line already
+    // draws, and naming it spent a line on something that was never a warning.
     if (summary.belowZero) {
       html += `<p class="fc-risk fc-risk-alarm">Runs out of money the week of
         ${escapeHtml(summary.lowest.label)}, down to
         ${escapeHtml(fmtMoney(summary.lowest.balance))}.</p>`;
-    } else if (summary.dips) {
-      html += `<p class="fc-risk">Tightest the week of ${escapeHtml(summary.lowest.label)},
-        at ${escapeHtml(fmtMoney(summary.lowest.balance))}.</p>`;
     }
 
     // ── Caveats ONLY. There is no standing provenance line and no "hover the
@@ -431,7 +431,6 @@
     };
 
     const color = readAccent();
-    const lowestWeek = d.summary.lowest && d.summary.lowest.weekStart;
     const baseY = H - PB;
 
     let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg"
@@ -497,16 +496,14 @@
     svg += draw(futurePts, { projected: true });
 
     const dot = (p) => {
-      const isLow = p.week && p.week.weekStart === lowestWeek && d.summary.dips;
       const cls = `chart-dot${p.anchor ? ' chart-dot-anchor' : ''}`
-        + `${p.week ? ' chart-dot-projected' : ''}`
-        + `${isLow ? ' chart-dot-low' : ''}${p.balance < 0 ? ' chart-dot-neg' : ''}`;
+        + `${p.week ? ' chart-dot-projected' : ''}${p.balance < 0 ? ' chart-dot-neg' : ''}`;
       let title;
       if (p.anchor) title = `Today: ${fmtMoney(p.balance)}`;
       else if (p.past) title = `Week of ${p.past.label}: ${fmtMoney(p.balance)}`;
       else title = `Projected week of ${p.week.label}: ${fmtMoney(p.balance)} (net ${fmtMoney(p.week.net)})`;
       return `<circle class="${cls}" cx="${xScale(p.date)}" cy="${yScale(p.balance)}"
-        r="${isLow ? 4.5 : 3}" fill="${color}"><title>${escapeHtml(title)}</title></circle>`;
+        r="3" fill="${color}"><title>${escapeHtml(title)}</title></circle>`;
     };
     svg += allPts.map(dot).join('');
 

@@ -347,7 +347,7 @@ function historySeries({ endBalance, income, expense, spanDays, today }) {
  *   { anchor: { date, balance },
  *     series: [{ weekStart, weekEnd, label, income, expense, net, balance }],
  *     summary: { endBalance, endDate, lowest: { weekStart, label, balance },
- *                belowZero, dips, avgIncome, avgExpense, monthsUsed, window } }
+ *                belowZero, avgIncome, avgExpense, monthsUsed, window } }
  *
  * `anchor` is where the line STARTS — today, at the starting balance, before any
  * projected flow. The series' first entry is already a week of flows in, so a
@@ -441,12 +441,11 @@ function forecast({
     summary: {
       endBalance: series.length ? series[series.length - 1].balance : openingBalance,
       endDate: series.length ? series[series.length - 1].weekEnd : todayIso,
+      // The low point of the projection. Only the below-zero case is surfaced:
+      // on a line that only climbs `lowest` is just week 0, so the level alone
+      // says nothing worth reading.
       lowest,
       belowZero,
-      // Whether the projection ever dips BELOW where it started. On a line that
-      // only climbs, `lowest` is just week 0 — true, and useless as a warning —
-      // so the reader needs to know there was a dip at all before showing it.
-      dips: !!lowest && lowest.balance < openingBalance,
       avgIncome: round2(avg.avgIncome),
       avgExpense: round2(avg.avgExpense),
       monthsUsed: avg.monthsUsed,
