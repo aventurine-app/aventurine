@@ -411,9 +411,11 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
     /* The same 1px hairline every other bordered control wears, so the track
        reads as one of them rather than a floating patch of grey. */
     border: 1px solid var(--segctl-stroke);
-    /* Inner card radius 8 + 4px track padding + the 1px border, so the curves
-       stay concentric. */
-    border-radius: 13px;
+    /* Pill — the app's 999px idiom (the Transactions filter chips, the
+       onboarding progress bar), not 50%, which on a wide box draws an ellipse
+       rather than a capsule. A pill track needs no concentric arithmetic: the
+       pill segments inside it follow the same arc at any height. */
+    border-radius: 999px;
 }
 
 /* Type + box tokens mirror the action-button shape (buttons.css) — same
@@ -425,7 +427,10 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
     /* Transparent hairline reserves the active tab's border so the label never
        shifts when selection lands (buttons must stand still). */
     border: 1px solid transparent;
-    border-radius: 8px;
+    /* Pill, matching the track above. The fill/type tokens still mirror
+       .button-primary; only the corner differs, because a segment sits inside a
+       pill track and a button doesn't. */
+    border-radius: 999px;
     box-sizing: border-box;
     height: var(--control-height);
     color: var(--text-secondary);
