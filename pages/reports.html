@@ -39,8 +39,8 @@
     <div class="forecast-card forecast-card-main">
         <div class="dashboard-card-header">
             <span class="dashboard-card-title">Cash Flow<span class="fc-info" tabindex="0" role="note"
-                aria-label="Where your money flowed for the selected year. Income categories on the left feed a central Net Inflow, which fans out to your expense categories on the right; each band is sized by the total for that category. Hover any node or flow for its amount. Everything is computed on your device — nothing leaves it."
-                data-tip="Where your money flowed for the selected year. Income categories on the left feed a central Net Inflow, which fans out to your expense categories on the right; each band is sized by the total for that category. Hover any node or flow for its amount. Everything is computed on your device — nothing leaves it.">i</span></span>
+                aria-label="Income is shown on the left. Expenses are shown on the right. Hover a band to see total amount. Click on a band to be taken to a list of transactions."
+                data-tip="Income is shown on the left. Expenses are shown on the right. Hover a band to see total amount. Click on a band to be taken to a list of transactions.">i</span></span>
             <div class="forecast-controls">
                 <div class="range-selector" id="cashflow-year">
                     <button class="range-selector-btn" id="cashflow-year-btn" type="button">Year</button>
@@ -100,8 +100,8 @@
     <div class="trends-card">
         <div class="dashboard-card-header">
             <span class="dashboard-card-title">Top Merchants<span class="fc-info" tabindex="0" role="note"
-                aria-label="The twenty merchants you spent the most with over the selected window, longest bar first. Only spending counts, so income and transfers between your own accounts are left out. Transactions are grouped by merchant, so one shop's charges add up even when its description changes from row to row. Click a bar to see that merchant's transactions in the ledger."
-                data-tip="The twenty merchants you spent the most with over the selected window, longest bar first. Only spending counts, so income and transfers between your own accounts are left out. Transactions are grouped by merchant, so one shop's charges add up even when its description changes from row to row. Click a bar to see that merchant's transactions in the ledger.">i</span></span>
+                aria-label="Top 20 merchants based on Expenses (excludes Income and Transfers). Click on merchant name to be taken to transaction list."
+                data-tip="Top 20 merchants based on Expenses (excludes Income and Transfers). Click on merchant name to be taken to transaction list.">i</span></span>
             <div class="trends-controls">
                 <div class="range-selector" id="merchants-range">
                     <button class="range-selector-btn" id="merchants-range-btn" type="button">12 Months</button>
@@ -143,8 +143,8 @@
                  Flow. The method — and the way to pin a planned item — lives in
                  this one tooltip rather than in standing text above the chart. -->
             <span class="dashboard-card-title">Balance Forecast<span class="fc-info" tabindex="0" role="note"
-                aria-label="Projects one account's balance forward, week by week, so a cash crunch inside a month is visible instead of averaged away. Each week combines your typical spending and income (averaged over recent complete months) with the recurring bills and paychecks detected in that account's history, placed on the week they fall. Hover the line to pin a one-off payment or receipt to a date; hover a point for that week's balance. Everything is computed on your device — nothing leaves it."
-                data-tip="Projects one account's balance forward, week by week, so a cash crunch inside a month is visible instead of averaged away. Each week combines your typical spending and income (averaged over recent complete months) with the recurring bills and paychecks detected in that account's history, placed on the week they fall. Hover the line to pin a one-off payment or receipt to a date; hover a point for that week's balance. Everything is computed on your device — nothing leaves it.">i</span></span>
+                aria-label="Projects one account's balance forward, week by week. Each week combines your typical spending and income (averaged over recent complete months). Hover the line to pin a one-off payment or receipt to a date; hover a point for that week's balance."
+                data-tip="Projects one account's balance forward, week by week. Each week combines your typical spending and income (averaged over recent complete months). Hover the line to pin a one-off payment or receipt to a date; hover a point for that week's balance.">i</span></span>
             <div class="forecast-controls">
                 <!-- A checkbox, not a third picker: this is one yes/no answer
                      and its state has to be readable at a glance, because it
