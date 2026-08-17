@@ -346,31 +346,64 @@
     return niceTicks(nearZero ? Math.min(0, lo) : lo, Math.max(0, hi), 4);
   }
 
-  /** Catmull-Rom → bezier smoothing (same construction as dashboard.js). */
-  function smoothPath(pts) {
-    const f = (n) => Math.round(n * 100) / 100;
-    if (pts.length < 3) return pts.map((p, i) => `${i ? 'L' : 'M'} ${f(p.x)} ${f(p.y)}`).join(' ');
-    let d = `M ${f(pts[0].x)} ${f(pts[0].y)}`;
+  /** Catmull-Rom → bezier control points (same construction as dashboard.js), as
+   *  one cubic segment per gap. Kept as data rather than only as path text so the
+   *  drawn line and a pin's height are read off the SAME geometry — see curveYAt. */
+  function bezierSegments(pts) {
+    const segs = [];
     for (let i = 0; i < pts.length - 1; i++) {
       const p0 = pts[i - 1] || pts[i];
       const p1 = pts[i];
       const p2 = pts[i + 1];
       const p3 = pts[i + 2] || p2;
-      d += ` C ${f(p1.x + (p2.x - p0.x) / 6)} ${f(p1.y + (p2.y - p0.y) / 6)},`
-         + ` ${f(p2.x - (p3.x - p1.x) / 6)} ${f(p2.y - (p3.y - p1.y) / 6)},`
-         + ` ${f(p2.x)} ${f(p2.y)}`;
+      segs.push({
+        p1,
+        p2,
+        c1: { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 },
+        c2: { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 },
+      });
+    }
+    return segs;
+  }
+
+  function smoothPath(pts) {
+    const f = (n) => Math.round(n * 100) / 100;
+    if (pts.length < 3) return pts.map((p, i) => `${i ? 'L' : 'M'} ${f(p.x)} ${f(p.y)}`).join(' ');
+    let d = `M ${f(pts[0].x)} ${f(pts[0].y)}`;
+    for (const s of bezierSegments(pts)) {
+      d += ` C ${f(s.c1.x)} ${f(s.c1.y)}, ${f(s.c2.x)} ${f(s.c2.y)}, ${f(s.p2.x)} ${f(s.p2.y)}`;
     }
     return d;
   }
 
-  /** The balance the line carries on a given date — the week that date falls
-   *  in, so a pin sits ON the line rather than floating beside it. */
-  function balanceOn(iso) {
-    const series = state.data.series;
-    for (const s of series) {
-      if (iso >= s.weekStart && iso <= s.weekEnd) return s.balance;
+  const bezierAt = (a, b, c, e, t) => {
+    const u = 1 - t;
+    return u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c + t * t * t * e;
+  };
+
+  /** The y the DRAWN line carries at a given x, so a pin sits on the curve.
+   *
+   *  Reading the y off the week's balance instead (the week a date falls in) put
+   *  a pin a whole week's net away from the line: the chart plots each week at
+   *  its weekEnd and curves between those points, so mid-week the line is still
+   *  travelling — and the bigger the planned expense, the further its own pin
+   *  floated off the drop it caused. Straight-line interpolation would close most
+   *  of that but not the smoothing's bulge, so the bezier is solved instead:
+   *  x(t) is monotonic within a segment (points step forward in date and the
+   *  control offsets are a sixth of a neighbour gap), so bisect for the t whose
+   *  x matches and read that t's y. 24 halvings is well under a pixel. */
+  function curveYAt(segs, x) {
+    if (!segs.length) return null;
+    const seg = segs.find((s) => x >= s.p1.x && x <= s.p2.x)
+      || (x < segs[0].p1.x ? segs[0] : segs[segs.length - 1]);
+    let lo = 0;
+    let hi = 1;
+    for (let i = 0; i < 24; i++) {
+      const mid = (lo + hi) / 2;
+      if (bezierAt(seg.p1.x, seg.c1.x, seg.c2.x, seg.p2.x, mid) < x) lo = mid;
+      else hi = mid;
     }
-    return iso < series[0].weekStart ? state.data.anchor.balance : series[series.length - 1].balance;
+    return bezierAt(seg.p1.y, seg.c1.y, seg.c2.y, seg.p2.y, (lo + hi) / 2);
   }
 
   /**
@@ -423,11 +456,20 @@
     const xScale = (iso) => PL + (daysBetween(first, iso) / totalDays) * CW;
     const yScale = (v) => PT + CH - ((v - minVal) / valRange) * CH;
 
+    // The screen geometry of both halves, built ONCE: the same segments are what
+    // the line is drawn from and what a pin's height is read off (plot.curveY),
+    // so a pin cannot end up beside a curve the chart never drew.
+    const toXY = (pts) => pts.map((p) => ({ x: xScale(p.date), y: yScale(p.balance) }));
+    const pastXY = toXY(pastPts);
+    const futureXY = toXY(futurePts);
+    const futureSegs = bezierSegments(futureXY);
+
     // Published for the overlay + pins. `todayX` is where planning starts.
     plot = {
       W, H, PL, PR, PT, PB, CW, CH,
       first, last: domain.end, totalDays, xScale, yScale,
       today: anchor.date, todayX: xScale(anchor.date),
+      curveY: (x) => curveYAt(futureSegs, x),
     };
 
     const color = readAccent();
@@ -478,9 +520,8 @@
       </linearGradient>
     </defs>`;
 
-    const draw = (pts, { projected }) => {
-      if (pts.length < 2) return '';
-      const xy = pts.map((p) => ({ x: xScale(p.date), y: yScale(p.balance) }));
+    const draw = (xy, { projected }) => {
+      if (xy.length < 2) return '';
       const lineD = smoothPath(xy);
       const areaD = `${lineD} L ${xy[xy.length - 1].x} ${baseY} L ${xy[0].x} ${baseY} Z`;
       // pathLength on the ACTUAL line only: it normalises the path to 1 unit so
@@ -492,8 +533,8 @@
           ${projected ? '' : 'pathLength="1"'} fill="none" stroke="${color}"
           stroke-width="${projected ? 2 : 2.25}" stroke-linejoin="round" stroke-linecap="round"/>`;
     };
-    svg += draw(pastPts, { projected: false });
-    svg += draw(futurePts, { projected: true });
+    svg += draw(pastXY, { projected: false });
+    svg += draw(futureXY, { projected: true });
 
     const dot = (p) => {
       const cls = `chart-dot${p.anchor ? ' chart-dot-anchor' : ''}`
@@ -534,7 +575,9 @@
     const inRange = plannedItems().filter((p) => p.date >= plot.today && p.date <= plot.last);
     host.innerHTML = inRange.map((p) => {
       const x = plot.xScale(p.date);
-      const y = plot.yScale(balanceOn(p.date));
+      // On the line at that date, not at the level its week ends on.
+      const y = plot.curveY(x);
+      if (y == null) return '';
       const active = state.activeId === p.id;
       const tip = `${p.label} — ${p.flow === 'income' ? '+' : '−'}${formatCurrency(p.amount, true)} on ${fmtShortDate(p.date)}`;
       return `<button type="button" class="fc-pin fc-pin-${p.flow}${active ? ' fc-pin-active' : ''}"
