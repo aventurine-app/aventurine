@@ -7,7 +7,7 @@ div.menu {
     padding: var(--space-12);       /* The space between the left and right edges of the menu and the items */
     padding-top: var(--space-4);
     left: 0px;
-    min-width: 240px;
+    min-width: 190px;
     max-width: 180px;
     /* The sidebar stretches to the height of .body_container (which clips its
        own overflow). When the user zooms in far enough that the nav items
