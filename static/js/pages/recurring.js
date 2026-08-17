@@ -791,6 +791,10 @@
     const [y, m] = month.split('-').map(Number);
     const label = document.getElementById('rec-month-label');
     if (label) label.textContent = `${MONTHS[m - 1]} ${y}`;
+    // Nothing to go back to while we're already there — disabled rather than
+    // hidden, so the arrows and the ⋮ never move under the pointer.
+    const today = document.getElementById('rec-month-today');
+    if (today) today.disabled = month === currentMonthKey();
   }
 
   function render() {
@@ -817,6 +821,13 @@
   document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('rec-month-prev').addEventListener('click', () => goToMonth(addMonthKey(month, -1)));
     document.getElementById('rec-month-next').addEventListener('click', () => goToMonth(addMonthKey(month, 1)));
+
+    // One hop home from anywhere — the arrows reach past either end of the
+    // picker's window, so a user can be years out with no short way back.
+    document.getElementById('rec-month-today').addEventListener('click', () => {
+      const key = currentMonthKey();
+      if (key !== month) goToMonth(key);
+    });
 
     // The label is a picker, like Dashboard's month stepper — .stepper-label draws a
     // caret and a pointer cursor, so it has to open something. The window runs

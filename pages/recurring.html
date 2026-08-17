@@ -19,12 +19,19 @@
     <!-- This page's cards are the calendar/list pair below, so its controls
          ride a toolbar row instead of a card header: stepper hard left, ⋮ hard
          right. The month label is a picker (recurring.js), same as Dashboard's
-         stepper — the caret .stepper-label draws is not decoration. -->
+         stepper — the caret .stepper-label draws is not decoration.
+         Today rides beside the stepper as the one-hop way back from any month
+         the arrows wandered into; it stays in place and goes disabled on the
+         current month rather than disappearing, so stepping past today doesn't
+         make the toolbar jump. -->
     <div class="rec-toolbar">
-        <div class="stepper rec-month-stepper" aria-label="Recurring month">
-            <button type="button" class="stepper-btn button-primary" id="rec-month-prev" aria-label="Previous month">&#8249;</button>
-            <button type="button" class="stepper-label" id="rec-month-label" aria-live="polite">&nbsp;</button>
-            <button type="button" class="stepper-btn button-primary" id="rec-month-next" aria-label="Next month">&#8250;</button>
+        <div class="rec-toolbar-left">
+            <div class="stepper rec-month-stepper" aria-label="Recurring month">
+                <button type="button" class="stepper-btn button-primary" id="rec-month-prev" aria-label="Previous month">&#8249;</button>
+                <button type="button" class="stepper-label" id="rec-month-label" aria-live="polite">&nbsp;</button>
+                <button type="button" class="stepper-btn button-primary" id="rec-month-next" aria-label="Next month">&#8250;</button>
+            </div>
+            <button type="button" class="button-secondary rec-today-btn" id="rec-month-today" title="Back to the current month">Today</button>
         </div>
         <button type="button" class="p-menu-btn" id="rec-kebab-btn" title="Recurring options" aria-label="Recurring options" aria-haspopup="menu">⋮</button>
     </div>

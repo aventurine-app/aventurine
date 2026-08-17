@@ -54,6 +54,21 @@
     flex-wrap: wrap;
 }
 
+/* Stepper + Today read as one month control, so they share a group and the
+   toolbar's space-between still has exactly two ends to push apart. */
+.rec-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+}
+
+/* .button-secondary carries the shape/states (buttons.css); this only trims the
+   16px side padding, which is sized for wordier actions and made a five-letter
+   label look like the toolbar's primary act next to the compact stepper. */
+.rec-today-btn {
+    padding: var(--space-8) var(--space-12);
+}
+
 .rec-month-stepper #rec-month-label {
     min-width: 132px;
     text-align: center;
