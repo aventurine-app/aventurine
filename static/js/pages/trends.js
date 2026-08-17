@@ -148,6 +148,15 @@
   document.addEventListener('DOMContentLoaded', () => {
     wireRangePicker();
     window.addEventListener('currencychange', render);
+    // The --cat-* ramp flips with the theme, and state.colors was resolved from
+    // it back in load() — so re-map before repainting, from the data we already
+    // hold (no round trip).
+    window.addEventListener('themechange', () => {
+      if (state.data) {
+        state.colors = FinanceChart.colorMap(state.data.categories.map((c) => c.key), 'categorical');
+      }
+      render();
+    });
     load();
   });
 }());

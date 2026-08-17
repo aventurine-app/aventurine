@@ -381,7 +381,10 @@
     if (!document.getElementById('cashflow-chart')) return;
     wireYearPicker();
     load();
-    // Retone amounts when the currency symbol changes in Settings.
-    window.addEventListener('currencychange', () => { firstPaint = false; render(); });
+    // Retone amounts when the currency symbol changes in Settings, and repaint
+    // when the theme does — the node/flow colours are CSS tokens read at draw time.
+    const repaint = () => { firstPaint = false; render(); };
+    window.addEventListener('currencychange', repaint);
+    window.addEventListener('themechange', repaint);
   });
 }());

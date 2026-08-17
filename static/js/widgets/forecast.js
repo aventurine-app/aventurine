@@ -1156,7 +1156,9 @@
     const acc = accountBtn();
     if (acc) acc.addEventListener('click', openAccountMenu);
     load();
-    // Re-render currency-bearing UI if the symbol changes in Settings.
+    // Re-render currency-bearing UI if the symbol changes in Settings; likewise
+    // on a theme swap, since the line colour is a CSS token read at draw time.
     window.addEventListener('currencychange', render);
+    window.addEventListener('themechange', render);
   });
 }());

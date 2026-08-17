@@ -170,6 +170,18 @@ app.whenReady().then(async () => {
       '!document.querySelector("[data-modal=\'preferences\']").hidden'
     ));
 
+    // Picking a theme paints in place and fires 'themechange' for the charts —
+    // it must NOT reload the page, which used to shut the modal the user was
+    // standing in. Assert the swap landed AND the modal survived it.
+    check('theme swap paints without closing Preferences', await evalJs(`(() => {
+      document.querySelector(".settings-theme-btn[data-theme='dark']").click();
+      return document.documentElement.dataset.theme === 'dark'
+        && !document.querySelector("[data-modal='preferences']").hidden
+        && document.querySelector(".settings-theme-btn[data-theme='dark']").classList.contains('active');
+    })()`));
+    // Back to the default so the checks after this one see an untouched theme.
+    await evalJs('document.querySelector(".settings-theme-btn[data-theme=\'\']").click()');
+
     // Category management lives in the Statements Cash Flow ⋮ menu — open
     // "Manage Categories" and prove the modal editor renders the search field,
     // the three collapsible type groups (Income / Expense / Transfer), each

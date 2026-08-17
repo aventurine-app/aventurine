@@ -56,6 +56,12 @@
         return theme;
     }
 
+    // Swapping the theme is a token swap on <html>, so everything painted by CSS
+    // retones on the spot. The only stale things are the charts, which bake
+    // --chart-*/--accent-primary into SVG attributes at draw time; 'themechange'
+    // (the shape 'currencychange' already uses) tells them to repaint from the
+    // state they already hold. This used to reload the page instead, which
+    // closed the Settings modal the user was still standing in.
     function applyTheme(theme) {
         const effective = resolveTheme(theme);
         if (effective) {
@@ -64,13 +70,21 @@
             delete document.documentElement.dataset.theme;
         }
         localStorage.setItem('color-theme', theme);
-        location.reload();
+        syncThemeButtons();
+        window.dispatchEvent(new CustomEvent('themechange', { detail: { theme, effective } }));
     }
 
-    function wireThemeButtons() {
+    // Reflect the stored choice on every picker instance (page + title-bar modal).
+    function syncThemeButtons() {
         const saved = localStorage.getItem('color-theme') ?? '';
         document.querySelectorAll('.settings-theme-btn').forEach(btn => {
             btn.classList.toggle('active', (btn.dataset.theme ?? '') === saved);
+        });
+    }
+
+    function wireThemeButtons() {
+        syncThemeButtons();
+        document.querySelectorAll('.settings-theme-btn').forEach(btn => {
             btn.addEventListener('click', () => applyTheme(btn.dataset.theme ?? ''));
         });
         // Re-resolve live when the OS flips while 'system' is selected.

@@ -1554,8 +1554,24 @@
         });
     }
 
+    /** Repaint every chart from the data already in hand (no refetch). Charts
+     *  bake the --chart-* and --accent-primary tokens into SVG attributes at
+     *  draw time, so a theme swap leaves them wearing the old palette. Settings
+     *  no longer reloads the page for this, so the modal the user is standing
+     *  in stays open. */
+    function repaintCharts() {
+        if (appData) {
+            renderNetworthSection(appData);
+            renderAccountsPie(appData);
+            renderAccountChart();
+        }
+        if (ieData) renderIEChart(ieData);
+        renderMonthSection();
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         init();
+        window.addEventListener('themechange', repaintCharts);
         // Runs alongside the dashboard load, not in front of it: the hero reveals
         // itself once the check resolves, and a database with data never waits on
         // it. Bound once per page load (init() is not re-entered — see above).
