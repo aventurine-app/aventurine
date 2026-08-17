@@ -127,7 +127,7 @@
             }) : UI.emptyState({
                 icon: null, compact: true,
                 title: 'No balances to show yet',
-                action: { label: 'Add balances', href: '/statements#balance-sheet', icon: 'plus', primary: true },
+                action: { label: 'Add balances', href: '/statements#balance-sheet', primary: true },
             });
             return;
         }
@@ -158,7 +158,7 @@
             legendEl.innerHTML = UI.emptyState({
                 icon: null, compact: true,
                 title: 'All balances are zero',
-                action: { label: 'Edit balances', href: '/statements#balance-sheet', icon: 'plus', primary: true },
+                action: { label: 'Edit balances', href: '/statements#balance-sheet', primary: true },
             });
             return;
         }
@@ -714,7 +714,7 @@
                 ? UI.emptyState({
                     icon: null,
                     title: 'No net worth to chart yet',
-                    action: { label: 'Add balances', href: '/statements#balance-sheet', icon: 'plus', primary: true },
+                    action: { label: 'Add balances', href: '/statements#balance-sheet', primary: true },
                 })
                 : UI.emptyState({
                     icon: null, compact: true,
@@ -863,7 +863,7 @@
             container.innerHTML = UI.emptyState({
                 icon: null,
                 title: 'No income or expenses yet',
-                action: { label: 'Open Statements', href: '/statements#cash-flow', icon: 'plus', primary: true },
+                action: { label: 'Open Statements', href: '/statements#cash-flow', primary: true },
             });
             const selEl = document.getElementById('ie-selector');
             if (selEl) selEl.innerHTML = '';
@@ -921,7 +921,7 @@
                 ? UI.emptyState({
                     icon: null,
                     title: 'No accounts to compare yet',
-                    action: { label: 'Add balances', href: '/statements#balance-sheet', icon: 'plus', primary: true },
+                    action: { label: 'Add balances', href: '/statements#balance-sheet', primary: true },
                 })
                 : UI.emptyState({
                     icon: null, compact: true,
@@ -1189,7 +1189,7 @@
             container.innerHTML = UI.emptyState({
                 icon: null, compact: true,
                 title: isCurrentDashboardMonth() ? 'No activity this month yet' : `Nothing in ${dashboardMonthLabel()}`,
-                action: { label: 'Open Statements', href: '/statements#cash-flow', icon: 'plus', primary: true },
+                action: { label: 'Open Statements', href: '/statements#cash-flow', primary: true },
             });
             return;
         }
@@ -1305,7 +1305,7 @@
                 ? UI.emptyState({
                     icon: null,
                     title: 'No spending this month yet',
-                    action: { label: 'Add transactions', href: '/transactions', icon: 'plus', primary: true },
+                    action: { label: 'Add transactions', href: '/transactions', primary: true },
                 })
                 : UI.emptyState({
                     icon: null, compact: true,

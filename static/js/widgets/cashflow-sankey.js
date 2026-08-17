@@ -306,7 +306,7 @@
         // directly under a tab also labelled "Cash Flow", so "the Cash Flow
         // page" would read as somewhere on this page rather than Statements.
         desc: 'Add income and expenses to your Cash Flow statement and the diagram will map how your money moves.',
-        action: { label: 'Open Statements', href: '/statements#cash-flow', icon: 'plus', primary: true },
+        action: { label: 'Open Statements', href: '/statements#cash-flow', primary: true },
       });
       chart.innerHTML = '';
     } else {

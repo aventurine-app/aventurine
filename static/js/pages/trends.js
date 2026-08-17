@@ -116,7 +116,7 @@
             icon: 'chart',
             title: 'No spending to chart yet',
             desc: 'Categorize some transactions and Aventurine will chart how your spending shifts over time.',
-            action: { label: 'Add transactions', href: '/transactions', icon: 'plus', primary: true },
+            action: { label: 'Add transactions', href: '/transactions', primary: true },
           })
         : UI.emptyState({
             icon: 'chart', compact: true,

@@ -14,8 +14,10 @@
 //              | { label, name }            → on-page action (<button
 //                                             data-empty-action="name">);
 //                                             the page wires the click.
-//              add `primary: true` for the accent treatment, `icon: 'plus'`
-//              for a leading glyph.
+//              add `primary: true` for the accent treatment, `icon: '<key>'`
+//              for a leading glyph. Navigation CTAs carry no glyph: a "+" in
+//              front of "Add balances" promises an inline add, while the
+//              button only moves you to the page that has one.
 //       compact: tighter padding for small/aside cards.
 //
 //   UI.skLine(w) / UI.skLines([w…]) / UI.skBlock(h) / UI.skRows(n) / UI.skChart(h)

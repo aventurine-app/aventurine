@@ -220,7 +220,7 @@
         title: 'Nothing to forecast yet',
         desc: 'Import a few months of transactions, or record a cash balance on your Balance Sheet, '
           + 'and Aventurine will project your balance forward from them.',
-        action: { label: 'Add transactions', href: '/transactions', icon: 'plus', primary: true },
+        action: { label: 'Add transactions', href: '/transactions', primary: true },
       });
       return;
     }
