@@ -154,21 +154,16 @@
 
 .db-wrapper::-webkit-scrollbar-track {
     background: var(--surface1);
-    border-radius: 5px;
 }
 
+/* Square, full-bleed thumb — see div.page in style.css for the same treatment
+   on the main page scrollbar. */
 .db-wrapper::-webkit-scrollbar-thumb {
     background: var(--surface4);
-    /* Pill thumb floating inside the channel — see div.page in style.css
-       for the same treatment on the main page scrollbar. */
-    border-radius: 5px;
-    border: 2px solid transparent;
-    background-clip: padding-box;
 }
 
 .db-wrapper::-webkit-scrollbar-thumb:hover {
     background: var(--text-tertiary);
-    background-clip: padding-box;
 }
 
 /* == Table structure == */

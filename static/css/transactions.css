@@ -155,17 +155,13 @@
     border-left: var(--table-border-width) solid var(--border);
 }
 
-/* Pill thumb floating inside the channel — same recipe as div.page. */
+/* Square, full-bleed thumb — same recipe as div.page. */
 .tx-table > tbody::-webkit-scrollbar-thumb {
     background: var(--surface4);
-    border-radius: 5px;
-    border: 2px solid transparent;
-    background-clip: padding-box;
 }
 
 .tx-table > tbody::-webkit-scrollbar-thumb:hover {
     background: var(--text-tertiary);
-    background-clip: padding-box;
 }
 
 /* The header gutter reserves its width but paints nothing. */

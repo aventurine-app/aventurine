@@ -24,19 +24,14 @@ div.menu::-webkit-scrollbar {
 
 div.menu::-webkit-scrollbar-track {
     background: var(--surface1);
-    border-radius: 5px;
 }
 
 div.menu::-webkit-scrollbar-thumb {
     background: var(--border);
-    border-radius: 5px;
-    border: 2px solid transparent;
-    background-clip: padding-box;
 }
 
 div.menu::-webkit-scrollbar-thumb:hover {
     background: var(--text-tertiary);
-    background-clip: padding-box;
 }
 
 ul {

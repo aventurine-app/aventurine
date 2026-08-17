@@ -670,21 +670,16 @@ div.page::-webkit-scrollbar {
 
 div.page::-webkit-scrollbar-track {
     background: var(--surface1);
-    border-radius: 5px;
 }
 
 div.page::-webkit-scrollbar-thumb {
+    /* Square and full-bleed: the thumb fills the channel edge to edge rather
+       than floating inside an inset gutter. */
     background: var(--border);
-    border-radius: 5px;
-    /* Inset transparent border + background-clip creates a small visual gap
-       between thumb and track edges so the thumb looks like it floats. */
-    border: 2px solid transparent;
-    background-clip: padding-box;
 }
 
 div.page::-webkit-scrollbar-thumb:hover {
     background: var(--text-tertiary);
-    background-clip: padding-box;
 }
 
 
@@ -791,21 +786,16 @@ div.page::-webkit-scrollbar-thumb:hover {
 .settings-modal-body::-webkit-scrollbar-track,
 .cat-manager-body::-webkit-scrollbar-track {
     background: var(--surface1);
-    border-radius: 5px;
 }
 
 .settings-modal-body::-webkit-scrollbar-thumb,
 .cat-manager-body::-webkit-scrollbar-thumb {
     background: var(--surface4);
-    border-radius: 5px;
-    border: 2px solid transparent;
-    background-clip: padding-box;
 }
 
 .settings-modal-body::-webkit-scrollbar-thumb:hover,
 .cat-manager-body::-webkit-scrollbar-thumb:hover {
     background: var(--text-tertiary);
-    background-clip: padding-box;
 }
 
 /* ─── 7b. Confirm dialog + ⋮ kebab trigger ──────────────────────────────────
