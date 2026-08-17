@@ -877,8 +877,8 @@
     letter-spacing: var(--track-normal);
 }
 
-/* Uncategorized stands out like a Type pill, on the warning amber accent (matches
-   the nav uncategorized-count badge) so it reads as "needs review". Applied to
+/* Uncategorized stands out like a Type pill, on the warning amber accent, so it
+   reads as "needs review". Applied to
    every uncategorized row regardless of its backend tx_type — a blank category
    always reads amber, never a direction tint. */
 .tx-category-pill.tx-category-empty {

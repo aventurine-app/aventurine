@@ -422,9 +422,6 @@
     // static/js/pages/transactions.js — "find similar" lookup used by the
     // bulk-recategorize action.
     '/api/transactions/similar': { transactions: [] },
-    // static/js/pages/dashboard.js — badge count driving the "N transactions
-    // need a category" nudge on the dashboard.
-    '/api/transactions/uncategorized-count': { count: 1 },
   };
 
   // Serves one GET fixture (or 404) by exact path match, ignoring query

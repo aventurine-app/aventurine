@@ -187,11 +187,3 @@ html[data-theme="colorful"] div.menu {
     --border:  rgba(255,255,255, 0.28);
 }
 
-/* The uncategorized-count badge rides on the accent now. Its 18%-amber tint
-   goes muddy over green and drops to 3.1:1, so it becomes a solid amber pill
-   with dark text (7.6:1) — louder than elsewhere, but it is a notification. */
-html[data-theme="colorful"] .nav-badge {
-    background: var(--warning);
-    color: var(--color-base-900);
-}
-

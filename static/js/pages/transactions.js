@@ -1259,11 +1259,6 @@
         txSyncHeaderScroll();
         txFocusFirstInput();
         txUpdateSelectionUI();
-
-        // Keep the sidebar's uncategorized-count pill live. Every mutation on this
-        // page lands in txState.rows before re-rendering, so count from there
-        // rather than re-fetching the count endpoint.
-        window.setUncatBadge?.(txState.rows.filter(r => r.category_id == null).length);
     }
 
     // (The per-row direction lock that used to live here — mirror the category's
