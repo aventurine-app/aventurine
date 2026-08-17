@@ -32,9 +32,9 @@
 // step 1 as part of its own opening screen and taking over step 7.
 //
 // Steps 2 and 5 can block for a second-plus on large files, so each wait
-// shows an indeterminate progress bar (export's progress styles); the
-// standalone busy modals reveal only after ~150ms so small files never
-// flash one.
+// shows an indeterminate progress bar (export's progress styles). The rule
+// for those bars: whatever the wait is, it should be spent watching the bar
+// — up before the pause is felt, still up when it ends (see showBusyModal).
 //
 // All parsing is client-side. The server only receives clean row objects.
 // On import the server auto-categorizes confident rows on-device (learned
@@ -226,16 +226,48 @@
             return el;
         }
 
-        // Standalone busy modal for the parse phase. The overlay holds invisible
-        // for ~150ms before fading in (.tx-import-overlay--busy), so small files
-        // that parse instantly never flash a modal.
-        function showBusyModal(label) {
+        // Mirrors the .tx-import-overlay--busy keyframes: the overlay holds
+        // invisible for BUSY_REVEAL_MS, then fades in. Work that finishes inside
+        // the hold never showed a modal at all, so nothing flashes.
+        const BUSY_REVEAL_MS = 90;
+        // Once the bar IS on screen it stays this long. A loader that blinks out
+        // mid-wait is worse than none: it reads as a glitch, and the wait it was
+        // meant to cover ends up spent looking at a frozen screen instead.
+        const BUSY_MIN_VISIBLE_MS = 320;
+
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+        // Standalone busy modal for the parse / preview-prep waits.
+        //
+        // `instant` skips the anti-flash hold, for a wait that starts from a
+        // modal that just closed (Map Columns → "Preparing your import…"): with
+        // the hold, those ~90ms show the bare page where a dialog had been,
+        // which is the very flash the hold exists to prevent. Opened from NO
+        // modal (the file picker), the hold is right.
+        function showBusyModal(label, { instant = false } = {}) {
             const modal = buildModal('Import Transactions');
-            modal.overlay.classList.add('tx-import-overlay--busy');
+            if (!instant) modal.overlay.classList.add('tx-import-overlay--busy');
             modal.dialog.classList.add('tx-import-dialog--busy');
             modal.setClosable(false);
             modal.body.append(progressBar(label));
-            return { close: () => { modal.setClosable(true); modal.close(); } };
+
+            const revealAt = performance.now() + (instant ? 0 : BUSY_REVEAL_MS);
+            // Async: callers `await` it, so a bar that has been seen serves out
+            // its minimum before the flow moves on. Awaiting costs no extra
+            // blank frame — the caller's continuation runs as a microtask, so
+            // whatever it does next (building the preview table, which is the
+            // other half of the wait) still happens under the painted bar.
+            return {
+                async close() {
+                    const now = performance.now();
+                    if (now >= revealAt) {
+                        const held = revealAt + BUSY_MIN_VISIBLE_MS - now;
+                        if (held > 0) await sleep(held);
+                    }
+                    modal.setClosable(true);
+                    modal.close();
+                },
+            };
         }
 
         // Two frames: the busy bar must be painted (and compositor-animated)
@@ -855,9 +887,11 @@
         // digest, no bars (those already had their moment in "Here Is Your
         // Import"), just confirmation and exactly two places to go next.
         //
-        // `opts.onUploadMore()` / `opts.onDashboard()` let a caller (onboarding)
+        // `opts.onUploadMore()` / `opts.onFinish()` let a caller (onboarding)
         // own what "more" and "done" mean in its own flow; the defaults below
-        // (restart the import, or navigate home) cover the ordinary import.
+        // (restart the import, or just close) cover the ordinary import — an
+        // import launched from Transactions ends on Transactions, with the rows
+        // it just added already reloaded behind the modal.
         function showSuccessModal(opts, result) {
             // "Success!" lives in the standard header slot (styled large, no
             // rule beneath it), not the body — the body carries only the
@@ -869,8 +903,8 @@
             const footer = document.createElement('div');
             footer.className = 'tx-import-footer';
             footer.innerHTML = `
-            <button type="button" class="button-secondary tx-import-more-btn">Start Another Upload</button>
-            <button type="button" class="button-primary tx-import-dashboard-btn">Go to Dashboard</button>
+            <button type="button" class="button-secondary tx-import-more-btn">Start Another</button>
+            <button type="button" class="button-primary tx-import-finish-btn">Finish</button>
         `;
             dialog.append(footer);
 
@@ -880,12 +914,11 @@
                 // No account carried over: a second file may well be for a
                 // different account, so this re-asks (pre-filled from the one
                 // just used, via the same last-used memory as any other import).
-                else run({ onCancel: opts.onCancel, onDashboard: opts.onDashboard });
+                else run({ onCancel: opts.onCancel, onFinish: opts.onFinish });
             });
-            footer.querySelector('.tx-import-dashboard-btn').addEventListener('click', () => {
+            footer.querySelector('.tx-import-finish-btn').addEventListener('click', () => {
                 close();
-                if (opts.onDashboard) opts.onDashboard(result);
-                else window.location.href = '/';
+                if (opts.onFinish) opts.onFinish(result);
             });
         }
 
@@ -896,11 +929,11 @@
         // opts.account     — { key, label }: already settled by the caller
         //                    (onboarding asks it as part of its own first step),
         //                    so this skips straight to the file dialog.
-        // opts.onUploadMore — Step 4's "Upload More Transactions" button; receives
-        //                    the server's result object. Default: restart the
+        // opts.onUploadMore — Step 4's "Start Another" button; receives the
+        //                    server's result object. Default: restart the
         //                    import flow (re-ask the account, then a new file).
-        // opts.onDashboard — Step 4's "Take Me to My Dashboard" button; receives
-        //                    the result object. Default: navigate home.
+        // opts.onFinish    — Step 4's "Finish" button; receives the result
+        //                    object. Default: nothing beyond closing the modal.
         // opts.onCancel    — called if the user backs out at the account step or
         //                    the file dialog, so a wizard can stay on its own step.
         async function run(opts = {}) {
@@ -949,17 +982,17 @@
                 await nextPaint();
 
                 const buf = await file.arrayBuffer().catch(() => null);
-                if (!buf || !buf.byteLength) { busy.close(); bail('Could not read the file.'); return; }
+                if (!buf || !buf.byteLength) { await busy.close(); bail('Could not read the file.'); return; }
 
                 let table;
                 try {
                     table = await parseFile(file.name, buf);
                 } catch (err) {
-                    busy.close();
+                    await busy.close();
                     bail('Could not import this file: ' + err.message);
                     return;
                 }
-                busy.close();
+                await busy.close();
                 if (!table.headers.length || !table.rows.length) {
                     bail('The file appears to be empty or has no data rows.');
                     return;
@@ -996,14 +1029,15 @@
         // mapping, then run the dup-hash fetch and the dry-run categorization
         // preview together before opening the combined screen.
         async function proceed(table, mapping, firstRowNum, opts, goBack) {
-            // Row validation + the dup-hash/dry-run fetches scale with file size;
-            // same delayed-reveal bar as the parse phase.
-            const busy = showBusyModal('Preparing your import…');
+            // Row validation + the dup-hash/dry-run fetches scale with file size.
+            // Map Columns closed a beat ago, so this bar takes over the screen
+            // immediately rather than holding invisible (see showBusyModal).
+            const busy = showBusyModal('Preparing your import…', { instant: true });
             await nextPaint();
 
             const { parsed, errors } = applyMapping(table.rows, mapping, firstRowNum);
             if (!parsed.length) {
-                busy.close();
+                await busy.close();
                 const first = errors[0];
                 const msg = `No rows could be read (${errors.length} error${errors.length > 1 ? 's' : ''})`
                     + (first ? ` — row ${first.row}: ${first.reason}` : '') + '.';
@@ -1026,7 +1060,11 @@
                 dryRunImport(parsed.map(toApiRow), opts.account.key),
             ]);
 
-            busy.close();
+            // Removal and the preview build share one task, so the browser
+            // paints the swap in a single frame — the row table (thousands of
+            // rows of fingerprinting and markup) is built while the bar is still
+            // the thing on screen, not during a gap after it.
+            await busy.close();
             showImportModal(parsed, errors, dupeSet, balanceReadings, dryRun, opts, goBack);
         }
 

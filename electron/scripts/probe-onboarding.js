@@ -237,12 +237,12 @@ app.whenReady().then(async () => {
     check('no header/footer rules on this screen (per spec)',
       await js(`getComputedStyle(document.querySelector('.tx-import-dialog--success .tx-import-dialog-header')).borderBottomWidth`) === '0px'
       && await js(`getComputedStyle(document.querySelector('.tx-import-dialog--success .tx-import-footer')).borderTopWidth`) === '0px');
-    check('exactly two actions: Start Another Upload, Go to Dashboard',
+    check('exactly two actions: Start Another, Finish',
       await js(`[...document.querySelectorAll('.tx-import-dialog--success .tx-import-footer button')].map(b => b.textContent.trim()).join('|')`)
-        === 'Start Another Upload|Go to Dashboard');
+        === 'Start Another|Finish');
     await shot('05-success');
 
-    // "Start Another Upload" is onboarding's path back to the picker
+    // "Start Another" is onboarding's path back to the picker
     // (the account just imported shows up as a chip there).
     await js('document.querySelector(".tx-import-more-btn").click()');
     await sleep(600);

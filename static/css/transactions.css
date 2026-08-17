@@ -1198,11 +1198,14 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 }
 
 /* Busy variant — the parse/preview-prep wait states. The overlay holds
-   invisible for ~150ms then fades in, so files that parse instantly never
-   flash a modal. Opacity animates on the compositor, so the reveal still
-   plays while synchronous parse work blocks the renderer. */
+   invisible for ~90ms then fades in, so work that finishes inside one
+   perceptual "instant" never flashes a modal, while anything slower than that
+   is already under a bar by the time it reads as a wait. Opacity animates on
+   the compositor, so the reveal still plays while synchronous parse work
+   blocks the renderer. Timings mirror BUSY_REVEAL_MS in txfileimport.js;
+   the class is absent entirely when that file asks for an instant reveal. */
 .tx-import-overlay--busy {
-    animation: tx-busy-reveal 0.35s ease both;
+    animation: tx-busy-reveal 0.2s ease both;
 }
 
 @keyframes tx-busy-reveal {

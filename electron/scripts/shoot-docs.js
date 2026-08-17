@@ -515,7 +515,7 @@ app.whenReady().then(async () => {
       await click('.tx-import-do-btn');
       await sleep(2500);
       await shotEl('import-success', '.tx-import-dialog--success');
-      await click('.tx-import-dashboard-btn');
+      await click('.tx-import-finish-btn');
       await sleep(2000);
     }
 

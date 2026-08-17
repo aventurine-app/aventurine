@@ -180,7 +180,7 @@
                                 modal.show();
                                 showPicker();
                             },
-                            onDashboard: () => {
+                            onFinish: () => {
                                 imported.push(account);
                                 finish();
                             },
