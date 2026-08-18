@@ -63,6 +63,9 @@
                 <button class="settings-tab" type="button" role="tab"
                         id="settings-tab-security" data-tab="security"
                         aria-selected="false" tabindex="-1" aria-controls="settings-panel-security">Security</button>
+                <button class="settings-tab" type="button" role="tab"
+                        id="settings-tab-license" data-tab="license"
+                        aria-selected="false" tabindex="-1" aria-controls="settings-panel-license">License</button>
             </div>
             <div class="settings-modal-body">
 
@@ -327,6 +330,54 @@
     </div>
 </div>
             </div>
+
+<!-- License. Activation is offline: the key is a signed token this install
+     verifies locally (electron/backend/license.js), so nothing here reaches the
+     network. The key is issued by the activation page after it checks the
+     purchase with Gumroad, and it carries the address that bought it. -->
+<div class="settings-tabpanel" data-tabpanel="license" role="tabpanel" hidden
+     id="settings-panel-license" aria-labelledby="settings-tab-license">
+    <div class="settings-card">
+        <div class="settings-row">
+            <div class="settings-row-label">
+                <div class="settings-row-name">Status</div>
+                <div class="settings-row-desc" data-license-desc>Checking…</div>
+            </div>
+            <div class="license-badge" data-license-badge></div>
+        </div>
+    </div>
+
+    <div class="settings-card" data-license-activate hidden>
+        <div class="settings-row">
+            <div class="settings-row-label">
+                <div class="settings-row-name">Activate</div>
+                <div class="settings-row-desc">
+                    Get your unlock key at <span class="license-url">aventurine-app.com/activate</span>
+                    using the license key from your purchase receipt, then paste it here.
+                    Activation happens in your browser; Aventurine itself never connects
+                    to the internet.
+                </div>
+            </div>
+            <textarea class="license-input" data-license-input rows="4" spellcheck="false"
+                      autocomplete="off" placeholder="Paste your unlock key"></textarea>
+            <div class="enc-error" data-license-error hidden></div>
+            <div class="license-actions">
+                <button class="db-btn" type="button" data-license-open>Open Activation Page</button>
+                <button class="db-btn db-btn-primary" type="button" data-license-submit disabled>Activate</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="settings-card" data-license-manage hidden>
+        <div class="settings-row">
+            <div class="settings-row-label">
+                <div class="settings-row-name">Remove License</div>
+                <div class="settings-row-desc">Deactivates this installation. Your key keeps working, so you can paste it back at any time. Your financial data is not touched.</div>
+            </div>
+            <button class="db-btn db-btn-danger" type="button" data-license-remove>Remove</button>
+        </div>
+    </div>
+</div>
             <div class="settings-modal-footer">
                 <button class="db-btn settings-restore-defaults" type="button">Restore Defaults</button>
             </div>
@@ -353,6 +404,13 @@
                 <div class="settings-row-desc">The version of Aventurine currently installed.</div>
             </div>
             <div class="about-version" data-about-version>—</div>
+        </div>
+        <div class="settings-row" data-about-license-row hidden>
+            <div class="settings-row-label">
+                <div class="settings-row-name">License</div>
+                <div class="settings-row-desc">The address this copy is registered to.</div>
+            </div>
+            <div class="about-version" data-about-license></div>
         </div>
     </div>
 </div>

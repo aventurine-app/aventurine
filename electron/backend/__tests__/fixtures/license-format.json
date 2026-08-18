@@ -1,0 +1,37 @@
+{
+  "_comment": "Golden license keys. The private seed is 32 bytes of 0x07 and is TEST-ONLY. Regenerating this file means the wire format changed: bump FORMAT in backend/license.js rather than editing these by hand.",
+  "publicKeySlot0": "6kpsY+KcUgq+9VB7Ey7F+ZVHdq6+vnuSQh7qaRRG0iw=",
+  "privateKeyPkcs8": "MC4CAQAwBQYDK2VwBCIEIAcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcH",
+  "valid": [
+    {
+      "desc": "ordinary purchase",
+      "key": "20EKJAA74GQWBFR9EM0G04B2ENWPAWJ0CNW62VBGDHJJWRVFDNZ72ENG8KES9HM5MQ59CC1X5R8Y98N7AZ43NZDP63Y7ZRFZTMZX2Z78N9E3TPP4MZZKCH4632YP7NKV75DBWWYY6CP8FS5R59JE5AR6",
+      "expect": {
+        "licenseId": "1d392947242fc5bf",
+        "issued": "2026-08-18",
+        "entitlement": 1,
+        "email": "buyer@example.com"
+      }
+    },
+    {
+      "desc": "long address, epoch edge",
+      "key": "21R2JJQ8YEZTT500004G0CK15SV6AWKS5SP6YVK75SGP8S3JCNSQ6AVMC5KPESB481SQARK4DXPP2TBE5SJQGRBDE1P6ABK3DWQ7ATY6C1KE1CCDNMFJQXHX67713SHQF6QRFT6N5S8ZRMV4SFTNRABB6JR9WKAXV7F2RH3NT89P4XZX4AYMZ5FE8J7QXNWP3R7V40MA0Y60T",
+      "expect": {
+        "licenseId": "70294ae8f3bfad14",
+        "issued": "2020-01-01",
+        "entitlement": 9,
+        "email": "a.very.long.address+tagged@subdomain.example.co.uk"
+      }
+    },
+    {
+      "desc": "unicode address",
+      "key": "21GW83DS293HWA09EM0G04KADXSPBK4181JQGRBDE1P6ABK3DXPQMB0AFWYE846ZP6JA0V3JJXQ6JWSW6JFY35JV8ZZV59VRFZH10Z7YW3T0H38Y05M02KQ4Q6YBKV59KKGGAD3ZC9R28RAPGV3N5E940W",
+      "expect": {
+        "licenseId": "61c40db912471e28",
+        "issued": "2026-08-18",
+        "entitlement": 1,
+        "email": "josé@example.com"
+      }
+    }
+  ]
+}

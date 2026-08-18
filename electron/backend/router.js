@@ -69,11 +69,14 @@ function buildRouter(routes) {
 
     // _check_db_lock, relocated: while the active DB is encrypted and no
     // passphrase has been supplied, every data API answers 423; /api/db/*
-    // stays reachable so status/unlock/open/create work.
+    // stays reachable so status/unlock/open/create work, and /api/license does
+    // too — activation is a property of the INSTALL, not of any one database,
+    // so the license panel has to answer before (and without) an unlock.
     if (
       ctx.state.locked &&
       path.startsWith('/api/') &&
-      !path.startsWith('/api/db/')
+      !path.startsWith('/api/db/') &&
+      !path.startsWith('/api/license')
     ) {
       return { status: 423, body: { ok: false, error: 'db_locked' } };
     }

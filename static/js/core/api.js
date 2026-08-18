@@ -215,6 +215,16 @@
   // stay shape-compatible with it, since pages can't tell which one
   // answered. Comments below name the primary page/widget each entry feeds.
   const FL_FIXTURES = {
+    // static/js/shell/license.js — Settings → License. Fixture mode shows an
+    // ACTIVATED copy: pure-UI work should be looking at the app as a buyer sees
+    // it, not at an activation nag.
+    '/api/license': {
+      state: 'licensed', licensed: true, appMajor: 1,
+      license: {
+        licenseId: '0000000000000000', issued: '2026-01-15',
+        entitlement: 1, email: 'buyer@example.com',
+      },
+    },
     // static/js/shell/dbactions.js, titlebar.js — DB-open/lock status shown
     // in the title bar and the New/Open Database modal.
     '/api/db/status': {

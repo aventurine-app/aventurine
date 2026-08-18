@@ -23,6 +23,7 @@ const routes = [
   ...require('./handlers/appSettings').routes,
   ...require('./handlers/onboarding').routes,
   ...require('./handlers/database').routes,
+  ...require('./handlers/license').routes,
   // Balance Sheet — the one remaining year-table feature (mirrors the
   // register_year_table_feature call in app.py).
   ...yearTableRoutes({

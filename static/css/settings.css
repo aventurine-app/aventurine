@@ -610,3 +610,63 @@
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
+
+/* ── License panel ──────────────────────────────────────────────────────
+   Activation is a rare, deliberate act, so the panel is quiet: one status
+   pill, and the paste field only when there is something to paste. */
+
+.license-badge {
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    font-weight: var(--weight-medium);
+    padding: 3px 12px;
+    border-radius: 999px;
+    border: var(--border-width) solid var(--border);
+    color: var(--text-tertiary);
+    white-space: nowrap;
+}
+
+.license-badge[data-state="licensed"] {
+    color: var(--accent-positive);
+    border-color: color-mix(in srgb, var(--accent-positive) 45%, transparent);
+    background: color-mix(in srgb, var(--accent-positive) 10%, transparent);
+}
+
+.license-badge[data-state="invalid"] {
+    color: var(--accent-negative);
+    border-color: color-mix(in srgb, var(--accent-negative) 45%, transparent);
+    background: color-mix(in srgb, var(--accent-negative) 10%, transparent);
+}
+
+/* A key is ~150 characters, so it gets a textarea rather than the single-line
+   .enc-input: the whole thing stays visible while the user checks their paste. */
+.license-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--frost-3);
+    border: var(--border-width) solid var(--border);
+    border-radius: 5px;
+    outline: none;
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    line-height: var(--lh-relaxed);
+    letter-spacing: 0.04em;
+    padding: 10px 12px;
+    resize: vertical;
+    caret-color: var(--frost-caret);
+    transition: border-color 0.15s ease;
+}
+
+.license-input:focus { border-color: var(--accent-primary); }
+
+.license-url {
+    font-family: var(--font-numeric);
+    color: var(--text-secondary);
+}
+
+.license-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
