@@ -128,9 +128,10 @@
    *  and Enter/Space-activatable without re-implementing either.
    *
    *  The avatar is the same deterministic colour+initials circle the ledger
-   *  and the card use (avatar.js), so a merchant looks identical everywhere;
-   *  direction rides a ring around it instead of recolouring the circle, which
-   *  would have cost that identity. */
+   *  and the card use (avatar.js), so a merchant looks identical everywhere —
+   *  and only that: direction is carried by the chip's own tint (the
+   *  rec-occ-<direction> class, recurring.css), not by anything drawn on the
+   *  circle. */
   function chipHtml(occ) {
     const label = occLabel(occ);
     const active = activeOcc && activeOcc.key === occ.key;

@@ -242,9 +242,11 @@
 
 /* ─── Occurrence chip ─────────────────────────────────────────────────────── */
 /* The schedule's home on the page: the merchant avatar, the name, and the
-   amount that actually applies to THIS date. Reading a chip should answer
-   "what is this and how much" without opening anything; the hover card adds
-   cadence, type and the two actions. */
+   amount that actually applies to THIS date, on a tile tinted by DIRECTION.
+   Reading a chip should answer "what is this and how much" without opening
+   anything, and reading the month should answer "what is going out" without
+   reading any chip at all; the hover card adds cadence, category and the two
+   actions. */
 .rec-occ {
     display: flex;
     align-items: center;
@@ -252,29 +254,33 @@
     width: 100%;
     min-width: 0;
     /* A day cell can get narrow (zoomed in, or a small window): the name
-       ellipses first, then the amount, and nothing escapes the cell.
-       `clip` with a margin rather than plain `hidden` — the avatar's ring is
-       an outline, so it paints outside the chip's content box, and a squeezed
-       chip (one barely wider than the avatar itself) would otherwise shave
-       the right side off it. 3px clears the 2px ring. */
-    overflow: clip;
-    overflow-clip-margin: 3px;
+       ellipses first, then the amount, and nothing escapes the cell. */
+    overflow: hidden;
     padding: 4px 6px;
-    /* A rounded tile, no border, carrying the ACCENT fill of a primary button
-       rather than a neutral grey: a schedule is the page's content, and a grid
-       of grey tiles on a grey-ruled calendar read as chrome. The tile is what
-       makes a chip an object you can point at.
-       Same three tokens .button-primary uses (buttons.css), in the same roles —
-       --accent-primary at rest, --accent-primary-hover on hover, --button-text for
-       the label — so a chip is the same green as every primary button on the
-       page and follows the accent wherever a theme repoints it, rather than
-       naming a ramp rung of its own.
-       Held in a custom property so the theme layer can restate the resting
-       colour without out-specifying the :hover rule. */
-    --rec-chip-bg: var(--accent-primary);
+    /* A rounded tile carrying its DIRECTION's colour — income green, expense
+       red, transfer blue, the same trio the card's category pill, the amounts
+       and the detection picker already use. It used to be the accent fill of a
+       primary button, which made every chip on the grid the same colour and
+       spent the page's one loudest treatment on saying nothing; direction is
+       the thing a month of chips is actually read for ("what is going out this
+       week"), so it is what the colour carries now, and a glance at the month
+       separates money in from money out before a single label is read.
+       A TINT of that hue rather than the hue itself, over the cell's own
+       surface: at full strength, twenty red tiles read as twenty errors, and
+       the labels would be stuck with white-on-mid-tone. The tint keeps the
+       chip an object you can point at (it is still a filled tile on a ruled
+       grid, not chrome) while leaving the name at --text-primary contrast. The
+       hue is held in a custom property so the fill and the amount both derive
+       from the one direction token below.
+       Still no border, and the box stays content-box on purpose: width:100%
+       plus the side padding is what makes a chip span its cell edge to edge,
+       and a border (even with box-sizing corrected) takes ~12px out of the one
+       field that has none to spare — the merchant name, which is already
+       ellipsing in a narrow cell. The tint carries the tile on its own. */
+    --rec-chip-hue: var(--accent-negative);
     border: 0;
     border-radius: 6px;
-    background: var(--rec-chip-bg);
+    background: color-mix(in srgb, var(--rec-chip-hue) 16%, var(--surface1));
     text-align: left;
     cursor: pointer;
     font-family: var(--font-menu);
@@ -282,58 +288,39 @@
     transition: background 0.12s ease;
 }
 
+/* The one direction switch: everything else on the chip reads --rec-chip-hue.
+   Transfer takes the ledger's own transfer blue (--accent-info, see
+   transactions.css .tx-amount-transfer) — it is neither a gain nor a spend. */
+.rec-occ-income   { --rec-chip-hue: var(--accent-positive); }
+.rec-occ-expense  { --rec-chip-hue: var(--accent-negative); }
+.rec-occ-transfer { --rec-chip-hue: var(--accent-info); }
+
 /* The avatar keeps the merchant's own deterministic colour and initials (the
    same circle the ledger and the card draw — avatar.js / ui.css), scaled to
-   chip size. Direction rides a RING around it rather than recolouring the
-   fill: colouring the circle by direction would have made every expense look
-   like the same merchant.
-   The ring is an outline, not a border, so it hangs outside the circle and
-   costs no layout — the avatar stays exactly where it sits in the card. Solid
-   and flush (offset 0) so it reads as one unbroken outline of the circle
-   rather than a detached halo; it follows border-radius, so it stays a true
-   circle.
-   Every ring is solid, actual or projected: actual vs. projected is carried
-   by the chip's name colour below and spelled out on the card
-   ("Charged Aug 27" vs "Projected Aug 27").
-   accent-negative/accent-positive (not accent-primary) — the app's own brand
-   teal and its "positive" green sit only ~30° apart in hue at the same
-   lightness (validated: #497e74 vs #22a64a), too close for a reliable
-   income/expense read at a glance. Red/green reuses the polarity pairing
-   reportcard.js's changePill already uses for the same income-good/
-   expense-bad semantic, and the ~190° hue gap is unambiguous even before the
-   name, the amount and the card kick in.
-   Each ring is mixed halfway to --button-text FOR THE CHIP ONLY (the card's
-   pill and amount keep the full-strength tokens): the tile is the accent fill
-   now, and at full strength the ring sank into it — red measured 1.0:1 against
-   the light theme's fill, green 1.5:1. Mixing toward the label colour steps the
-   ring whichever way the theme has contrast to give (pale on light, deep on
-   dark) and keeps the hue that carries the meaning. It buys ~2-3:1, the most a
-   mid-tone fill allows; hue does the rest, and the card spells direction out. */
+   chip size and nothing else. It used to wear a direction-coloured RING, from
+   when the tile was one flat accent and the ring was the only place direction
+   could go; the tile carries direction now, so the ring was saying a second
+   time what the chip already says in a far larger area — and it was doing it
+   at ~2-3:1 against the fill, the most a mid-tone allowed. Gone: the circle is
+   the merchant's identity, full stop, and it reads the same here as in the
+   ledger and on the card. */
 .rec-occ .avatar-circle {
     width: 18px;
     height: 18px;
     font-size: 8px;
-    outline-width: 2px;
-    outline-style: solid;
-    outline-offset: 0;
 }
-.rec-occ-expense  .avatar-circle { outline-color: color-mix(in srgb, var(--accent-negative) 50%, var(--button-text)); }
-.rec-occ-income   .avatar-circle { outline-color: color-mix(in srgb, var(--accent-positive) 50%, var(--button-text)); }
-.rec-occ-transfer .avatar-circle { outline-color: color-mix(in srgb, var(--accent-info) 50%, var(--button-text)); }
 
-/* Bold, both halves. At --size-micro on a mid-tone accent fill, weight is the
-   cheapest contrast there is: the extra stem width survives antialiasing where
-   a colour step does not (see the faded-label note below), so the chip's two
-   labels stay legible at the size the grid forces on them.
-   BOTH halves take --button-text at FULL strength: the token every filled
-   accent button labels itself with, not the --text-* tokens, which are written
-   for the page's surfaces and would flip to near-black on the fill in the light
-   theme. They used to fade toward the fill (name 100% / amount 82%, projected
-   72%) to rank them, but at --size-micro on a mid-tone fill antialiasing
-   already eats most of a label's contrast — the faded pair read as washed-out
-   grey rather than as a quieter white, and the chip stopped matching the crisp
-   label of the primary button it borrows its fill from. Rank is carried by
-   order and the numeric face instead. */
+/* Bold, both halves. At --size-micro weight is the cheapest contrast there is:
+   the extra stem width survives antialiasing where a colour step does not, so
+   the chip's two labels stay legible at the size the grid forces on them.
+   The name takes --text-primary, not a direction colour: the tile behind it is
+   a tint of the page's own surface, so the page's own text token is the
+   highest-contrast ink available (it lands the right way round in both themes,
+   which --button-text — written for a filled accent — does not). Direction is
+   the tile's job; the name's job is to be read. Neither label fades: they used
+   to (name 100% / amount 82%, projected 72%) to rank them, and at this size a
+   faded label reads as washed-out rather than as a quieter one. Rank is carried
+   by order and the numeric face instead. */
 .rec-occ-name {
     flex: 1;
     min-width: 0;
@@ -341,7 +328,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     font-weight: var(--weight-bold);
-    color: var(--button-text);
+    color: var(--text-primary);
 }
 /* A projected charge is NOT stepped back on the grid any more: dimming its name
    was the same washed-grey problem as above, and it cost the chip the one thing
@@ -349,6 +336,14 @@
    card carries the distinction instead. The class stays on the element as the
    hook it always was. */
 
+/* The amount takes the direction hue, the way every other amount in the app
+   does (the card's .rec-amount-*, the ledger's, the picker's) — but DEEPENED,
+   mixed 65% toward --text-primary. The raw tokens are mid-tones picked to sit
+   on the page's plain surfaces; on a tint of themselves they drop to ~3:1 in
+   the light theme. --text-primary is the high-contrast direction in EITHER
+   theme (near-black on light, near-white on dark — the same trick the --chart-*
+   ramp uses), so one mix darkens the number on light and lightens it on dark,
+   clears 4.5:1 in both, and keeps the hue that makes it agree with the tile. */
 .rec-occ-amount {
     flex: 0 1 auto;
     min-width: 0;
@@ -358,18 +353,18 @@
     font-size: var(--size-micro);
     font-weight: var(--weight-bold);
     font-variant-numeric: tabular-nums;
-    color: var(--button-text);
+    color: color-mix(in srgb, var(--rec-chip-hue) 65%, var(--text-primary));
 }
 
-/* Hover takes --accent-primary-hover, the exact fill .button-primary hovers to
-   (buttons.css) — on an accent fill the lift is toward the light end of the
-   ramp, unlike the grey surfaces this used to borrow from. It has to be that
-   token and not a ramp rung: the themes rest the accent on different rungs, so
-   a named rung lands on the resting colour in one of them and stops reading as
-   a hover at all.
-   .rec-occ-active takes the SAME fill, and must: recurring.js sets it on every
+/* Hover deepens the chip's OWN hue rather than moving to a colour of its own:
+   the response has to be "more of this chip", since the same treatment lights
+   up the whole schedule (below) and a shared neutral or accent hover would wipe
+   the direction off every chip it touched. The step is big enough (16% → 32% of
+   the hue) to read as a response on a tile this small, where a couple of
+   percent would not.
+   .rec-occ-active takes the SAME step, and must: recurring.js sets it on every
    chip of a schedule the moment its card opens, which is the moment the
-   pointer lands on one of them. Any other colour here would be what "hover"
+   pointer lands on one of them. Any other treatment here would be what "hover"
    actually looks like, since the hovered chip is always active too. Lighting
    up the schedule's whole run across the month is the point — a monthly bill
    shows all its dates at once. (Pinned-vs-previewing is carried by the card's
@@ -378,8 +373,16 @@
 .rec-occ:focus-visible,
 .rec-occ-active,
 .rec-occ-active:hover {
-    background: var(--accent-primary-hover);
-    outline: none;
+    background: color-mix(in srgb, var(--rec-chip-hue) 32%, var(--surface1));
+}
+
+/* The keyboard ring is the accent, not the hue — it is the app's focus
+   treatment (same as .rec-day-add above), and it has to be legible as focus
+   whatever direction the chip carries. It sits outside the tile, so it reads
+   on top of the hover fill the rule above already applied. */
+.rec-occ:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 1px;
 }
 
 /* Overflow toggle. A button, not a label: the calendar is the only way to
@@ -476,9 +479,10 @@
 /* Only the linked variant reacts to the pointer — a schedule with nothing to
    show mustn't offer a click it can't honour. Two signals, because the avatar
    is the thing that reads as clickable at a glance and the name is the thing
-   that says where it goes: the circle picks up the same accent ring the
-   calendar's chips use for direction, and the name underlines. Neither is
-   permanent — a standing underline in a card this dense reads as emphasis. */
+   that says where it goes: the circle picks up an accent ring and the name
+   underlines. Neither is permanent — a standing underline in a card this dense
+   reads as emphasis — and the ring is a hover affordance only, so it can't be
+   read as the direction mark the chips' avatars used to wear. */
 .rec-pop-merchant-link { cursor: pointer; }
 .rec-pop-merchant-link:hover .rec-pop-name,
 .rec-pop-merchant-link:focus-visible .rec-pop-name {
@@ -555,7 +559,7 @@
    gives its category column (transactions.css .tx-category-pill), down to the
    15% mixes and the amber uncategorized state, so the same schedule reads the
    same on both pages. Direction is never spelled out: income green, expense
-   red, transfer blue is the same trio the amount and the chip's ring use. */
+   red, transfer blue is the same trio the amount and the chip's tile use. */
 .rec-type-pill {
     display: inline-block;
     /* A category name is user-entered and unbounded, so the pill takes what it
@@ -695,8 +699,8 @@
 .rec-select:focus { border-color: var(--frost-focus); outline: none; }
 .rec-select option { background: var(--surface1); color: var(--text-primary); }
 
-/* Same red/green/blue polarity the chips' marks use (see the .rec-occ-mark
-   comment above) — with no legend anywhere, this pairing is what carries
+/* Same red/green/blue polarity the calendar chips are tinted with (see
+   .rec-occ above) — with no legend anywhere, this pairing is what carries
    direction, so every surface showing an amount stays unambiguous. Shared by
    the card's amount and the detection picker's. Transfer reuses the
    ledger's own transfer colour (--accent-info, see transactions.css
