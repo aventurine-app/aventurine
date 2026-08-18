@@ -432,3 +432,42 @@ test('gate: a locked database reports the lock, not the license', (t) => {
   assert.equal(r.status, 423);
   assert.equal(r.body.error, 'db_locked');
 });
+
+// ─── Preview ────────────────────────────────────────────────────────────────
+
+test('api: preview reads a key back without storing it', (t) => {
+  const real = pair();
+  withKey(t, 0, real.raw);
+  withConfigDir(t);
+  const c = makeClient(t, { licensed: false });
+
+  const key = L.encode({ ...BASE, entitlement: 99 }, real.sign);
+  const r = c.post('/api/license/preview', { key });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.license.email, 'buyer@example.com');
+
+  // The whole point: looking is not activating. A preview must leave the
+  // install exactly as unlicensed as it found it, or pasting a key you decided
+  // against would quietly commit it.
+  assert.equal(c.get('/api/license').body.licensed, false);
+  assert.equal(
+    dispatch(c.conn, 'POST', '/api/transactions', { amount: 1, description: 'x', date: '2026-01-01' }).status,
+    402
+  );
+});
+
+test('api: preview rejects what activate would reject, with the same words', (t) => {
+  const real = pair();
+  const attacker = pair();
+  withKey(t, 0, real.raw);
+  withConfigDir(t);
+  const c = makeClient(t, { licensed: false });
+
+  for (const key of ['garbage', L.encode(BASE, attacker.sign)]) {
+    const p = c.post('/api/license/preview', { key });
+    const a = c.post('/api/license/activate', { key });
+    assert.equal(p.status, 400);
+    assert.equal(p.body.reason, a.body.reason, 'preview and activate must agree');
+    assert.equal(p.body.error, a.body.error, 'and say the same thing about it');
+  }
+});

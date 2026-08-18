@@ -670,3 +670,17 @@
     gap: 8px;
     flex-wrap: wrap;
 }
+
+/* Live read-out of a pasted key, before it is committed. Positive-tinted: it
+   is a confirmation, and it sits where the error would otherwise be. */
+.license-preview {
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    line-height: var(--lh-relaxed);
+    color: var(--accent-positive);
+}
+
+.license-preview strong {
+    font-family: var(--font-numeric);
+    font-weight: var(--weight-medium);
+}

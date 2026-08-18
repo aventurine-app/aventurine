@@ -19,6 +19,7 @@
     const activateEl = q('[data-license-activate]');
     const manageEl   = q('[data-license-manage]');
     const inputEl    = q('[data-license-input]');
+    const previewEl  = q('[data-license-preview]');
     const errorEl    = q('[data-license-error]');
     const submitBtn  = q('[data-license-submit]');
     const openBtn    = q('[data-license-open]');
@@ -48,7 +49,7 @@
             licensed ? 'Activated' : st.state === 'invalid' ? 'Not valid' : 'Not activated';
 
         descEl.textContent = licensed
-            ? `Registered to ${st.license.email}. Issued ${st.license.issued}.`
+            ? `Activated by ${st.license.email}. Key issued ${st.license.issued}.`
             : st.message || 'This copy has not been activated yet.';
 
         activateEl.hidden = licensed;
@@ -92,6 +93,7 @@
                 return;
             }
             inputEl.value = '';
+            setPreview(null);
             render(body);
         } catch {
             setError('Activation could not be completed. Please try again.');
@@ -112,9 +114,42 @@
         }
     }
 
+    function setPreview(email) {
+        if (!email) {
+            previewEl.hidden = true;
+            previewEl.textContent = '';
+            return;
+        }
+        previewEl.innerHTML = `This key was issued to <strong>${escapeHtml(email)}</strong>.`;
+        previewEl.hidden = false;
+    }
+
+    // Read the pasted key back before it is committed. The address is the whole
+    // anti-sharing mechanism, so the moment to show it is while the user still
+    // has the key in front of them, not after they have put it away.
+    const previewKey = window.debounce(async () => {
+        const key = inputEl.value.trim();
+        // Too short to be a key yet: stay quiet rather than reporting an error
+        // at every keystroke of a paste-in-progress.
+        if (key.length < 100) { setPreview(null); setError(''); return; }
+        try {
+            const res = await window.apiFetch('/api/license/preview', {
+                method: 'POST',
+                body: JSON.stringify({ key }),
+            });
+            const body = await res.json();
+            if (res.ok && body.license) { setPreview(body.license.email); setError(''); }
+            else { setPreview(null); setError(body.error || ''); }
+        } catch {
+            setPreview(null);
+        }
+    }, 250);
+
     inputEl.addEventListener('input', () => {
         submitBtn.disabled = !inputEl.value.trim();
         setError('');
+        setPreview(null);
+        previewKey();
     });
 
     // A key is one long token, so Enter should submit; Shift+Enter still gives

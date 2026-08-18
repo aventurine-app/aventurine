@@ -29,6 +29,21 @@ function get() {
   return shape(license.status());
 }
 
+/** Read a key WITHOUT storing it, so the panel can show whose key it is before
+ *  the user commits. Verification has to happen here rather than in the
+ *  renderer: the public key and the decision it drives belong in the main
+ *  process, and duplicating either into a page would put a trust decision
+ *  somewhere a page could rewrite. */
+function preview(ctx, { body }) {
+  const key = (body || {}).key;
+  if (typeof key !== 'string') bad('key must be a string');
+  const res = license.verify(key);
+  if (!res.ok) {
+    bad(REASONS[res.reason] || 'That key could not be verified.', 400, { reason: res.reason });
+  }
+  return { license: res.license };
+}
+
 function activate(ctx, { body }) {
   const key = (body || {}).key;
   if (typeof key !== 'string') bad('key must be a string');
@@ -46,6 +61,7 @@ function deactivate() {
 
 const routes = [
   ['GET', '/api/license', get],
+  ['POST', '/api/license/preview', preview],
   ['POST', '/api/license/activate', activate],
   ['DELETE', '/api/license', deactivate],
 ];

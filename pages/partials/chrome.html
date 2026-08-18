@@ -365,6 +365,10 @@
             </div>
             <textarea class="license-input" data-license-input rows="4" spellcheck="false"
                       autocomplete="off" placeholder="Paste your unlock key"></textarea>
+            <!-- Filled the moment a valid key is pasted, before Activate is pressed:
+                 the address is the whole anti-sharing mechanism, so it should be
+                 visible at the moment the user is deciding what to do with the key. -->
+            <div class="license-preview" data-license-preview hidden></div>
             <div class="enc-error" data-license-error hidden></div>
             <div class="license-actions">
                 <button class="db-btn" type="button" data-license-open>Open Activation Page</button>
