@@ -299,17 +299,18 @@
       title="See ${escapeHtml(label)} transactions in the ledger">${inner}</a>`;
   }
 
-  /** Display mode: one flat row — name · category · amount · cadence — then the
-   *  actions. Every field sits on the same line at the same rhythm; nothing is
-   *  a sub-line of anything else. The amount shown is the OCCURRENCE's — a past
-   *  charge keeps whatever really hit the account, which is the whole reason to
-   *  hover a specific day rather than read an average. */
+  /** Display mode: one flat row — merchant · amount · category · cadence — then
+   *  the actions. Every field sits on the same line at the same rhythm; nothing
+   *  is a sub-line of anything else, and the order is the order the question is
+   *  asked in: who, how much, what kind, how often. The amount shown is the
+   *  OCCURRENCE's — a past charge keeps whatever really hit the account, which
+   *  is the whole reason to hover a specific day rather than read an average. */
   function cardDisplayHtml(occ, s) {
     const label = occLabel(occ);
     return `<div class="rec-pop-row">
       ${merchantHtml(label, s)}
-      ${categoryPillHtml(s, occ.direction)}
       <span class="rec-pop-amount rec-amount-${occ.direction}">${escapeHtml(formatCurrency(occ.amount, true))}</span>
+      ${categoryPillHtml(s, occ.direction)}
       <span class="rec-pop-cadence">${escapeHtml(CYCLE_LABEL[s.cycle] || s.cycle || '')}</span>
       <span class="rec-action-group">
         ${actionBtn('edit', occ.key, 'pencil', `Edit ${label}`)}

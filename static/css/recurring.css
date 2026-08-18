@@ -310,25 +310,27 @@
     font-size: 8px;
 }
 
-/* Bold, both halves. At --size-micro weight is the cheapest contrast there is:
-   the extra stem width survives antialiasing where a colour step does not, so
-   the chip's two labels stay legible at the size the grid forces on them.
-   The name takes --text-primary, not a direction colour: the tile behind it is
-   a tint of the page's own surface, so the page's own text token is the
-   highest-contrast ink available (it lands the right way round in both themes,
-   which --button-text — written for a filled accent — does not). Direction is
-   the tile's job; the name's job is to be read. Neither label fades: they used
-   to (name 100% / amount 82%, projected 72%) to rank them, and at this size a
-   faded label reads as washed-out rather than as a quieter one. Rank is carried
-   by order and the numeric face instead. */
+/* A merchant name is drawn the same way wherever it appears, so this is the
+   LEDGER's treatment: --text-secondary at --weight-regular in --font-menu,
+   which is what a description cell inherits from .tx-row td + .tx-col-description
+   (transactions.css). Only the size differs, because a day cell is not a table
+   row. It used to be bold --button-text, from when the tile was a filled accent
+   and the label had to fight a mid-tone fill; the tint the chip carries now is
+   a shade of the page's own surface, so the page's own text tokens land on it
+   the same way they land in the ledger.
+   The amount below keeps its own weight — it is the one label on the chip that
+   is not a merchant name, and the ledger gives its amount column a face of its
+   own too. Neither label fades: they used to (name 100% / amount 82%, projected
+   72%) to rank them, and at this size a faded label reads as washed-out rather
+   than as a quieter one. Rank is carried by order and the numeric face. */
 .rec-occ-name {
     flex: 1;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-weight: var(--weight-bold);
-    color: var(--text-primary);
+    font-weight: var(--weight-regular);
+    color: var(--text-secondary);
 }
 /* A projected charge is NOT stepped back on the grid any more: dimming its name
    was the same washed-grey problem as above, and it cost the chip the one thing
@@ -415,30 +417,40 @@
        goes to the name before it ellipses. Narrowed from 560px to hand the
        name about half the room it had — it is the one field with a tooltip and
        a chip on the grid still showing it, so it is the one that can afford to
-       be clipped. */
-    width: 460px;
+       be clipped. The 20px on top of that 460 is the cadence pill's own
+       padding handed back: turning cadence from bare text into a capsule spends
+       16px, and every pixel of it would otherwise have come out of the name. */
+    width: 480px;
     max-width: calc(100vw - 16px);
     box-sizing: border-box;
     border: var(--border-width) solid var(--border);
     border-radius: 8px;
     background: var(--surface1);
-    /* --shadow-menu, the app's popover elevation (titlebar menus, ⋮ menus,
-       filter popovers) — this card floats over the grid exactly like those do,
-       and the shadow is what separates it from the day cells underneath.
-       (--shadow-card, which raised surfaces use, resolves to no shadow at all.) */
-    box-shadow: var(--shadow-menu);
+    /* Its own elevation, softer than --shadow-menu (the app's popover shadow,
+       0 8px 24px / 0.5). A menu opens over an arbitrary page and has only its
+       shadow to sit on; this card opens over a pale ruled grid it also has a
+       1px border against, so the border already does the separating and the
+       menu's weight landed as a dark halo across three day cells — a heavier
+       mark than the chip it describes. Halved opacity on a tighter, closer
+       blur: enough lift to read as floating, not enough to stain the calendar.
+       (--shadow-card, which raised surfaces use, resolves to no shadow at all,
+       which would leave the card flat against the grid.) */
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
     padding: 10px 12px;
 }
 .rec-pop[hidden] { display: none; }
 /* Pinned by a click: it now survives the pointer leaving, so it says so. */
 .rec-pop-pinned { border-color: var(--accent-primary); }
 
-/* name · category · amount · cadence, then the actions — one flat line, no
-   field nested under another. The row's `gap` is the ONLY thing that separates
-   them: every field below is sized to its own content (flex-basis auto, no
-   min-widths, no text-align padding it out), so the space between each pair is
-   identical no matter what the values are. The name is the sole flexible one,
-   soaking up whatever is left and ellipsing when it runs out. */
+/* merchant · amount · category · cadence, then the actions — one flat line, no
+   field nested under another, in the order the question is asked in: who, how
+   much, what kind, how often. The two numbers-and-identity fields lead because
+   they are what the card is opened for; the two tags trail as classification.
+   The row's `gap` is the ONLY thing that separates them: every field below is
+   sized to its own content (flex-basis auto, no min-widths, no text-align
+   padding it out), so the space between each pair is identical no matter what
+   the values are. The name is the sole flexible one, soaking up whatever is
+   left and ellipsing when it runs out. */
 .rec-pop-row {
     display: flex;
     align-items: center;
@@ -446,16 +458,20 @@
     min-width: 0;
 }
 
+/* Same ledger treatment as the chip's name above (.rec-occ-name): a merchant
+   is one thing with one look, so the card, the grid and the Transactions table
+   all draw it in --text-secondary at --weight-regular in --font-menu. The card
+   is a step up in size from a chip, and that is the only difference. */
 .rec-pop-name {
     flex: 1 1 auto;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--text-primary);
+    color: var(--text-secondary);
     font-family: var(--font-menu);
     font-size: var(--size-small);
-    font-weight: var(--weight-medium);
+    font-weight: var(--weight-regular);
 }
 
 /* Avatar + name, wrapped into one target. On a detected schedule it is a link
@@ -508,12 +524,31 @@
     white-space: nowrap;
 }
 
+/* Cadence is a TAG, like the category beside it — the two are the row's
+   classification half, and reading as bare text next to a pill made the pair
+   look like a mistake rather than a pairing. Same pill geometry as
+   .rec-type-pill (so the two capsules are one size, not two) on the app's
+   neutral grey tag fill, the ledger's Account-tag treatment
+   (transactions.css .tx-account-tag): grey is what "this one carries no
+   direction" looks like here, and it keeps the coloured pill next to it the
+   only thing on the row saying income/expense/transfer. */
 .rec-pop-cadence {
     flex: 0 0 auto;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--surface2);
     color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
     white-space: nowrap;
+}
+/* Same fix the ledger's tag needs: --surface2 resolves to --color-base-900 on
+   dark, which is the card's own --surface1, so the pill was exactly its
+   backdrop and read as bare text. --surface3 is the next rung up and gives the
+   capsule back. */
+html[data-theme="dark"] .rec-pop-cadence {
+    background: var(--surface3);
 }
 
 /* Edit mode only — the name input keeps a "next due" hint stacked under it,
