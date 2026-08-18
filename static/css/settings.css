@@ -72,6 +72,11 @@
   padding: 16px 20px;
 }
 
+/* display:flex outranks the UA's [hidden] rule, so restate it at author level.
+   Several rows are toggled by the attribute alone: the zoom row, the auto-lock
+   timer, License → Activate, and About's licensee row. */
+.settings-row[hidden] { display: none; }
+
 .settings-row + .settings-row {
   border-top: var(--border-width) solid var(--border);
 }
@@ -636,6 +641,18 @@
     color: var(--accent-negative);
     border-color: color-mix(in srgb, var(--accent-negative) 45%, transparent);
     background: color-mix(in srgb, var(--accent-negative) 10%, transparent);
+}
+
+
+/* The field, its read-outs and its buttons are ONE control in the row, so they
+   are wrapped and spaced tighter than the row's own 12px gap. .settings-row is
+   a column flex with align-items:flex-start, which shrink-wraps its children —
+   width:100% is what gives the textarea the full card width. */
+.license-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
 }
 
 /* A key is ~150 characters, so it gets a textarea rather than the single-line

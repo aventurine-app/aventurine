@@ -334,12 +334,13 @@
         </div>
     </div>
 </div>
-            </div>
 
 <!-- License. Activation is offline: the key is a signed token this install
      verifies locally (electron/backend/license.js), so nothing here reaches the
      network. The key is issued by the activation page after it checks the
-     purchase with Gumroad, and it carries the address that bought it. -->
+     purchase with Gumroad, and it carries the address that bought it.
+     Shaped like every other panel: one card of rows for the ordinary settings,
+     a fenced danger card for the destructive one. -->
 <div class="settings-tabpanel" data-tabpanel="license" role="tabpanel" hidden
      id="settings-panel-license" aria-labelledby="settings-tab-license">
     <div class="settings-card">
@@ -350,10 +351,7 @@
             </div>
             <div class="license-badge" data-license-badge></div>
         </div>
-    </div>
-
-    <div class="settings-card" data-license-activate hidden>
-        <div class="settings-row">
+        <div class="settings-row" data-license-activate hidden>
             <div class="settings-row-label">
                 <div class="settings-row-name">Activate</div>
                 <div class="settings-row-desc">
@@ -363,30 +361,36 @@
                     to the internet.
                 </div>
             </div>
-            <textarea class="license-input" data-license-input rows="4" spellcheck="false"
-                      autocomplete="off" placeholder="Paste your unlock key"></textarea>
-            <!-- Filled the moment a valid key is pasted, before Activate is pressed:
-                 the address is the whole anti-sharing mechanism, so it should be
-                 visible at the moment the user is deciding what to do with the key. -->
-            <div class="license-preview" data-license-preview hidden></div>
-            <div class="enc-error" data-license-error hidden></div>
-            <div class="license-actions">
-                <button class="db-btn" type="button" data-license-open>Open Activation Page</button>
-                <button class="db-btn db-btn-primary" type="button" data-license-submit disabled>Activate</button>
+            <!-- One control per row is the settings idiom, so the field, its
+                 read-outs and its buttons are one group rather than four
+                 siblings spaced like separate settings. -->
+            <div class="license-form">
+                <textarea class="license-input" data-license-input rows="4" spellcheck="false"
+                          autocomplete="off" placeholder="Paste your unlock key"></textarea>
+                <!-- Filled the moment a valid key is pasted, before Activate is pressed:
+                     the address is the whole anti-sharing mechanism, so it should be
+                     visible at the moment the user is deciding what to do with the key. -->
+                <div class="license-preview" data-license-preview hidden></div>
+                <div class="enc-error" data-license-error hidden></div>
+                <div class="license-actions">
+                    <button class="db-btn" type="button" data-license-open>Open Activation Page</button>
+                    <button class="db-btn db-btn-primary" type="button" data-license-submit disabled>Activate</button>
+                </div>
             </div>
         </div>
     </div>
 
-    <div class="settings-card" data-license-manage hidden>
+    <div class="settings-card settings-card-danger" data-license-manage hidden>
         <div class="settings-row">
             <div class="settings-row-label">
                 <div class="settings-row-name">Remove License</div>
-                <div class="settings-row-desc">Deactivates this installation. Your key keeps working, so you can paste it back at any time. Your financial data is not touched.</div>
+                <div class="settings-row-desc">Deactivates this installation, which returns it to read-only. Your key keeps working, so you can paste it back at any time. Your financial data is not touched.</div>
             </div>
             <button class="db-btn db-btn-danger" type="button" data-license-remove>Remove</button>
         </div>
     </div>
 </div>
+            </div>
             <div class="settings-modal-footer">
                 <button class="db-btn settings-restore-defaults" type="button">Restore Defaults</button>
             </div>
