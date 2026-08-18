@@ -863,8 +863,11 @@
     display: inline-block;
     /* Names are capped at 18 chars and must never break across lines. */
     white-space: nowrap;
-    padding: 4px 10px;
-    border-radius: 5px;
+    /* Fully rounded — the extra horizontal padding keeps the text off the
+       curve, so the name sits the same optical distance from the edge as it
+       did inside the old rounded rectangle. */
+    padding: 4px 12px;
+    border-radius: 999px;
     background: var(--surface2);
     color: var(--text-primary);
     font-family: var(--font-h3);
@@ -878,7 +881,7 @@
    every uncategorized row regardless of its backend tx_type — a blank category
    always reads amber, never a direction tint. */
 .tx-category-pill.tx-category-empty {
-    padding: 3px 9px;
+    padding: 3px 11px;
     font-weight: var(--weight-semibold);
     background: color-mix(in srgb, var(--warning) 15%, transparent);
     color: var(--warning);
@@ -915,8 +918,10 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     vertical-align: bottom;
-    padding: 4px 10px;
-    border-radius: 5px;
+    /* Fully rounded to match the Category pill beside it — the extra horizontal
+       padding keeps the text off the curve. */
+    padding: 4px 12px;
+    border-radius: 999px;
     background: var(--surface2);
     color: var(--text-primary);
     font-family: var(--font-h3);
