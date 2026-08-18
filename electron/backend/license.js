@@ -58,8 +58,9 @@ const DAY_MS = 86400000;
 // verifies against it, so the app is simply unlicensed rather than wrongly
 // unlocked. Tests push their own slot on and pop it off (see license.test.js).
 const PUBLIC_KEYS = [
-  // slot 0
-  null,
+  // slot 0 — production. Private half lives only in the activation worker's
+  // secrets (SIGNING_KEY_PKCS8) and an offline backup.
+  'SbyQc1LuFC4Wh5uhuZpODQYIsEpIIPHEjks81JeZMLo=',
 ];
 
 // ─── Crockford base32 ───────────────────────────────────────────────────────
