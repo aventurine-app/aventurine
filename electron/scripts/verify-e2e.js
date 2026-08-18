@@ -37,6 +37,10 @@ async function waitForWindow() {
 }
 
 app.whenReady().then(async () => {
+  // The real app is read-only until activated; give this run a throwaway
+  // license so the script exercises features instead of the 402 gate.
+  require('./lib/dev-license').installDevLicense();
+
   let failed = false;
   const check = (label, cond) => {
     console.log(`${cond ? 'ok ' : 'FAIL'}  ${label}`);
@@ -201,6 +205,25 @@ app.whenReady().then(async () => {
         + ' && document.querySelectorAll("[data-categories-editor] .cat-row").length > 0'
         + '), 800))'
     ));
+
+    // ─── Licensing ────────────────────────────────────────────────────────
+    // This run activated a throwaway license (lib/dev-license), so the app
+    // should be fully writable and wearing no read-only badge. The writes
+    // asserted above already prove the 402 gate is not firing; these check the
+    // chrome the gate drives.
+    const lic = await evalJs('apiFetch("/api/license").then(r => r.json())');
+    check('license reports activated', lic.licensed === true && lic.license.email === 'dev@localhost');
+    check('License panel assembles', await evalJs(
+      '!!document.getElementById("settings-tab-license")'
+      + ' && !!document.querySelector("[data-tabpanel=\'license\']")'
+    ));
+    check('read-only badge hidden while licensed', await evalJs(
+      'document.querySelector("[data-license-pill]").hidden === true'
+    ));
+    check('About names the licensee', await evalJs(
+      'document.querySelector("[data-about-license]").textContent === "dev@localhost"'
+    ));
+
   } catch (e) {
     console.error('FAIL  exception:', e.message);
     failed = true;

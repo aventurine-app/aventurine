@@ -15,9 +15,12 @@
 //   - no route                              -> 404 {ok:false, error:'not found'}
 //   - locked DB, non-/api/db/ path          -> 423 {ok:false, error:'db_locked'}
 //     (the _check_db_lock middleware, relocated)
+//   - unlicensed install, mutating path    -> 402 {ok:false, error:'license_required'}
+//     (the read-only gate below)
 
 const fs = require('fs');
 const path = require('path');
+const { isLicensed } = require('./license');
 
 const { ApiError } = require('./validate');
 
@@ -55,6 +58,41 @@ function compile(pattern) {
   return { regex, names, types };
 }
 
+// ─── License gate ───────────────────────────────────────────────────────────
+//
+// An unlicensed install is READ-ONLY, not walled off. Every GET answers
+// normally and the export endpoint still runs, so a user can always open,
+// browse, and take away their own finances; only writes are refused.
+//
+// That carve-out is not politeness, it is the difference between a pricing
+// decision and a hostage situation. The people meeting this gate first are beta
+// users upgrading into 1.0 with years of their own data already in the file —
+// refusing to let them read it would be the one genuinely indefensible outcome.
+//
+// Three groups stay writable while unlicensed:
+//   /api/db/*        opening, creating, unlocking, encrypting, saving-as. This
+//                    is about REACHING your data, not entering any.
+//   /api/license*    obviously, or activation could never happen.
+//   /api/app-settings  preferences, not financial data. Blocking them strands
+//                    the user in states they cannot leave (e.g. an onboarding
+//                    invitation whose skip is refused).
+//   POST /api/transactions/export  taking your data with you is a read that
+//                    happens to need a request body.
+//
+// The gate lives HERE, in one place, rather than in the handlers: no feature
+// module knows licensing exists, exactly as with _check_db_lock. It is also why
+// defeating it means editing and rebuilding the app rather than flipping
+// something in the renderer — which is all any offline scheme can honestly
+// claim.
+function isWriteGated(method, path) {
+  if (method === 'GET') return false;
+  if (path.startsWith('/api/db/')) return false;
+  if (path.startsWith('/api/license')) return false;
+  if (path.startsWith('/api/app-settings')) return false;
+  if (path === '/api/transactions/export') return false;
+  return true;
+}
+
 function buildRouter(routes) {
   const compiled = routes.map(([method, pattern, fn]) => ({
     method,
@@ -79,6 +117,13 @@ function buildRouter(routes) {
       !path.startsWith('/api/license')
     ) {
       return { status: 423, body: { ok: false, error: 'db_locked' } };
+    }
+
+    // Read-only until activated. Checked AFTER the lock so a locked encrypted
+    // DB still reports 'db_locked' — the user's next action there is the
+    // passphrase, and leading with licensing would misdirect them.
+    if (path.startsWith('/api/') && isWriteGated(method, path) && !isLicensed()) {
+      return { status: 402, body: { ok: false, error: 'license_required' } };
     }
 
     for (const r of compiled) {

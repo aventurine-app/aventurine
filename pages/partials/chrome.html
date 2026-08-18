@@ -17,6 +17,11 @@
              theme-init.js): macOS traffic lights on the left, square controls on
              the right elsewhere. The maximize button carries both a square glyph
              (Windows/Linux) and a "+" glyph (macOS); CSS shows the right one. -->
+        <!-- Read-only badge. Shown only while the install is unactivated
+             (static/js/shell/license.js); an unlicensed copy can read and export
+             everything, so this states the limit rather than nagging. Clicking
+             opens Preferences -> License. -->
+        <button class="titlebar-license" data-license-pill type="button" hidden tabindex="-1">Read-only</button>
         <div class="titlebar-controls">
             <button class="titlebar-btn titlebar-btn-min" data-action="min" aria-label="Minimize" tabindex="-1">
                 <svg viewBox="0 0 12 12" fill="none"><path d="M2 6h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>

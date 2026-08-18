@@ -286,3 +286,31 @@ html[data-theme="dark"] {
 /* Swap the maximize glyph for the macOS "+". */
 [data-platform="mac"] .tb-glyph-default { display: none; }
 [data-platform="mac"] .tb-glyph-mac     { display: block; }
+
+/* ── Read-only badge ──────────────────────────────────────────────────────
+   Present only on an unactivated install. It sits beside the window controls
+   rather than in the page, because the limit applies to the whole app and not
+   to whatever surface happens to be open. Amber, not red: nothing is wrong,
+   the app is simply doing less than it can. */
+.titlebar-license {
+    align-self: center;
+    margin-right: 10px;
+    padding: 3px 11px;
+    border-radius: 999px;
+    border: var(--border-width) solid color-mix(in srgb, var(--warning) 45%, transparent);
+    background: color-mix(in srgb, var(--warning) 14%, transparent);
+    color: var(--warning);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-medium);
+    line-height: 1.4;
+    white-space: nowrap;
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.titlebar-license:hover {
+    background: color-mix(in srgb, var(--warning) 24%, transparent);
+    border-color: var(--warning);
+}

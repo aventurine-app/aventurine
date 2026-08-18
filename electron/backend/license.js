@@ -259,6 +259,15 @@ function status() {
   return { state: 'licensed', license: res.license };
 }
 
+/** The gate's question, kept separate from status() because it is asked on
+ *  every mutating request. Deliberately NOT cached: an Ed25519 verify plus a
+ *  200-byte read is tens of microseconds, the app makes a handful of writes per
+ *  interaction, and a cache would be one more thing that can go stale (or be
+ *  poked) between an activation and the next request. */
+function isLicensed() {
+  return status().state === 'licensed';
+}
+
 function activate(key) {
   const res = verify(key);
   if (!res.ok) return res;
@@ -268,6 +277,7 @@ function activate(key) {
 
 module.exports = {
   verify,
+  isLicensed,
   encode,
   licenseIdFor,
   status,

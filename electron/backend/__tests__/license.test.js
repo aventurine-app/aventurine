@@ -244,7 +244,7 @@ test('api: status, activate, deactivate', (t) => {
   const real = pair();
   withKey(t, 0, real.raw);
   withConfigDir(t);
-  const c = makeClient(t);
+  const c = makeClient(t, { licensed: false });
 
   let r = c.get('/api/license');
   assert.equal(r.status, 200);
@@ -276,7 +276,7 @@ test('api: activation works while the database is still locked', (t) => {
   // An encrypted DB restored from the pointer starts locked. A license belongs
   // to the INSTALL, so its panel must answer before any passphrase is supplied
   // — otherwise a user could never see why the app is gated.
-  const c = makeClient(t);
+  const c = makeClient(t, { licensed: false });
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fl-lic-db-'));
   const p = path.join(dir, 'enc.db');
   assert.equal(c.post('/api/db/create', { path: p, encrypt: true, password: 'pw9' }).status, 200);
@@ -307,4 +307,128 @@ test('api: activation works while the database is still locked', (t) => {
   });
   assert.equal(activated.status, 200, JSON.stringify(activated.body));
   assert.equal(activated.body.licensed, true);
+});
+
+// ─── The read-only gate ─────────────────────────────────────────────────────
+
+/** An unlicensed client with an isolated (empty) config dir. */
+function unlicensedClient(t) {
+  withConfigDir(t);
+  return makeClient(t, { licensed: false });
+}
+
+test('gate: unlicensed installs are read-only, not walled off', (t) => {
+  const c = unlicensedClient(t);
+
+  // Reads all answer normally — the user can always see their own finances.
+  for (const url of ['/api/data', '/api/categories', '/api/transactions', '/api/onboarding']) {
+    assert.equal(c.get(url).status, 200, `${url} should stay readable`);
+  }
+
+  // Writes are refused, whatever their shape.
+  const refused = [
+    ['POST', '/api/transactions', { amount: 5, description: 'x', date: '2026-01-01' }],
+    ['POST', '/api/categories', { name: 'X', cat_type: 'expense' }],
+    ['POST', '/api/entry', {}],
+    ['POST', '/api/transactions/import', { rows: [] }],
+    ['PUT', '/api/transactions/1', {}],
+    ['PUT', '/api/categories/1', {}],
+    ['DELETE', '/api/transactions/1', null],
+    ['DELETE', '/api/entry', {}],
+  ];
+  for (const [method, url, body] of refused) {
+    const r = c.conn && dispatch(c.conn, method, url, body);
+    assert.equal(r.status, 402, `${method} ${url} should be gated`);
+    assert.equal(r.body.error, 'license_required');
+  }
+});
+
+test('gate: taking your data with you always works', (t) => {
+  const c = unlicensedClient(t);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fl-lic-exp-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  // Export is a POST only because it needs a body. Refusing it would make the
+  // gate a data-hostage situation rather than a pricing one.
+  const out = path.join(dir, 'out.csv');
+  const r = dispatch(c.conn, 'POST', '/api/transactions/export', {
+    path: out, format: 'csv', offset: 0, limit: 100,
+  });
+  assert.notEqual(r.status, 402, 'export must not be gated');
+});
+
+test('gate: database and preference routes stay open', (t) => {
+  const c = unlicensedClient(t);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fl-lic-db2-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  // Reaching your data is not entering data.
+  assert.equal(dispatch(c.conn, 'POST', '/api/db/create', { path: path.join(dir, 'new.db') }).status, 200);
+  // Preferences are not financial data; blocking them strands the user in
+  // states they cannot leave.
+  assert.equal(dispatch(c.conn, 'PUT', '/api/app-settings/tx_auto_match', { value: 'off' }).status, 200);
+});
+
+test('gate: activating lifts it immediately, removing puts it back', (t) => {
+  const real = pair();
+  withKey(t, 0, real.raw);
+  const c = unlicensedClient(t);
+
+  const tx = { amount: 5, description: 'coffee', date: '2026-01-01' };
+  assert.equal(dispatch(c.conn, 'POST', '/api/transactions', tx).status, 402);
+
+  const key = L.encode({ ...BASE, entitlement: 99 }, real.sign);
+  assert.equal(dispatch(c.conn, 'POST', '/api/license/activate', { key }).status, 200);
+  // No restart, no cache to flush: the next request is already licensed.
+  assert.equal(dispatch(c.conn, 'POST', '/api/transactions', tx).status, 200);
+
+  assert.equal(dispatch(c.conn, 'DELETE', '/api/license', null).status, 200);
+  assert.equal(dispatch(c.conn, 'POST', '/api/transactions', tx).status, 402);
+});
+
+test('gate: entitlement is what makes a paid major upgrade possible', (t) => {
+  const real = pair();
+  withKey(t, 0, real.raw);
+  const c = unlicensedClient(t);
+
+  // A genuine license that covers 1.x.
+  L.activate(L.encode({ ...BASE, entitlement: 1 }, real.sign));
+  const tx = { amount: 5, description: 'coffee', date: '2026-01-01' };
+  assert.equal(dispatch(c.conn, 'POST', '/api/transactions', tx).status, 200);
+
+  // Now ship 5.0. appMajor() reads the cached package.json object, so mutating
+  // it is the real code path, not a stub.
+  const pkg = require('../../package.json');
+  const realVersion = pkg.version;
+  t.after(() => { pkg.version = realVersion; });
+  pkg.version = '5.0.0';
+
+  // The same key, still perfectly valid, no longer unlocks: this is the whole
+  // upgrade lever, and the reason a refunded purchase eventually stops working
+  // without the app ever needing a revocation list or a clock.
+  const r = dispatch(c.conn, 'POST', '/api/transactions', tx);
+  assert.equal(r.status, 402);
+  assert.equal(r.body.error, 'license_required');
+
+  // And the UI can still name the customer rather than crying forgery.
+  const st = dispatch(c.conn, 'GET', '/api/license', null).body;
+  assert.equal(st.state, 'invalid');
+  assert.equal(st.reason, 'entitlement');
+  assert.equal(st.license.email, BASE.email);
+});
+
+test('gate: a locked database reports the lock, not the license', (t) => {
+  const c = unlicensedClient(t);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fl-lic-lock-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  const p = path.join(dir, 'enc.db');
+  assert.equal(dispatch(c.conn, 'POST', '/api/db/create', { path: p, encrypt: true, password: 'pw9' }).status, 200);
+  assert.equal(dispatch(c.conn, 'POST', '/api/db/lock', null).status, 200);
+
+  // Both gates apply, but the lock is the one the user can act on next: leading
+  // with licensing would send them to the wrong screen.
+  const r = dispatch(c.conn, 'POST', '/api/transactions', { amount: 1, description: 'x', date: '2026-01-01' });
+  assert.equal(r.status, 423);
+  assert.equal(r.body.error, 'db_locked');
 });

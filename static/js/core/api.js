@@ -464,6 +464,17 @@
   //   4. Otherwise (plain file:// page, no bridge, no server)
   //                                     -> fixtureResponse() above, so pages
   //      can be opened standalone for UI/design iteration.
+  // An unlicensed install is read-only: the backend answers 402 to every write
+  // (electron/backend/router.js). Surfacing that ONCE, here, is why no page has
+  // to know licensing exists — a call site just sees its write fail, exactly as
+  // it would on any other error, while the shell explains why.
+  //
+  // Announced rather than handled: this file is the data seam and owns no UI.
+  // static/js/shell/license.js listens and opens the License panel.
+  function notifyGated(url) {
+    window.dispatchEvent(new CustomEvent('aventurine:license-required', { detail: { url } }));
+  }
+
   /** Drop-in replacement for fetch() at the app's /api/* call sites. */
   async function apiFetch(url, opts = {}) {
     if (!isApi(url)) return fetch(url, opts);
@@ -479,6 +490,7 @@
         try { body = JSON.parse(opts.body); } catch { body = null; }
       }
       const { status, body: data } = await window.financeApi.request(method, url, body);
+      if (status === 402) notifyGated(url);
       return responseLike(status, data);
     }
 

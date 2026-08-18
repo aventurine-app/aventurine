@@ -175,6 +175,10 @@ async function waitForWindow() {
 }
 
 app.whenReady().then(async () => {
+  // The real app is read-only until activated; give this run a throwaway
+  // license so the script exercises features instead of the 402 gate.
+  require('./lib/dev-license').installDevLicense();
+
   const missing = [];
   try {
     const win = await waitForWindow();

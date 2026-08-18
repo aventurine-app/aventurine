@@ -28,6 +28,9 @@
 
     // The About modal shows the registered address; it is the watermark's whole
     // point that it is visible, so a shared key advertises whose it is.
+    // Chrome-level bits: the read-only badge, and the About row. Both live
+    // outside this panel, so they are queried from the document.
+    const pillEl = document.querySelector('[data-license-pill]');
     const aboutRow  = document.querySelector('[data-about-license-row]');
     const aboutText = document.querySelector('[data-about-license]');
 
@@ -50,6 +53,10 @@
 
         activateEl.hidden = licensed;
         manageEl.hidden = !licensed;
+
+        // An unlicensed install is read-only, so say so once, in the chrome,
+        // rather than interrupting anyone.
+        if (pillEl) pillEl.hidden = licensed;
 
         if (aboutRow) {
             aboutRow.hidden = !licensed;
@@ -132,6 +139,38 @@
             // Plain-browser fallback (no shell bridge): show it to copy.
             openBtn.textContent = ACTIVATION_URL;
         }
+    });
+
+    /** Bring the user to this panel from anywhere in the app. Reuses the
+     *  existing modal + tab wiring rather than duplicating it: opening the
+     *  overlay and clicking the tab is exactly what a user would do. */
+    function openPanel() {
+        const overlay = document.querySelector('[data-modal="preferences"]');
+        const tab = document.getElementById('settings-tab-license');
+        if (!overlay || !tab) return;
+        overlay.hidden = false;
+        tab.click();
+        inputEl.focus();
+    }
+
+    if (pillEl) pillEl.addEventListener('click', openPanel);
+
+    // A refused write (402 from the router's read-only gate, announced by
+    // core/api.js). The page that attempted it does not need to know why, so
+    // the explanation happens here, once, and lands the user where they can act.
+    let lastPrompt = 0;
+    window.addEventListener('aventurine:license-required', () => {
+        // Grid pages can fire several writes at once; one explanation is enough.
+        const now = Date.now();
+        if (now - lastPrompt < 1500) return;
+        lastPrompt = now;
+
+        window.UI?.toast?.(
+            'This copy is read-only until it is activated. Your data is safe and can still be exported.',
+            { duration: 7000 }
+        );
+        refresh();
+        openPanel();
     });
 
     refresh();
