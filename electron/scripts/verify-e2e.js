@@ -208,17 +208,22 @@ app.whenReady().then(async () => {
 
     // ─── Licensing ────────────────────────────────────────────────────────
     // This run activated a throwaway license (lib/dev-license), so the app
-    // should be fully writable and wearing no read-only badge. The writes
-    // asserted above already prove the 402 gate is not firing; these check the
-    // chrome the gate drives.
+    // should be past the activation screen entirely. The writes asserted above
+    // already prove the 402 gate is not firing; these check the chrome the gate
+    // drives.
     const lic = await evalJs('apiFetch("/api/license").then(r => r.json())');
     check('license reports activated', lic.licensed === true && lic.license.email === 'dev@localhost');
-    check('License panel assembles', await evalJs(
-      '!!document.getElementById("settings-tab-license")'
-      + ' && !!document.querySelector("[data-tabpanel=\'license\']")'
+    check('activation screen assembles but stays down', await evalJs(
+      '!!document.querySelector("[data-activation-screen]")'
+      + ' && document.documentElement.dataset.licenseGate === "off"'
     ));
-    check('read-only badge hidden while licensed', await evalJs(
-      'document.querySelector("[data-license-pill]").hidden === true'
+    check('activation screen is not painted while licensed', await evalJs(
+      'getComputedStyle(document.querySelector("[data-activation-screen]")).display === "none"'
+    ));
+    // Licensing left Preferences when it stopped being a preference.
+    check('License is in About, not Preferences', await evalJs(
+      '!document.getElementById("settings-tab-license")'
+      + ' && document.querySelector("[data-about-license-section]").hidden === false'
     ));
     check('About names the licensee', await evalJs(
       'document.querySelector("[data-about-license]").textContent === "dev@localhost"'

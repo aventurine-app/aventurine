@@ -464,13 +464,16 @@
   //   4. Otherwise (plain file:// page, no bridge, no server)
   //                                     -> fixtureResponse() above, so pages
   //      can be opened standalone for UI/design iteration.
-  // An unlicensed install is read-only: the backend answers 402 to every write
+  // An unactivated install answers 402 to everything but /api/license
   // (electron/backend/router.js). Surfacing that ONCE, here, is why no page has
-  // to know licensing exists — a call site just sees its write fail, exactly as
-  // it would on any other error, while the shell explains why.
+  // to know licensing exists — a call site just sees its request fail, exactly
+  // as it would on any other error, while the shell explains why.
   //
   // Announced rather than handled: this file is the data seam and owns no UI.
-  // static/js/shell/license.js listens and opens the License panel.
+  // static/js/shell/license.js listens and raises the activation screen. Under
+  // a total lockout that screen is normally already up before any page calls
+  // anything, so this is the backup path rather than the usual one: it catches
+  // a license that stops verifying mid-session.
   function notifyGated(url) {
     window.dispatchEvent(new CustomEvent('aventurine:license-required', { detail: { url } }));
   }

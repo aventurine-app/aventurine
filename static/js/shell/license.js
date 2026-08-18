@@ -1,7 +1,13 @@
 'use strict';
 
 // ─── license.js ─────────────────────────────────────────────────────────────
-// Settings → License. Reads GET /api/license and drives activation.
+// The activation screen, and the license read-out in About.
+//
+// An unactivated install answers nothing but /api/license (the gate in
+// electron/backend/router.js), so this file drives the only screen such an
+// install has. It is not an overlay bolted over a working app: everything
+// behind it would return 402 anyway, and the gate is what makes that legible
+// instead of looking like a hundred broken pages.
 //
 // Nothing here touches the network. An unlock key is a signed token the backend
 // verifies locally (electron/backend/license.js); the user obtains it from the
@@ -10,30 +16,40 @@
 // through the preload bridge rather than loading anything in-app.
 
 (function () {
-    const panel = document.querySelector('[data-tabpanel="license"]');
-    if (!panel) return;
+    const gate = document.querySelector('[data-activation-screen]');
+    if (!gate) return;
 
-    const q = (sel) => panel.querySelector(sel);
-    const badgeEl    = q('[data-license-badge]');
-    const descEl     = q('[data-license-desc]');
-    const activateEl = q('[data-license-activate]');
-    const manageEl   = q('[data-license-manage]');
-    const inputEl    = q('[data-license-input]');
-    const previewEl  = q('[data-license-preview]');
-    const errorEl    = q('[data-license-error]');
-    const submitBtn  = q('[data-license-submit]');
-    const openBtn    = q('[data-license-open]');
-    const removeBtn  = q('[data-license-remove]');
+    const q = (sel) => gate.querySelector(sel);
+    const inputEl   = q('[data-license-input]');
+    const previewEl = q('[data-license-preview]');
+    const errorEl   = q('[data-license-error]');
+    const leadEl    = q('[data-gate-lead]');
+    const submitBtn = q('[data-license-submit]');
+    const openBtn   = q('[data-license-open]');
+
+    // About's license section. The address is the watermark's whole point, so
+    // it is on display: a shared key advertises whose it is.
+    const aboutSection = document.querySelector('[data-about-license-section]');
+    const aboutEmail   = document.querySelector('[data-about-license]');
+    const aboutIssued  = document.querySelector('[data-about-issued]');
+    const removeBtn    = document.querySelector('[data-license-remove]');
+
+    // Its confirmation. Deactivating is reversible, so this asks rather than
+    // demanding a typed phrase — see the modal's own note in chrome.html.
+    const confirmEl      = document.querySelector('[data-modal="license-deactivate"]');
+    const confirmBtn     = document.querySelector('[data-license-remove-confirm]');
+    const confirmCancel  = document.querySelector('[data-license-remove-cancel]');
+    const confirmError   = document.querySelector('[data-license-remove-error]');
 
     const ACTIVATION_URL = 'https://aventurine-app.com/activate';
 
-    // The About modal shows the registered address; it is the watermark's whole
-    // point that it is visible, so a shared key advertises whose it is.
-    // Chrome-level bits: the read-only badge, and the About row. Both live
-    // outside this panel, so they are queried from the document.
-    const pillEl = document.querySelector('[data-license-pill]');
-    const aboutRow  = document.querySelector('[data-about-license-row]');
-    const aboutText = document.querySelector('[data-about-license]');
+    // The copy the gate leads with, read OFF the markup rather than repeated
+    // here. render() replaces this line when the gate is up for a reason other
+    // than "this copy is brand new" — an expired entitlement or a key that
+    // stopped verifying reads as a bug unless the screen says otherwise — and
+    // has to be able to put the original back. Holding a second copy in this
+    // file made chrome.html's version dead text that silently lost every edit.
+    const DEFAULT_LEAD = leadEl.textContent.trim();
 
     let busy = false;
 
@@ -44,25 +60,53 @@
 
     function render(st) {
         const licensed = st.state === 'licensed' && !!st.license;
-        badgeEl.dataset.state = st.state;
-        badgeEl.textContent =
-            licensed ? 'Activated' : st.state === 'invalid' ? 'Not valid' : 'Not activated';
 
-        descEl.textContent = licensed
-            ? `Activated by ${st.license.email}. Key issued ${st.license.issued}.`
-            : st.message || 'This copy has not been activated yet.';
-
-        activateEl.hidden = licensed;
-        manageEl.hidden = !licensed;
-
-        // An unlicensed install is read-only, so say so once, in the chrome,
-        // rather than interrupting anyone.
-        if (pillEl) pillEl.hidden = licensed;
-
-        if (aboutRow) {
-            aboutRow.hidden = !licensed;
-            if (licensed) aboutText.textContent = st.license.email;
+        // The <html> flag is what actually shows or hides the screen (see
+        // license.css), and the localStorage hint is what lets theme-init.js
+        // get the next launch right before the backend has answered. Neither
+        // is a security boundary — the backend re-decides on every request.
+        document.documentElement.dataset.licenseGate = licensed ? 'off' : 'on';
+        try {
+            localStorage.setItem('license-activated', licensed ? '1' : '0');
+        } catch {
+            // Private-mode / quota failures cost a pre-paint flash, nothing more.
         }
+
+        // A user who HAS activated and is being asked again is owed the reason.
+        leadEl.textContent = licensed ? DEFAULT_LEAD : (st.message || DEFAULT_LEAD);
+
+        if (aboutSection) {
+            aboutSection.hidden = !licensed;
+            if (licensed) {
+                aboutEmail.textContent = st.license.email;
+                aboutIssued.textContent = st.license.issued;
+            }
+        }
+
+        if (!licensed) {
+            // The gate is the app now, so nothing may float above it. Deactivate
+            // is the case that proves it: the button lives in About, so without
+            // this the modal it was clicked in stays open over the activation
+            // screen — and every control still in it addresses an app that has
+            // stopped answering. Same for a session that loses its license with
+            // Preferences or a database dialog open.
+            closeChromeModals();
+
+            // Then the field the screen exists for takes focus. Guarded:
+            // re-rendering while the user is mid-paste must not yank the caret
+            // back to the start.
+            if (document.activeElement !== inputEl) inputEl.focus();
+        }
+    }
+
+    /** Every overlay in the shared chrome: the Preferences / About / encryption
+     *  modals (titlebar.js) and the database dialog (dbactions.js). Both own
+     *  their own lifecycle and both close by the same one-line means they use
+     *  internally, so this dismisses them without reaching into either. */
+    function closeChromeModals() {
+        document
+            .querySelectorAll('.settings-modal-overlay, .db-modal-overlay')
+            .forEach((m) => { m.hidden = true; });
     }
 
     async function refresh() {
@@ -70,8 +114,8 @@
             const res = await window.apiFetch('/api/license');
             render(await res.json());
         } catch {
-            // A failed status read is not a licensing verdict; leave the panel
-            // as it was rather than telling a paying user they are unlicensed.
+            // A failed status read is not a licensing verdict; leave the screen
+            // as it was rather than throwing a paying user back to the gate.
         }
     }
 
@@ -95,6 +139,11 @@
             inputEl.value = '';
             setPreview(null);
             render(body);
+            // Every page behind the gate loaded against a backend that was
+            // answering 402, so its data is not stale, it is absent. A reload
+            // is the honest way back — and it is the one moment in the app's
+            // life where throwing away renderer state costs nothing.
+            location.reload();
         } catch {
             setError('Activation could not be completed. Please try again.');
         } finally {
@@ -106,12 +155,32 @@
     async function remove() {
         if (busy) return;
         busy = true;
+        if (confirmBtn) confirmBtn.disabled = true;
         try {
             const res = await window.apiFetch('/api/license', { method: 'DELETE' });
-            render(await res.json());
+            const body = await res.json();
+            if (!res.ok) {
+                // Left on screen with the reason rather than closed: a silent
+                // no-op would read as a successful deactivation, and the user
+                // would go looking for an activation screen that never came.
+                setRemoveError(body.error || 'This copy could not be deactivated.');
+                return;
+            }
+            // render() raises the gate, and raising the gate closes this modal
+            // along with the About modal it was opened from.
+            render(body);
+        } catch {
+            setRemoveError('This copy could not be deactivated. Please try again.');
         } finally {
             busy = false;
+            if (confirmBtn) confirmBtn.disabled = false;
         }
+    }
+
+    function setRemoveError(msg) {
+        if (!confirmError) return;
+        confirmError.textContent = msg || '';
+        confirmError.hidden = !msg;
     }
 
     function setPreview(email) {
@@ -162,52 +231,38 @@
     });
 
     submitBtn.addEventListener('click', activate);
-    removeBtn.addEventListener('click', remove);
+    // Deactivate asks first. The × and backdrop-click and Escape closes are
+    // already wired for every .settings-modal-overlay by shell/titlebar.js, so
+    // only the two footer buttons belong here.
+    removeBtn?.addEventListener('click', () => {
+        setRemoveError('');
+        if (confirmEl) confirmEl.hidden = false;
+        confirmCancel?.focus();   // the safe option, not the destructive one
+    });
+    confirmCancel?.addEventListener('click', () => { confirmEl.hidden = true; });
+    confirmBtn?.addEventListener('click', remove);
 
-    openBtn.addEventListener('click', () => {
-        // Handed to the OS browser. window.open is denied and will-navigate is
-        // locked to the app origin, so this is the only way out, and main.js
-        // checks the URL against its own allowlist before opening anything.
-        if (window.electronShell?.openExternal) {
-            window.electronShell.openExternal(ACTIVATION_URL);
-        } else {
-            // Plain-browser fallback (no shell bridge): show it to copy.
-            openBtn.textContent = ACTIVATION_URL;
-        }
+    // Step one's URL. Handed to the OS browser: window.open is denied and
+    // will-navigate is locked to the app origin, so this is the only way out,
+    // and main.js checks the URL against its own allowlist before opening
+    // anything. With no shell bridge (a plain browser) there is nothing to do
+    // and nothing to say — the button's own label is the address, so a reader
+    // who cannot click it can still type it.
+    openBtn?.addEventListener('click', () => {
+        window.electronShell?.openExternal(ACTIVATION_URL);
     });
 
-    /** Bring the user to this panel from anywhere in the app. Reuses the
-     *  existing modal + tab wiring rather than duplicating it: opening the
-     *  overlay and clicking the tab is exactly what a user would do. */
-    function openPanel() {
-        const overlay = document.querySelector('[data-modal="preferences"]');
-        const tab = document.getElementById('settings-tab-license');
-        if (!overlay || !tab) return;
-        overlay.hidden = false;
-        tab.click();
-        inputEl.focus();
-    }
-
-    if (pillEl) pillEl.addEventListener('click', openPanel);
-
-    // A refused write (402 from the router's read-only gate, announced by
-    // core/api.js). The page that attempted it does not need to know why, so
-    // the explanation happens here, once, and lands the user where they can act.
-    let lastPrompt = 0;
+    // A 402 from the backend gate, announced by core/api.js. Under a total
+    // lockout this should never reach a user who is looking at the app — the
+    // gate is already up — but it is the backup that matters: a license that
+    // stops verifying mid-session (a deactivation from another window, a clock
+    // the entitlement check disagrees with) has to put the screen back rather
+    // than leave a live app quietly failing every request.
     window.addEventListener('aventurine:license-required', () => {
-        // Grid pages can fire several writes at once; one explanation is enough.
-        const now = Date.now();
-        if (now - lastPrompt < 1500) return;
-        lastPrompt = now;
-
-        window.UI?.toast?.(
-            'This copy is read-only until it is activated. Your data is safe and can still be exported.',
-            { duration: 7000 }
-        );
+        document.documentElement.dataset.licenseGate = 'on';
         refresh();
-        openPanel();
     });
 
     refresh();
     window.licenseActions = { refresh };
-})();
+}());

@@ -29,6 +29,21 @@
         document.documentElement.dataset.density = 'compact';
     }
 
+    // Activation screen, pre-paint. The backend is the authority on licensing
+    // (electron/backend/router.js answers 402 to everything but /api/license
+    // until a key is stored), but that verdict arrives over an async IPC round
+    // trip, which is one paint too late: an activated user would see a flash of
+    // the activation screen, and an unactivated one a flash of the app they
+    // cannot use. So the last known verdict is cached here as a rendering hint
+    // and the real status corrects it a moment later (shell/license.js).
+    //
+    // Nothing is gated on this value — forging it buys a view of an app whose
+    // every request still returns 402 — which is why a spoofable store is the
+    // right place for it.
+    if (localStorage.getItem('license-activated') !== '1') {
+        document.documentElement.dataset.licenseGate = 'on';
+    }
+
     // Tag the host OS so the custom title bar (titlebar.css) can match the
     // platform's native window controls: macOS traffic lights on the left,
     // square Windows-style controls on the right elsewhere. Set pre-paint so
