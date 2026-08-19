@@ -72,6 +72,11 @@
   padding: 16px 20px;
 }
 
+/* display:flex outranks the UA's [hidden] rule, so restate it at author level.
+   Several rows are toggled by the attribute alone: the zoom row, the auto-lock
+   timer and About's licensee rows. */
+.settings-row[hidden] { display: none; }
+
 .settings-row + .settings-row {
   border-top: var(--border-width) solid var(--border);
 }
@@ -610,3 +615,5 @@
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
+
+

@@ -17,6 +17,14 @@ app.whenReady().then(() => {
   process.env.AVENTURINE_DATA_DIR = tmp;
   delete process.env.AVENTURINE_DB_PATH;
 
+  // The real app is read-only until activated; give this run a throwaway
+  // license so the script exercises features instead of the 402 gate. Unlike
+  // the other scripts this one keeps the dev userData profile, so point the
+  // license at the temp dir too rather than dropping a dead license.json into
+  // the profile the developer actually uses.
+  process.env.AVENTURINE_CONFIG_DIR = path.join(tmp, 'config');
+  require('./lib/dev-license').installDevLicense();
+
   try {
     const { createConn } = require('../backend/conn');
     const { dispatch } = require('../backend/routes');

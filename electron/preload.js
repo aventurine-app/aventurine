@@ -38,6 +38,14 @@ contextBridge.exposeInMainWorld('electronFile', {
     chooseExportPath:     (format) => ipcRenderer.invoke('export-choose-path', format),
 });
 
+// Hand a URL to the OS browser. The only outbound door in the app, and main.js
+// checks it against an allowlist of our own hosts before opening anything — the
+// renderer cannot choose an arbitrary destination. Used by the License panel to
+// reach the activation page; the app itself still makes no network request.
+contextBridge.exposeInMainWorld('electronShell', {
+    openExternal: (url) => ipcRenderer.invoke('open-external', url),
+});
+
 // The data plane. Every /api/* call the page makes goes through here
 // (static/js/core/api.js wraps it in a fetch-shaped interface) straight to the
 // in-process backend — no HTTP server, no socket, no port. The renderer can

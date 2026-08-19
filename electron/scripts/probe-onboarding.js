@@ -52,6 +52,10 @@ const CSV = [
 ].join('\n');
 
 app.whenReady().then(async () => {
+  // The real app is read-only until activated; give this run a throwaway
+  // license so the script exercises features instead of the 402 gate.
+  require('./lib/dev-license').installDevLicense();
+
   const results = [];
   const check = (label, cond, extra = '') => {
     results.push({ label, ok: !!cond, extra });

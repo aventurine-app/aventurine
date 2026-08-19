@@ -1,0 +1,190 @@
+/* ── license.css ─────────────────────────────────────────────────────────────
+   The activation screen, and the license rows in About.
+
+   Split out of settings.css when licensing stopped being a settings panel: an
+   unactivated install answers nothing but /api/license, so activation is not
+   something you go and find in Preferences, it is the first and only screen
+   the app has until a key is pasted. What survives in the modals is the About
+   read-out, which is a fact about the copy rather than a control. */
+
+
+/* ── Activation gate ─────────────────────────────────────────────────────────
+   Covers everything below the title bar. The bar itself is left alone so the
+   window can still be moved and closed - refusing that would make an
+   unactivated copy feel broken rather than unbought.
+
+   Hidden by default and revealed by [data-license-gate="on"] on <html>, which
+   theme-init.js sets pre-paint from a localStorage hint and shell/license.js
+   corrects once the backend answers. Default-hidden is the right way round:
+   the hint can only ever be missing (fresh profile, cleared storage), and a
+   half-second of the real app before the gate drops is a far better failure
+   than a half-second of the gate over an app the user already paid for.
+
+   Note the two names: <html data-license-gate> is the STATE, the screen's own
+   hook is [data-activation-screen]. They were briefly the same attribute, and
+   a querySelector for it then answered with <html>. */
+.license-gate { display: none; }
+
+[data-license-gate="on"] .license-gate {
+    display: flex;
+    position: fixed;
+    top: 40px;               /* .titlebar height */
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 900;            /* over the sidebar and page, under the modals */
+    align-items: center;
+    justify-content: center;
+    overflow-y: auto;
+    padding: 32px 24px;
+    background: var(--background);
+}
+
+/* While the gate is up the title bar keeps its window controls and loses its
+   menus: File and Settings both open onto an app that answers 402, and a
+   dropdown over the activation screen is a dead end dressed as a way out. */
+[data-license-gate="on"] .titlebar-menu { display: none; }
+
+/* Given a surface, and not left floating on the background: at full-screen
+   width a bare column of text reads as a page that failed to load its layout,
+   which is the one impression an activation screen cannot afford. Same
+   treatment as .settings-card, so the first thing a buyer sees is already the
+   app's own idiom. */
+.license-gate-card {
+    width: 100%;
+    max-width: 520px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 32px;
+    box-sizing: border-box;
+    background: var(--surface1);
+    border: var(--border-width) solid var(--border);
+    border-radius: 10px;
+    backdrop-filter: blur(5px) saturate(100%);
+}
+
+/* Mark and wordmark on one line, as a lockup rather than a stack: the pair is
+   one identity, and this is the only screen in the app that has to introduce
+   itself. Baseline-matched by centring on the row - the logo is a shape, not a
+   glyph, so it has no baseline of its own to align to. */
+.license-gate-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.license-gate-logo {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+}
+
+/* --size-display, not --size-h1: at h1 the wordmark read as a heading on a
+   form, and this screen has no other content to be the heading of. Sized to
+   sit with the 44px mark rather than under it. */
+.license-gate-title {
+    margin: 0;
+    font-family: var(--font-h1);
+    font-size: var(--size-display);
+    font-weight: var(--weight-medium);
+    line-height: var(--lh-tight);
+    color: var(--text-primary);
+}
+
+.license-gate-lead {
+    margin: 0;
+    font-family: var(--font-menu);
+    font-size: var(--size-body);
+    line-height: var(--lh-relaxed);
+    color: var(--text-secondary);
+}
+
+/* The three steps are numbered because they happen in three places - the
+   browser, the receipt, and this window - and a user who loses the thread
+   between them is a support ticket. */
+.license-gate-steps {
+    margin: 0;
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    line-height: var(--lh-relaxed);
+    color: var(--text-secondary);
+}
+
+.license-gate-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+
+/* ── Shared key field ────────────────────────────────────────────────────────
+   A key is ~150 characters, so it gets a textarea rather than the single-line
+   .enc-input: the whole thing stays visible while the user checks their paste. */
+.license-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--frost-3);
+    border: var(--border-width) solid var(--border);
+    border-radius: 5px;
+    outline: none;
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    line-height: var(--lh-relaxed);
+    letter-spacing: 0.04em;
+    padding: 10px 12px;
+    resize: vertical;
+    caret-color: var(--frost-caret);
+    transition: border-color 0.15s ease;
+}
+
+.license-input:focus { border-color: var(--accent-primary); }
+
+/* The activation URL, inline in step one, as a button that looks like a link.
+   It sets its own type in none of the ways a link usually does: `font: inherit`
+   takes the step's family and size wholesale, and weight is the only thing put
+   back - so the address reads as part of the sentence it sits in rather than as
+   a pasted-in code fragment. Underline and accent stay on top of that, because
+   inside a run of text weight alone is a difference a reader can take for
+   emphasis instead of a control. `font: inherit` is a shorthand and resets
+   weight, so font-weight has to follow it, not precede it. All the <button>
+   chrome is unset by hand, since it is a button only because navigation is
+   locked to the app origin. */
+.license-link {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-weight: var(--weight-bold);
+    color: var(--accent-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+}
+
+.license-link:hover { color: var(--accent-primary-hover); }
+
+.license-link:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+/* Live read-out of a pasted key, before it is committed. Positive-tinted: it
+   is a confirmation, and it sits where the error would otherwise be. */
+.license-preview {
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    line-height: var(--lh-relaxed);
+    color: var(--accent-positive);
+}
+
+.license-preview strong {
+    font-family: var(--font-numeric);
+    font-weight: var(--weight-medium);
+}

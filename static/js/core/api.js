@@ -215,6 +215,16 @@
   // stay shape-compatible with it, since pages can't tell which one
   // answered. Comments below name the primary page/widget each entry feeds.
   const FL_FIXTURES = {
+    // static/js/shell/license.js — Settings → License. Fixture mode shows an
+    // ACTIVATED copy: pure-UI work should be looking at the app as a buyer sees
+    // it, not at an activation nag.
+    '/api/license': {
+      state: 'licensed', licensed: true, appMajor: 1,
+      license: {
+        licenseId: '0000000000000000', issued: '2026-01-15',
+        entitlement: 1, email: 'buyer@example.com',
+      },
+    },
     // static/js/shell/dbactions.js, titlebar.js — DB-open/lock status shown
     // in the title bar and the New/Open Database modal.
     '/api/db/status': {
@@ -454,6 +464,20 @@
   //   4. Otherwise (plain file:// page, no bridge, no server)
   //                                     -> fixtureResponse() above, so pages
   //      can be opened standalone for UI/design iteration.
+  // An unactivated install answers 402 to everything but /api/license
+  // (electron/backend/router.js). Surfacing that ONCE, here, is why no page has
+  // to know licensing exists — a call site just sees its request fail, exactly
+  // as it would on any other error, while the shell explains why.
+  //
+  // Announced rather than handled: this file is the data seam and owns no UI.
+  // static/js/shell/license.js listens and raises the activation screen. Under
+  // a total lockout that screen is normally already up before any page calls
+  // anything, so this is the backup path rather than the usual one: it catches
+  // a license that stops verifying mid-session.
+  function notifyGated(url) {
+    window.dispatchEvent(new CustomEvent('aventurine:license-required', { detail: { url } }));
+  }
+
   /** Drop-in replacement for fetch() at the app's /api/* call sites. */
   async function apiFetch(url, opts = {}) {
     if (!isApi(url)) return fetch(url, opts);
@@ -469,6 +493,7 @@
         try { body = JSON.parse(opts.body); } catch { body = null; }
       }
       const { status, body: data } = await window.financeApi.request(method, url, body);
+      if (status === 402) notifyGated(url);
       return responseLike(status, data);
     }
 
