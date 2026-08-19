@@ -109,3 +109,47 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: Aventurine
+
+# macOS must be built ON macOS — there is no Wine-style cross-build for it
+# (hdiutil, the .app bundle layout and codesign are all Apple tooling), so
+# .github/workflows/release.yml runs this target in its own macos-latest job
+# while Linux and Windows come off the one Linux runner.
+#
+# Both arches ship: the runner is Apple Silicon, so arm64 is native and x64 is
+# a cross-build. `npm run dist:mac` parks BOTH darwin native binaries first
+# (scripts/setup-mac-abi.js) — without that the Intel .dmg would carry an
+# arm64 better_sqlite3.node and die on first DB open.
+#
+# The icon is build/icon.png (the same 512px render the Linux target uses):
+# electron-builder converts it to .icns at build time, so there is no third
+# committed icon to keep in sync and the make-icons.js freshness stamp keeps
+# covering macOS for free.
+#
+# ── SECURITY: macOS builds are ad-hoc signed, NOT notarized ──────────────────
+# Deliberate, recorded gap — the same one the win: block above records, and a
+# louder one, because macOS enforces harder than SmartScreen does. Signing for
+# real needs a paid Apple Developer ID, which this project doesn't hold yet
+# (revisit before wider macOS distribution / GA).
+#
+# `identity: '-'` is ad-hoc signing, not "unsigned": Apple Silicon refuses to
+# execute a binary carrying no signature at all, so the alternative (identity:
+# null, which makes electron-builder skip signing outright) ships an arm64 .dmg
+# whose app cannot launch. Ad-hoc satisfies the loader but not Gatekeeper, so a
+# downloaded build is still quarantined — the user opens it via right-click →
+# Open, or clears the flag with `xattr -dr com.apple.quarantine`.
+#
+# hardenedRuntime stays OFF: it is only meaningful under a real Developer ID,
+# and ad-hoc + hardened runtime needs the disable-library-validation
+# entitlement or the app fails to load its own native module at launch.
+mac:
+  target:
+    - dmg
+  icon: build/icon.png
+  category: public.app-category.finance
+  identity: '-'           # ad-hoc; see the SECURITY note above
+  hardenedRuntime: false  # only meaningful with a real Developer ID
+  notarize: false         # no Apple Developer account
+
+dmg:
+  # Arch in the name: the arm64 and x64 builds land in the same dist/ dir.
+  artifactName: ${name}-${version}-${arch}.${ext}

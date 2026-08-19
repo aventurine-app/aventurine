@@ -17,6 +17,7 @@
     "pack": "node scripts/check-package-files.js && electron-builder --dir",
     "dist:linux": "node scripts/check-package-files.js && electron-builder --linux",
     "dist:win": "node scripts/check-package-files.js && node scripts/setup-win-abi.js && electron-builder --win nsis",
+    "dist:mac": "node scripts/check-package-files.js && node scripts/setup-mac-abi.js && electron-builder --mac dmg --arm64 --x64",
     "postinstall": "node scripts/setup-native-abis.js"
   },
   "devDependencies": {

@@ -3,12 +3,18 @@ name: release
 # Cut a release by pushing a version tag, e.g.:
 #   git tag v0.2.1 && git push origin v0.2.1
 #
-# This builds the Linux AND Windows installers (Windows is cross-built from this
-# Linux host via Wine) but does NOT attach them to the GitHub Release. Releases
-# ship SOURCE ONLY: GitHub auto-generates the "Source code (zip/tar.gz)" assets
-# from the tag, and that is all the public release contains. This matches the
-# source-available licensing direction — the official compiled binary is fenced,
-# not distributed from the public release feed.
+# This builds the Linux, Windows AND macOS installers but does NOT attach them
+# to the GitHub Release. Releases ship SOURCE ONLY: GitHub auto-generates the
+# "Source code (zip/tar.gz)" assets from the tag, and that is all the public
+# release contains. This matches the source-available licensing direction — the
+# official compiled binary is fenced, not distributed from the public release
+# feed.
+#
+# TWO jobs, because macOS cannot be cross-built. Windows can (Wine runs rcedit
+# on the Linux host), so `build` produces both from one ubuntu runner; the .app
+# bundle, hdiutil and codesign are Apple-only, so `build-mac` runs on a macOS
+# runner. The jobs are independent: neither blocks the other, and neither blocks
+# the source-only release, which is cut from the tag by `build`.
 #
 # The built installers are kept as private workflow ARTIFACTS (downloadable from
 # this Actions run), so the maintainer still gets the official binary without
@@ -116,3 +122,59 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release create "${{ github.ref_name }}" --draft --title "${{ github.ref_name }}" --generate-notes
+
+  # macOS installers. Separate job because there is no cross-build: electron-builder
+  # needs Apple's own tooling (hdiutil for the .dmg, codesign for the bundle), so
+  # this is the one target that must run on a Mac.
+  #
+  # BEST-EFFORT, like the Windows step in `build`: this job failing must not stop
+  # the source-only release, which is cut by the other job from the tag alone.
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # 22, not the 20 the other jobs pin. Nothing here RUNS on host Node
+          # (npm test is the test workflow's job) — but postinstall still parks a
+          # host-Node binary, and better-sqlite3-multiple-ciphers publishes no
+          # darwin prebuild for Node 20's ABI, so a 20 runner would compile
+          # SQLite from source for a runtime this job never uses. 22 has the
+          # prebuild; the whole install stays download-only.
+          node-version: 22
+
+      # postinstall (scripts/setup-native-abis.js) parks the prebuilt
+      # better-sqlite3-multiple-ciphers binaries for host Node and for Electron
+      # at the runner's own arch (arm64).
+      - name: Install dependencies
+        working-directory: electron
+        run: npm install
+
+      # arm64 + x64 .dmg. dist:mac parks BOTH darwin native binaries first
+      # (scripts/setup-mac-abi.js) — the runner is Apple Silicon, so the Intel
+      # build is a cross-build and would otherwise ship an arm64 .node that dies
+      # on first DB open. `--publish never` for the same reason as the Linux
+      # build: releases are source-only.
+      #
+      # Signing: the app is ad-hoc signed and NOT notarized (no Apple Developer
+      # ID) — see the SECURITY note in electron-builder.yml. CSC auto-discovery
+      # is off so electron-builder never picks up a stray runner keychain
+      # identity instead of the configured ad-hoc one.
+      - name: Build macOS installers
+        working-directory: electron
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: npm run dist:mac -- --publish never
+
+      # Private workflow artifact, same as the Linux/Windows one. Its own name:
+      # upload-artifact v4 requires artifact names to be unique within a run.
+      # No `if: always()` here, unlike the other job: there is nothing
+      # best-effort above this step, so on a failed build the useful error is
+      # the build's — letting this run too would bury it under "no files found".
+      - name: Upload macOS installers as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: aventurine-installers-mac-${{ github.ref_name }}
+          path: electron/dist/*.dmg
+          if-no-files-found: error
