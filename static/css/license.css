@@ -8,21 +8,20 @@
    read-out, which is a fact about the copy rather than a control. */
 
 
-/* ── Activation gate ─────────────────────────────────────────────────────────
-   Covers everything below the title bar. The bar itself is left alone so the
-   window can still be moved and closed - refusing that would make an
-   unactivated copy feel broken rather than unbought.
+/* ── Activation screen ───────────────────────────────────────────────────────
+   Raised ON DEMAND, not on launch. Under the soft gate an unactivated install
+   is a working transaction manager, so this screen is the upsell rather than
+   the app: it appears when the user asks for it (the sidebar's Unlock button,
+   a locked nav link) or when a paid route answers 402, and it closes again.
 
-   Hidden by default and revealed by [data-license-gate="on"] on <html>, which
-   theme-init.js sets pre-paint from a localStorage hint and shell/license.js
-   corrects once the backend answers. Default-hidden is the right way round:
-   the hint can only ever be missing (fresh profile, cleared storage), and a
-   half-second of the real app before the gate drops is a far better failure
-   than a half-second of the gate over an app the user already paid for.
+   That is the whole difference from the total lockout this replaced. There, the
+   screen WAS the app and closing it would have left a hundred dead pages
+   behind; here there is a ledger behind it that the user is entitled to, and
+   refusing to get out of the way would misrepresent what they still have.
 
-   Note the two names: <html data-license-gate> is the STATE, the screen's own
-   hook is [data-activation-screen]. They were briefly the same attribute, and
-   a querySelector for it then answered with <html>. */
+   Two names, still: <html data-license-gate> is whether the screen is showing,
+   [data-activation-screen] is the screen's own hook. They were briefly the same
+   attribute, and a querySelector for it then answered with <html>. */
 .license-gate { display: none; }
 
 [data-license-gate="on"] .license-gate {
@@ -40,10 +39,101 @@
     background: var(--background);
 }
 
-/* While the gate is up the title bar keeps its window controls and loses its
-   menus: File and Settings both open onto an app that answers 402, and a
-   dropdown over the activation screen is a dead end dressed as a way out. */
-[data-license-gate="on"] .titlebar-menu { display: none; }
+/* The title bar keeps its menus now. Under the lockout they were suppressed
+   because File and Settings both opened onto an app answering 402; here they
+   open onto an app that answers, so hiding them would take away something the
+   free tier actually has. */
+
+.license-gate-close {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    padding: 2px 8px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: var(--text-secondary);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.license-gate-close:hover {
+    background: var(--surface-hover, rgba(127, 127, 127, 0.12));
+    color: var(--text-primary);
+}
+
+/* ── The free tier's own styling ─────────────────────────────────────────────
+   Everything below is keyed off <html data-license-tier="free">, set pre-paint
+   by theme-init.js from a localStorage hint and corrected by shell/license.js
+   once the backend answers.
+
+   IMPORTANT, and the reason this block carries a warning rather than just
+   rules: NONE of it is a boundary. pages/ and static/ ship as loose editable
+   files (electron-builder.yml puts them in extraResources, outside the asar),
+   so anything hidden here is hidden by request. The boundary is the allowlist
+   in electron/backend/router.js, and every locked destination below also has
+   its own routes on the paid side of it. Deleting a rule here gets you a page
+   that renders its own error state. */
+
+/* The one exception, and it is a real one. Year to Year reads /api/data and
+   /api/balance/data, which Month to Month needs too, so the backend cannot
+   tell the two sections apart and this rule is the ONLY thing separating them.
+   Unhide it and the charts work. The fix, if it is ever wanted, is to trim
+   both payloads to the current year while unlicensed; see the caveat in
+   router.js for why that was left out. */
+[data-license-tier="free"] #dashboard-section-overtime { display: none; }
+
+/* Locked nav links keep their place in the list. Removing them would leave the
+   free tier looking like the whole app, and then the purchase has nothing to
+   be about; dimming them says "later" where deleting them says "never". */
+.nav-lock { display: none; }
+
+/* Inert rather than merely dimmed. A hover state on something that cannot be
+   opened is the interface promising an action it will refuse, and a locked
+   link that lights up under the pointer reads as a bug before it reads as a
+   price. pointer-events also takes the click, so the upsell has exactly one
+   door (the Unlock button) instead of one door and a locked one that opens. */
+[data-license-tier="free"] .nav a[data-paid] {
+    opacity: 0.55;
+    pointer-events: none;
+    cursor: default;
+}
+
+[data-license-tier="free"] .nav a[data-paid] .nav-lock {
+    display: inline-flex;
+    margin-left: auto;
+    align-items: center;
+}
+
+.nav-lock svg {
+    width: 13px;
+    height: 13px;
+}
+
+/* The upsell. Hidden outright once activated rather than disabled, since there
+   is then nothing left for it to do. */
+.nav-unlock { display: none; }
+
+[data-license-tier="free"] .nav-unlock {
+    display: block;
+    width: calc(100% - 24px);
+    margin: 8px 12px 12px;
+    padding: 9px 12px;
+    border: 1px solid var(--accent-primary);
+    border-radius: 8px;
+    background: none;
+    color: var(--accent-primary);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+[data-license-tier="free"] .nav-unlock:hover {
+    background: var(--accent-primary);
+    color: var(--background);
+}
 
 /* Given a surface, and not left floating on the background: at full-screen
    width a bare column of text reads as a page that failed to load its layout,
@@ -51,6 +141,7 @@
    treatment as .settings-card, so the first thing a buyer sees is already the
    app's own idiom. */
 .license-gate-card {
+    position: relative;      /* positioning context for .license-gate-close */
     width: 100%;
     max-width: 520px;
     display: flex;
