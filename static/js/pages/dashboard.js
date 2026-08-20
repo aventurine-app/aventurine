@@ -164,20 +164,20 @@
         }
 
         // Segmented stroke ring: each slice is a circle stroke with a dash the
-        // length of its arc, rotated to start at 12 o'clock. Small gaps between
-        // segments give the modern "broken ring" look, and stroke dashes can be
+        // length of its arc, rotated to start at 12 o'clock. Slices meet edge to
+        // edge — their colours are what separate them, and a gap in a ring that
+        // sums to a whole reads as missing money. Stroke dashes can be
         // transitioned, which is what drives the sweep-in animation below.
         const size = 280, cx = size / 2, cy = size / 2;
         const sw   = 34;                              // ring thickness
         const r    = (size - sw) / 2 - 2;
         const C    = 2 * Math.PI * r;
-        const gap  = slices.length > 1 ? 3 : 0;       // no gap on a lone slice
         const f2   = (n) => Math.round(n * 100) / 100;
 
         let acc = 0;
         const arcs = slices.map((s, i) => {
-            const len   = Math.max((s.value / total) * C - gap, 1.5);
-            const start = (acc / total) * C + gap / 2;
+            const len   = Math.max((s.value / total) * C, 3);
+            const start = (acc / total) * C;
             acc += s.value;
             // Arcs render at zero length (dasharray "0 C") and transition to
             // data-dash after insertion — a staggered clockwise sweep. The
@@ -1106,7 +1106,7 @@
         // The radius tracks the thickness (4 at the natural 16) so a bar that
         // grew with the card doesn't keep a cap sized for a thinner one.
         const RR  = Math.min(BAR / 4, 6);
-        const GAP = 2;                         // hairline gap between category segments
+        const MIN_SEG = 8;                     // floor on a segment's width (see allocateSegmentWidths)
 
         rows.forEach((r, i) => {
             const yMid = PT + BAND * (i + 0.5);
@@ -1119,33 +1119,38 @@
             const segs = (r.segments && r.segments.length)
                 ? r.segments
                 : (r.value > 0 ? [{ name: r.label, value: r.value }] : []);
-            const segSum = segs.reduce((s, x) => s + x.value, 0) || 1;
 
             if (len > 0) {
-                let cum = 0;
+                // Segments tile the bar edge to edge — no gap between them; the
+                // shade ramp is what separates one from the next.
+                const widths = allocateSegmentWidths(segs.map(sg => sg.value), len, MIN_SEG);
+                let x0 = PL;
                 segs.forEach((seg, j) => {
-                    const x0 = PL + (cum / segSum) * len;
-                    cum += seg.value;
-                    const x1   = PL + (cum / segSum) * len;
+                    const xe   = x0 + widths[j];
+                    const w    = xe - x0;
                     const last = j === segs.length - 1;
-                    // Inset every segment but the last by the gap; the last keeps
-                    // the bar's true end so the rounded cap lands on the axis value.
-                    const xe = last ? x1 : Math.max(x0, x1 - GAP);
-                    const w  = xe - x0;
-                    if (w < 0.5) return;
-                    const fill  = segmentShade(r.color, j, segs.length);
-                    const round = last && w > RR;
-                    const d = round
-                        ? `M ${f2(x0)} ${f2(y)} L ${f2(xe - RR)} ${f2(y)}`
-                          + ` Q ${f2(xe)} ${f2(y)} ${f2(xe)} ${f2(y + RR)}`
-                          + ` L ${f2(xe)} ${f2(y + BAR - RR)}`
-                          + ` Q ${f2(xe)} ${f2(y + BAR)} ${f2(xe - RR)} ${f2(y + BAR)}`
-                          + ` L ${f2(x0)} ${f2(y + BAR)} Z`
-                        : `M ${f2(x0)} ${f2(y)} L ${f2(xe)} ${f2(y)}`
-                          + ` L ${f2(xe)} ${f2(y + BAR)} L ${f2(x0)} ${f2(y + BAR)} Z`;
-                    svg += `<path class="chart-hbar" d="${d}" fill="${fill}" style="animation-delay:${i * 80 + j * 40}ms">
+                    // Butt-jointed paths leave a hairline of card background at
+                    // the seam once antialiased, which reads as the gap we just
+                    // removed. Every segment but the last runs half a pixel long
+                    // and the next one paints over it (later paths win, in the
+                    // DOM and in hit-testing alike), so the joint is solid.
+                    const xd = last ? xe : xe + 0.5;
+                    if (w >= 0.5) {
+                        const fill  = segmentShade(r.color, j, segs.length);
+                        const round = last && w > RR;
+                        const d = round
+                            ? `M ${f2(x0)} ${f2(y)} L ${f2(xd - RR)} ${f2(y)}`
+                              + ` Q ${f2(xd)} ${f2(y)} ${f2(xd)} ${f2(y + RR)}`
+                              + ` L ${f2(xd)} ${f2(y + BAR - RR)}`
+                              + ` Q ${f2(xd)} ${f2(y + BAR)} ${f2(xd - RR)} ${f2(y + BAR)}`
+                              + ` L ${f2(x0)} ${f2(y + BAR)} Z`
+                            : `M ${f2(x0)} ${f2(y)} L ${f2(xd)} ${f2(y)}`
+                              + ` L ${f2(xd)} ${f2(y + BAR)} L ${f2(x0)} ${f2(y + BAR)} Z`;
+                        svg += `<path class="chart-hbar" d="${d}" fill="${fill}" style="animation-delay:${i * 80 + j * 40}ms">
                 <title>${escapeHtml(seg.name)}: ${fmtTooltip(seg.value)}</title>
             </path>`;
+                    }
+                    x0 = xe;
                 });
             }
 
@@ -1154,6 +1159,43 @@
 
         svg += '</svg>';
         return svg;
+    }
+
+    /**
+     * Share `total` px out between `values` in proportion, but never let a
+     * segment fall below `minW` — a category worth 0.3% of the month is a
+     * two-pixel sliver otherwise, which is a tooltip nobody can hit. Slivers are
+     * raised to the floor and the surplus is taken back from the segments that
+     * have room above it, in proportion to that room, so the bar's TOTAL length
+     * still lands exactly on its value (the number the axis and the end
+     * annotation are read against). Only the internal split is nudged, and the
+     * per-segment tooltip still carries the exact figure.
+     *
+     * When the bar is too short to give everyone the floor, it splits evenly:
+     * at that size the bar is a total, not a breakdown.
+     */
+    function allocateSegmentWidths(values, total, minW) {
+        const n = values.length;
+        if (n === 0) return [];
+        if (n * minW >= total) return values.map(() => total / n);
+
+        const sum = values.reduce((a, b) => a + b, 0) || 1;
+        const widths = values.map(v => (v / sum) * total);
+
+        let deficit = 0;
+        const raised = widths.map((w) => {
+            if (w >= minW) return false;
+            deficit += minW - w;
+            return true;
+        });
+        if (deficit === 0) return widths;
+
+        // Room available above the floor among the segments not being raised.
+        // n * minW < total guarantees this pool covers the deficit.
+        let room = 0;
+        widths.forEach((w, i) => { if (!raised[i]) room += w - minW; });
+        const scale = room > 0 ? (room - deficit) / room : 0;
+        return widths.map((w, i) => (raised[i] ? minW : minW + (w - minW) * scale));
     }
 
     /** Shade for the j-th of n category segments within one flow-type bar: the
