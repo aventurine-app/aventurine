@@ -501,6 +501,17 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
     gap: 4px;
 }
 
+/* Each menu-opener gets its own positioned slot, so a stepper carrying more
+ * than one picker (the Dashboard's year + month pair) anchors each menu under
+ * its OWN button rather than under the whole ‹ › cluster — UI.openMenu mounts
+ * into the opener's parent, and .stepper .p-table-dropdown centers on whatever
+ * that positioned parent is. A single-picker stepper needs no wrapper: the
+ * .stepper itself is the slot, and centering on it lands under the lone label. */
+.stepper-picker {
+    position: relative;
+    display: flex;
+}
+
 /* The arrows wear .button-primary (buttons.css) for fill/hover/press/disabled;
  * this override only squares the box and sizes the ‹ › glyph, undoing the
  * eyebrow padding/typography. Compound selector so it outranks .button-primary,

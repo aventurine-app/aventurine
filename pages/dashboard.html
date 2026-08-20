@@ -108,12 +108,19 @@
         <div class="dashboard-section-header">
             <h2 class="dashboard-section-title" id="dashboard-heading-month">Month to Month</h2>
             <!-- The stepper scopes every card in this section: current month by
-                 default, arrows walk back to any earlier month; clicking the
-                 label opens a recent-months picker. -->
+                 default. Two pickers reach any month the ledger holds directly
+                 (year, then month within it); the arrows still walk one month at
+                 a time and roll over the year boundary themselves. -->
             <div class="stepper" id="dashboard-month" aria-label="Dashboard month">
                 <button class="stepper-btn button-primary" id="dashboard-month-prev" type="button" aria-label="Previous month">&#8249;</button>
-                <button class="stepper-label" id="dashboard-month-label" type="button" aria-live="polite"
-                    aria-haspopup="menu" title="Choose month">&nbsp;</button>
+                <span class="stepper-picker" id="dashboard-year-picker">
+                    <button class="stepper-label" id="dashboard-year-label" type="button" aria-live="polite"
+                        aria-haspopup="menu" title="Choose year">&nbsp;</button>
+                </span>
+                <span class="stepper-picker">
+                    <button class="stepper-label" id="dashboard-month-label" type="button" aria-live="polite"
+                        aria-haspopup="menu" title="Choose month">&nbsp;</button>
+                </span>
                 <button class="stepper-btn button-primary" id="dashboard-month-next" type="button" aria-label="Next month" disabled>&#8250;</button>
             </div>
         </div>

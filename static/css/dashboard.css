@@ -612,8 +612,14 @@
 
 /* ─── 11. Month to Month section (cash-flow + spending bar charts) ──────── */
 
-/* The month picker sits on the section's heading row (see §1) — it's the shared
-   .stepper component (ui.css); Statements' year stepper uses the same one. */
+/* The year + month pickers sit on the section's heading row (see §1) — they're
+   the shared .stepper component (ui.css); Statements' year stepper uses the
+   same one. A bare year never needs the wide month-name label slot, same as
+   .stmt-year-stepper. */
+#dashboard-year-picker {
+    --stepper-label-min: 56px;
+}
+
 
 /* Bars grow up from the baseline on entrance; per-bar delays are set inline
    by the renderer (dashboard.js), same pattern as the line charts' draw-in. */

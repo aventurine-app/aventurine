@@ -190,8 +190,12 @@
                 // The menu opens into the stepper, so hand the same figure down
                 // as its floor (.stepper .p-table-dropdown in ui.css): the list
                 // is never narrower than the button it hangs off, and it stops
-                // depending on which months the window happens to hold.
-                (btn.closest('.stepper') || btn.parentElement)
+                // depending on which months the window happens to hold. A
+                // .stepper-picker slot wins over the stepper when there is one,
+                // because a stepper holding two pickers (the Dashboard's year +
+                // month) would otherwise have the second call overwrite the
+                // first and widen the year menu to a month name's width.
+                (btn.closest('.stepper-picker') || btn.closest('.stepper') || btn.parentElement)
                     .style.setProperty('--picker-menu-min', width);
             };
             measure();

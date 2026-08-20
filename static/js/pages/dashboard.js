@@ -5,7 +5,8 @@
 // row carrying the one control that scopes its three cards:
 //
 // "Month to Month" — the monthly view, defaulting to the current month with a
-// section-level stepper to look back at earlier months:
+// section-level stepper (arrows + a year and a month picker) to look back at
+// any earlier month:
 //   1. Monthly Cash Flow (horizontal bars: the month's income / expenses /
 //      transfers totals, each bar subdivided into its categories, from the
 //      Cash Flow statement — /api/data)
@@ -1019,9 +1020,10 @@
     // the Spending bars. The statement is the blend point — synced cells are
     // computed from transactions, the rest are hand-entered — so the section
     // lights up for import users and manual bookkeepers alike. The section-level
-    // stepper defaults to the current month — month-to-date — and walks back to
-    // any earlier month; both charts follow it (no fetch: the month is sliced
-    // out of the already-loaded dataset).
+    // stepper defaults to the current month — month-to-date — and reaches any
+    // earlier month, either a step at a time on the arrows or straight there
+    // through its year and month pickers; both charts follow it (no fetch: the
+    // month is sliced out of the already-loaded dataset).
 
     let dashboardMonth = (() => {
         const now = new Date();
@@ -1398,9 +1400,11 @@
     }
 
     async function renderMonthSection() {
-        const labelEl = document.getElementById('dashboard-month-label');
+        const monthEl = document.getElementById('dashboard-month-label');
+        const yearEl  = document.getElementById('dashboard-year-label');
         const nextBtn = document.getElementById('dashboard-month-next');
-        if (labelEl) labelEl.textContent = dashboardMonthLabel();
+        if (monthEl) monthEl.textContent = MONTHS[dashboardMonth.monthIdx];
+        if (yearEl)  yearEl.textContent  = String(dashboardMonth.year);
         if (nextBtn) nextBtn.disabled = isCurrentDashboardMonth();
 
         let data = ieData;
@@ -1442,33 +1446,81 @@
         renderMonthSection();
     }
 
+    /** The last month a year can show: the future is never a month to look at,
+     *  so the current year stops at today's month and every earlier year runs
+     *  to December. Same clamp shiftDashboardMonth applies to the arrows. */
+    function lastMonthIdxOfYear(year) {
+        const now = new Date();
+        return year === now.getFullYear() ? now.getMonth() : 11;
+    }
+
+    /**
+     * Years the year picker offers, newest first: every year the statement holds
+     * (`data.years` — the active years, which import auto-creates for the history
+     * it touches), plus the current one so a fresh database still has something
+     * to pick, plus whatever year the arrows have walked into so the picker can
+     * always show the year it is actually on. Future years are dropped for the
+     * same reason future months are.
+     */
+    function dashboardYearOptions() {
+        const thisYear = new Date().getFullYear();
+        const years = new Set([thisYear, dashboardMonth.year]);
+        for (const y of (ieData && ieData.years) || []) years.add(y);
+        return [...years].filter(y => y <= thisYear).sort((a, b) => b - a);
+    }
+
     function wireMonthStepper() {
-        const prev  = document.getElementById('dashboard-month-prev');
-        const next  = document.getElementById('dashboard-month-next');
-        const label = document.getElementById('dashboard-month-label');
+        const prev     = document.getElementById('dashboard-month-prev');
+        const next     = document.getElementById('dashboard-month-next');
+        const monthBtn = document.getElementById('dashboard-month-label');
+        const yearBtn  = document.getElementById('dashboard-year-label');
         if (prev) prev.addEventListener('click', () => shiftDashboardMonth(-1));
         if (next) next.addEventListener('click', () => shiftDashboardMonth(1));
-        // Every month name the picker can list, sized once: the label holds that
+
+        // Every caption each picker can show, sized once: the labels hold that
         // width for good, so stepping from May to September neither moves the
-        // arrows nor resizes the menu. Any 4-digit year measures the same (the
-        // label is tabular-nums), so today's stands in for all of them.
-        if (label) UI.lockPickerWidth(label, MONTHS.map(m => `${m} ${new Date().getFullYear()}`));
-        // The label opens a picker of the last 12 months (the arrows still reach
-        // further back); the displayed month is marked as current.
-        if (label) label.addEventListener('click', e => {
+        // arrows nor resizes the menus. Any 4-digit year measures the same (the
+        // labels are tabular-nums), so today's stands in for all of them.
+        if (monthBtn) UI.lockPickerWidth(monthBtn, MONTHS);
+        if (yearBtn)  UI.lockPickerWidth(yearBtn, [String(new Date().getFullYear())]);
+
+        // Two pickers rather than one list of recent months: a single menu can
+        // only reasonably carry a year or so of them, which put anything older
+        // behind a run of arrow clicks. Year then month reaches any month in the
+        // ledger in two clicks, however far back it goes. Both lists are built
+        // on open, so they pick up the statement's years once it has loaded.
+        if (yearBtn) yearBtn.addEventListener('click', e => {
             e.stopPropagation();
-            const now = new Date();
+            const items = dashboardYearOptions().map(year => ({
+                label: String(year),
+                selected: year === dashboardMonth.year,
+                // Carrying the month across can land past today (December, then
+                // this year) — clamp it to the year's last month, the same place
+                // the arrows would have stopped.
+                action: () => {
+                    const monthIdx = Math.min(dashboardMonth.monthIdx, lastMonthIdxOfYear(year));
+                    dashboardMonth = { year, monthIdx };
+                    renderMonthSection();
+                },
+            }));
+            UI.openMenu(yearBtn, items);
+        });
+
+        if (monthBtn) monthBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            const last = lastMonthIdxOfYear(dashboardMonth.year);
             const items = [];
-            for (let i = 0; i < 12; i++) {
-                const t = now.getFullYear() * 12 + now.getMonth() - i;
-                const year = Math.floor(t / 12), monthIdx = ((t % 12) + 12) % 12;
+            for (let monthIdx = 0; monthIdx <= last; monthIdx++) {
                 items.push({
-                    label: `${MONTHS[monthIdx]} ${year}`,
-                    selected: year === dashboardMonth.year && monthIdx === dashboardMonth.monthIdx,
-                    action: () => { dashboardMonth = { year, monthIdx }; renderMonthSection(); },
+                    label: MONTHS[monthIdx],
+                    selected: monthIdx === dashboardMonth.monthIdx,
+                    action: () => {
+                        dashboardMonth = { year: dashboardMonth.year, monthIdx };
+                        renderMonthSection();
+                    },
                 });
             }
-            UI.openMenu(label, items);
+            UI.openMenu(monthBtn, items);
         });
     }
 
