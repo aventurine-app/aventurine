@@ -106,11 +106,32 @@
 
 /* Outlined accent — secondary emphasis (Manage Columns, Add row …).
    Neutral fill with the accent carried by the text + border, so it reads as a
-   quieter sibling of the accent-filled primary action. */
+   quieter sibling of the accent-filled primary action.
+
+   The border is --accent-neutral-border, NOT a ramp rung. The same bug the hover
+   rule below documents was still live on the resting state: base-200 is a LIGHT
+   grey tuned for the light theme and it does not flip, so on dark these buttons
+   wore a near-white hairline (#cdd0ce on #0c0d0d), which made the Portfolio's
+   Add/Remove Asset pair the brightest thing on a dark page. The replacement is a
+   TOKEN rather than --border directly because the fix is a contrast RATIO, not a
+   colour: --border holds 1.82:1 against the --surface1 table fill on light but
+   sags to 1.45:1 on dark, so the themes have to name different tokens to land
+   the same weight (see the note beside it in themes.css). --border-width comes
+   along too, so the line thickness stops being a second hard-coded value. */
 .button-secondary {
+   /* OUTLINED means no fill, and that has to be said out loud. Leaving
+      background unset does not give a <button> a transparent box — it gives it
+      the UA's `buttonface`, which follows color-scheme: under the dark theme
+      that is a mid grey (#6b6b6b), so these rendered as pale filled pills that
+      were the lightest thing on the page. The light theme hid it: buttonface
+      there is #efefef, near-identical to the --surface1 (#f2f3f2) table behind
+      it, so the same missing line looked correct. .empty-state-action (ui.css),
+      the same shape, has always said `background: none` — this rule is the copy
+      that forgot, which is also why only this one had the bug. */
+   background: transparent;
    color: var(--accent-neutral);
    font-weight: var(--weight-superbold);
-   border: 1px solid var(--color-base-200);
+   border: var(--border-width) solid var(--accent-neutral-border);
 }
 /* On hover the outlined secondary fills in with neutral charcoal + contrast
    text, so it reads as a quiet neutral sibling of the accent-filled primary.

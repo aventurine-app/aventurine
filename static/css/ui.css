@@ -77,7 +77,10 @@
     margin-top: var(--space-4);
     padding: var(--space-8) var(--space-16);
     border-radius: 8px;
-    border: 1px solid var(--color-base-200);
+    /* Same idle line as .button-secondary (buttons.css) — this control is that
+       shape, so it takes the same token rather than the light-theme ramp rung it
+       used to copy, which stayed near-white on dark. */
+    border: var(--border-width) solid var(--accent-neutral-border);
     background: none;
     color: var(--accent-neutral);
     font-family: var(--font-menu);

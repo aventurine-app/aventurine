@@ -63,6 +63,18 @@ html[data-theme="dark"],
        text, so it still reads as a charcoal button. */
     --accent-neutral:      var(--color-base-300);   /* idle text + border */
     --accent-neutral-fill: var(--color-base-700);   /* hover fill */
+    /* Idle BORDER — --stroke-medium, NOT the --border this token resolves to in
+       the light theme. Matching the light theme's TOKEN here does not match its
+       look, because the two stroke ramps are not calibrated to equal contrast:
+       against the --surface1 table fill, --border reads 1.82:1 on light but only
+       1.45:1 on dark, so the same name leaves the dark button's outline visibly
+       fainter than its light-mode twin. --stroke-medium lands at 1.90:1, which
+       is the light theme's ratio. Going the other way (a DARKER line, the
+       instinct on a dark page) cannot work at all: --surface1 is already
+       base-900, so even pure black only reaches 1.20:1 and the outline
+       disappears. What flips between the themes is the RATIO target, and it is
+       the token that has to move to hold it steady. */
+    --accent-neutral-border: var(--stroke-medium);
 
     /* Status colours — system meaning, not brand. */
     --warning: #f5a524;

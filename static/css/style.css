@@ -284,6 +284,13 @@
       the primary. */
    --accent-neutral:      var(--color-base-800);   /* idle text + border */
    --accent-neutral-fill: var(--color-base-800);   /* hover fill */
+   /* Idle BORDER, split from --accent-neutral above because the line and the
+      label want different weights and the two themes disagree about which
+      token gets there. Here it is plain --border, the app-wide control line,
+      which lands the border at 1.82:1 on the --surface1 table fill. The dark
+      theme has to name a different token to reach that same ratio — see the
+      note in themes.css. */
+   --accent-neutral-border: var(--border);
 
 
    /* Frost layer — flip from white-tinted to black-tinted */

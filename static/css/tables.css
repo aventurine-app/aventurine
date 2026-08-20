@@ -148,22 +148,54 @@
     overflow-x: auto;
 }
 
+/* == Wrapper scrollbar — inset pill, so the 8px corners survive ==
+   Chromium paints a classic scrollbar inside the border box but does NOT clip
+   it to border-radius, so a full-bleed square bar juts across the wrapper's two
+   bottom corners and squares them off. There is no inner scroll element to move
+   the overflow onto (the table is built by tables.js and the wrapper IS the
+   scroller), so the fix is to keep the channel clear of the corner arcs:
+
+     - track transparent, letting the wrapper's own rounded, radius-clipped
+       background paint the whole channel including the corners;
+     - thumb inset 3px on every side via a transparent border + background-clip,
+       which floats it inside the channel. At 3px above the bottom edge an 8px
+       arc is only ~1.8px in from the side, so the pill's ends clear the curve.
+
+   That is why this bar is a rounded pill rather than the square full-bleed
+   treatment on div.page (style.css) and .settings-modal-body — those scroll
+   square-cornered surfaces, where a full-bleed thumb has no corner to cross.
+
+   The scrollbar-color reset is load-bearing: div.page sets that (inherited)
+   property, and in Chromium a set scrollbar-color makes the ::-webkit-scrollbar
+   rules below be ignored. Same reset, same reason, as .tx-wrapper in
+   transactions.css. */
+.db-wrapper {
+    scrollbar-color: auto;
+    scrollbar-width: auto;
+}
+
 .db-wrapper::-webkit-scrollbar {
-    height: 10px;
+    height: 12px;
+    width: 12px;
 }
 
-.db-wrapper::-webkit-scrollbar-track {
-    background: var(--surface1);
+.db-wrapper::-webkit-scrollbar-track,
+.db-wrapper::-webkit-scrollbar-corner {
+    background: transparent;
 }
 
-/* Square, full-bleed thumb — see div.page in style.css for the same treatment
-   on the main page scrollbar. */
 .db-wrapper::-webkit-scrollbar-thumb {
     background: var(--surface4);
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    /* Fully rounded ends — the pill is 6px thick, so any radius >= 3px reads
+       the same; 999px keeps it a pill if the thickness is ever tuned. */
+    border-radius: 999px;
 }
 
 .db-wrapper::-webkit-scrollbar-thumb:hover {
     background: var(--text-tertiary);
+    background-clip: padding-box;
 }
 
 /* == Table structure == */
