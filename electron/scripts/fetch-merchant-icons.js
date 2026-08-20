@@ -520,9 +520,15 @@ const BLIND_ICON_PATHS = [
 async function downloadIcon(brand, domain, page) {
     const outFile = path.join(ICON_DIR, `${brand.slug}.png`);
     const urls = page ? iconCandidates(page.html, page.finalUrl) : [];
-    const origin = page ? page.finalUrl : `https://www.${domain}/`;
-    for (const p of BLIND_ICON_PATHS) {
-        try { urls.push(new URL(p, origin).href); } catch { /* ignore */ }
+    // With no readable page we have to guess the origin, and BOTH forms are
+    // worth a try: a bare-host override like `shop.lululemon.com` has no www.
+    // form at all, so guessing only `www.` + domain resolves to nothing and
+    // the brand is lost to a DNS failure rather than to a bot wall.
+    const origins = page ? [page.finalUrl] : [`https://www.${domain}/`, `https://${domain}/`];
+    for (const origin of origins) {
+        for (const p of BLIND_ICON_PATHS) {
+            try { urls.push(new URL(p, origin).href); } catch { /* ignore */ }
+        }
     }
 
     for (const url of [...new Set(urls)]) {
