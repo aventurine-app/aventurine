@@ -19,30 +19,34 @@
             </a>
         </li>
         <li>
-            <a href="/statements">
+            <a href="/statements" data-paid>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>
                 Statements
+                <span class="nav-lock" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
             </a>
         </li>
         <li>
-            <a href="/portfolio">
+            <a href="/portfolio" data-paid>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 17V9"/><path d="M18 17V5"/><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17v-3"/></svg>
                 Portfolio
+                <span class="nav-lock" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
             </a>
         </li>
         <!-- Cash Flow, Spending and Forecast are tabs of this one page
              (pages/reports.html), so there is a single link for the three.
              Recurring is its own page, below. -->
         <li>
-            <a href="/reports">
+            <a href="/reports" data-paid>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-3 3"/></svg>
                 Reports
+                <span class="nav-lock" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
             </a>
         </li>
         <li>
-            <a href="/recurring">
+            <a href="/recurring" data-paid>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M8 13h.01"/><path d="M12 13h.01"/><path d="M16 13h.01"/><path d="M8 17h.01"/><path d="M12 17h.01"/><path d="M16 17h.01"/></svg>
                 Recurring
+                <span class="nav-lock" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
             </a>
         </li>
         <!-- TEMPORARILY DISABLED
@@ -62,6 +66,13 @@
         </li>
         -->
     </ul>
+
+    <!-- The free tier's one standing call to action, and the ONLY way to reach
+         the activation screen on purpose: the locked nav links above are inert
+         (license.css takes their hover and their click), so without this a user
+         who has already decided to buy would have nothing to say so with.
+         Revealed by license.css when <html data-license-tier="free">. -->
+    <button type="button" class="nav-unlock" data-license-unlock>Unlock All Features</button>
 
 </div>
 

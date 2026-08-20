@@ -61,24 +61,76 @@ function compile(pattern) {
 
 // ─── License gate ───────────────────────────────────────────────────────────
 //
-// An unactivated install answers NOTHING but /api/license. Activation is the
-// first thing the app asks for and the only thing it will do until a key is
-// pasted, so there is exactly one carve-out and it is the one without which
-// activation could never happen.
+// A SOFT gate: an unactivated install is a working transaction manager, and
+// everything built on top of the ledger is what the key buys.
 //
-// This replaced an earlier read-only gate that let an unactivated copy browse
-// and export while refusing writes. That version was a pricing decision worn
-// lightly; this one is a purchase requirement, and the two cannot be blended:
-// a wall with a door in it still has to explain the door, and every explanation
-// invited the user to settle into the half-app instead of activating.
+// This replaced a total lockout, which itself replaced a read-only gate. The
+// lockout was correct about one thing the read-only version got wrong: a gate
+// has to be explainable in one sentence, and "writes are refused" never was.
+// The sentence here is "your transactions are free, the insights are paid",
+// which is short enough to print on the locked screen itself.
+//
+// What makes it worth the retry is the upgrade path. A demo build shipped
+// separately would need its own release, its own packaging gate, and a second
+// download at the moment of purchase, and a database created by it could
+// outrun the paid build's schema. One binary has none of that: the ledger the
+// user built while deciding is the ledger they keep, and activation is a paste
+// rather than a re-install.
+//
+// The list below is an ALLOW list, so a new route is locked until someone
+// deliberately frees it. That is the right default for a paid app: forgetting
+// to lock a feature costs revenue silently, while forgetting to free one shows
+// up the first time anybody uses it.
+//
+// What is free, and why:
+//   /api/license      activation could otherwise never happen
+//   /api/db/          a ledger needs a database to live in, including an
+//                     encrypted one; refusing this would make the free tier
+//                     unable to store anything
+//   /api/onboarding   first-run setup, which is how the ledger gets started
+//   /api/app-settings theme, currency, auto-match. Preferences are not a
+//                     feature, and an app that cannot be made legible is not
+//                     a fair look at the paid one
+//   /api/transactions the free tier IS this: list, edit, import, export
+//   /api/categories   a ledger you cannot categorise is not a ledger
+//   /api/balance/columns  Balance Sheet columns double as accounts, and import
+//                     needs to pick one. The MONEY on the Balance Sheet lives
+//                     at /api/balance/data and /api/balance/entry, which are
+//                     not on this list
+//   /api/data, /api/balance/data  the Dashboard's Month to Month section reads
+//                     both. See the caveat below
+//
+// CAVEAT, deliberately accepted for now: those last two also feed the
+// Dashboard's Year to Year section and the Statements grids, so the backend
+// cannot tell a free reader from a paid one there. Year to Year is therefore
+// HIDDEN in the renderer rather than locked, and the renderer ships as loose
+// editable files, so that one section is a display choice and not a boundary.
+// The fix, if it is ever wanted, is to trim both payloads to the current year
+// while unlicensed; it was left out because it is the one place where
+// licensing would shape a response body instead of blocking an address.
 //
 // The gate lives HERE, in one place, rather than in the handlers: no feature
-// module knows licensing exists, exactly as with _check_db_lock. It is also why
-// defeating it means editing and rebuilding the app rather than flipping
-// something in the renderer — which is all any offline scheme can honestly
+// module knows licensing exists, exactly as with _check_db_lock. It is also
+// why defeating it means editing and rebuilding the app rather than flipping
+// something in the renderer, which is all any offline scheme can honestly
 // claim.
+const FREE_PREFIXES = [
+  '/api/license',
+  '/api/db/',
+  '/api/onboarding',
+  '/api/app-settings',
+  '/api/transactions',
+  '/api/categories',
+  '/api/balance/columns',
+];
+
+// Matched whole, not by prefix, so freeing '/api/data' cannot accidentally
+// free a future '/api/dataset'.
+const FREE_EXACT = new Set(['/api/data', '/api/balance/data']);
+
 function isLicenseGated(path) {
-  return !path.startsWith('/api/license');
+  if (FREE_EXACT.has(path)) return false;
+  return !FREE_PREFIXES.some((p) => path === p || path.startsWith(p));
 }
 
 function buildRouter(routes) {

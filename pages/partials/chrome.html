@@ -52,6 +52,11 @@
          activation. -->
     <div class="license-gate" data-activation-screen>
         <div class="license-gate-card">
+            <!-- Dismissible, unlike the total-lockout version this replaced.
+                 There is a working app behind this screen now, so refusing to
+                 close would be a lie about what the user still has. -->
+            <button class="license-gate-close" type="button" data-license-close
+                    aria-label="Close">&times;</button>
             <div class="license-gate-head">
                 <img class="license-gate-logo" src="/static/icons/logo/logo.svg" alt="" draggable="false">
                 <h1 class="license-gate-title">Aventurine</h1>
@@ -67,7 +72,7 @@
                      bridge, and that needs a click handler either way. It still
                      reads as the address it opens, so a user whose browser
                      fails to launch can type what they see. -->
-                <li>Open <button class="license-link" type="button" data-license-open>aventurine-app.com/activate</button> in your browser.</li>
+                <li>Open <button class="license-link" type="button" data-license-open>aventurine-app.com/activate.html</button> in your browser.</li>
                 <li>Enter the license key from your purchase receipt to get an unlock key.</li>
                 <li>Paste the unlock key below.</li>
             </ol>
