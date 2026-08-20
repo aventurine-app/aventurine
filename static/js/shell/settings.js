@@ -226,6 +226,15 @@
     // Auto-lock is localStorage-backed (default on, 5 min); autolock.js watches
     // for the 'autolockchange' event to re-arm. The encryption row just opens the
     // dedicated modal (encryption.js) and reflects the live encrypted/plain state.
+    //
+    // Encryption is listed FIRST and the two auto-lock rows hang off it: locking
+    // means "ask for the password again", so on a plaintext DB there is no
+    // password to ask for and the timer would fire on nothing. Both rows are
+    // therefore dimmed until the DB is actually encrypted, rather than being
+    // settings that silently do nothing. The stored preference is left untouched
+    // while dimmed, so encrypting a DB restores whatever the user last chose.
+    // Encrypt/decrypt reloads the page (see core/encryption.js), so this state is
+    // read once at load and never has to be re-fetched.
 
     function setAutolockLabel(slider) {
         const label = slider.closest('.settings-threshold-control')
@@ -233,15 +242,32 @@
         if (label) label.textContent = slider.value + ' min';
     }
 
-    function setAutolockEnabled(on) {
-        document.querySelectorAll('.settings-autolock-slider').forEach(s => { s.disabled = !on; });
-        document.querySelectorAll('.settings-autolock-timer-row')
-            .forEach(r => r.classList.toggle('settings-row-disabled', !on));
+    // Pending until /api/db/status answers. Starts false so the controls never
+    // flash as usable on a plaintext DB; a failed status fetch falls back to
+    // true, since a state we cannot read is no reason to lock the user out of
+    // their own settings.
+    let dbEncrypted = false;
+
+    // Two independent conditions: the timer row needs encryption AND the
+    // auto-lock switch on; the switch itself only needs encryption.
+    function applyAutolockState() {
+        const on = localStorage.getItem('auto_lock') !== '0';
+        document.querySelectorAll('.settings-autolock-row').forEach(r => {
+            r.classList.toggle('settings-row-disabled', !dbEncrypted);
+        });
+        document.querySelectorAll('.settings-pref-radio[name="auto_lock"]')
+            .forEach(radio => { radio.disabled = !dbEncrypted; });
+        document.querySelectorAll('.settings-autolock-slider').forEach(s => {
+            s.disabled = !(dbEncrypted && on);
+        });
+        document.querySelectorAll('.settings-autolock-timer-row').forEach(r => {
+            r.classList.toggle('settings-row-disabled', !(dbEncrypted && on));
+        });
     }
 
     wirePrefRadios('auto_lock', 'auto_lock', '1', (v) => {
         localStorage.setItem('auto_lock', v);
-        setAutolockEnabled(v === '1');
+        applyAutolockState();
         window.dispatchEvent(new Event('autolockchange'));
     });
 
@@ -260,18 +286,26 @@
             window.dispatchEvent(new Event('autolockchange'));
         });
     });
-    setAutolockEnabled(localStorage.getItem('auto_lock') !== '0');
+    applyAutolockState();
 
-    // Encryption: reflect current state + open the manage modal (encryption.js,
-    // resolved lazily since it loads after this file).
+    // Encryption: reflect current state, gate the auto-lock rows on it, and open
+    // the manage modal (encryption.js, resolved lazily since it loads after this
+    // file).
     apiFetch('/api/db/status')
         .then(r => r.json())
         .then(s => {
+            dbEncrypted = !!s.encrypted;
+            applyAutolockState();
             document.querySelectorAll('[data-enc-settings-status]').forEach(el => {
                 el.textContent = s.encrypted ? 'Currently encrypted.' : 'Currently not encrypted.';
             });
         })
-        .catch(() => { /* status unavailable — leave the hint blank */ });
+        .catch(() => {
+            // Status unavailable — leave the hint blank and unblock the rows
+            // rather than dimming settings over a failed read.
+            dbEncrypted = true;
+            applyAutolockState();
+        });
 
     document.querySelectorAll('.settings-manage-encryption').forEach(btn => {
         btn.addEventListener('click', () => {

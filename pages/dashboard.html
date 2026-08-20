@@ -43,10 +43,67 @@
 
 
     <!-- The dashboard is two stacked sections, both on the page at once (they
-         used to be two tabs of one panel): Month to Month first, Year to Year
+         used to be two tabs of one panel): Year to Year first, Month to Month
          under it. Each owns its heading row — title left, the one control that
          scopes that section's three cards right — and its own 3×1 card grid.
          Layout in dashboard.css §1. -->
+    <section class="dashboard-section" id="dashboard-section-overtime" aria-labelledby="dashboard-heading-overtime">
+        <div class="dashboard-section-header">
+            <h2 class="dashboard-section-title" id="dashboard-heading-overtime">Year to Year</h2>
+            <!-- The stepper's counterpart: one range picker scoping every card
+                 in this section. -->
+            <div class="range-selector" id="dashboard-range">
+                <button class="range-selector-btn" id="dashboard-range-btn" type="button">Year to Date</button>
+                <div class="range-selector-menu" id="dashboard-range-menu" hidden>
+                    <button data-range="year"   type="button">Year to Date</button>
+                    <button data-range="12mo"   type="button">Last Year</button>
+                    <button data-range="24mo"   type="button">Last 2 Years</button>
+                    <button data-range="5yr"    type="button">Last 5 Years</button>
+                </div>
+            </div>
+        </div>
+
+    <div class="dashboard-grid">
+
+            <div class="dashboard-card networth-card">
+                <div class="dashboard-card-header">
+                    <span class="dashboard-card-title">Net Worth<span class="fc-info" tabindex="0" role="note"
+                        aria-label="Computed from the most recent entries in your Balance Sheet."
+                        data-tip="Computed from the most recent entries in your Balance Sheet.">i</span></span>
+                </div>
+                <div class="networth-summary">
+                    <div class="networth-value" id="networth-value">—</div>
+                    <div class="networth-change" id="networth-change">—</div>
+                </div>
+                <div class="chart-area networth-chart-area">
+                    <div id="networth-chart"></div>
+                </div>
+            </div>
+
+            <div class="dashboard-card">
+                <div class="dashboard-card-header">
+                    <span class="dashboard-card-title">Account Balances</span>
+                </div>
+                <div id="account-selector" class="account-selector"></div>
+                <div class="chart-area">
+                    <div id="account-chart"></div>
+                </div>
+            </div>
+
+            <div class="dashboard-card">
+                <div class="dashboard-card-header">
+                    <span class="dashboard-card-title">Income & Expenses</span>
+                </div>
+                <div id="ie-selector" class="account-selector"></div>
+                <div class="chart-area">
+                    <div id="ie-chart"></div>
+                </div>
+            </div>
+
+    </div>
+
+    </section><!-- /#dashboard-section-overtime -->
+
     <section class="dashboard-section" id="dashboard-section-month" aria-labelledby="dashboard-heading-month">
         <div class="dashboard-section-header">
             <h2 class="dashboard-section-title" id="dashboard-heading-month">Month to Month</h2>
@@ -100,63 +157,6 @@
     </div>
 
     </section><!-- /#dashboard-section-month -->
-
-    <section class="dashboard-section" id="dashboard-section-overtime" aria-labelledby="dashboard-heading-overtime">
-        <div class="dashboard-section-header">
-            <h2 class="dashboard-section-title" id="dashboard-heading-overtime">Year to Year</h2>
-            <!-- The stepper's counterpart: one range picker scoping every card
-                 in this section. -->
-            <div class="range-selector" id="dashboard-range">
-                <button class="range-selector-btn" id="dashboard-range-btn" type="button">This Year</button>
-                <div class="range-selector-menu" id="dashboard-range-menu" hidden>
-                    <button data-range="year"   type="button">This Year</button>
-                    <button data-range="12mo"   type="button">Last 12 Months</button>
-                    <button data-range="24mo"   type="button">Last 24 Months</button>
-                    <button data-range="5yr"    type="button">Last 5 Years</button>
-                </div>
-            </div>
-        </div>
-
-    <div class="dashboard-grid">
-
-            <div class="dashboard-card networth-card">
-                <div class="dashboard-card-header">
-                    <span class="dashboard-card-title">Net Worth<span class="fc-info" tabindex="0" role="note"
-                        aria-label="Computed from the most recent entries in your Balance Sheet."
-                        data-tip="Computed from the most recent entries in your Balance Sheet.">i</span></span>
-                </div>
-                <div class="networth-summary">
-                    <div class="networth-value" id="networth-value">—</div>
-                    <div class="networth-change" id="networth-change">—</div>
-                </div>
-                <div class="chart-area networth-chart-area">
-                    <div id="networth-chart"></div>
-                </div>
-            </div>
-
-            <div class="dashboard-card">
-                <div class="dashboard-card-header">
-                    <span class="dashboard-card-title">Account Balances</span>
-                </div>
-                <div id="account-selector" class="account-selector"></div>
-                <div class="chart-area">
-                    <div id="account-chart"></div>
-                </div>
-            </div>
-
-            <div class="dashboard-card">
-                <div class="dashboard-card-header">
-                    <span class="dashboard-card-title">Income & Expenses</span>
-                </div>
-                <div id="ie-selector" class="account-selector"></div>
-                <div class="chart-area">
-                    <div id="ie-chart"></div>
-                </div>
-            </div>
-
-    </div>
-
-    </section><!-- /#dashboard-section-overtime -->
 
 </div>
         </div>

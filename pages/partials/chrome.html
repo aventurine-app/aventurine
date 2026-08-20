@@ -353,6 +353,13 @@
     <div class="settings-card">
         <div class="settings-row">
             <div class="settings-row-label">
+                <div class="settings-row-name">Database Encryption</div>
+                <div class="settings-row-desc">Add a password to an unencrypted database, change the password, or remove encryption. <span class="settings-enc-status" data-enc-settings-status></span></div>
+            </div>
+            <button class="db-btn settings-manage-encryption" type="button">Manage…</button>
+        </div>
+        <div class="settings-row settings-autolock-row">
+            <div class="settings-row-label">
                 <div class="settings-row-name">Auto-Lock</div>
                 <div class="settings-row-desc">Locks the database after a period of inactivity and asks for the password again. Applies only when the database is encrypted.</div>
             </div>
@@ -377,13 +384,6 @@
                        min="1" max="30" step="1" value="5" aria-label="Minutes before auto-lock">
                 <span class="settings-threshold-value settings-autolock-value">5 min</span>
             </div>
-        </div>
-        <div class="settings-row">
-            <div class="settings-row-label">
-                <div class="settings-row-name">Database Encryption</div>
-                <div class="settings-row-desc">Add a password to an unencrypted database, change the password, or remove encryption. <span class="settings-enc-status" data-enc-settings-status></span></div>
-            </div>
-            <button class="db-btn settings-manage-encryption" type="button">Manage…</button>
         </div>
     </div>
 </div>
@@ -535,7 +535,10 @@
                     <input class="enc-input" type="password" data-enc-confirm-input autocomplete="off" spellcheck="false">
                 </div>
 
-                <div class="enc-warning" data-enc-warning hidden>Removing encryption stores your financial data unprotected on disk.</div>
+                <!-- Shown whenever a NEW password is being set (encrypt/change).
+                     There is no recovery path: the passphrase is never stored,
+                     so losing it loses the file's contents. -->
+                <div class="enc-warning" data-enc-lost-warning hidden>Warning: If you lose your encryption password, you will not be able to unlock your database or view the data in your database file. Keep your password somewhere safe to avoid data loss.</div>
                 <div class="enc-error" data-enc-error hidden></div>
             </div>
             <div class="settings-modal-footer enc-footer">

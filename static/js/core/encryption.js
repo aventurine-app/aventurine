@@ -29,7 +29,7 @@
     const curInput  = q('[data-enc-current-input]');
     const newInput  = q('[data-enc-new-input]');
     const confInput = q('[data-enc-confirm-input]');
-    const warnEl    = q('[data-enc-warning]');
+    const lostEl    = q('[data-enc-lost-warning]');
     const errorEl   = q('[data-enc-error]');
     const submitBtn = q('[data-enc-submit]');
     const cancelBtn = q('[data-enc-cancel]');
@@ -67,7 +67,9 @@
         curField.hidden  = !(action === 'change' || action === 'decrypt');
         newField.hidden  = !(action === 'encrypt' || action === 'change');
         confField.hidden = newField.hidden;
-        warnEl.hidden    = action !== 'decrypt';
+        // Rides with the new-password field: it is only a warning while there is
+        // a password about to be set that could be lost.
+        lostEl.hidden    = newField.hidden;
         submitBtn.textContent =
             action === 'encrypt' ? 'Encrypt Database' :
             action === 'decrypt' ? 'Remove Encryption' : 'Change Password';

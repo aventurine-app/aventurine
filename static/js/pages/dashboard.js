@@ -616,9 +616,9 @@
     let overtimeRange = 'year';
 
     const RANGE_LABELS = {
-        year: 'This Year',
-        '12mo': 'Last 12 Months',
-        '24mo': 'Last 24 Months',
+        year: 'Year to Date',
+        '12mo': 'Last Year',
+        '24mo': 'Last 2 Years',
         '5yr':  'Last 5 Years',
     };
 

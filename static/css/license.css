@@ -84,6 +84,11 @@
    router.js for why that was left out. */
 [data-license-tier="free"] #dashboard-section-overtime { display: none; }
 
+/* Year to Year is the first section on the page, so hiding it leaves Month to
+   Month as the second sibling and it keeps the 16px gap meant to separate two
+   sections from a heading that is no longer above it. */
+[data-license-tier="free"] #dashboard-section-month { margin-top: 0; }
+
 /* Locked nav links keep their place in the list. Removing them would leave the
    free tier looking like the whole app, and then the purchase has nothing to
    be about; dimming them says "later" where deleting them says "never". */

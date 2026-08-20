@@ -280,9 +280,10 @@
 
 
 /* ─── 5. Net Worth card ──────────────────────────────────────────────────── */
-/* Title hugs the value so the row reads as one stacked label/value group. */
+/* Same title-to-content gap the sibling cards give their selector chips, so
+   the three card bodies start on one line. */
 .networth-card .dashboard-card-header {
-    margin-bottom: 2px;
+    margin-bottom: 20px;
 }
 
 .networth-summary {
