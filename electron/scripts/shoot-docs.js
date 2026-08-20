@@ -911,6 +911,19 @@ app.whenReady().then(async () => {
       await unhover();
       await shotEl('site-transactions', '.tx-wrapper', 0);
 
+      // The same crop in dark, shot as a second file rather than replacing the
+      // light one: the site currently shows neither, and which theme the ledger
+      // is presented in is still an open question there. Kept in the script so
+      // the pair stays regenerable together and cannot drift apart.
+      await setTheme('dark');
+      await nav('/transactions', 2500);
+      if (await js(`document.documentElement.dataset.theme !== 'dark'`)) {
+        throw new Error('transactions did not load in the dark theme');
+      }
+      await unhover();
+      await shotEl('site-transactions-dark', '.tx-wrapper', 0);
+      await setTheme('');
+
       // Month stepper and the calendar with its occurrence chips — the whole
       // feature, minus the chrome around it. Shot with one schedule's card
       // pinned open: the chips carry only a name and an amount, so a bare
