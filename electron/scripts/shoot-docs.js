@@ -317,6 +317,15 @@ app.whenReady().then(async () => {
       await sleep(settle);
     };
 
+    /** Switch the app's colour theme for a capture. theme-init.js reads
+     *  'color-theme' from localStorage BEFORE first paint, so the value has to
+     *  be written ahead of the nav that should show it — flipping it on a live
+     *  page is not what the app does on launch and is not what to photograph.
+     *  '' is the default light theme; 'dark' is the one the site's dashboard
+     *  shot wants. */
+    const setTheme = (value) =>
+      js(`localStorage.setItem('color-theme', ${JSON.stringify(value)})`);
+
     const esc = () => js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
 
     /** Answer the import's account question. With several accounts adopted the
@@ -876,11 +885,22 @@ app.whenReady().then(async () => {
       // current month is a part-month and the top band would open on a half
       // paycheque against a half month of spending. The month before it is the
       // whole picture the card is meant to show.
+      // Shot in DARK, alone among the site crops: the dashboard is the site's
+      // lead image and the six cards are almost all chart, which is where the
+      // dark theme has something to show. The theme is set before the nav, not
+      // after it (see setTheme), and put back to light immediately after so the
+      // remaining crops — and any docs phase running in the same pass — are
+      // unaffected.
+      await setTheme('dark');
       await nav('/', 3200);
+      if (await js(`document.documentElement.dataset.theme !== 'dark'`)) {
+        throw new Error('dashboard did not load in the dark theme');
+      }
       await click('#dashboard-month-prev');
       await sleep(900);
       await unhover();
       await shotEl('site-dashboard', '.dashboard-page', 20);
+      await setTheme('');
 
       // The ledger card: header row through the pagination footer, which is a
       // row of the same table, so one element covers it.
