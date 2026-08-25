@@ -181,7 +181,12 @@
     display: block;
     height: 100%;
     border-radius: 0 3px 3px 0;
-    background: var(--accent-primary);
+    /* The palette's first stop, not --accent-primary: this is a chart, so it
+       follows the Graphs setting. Under the accent ramp the two resolve to the
+       same colour, so the default bar is unchanged. One hue for all twenty bars
+       either way — length already encodes the magnitude, and colour here would
+       be encoding rank. */
+    background: var(--chart-1);
     transform: scaleX(0);
     transform-origin: left center;
     animation: tm-grow 0.55s cubic-bezier(0.4, 0, 0.2, 1) forwards;

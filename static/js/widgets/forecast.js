@@ -309,9 +309,13 @@
   let chartObserver = null;
 
   function readAccent() {
-    // The forecast line is a neutral projection, so it follows the UI accent and
-    // retones with a palette swap — not the green/red reserved for gain/loss.
-    const v = getComputedStyle(document.documentElement).getPropertyValue('--accent-primary').trim();
+    // The forecast line is a neutral projection, so it follows the chart palette
+    // and retones with a palette swap — not the green/red reserved for
+    // gain/loss. --chart-1 rather than --accent-primary: it IS the accent under
+    // the default graph palette (style.css) and the first colourful stop under
+    // the other one (themes.css), so this line moves with the rest of the app's
+    // charts instead of staying accent-coloured on its own.
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--chart-1').trim();
     return v || '#8fb088';
   }
 

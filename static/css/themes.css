@@ -199,3 +199,152 @@ html[data-theme="colorful"] div.menu {
     --border:  rgba(255,255,255, 0.28);
 }
 
+
+
+/* ─── Graph palettes ─────────────────────────────────────────────────────────
+   A SECOND, independent axis from the surface theme above: the surface theme
+   picks the page (light / dark / colorful nav), the graph palette picks what the
+   charts are painted with. They compose — every graph palette has to work on
+   every surface — which is why this lives in its own attribute (data-graph-theme
+   on <html>, from settings.js / theme-init.js) instead of becoming four more
+   surface themes.
+
+   'accent' is the default and needs no block at all: the --chart-* ramp in
+   style.css already derives every stop from --accent-primary, so leaving the
+   attribute off IS the accent palette. Only an alternative needs tokens here. */
+
+
+/* ─── Colorful graphs ────────────────────────────────────────────────────────
+   Eight distinct hues instead of eight steps of one. The accent ramp asks the
+   eye to tell series apart by lightness, which works for two or three lines of
+   the same measure and stops working past that; here hue does the work.
+
+   Fixed hex, not accent mixes, for the same reason --spectrum-* is fixed: the
+   whole job is to be eight DIFFERENT colours, which no mix of a single accent
+   can be. That means this ramp does NOT follow the accent — picking Colorful is
+   picking a palette of its own, and the UI accent still colours the chrome.
+
+   The stops were chosen with the dataviz validator (OKLab ΔE, Machado CVD
+   simulation) rather than by eye, and both sets pass all five checks against
+   their own surface: lightness band, chroma floor, adjacent-pair separation
+   under protanopia/deuteranopia, the normal-vision floor, and 3:1 contrast.
+   Two consequences worth keeping if these are ever edited:
+
+     • The ORDER is load-bearing. The checks run on ADJACENT pairs, and slots
+       1-4 additionally get drawn together in one frame (the Dashboard's
+       Balances pie takes --chart-1..4, its Income vs Expenses chart takes
+       -1/-4/-2), so those four are separated as a group too. Re-ordering the
+       hues re-opens both checks.
+     • Dark is a SELECTED set, not a lightened copy. The two surfaces have
+       different lightness bands (0.43–0.77 vs 0.48–0.67), so each stop was
+       re-picked against the surface it actually sits on.
+
+   --cat-* is deliberately untouched: the categorical charts (Spending, the Cash
+   Flow Sankey's expense side) already draw a hue per category from the merchant
+   spectrum, so they are what this palette makes the ACCENT charts look like —
+   there is nothing to convert. Leaving them also keeps the Sankey's two sides
+   in two different colour families, which is how it says which side is which. */
+html[data-graph-theme="colorful"],
+.settings-graph-swatch[data-graph-theme="colorful"] {   /* the Preferences preview,
+                                                           in this palette's context
+                                                           whether or not it is live */
+    --chart-1: #2563eb;   /* blue */
+    --chart-2: #15803d;   /* green */
+    --chart-3: #c026d3;   /* magenta */
+    --chart-4: #d9660a;   /* orange */
+    --chart-5: #0891b2;   /* cyan */
+    --chart-6: #a16207;   /* gold */
+    --chart-7: #7c3aed;   /* violet */
+    --chart-8: #dc2626;   /* red */
+
+    /* The three named series (style.css). With eight real hues to spend, the
+       flow types get the colours those words already mean to anyone who has
+       ever looked at a bank statement: green in, red out, blue moved between
+       your own accounts. This is the ONE place the app paints a chart in
+       green/red — everywhere else those stay reserved for the numeric figures
+       (--accent-positive / --accent-negative) — and it earns the exception
+       because here the colour IS the label, not decoration.
+
+       Green-vs-red is also the worst pair in existence for the ~8% of men with
+       red-green colour blindness, so the two are separated by LIGHTNESS as well
+       as hue: this pair clears the ΔE 8 CVD target (8.6 here, 8.9 on dark),
+       where the app's own gain/loss tokens would have landed at 6.0. Both
+       charts additionally label every series in the legend, so colour is never
+       the only thing carrying the meaning. Re-tinting either one means
+       re-running the validator on the trio, not just eyeballing it. */
+    --chart-income:   #15803d;
+    --chart-expense:  #dc2626;
+    --chart-transfer: #2563eb;
+
+    /* Cash Flow Sankey. Money ARRIVING is green here — the same green the
+       income line and the income bar wear, so "green means coming in" holds
+       across every chart in the app — and the hub it arrives at is green too,
+       because Net Inflow is that same money, not a category. Six shades of the
+       one colour rather than six hues: the sources are usually one salary plus
+       scraps, and they are a stream, not a set of things to tell apart. The
+       mixes go toward --background and --text-primary, both of which flip per
+       theme, so this works on either surface with one definition (the same
+       construction the accent ramp uses in style.css). */
+    --chart-inflow-1: var(--chart-income);
+    --chart-inflow-2: color-mix(in srgb, var(--chart-income) 62%, var(--background));
+    --chart-inflow-3: color-mix(in srgb, var(--chart-income) 74%, var(--text-primary));
+    --chart-inflow-4: color-mix(in srgb, var(--chart-income) 45%, var(--text-primary));
+    --chart-inflow-5: color-mix(in srgb, var(--chart-income) 82%, var(--background));
+    --chart-inflow-6: color-mix(in srgb, var(--chart-income) 40%, var(--background));
+    --chart-net:      var(--chart-income);
+}
+
+/* The categorical ramp — the Spending report's per-category lines and the
+   Sankey's outflow bands. It is the SAME eight colours as --chart-* above, just
+   dealt in a different order, so the two orders are separately checked for
+   adjacent-pair separation and neither has to compromise for the other.
+
+   Green is deliberately LAST. Categories are assigned in size order, so slot 8
+   is only reached by a household with eight-plus spending categories — which
+   keeps green off the big outflow bands and lets it go on meaning income, the
+   one thing this palette says out loud. (Red is not treated the same way: on
+   this ramp it is one merchant category among eight and reads as a label, not
+   as a verdict, whereas green would be sitting directly opposite a green
+   inflow in the same diagram.)
+
+   Aliases rather than a second copy of the hexes: --chart-* is already
+   re-picked per theme, so these follow to the dark set for free. The second
+   selector is what carries them there — themes.css's dark block re-points
+   --cat-* at the pale spectrum on equal specificity, and matching it exactly
+   would leave this depending on which rule happens to be written last. */
+html[data-graph-theme="colorful"],
+html[data-graph-theme="colorful"][data-theme="dark"] {
+    --cat-1: var(--chart-1);   /* blue */
+    --cat-2: var(--chart-4);   /* orange */
+    --cat-3: var(--chart-5);   /* cyan */
+    --cat-4: var(--chart-6);   /* gold */
+    --cat-5: var(--chart-3);   /* magenta */
+    --cat-6: var(--chart-8);   /* red */
+    --cat-7: var(--chart-7);   /* violet */
+    --cat-8: var(--chart-2);   /* green */
+}
+
+/* Same eight hues re-picked for the dark surface. Two attributes deep, so it
+   outweighs the light block above whichever order they land in. */
+html[data-graph-theme="colorful"][data-theme="dark"],
+html[data-theme="dark"] .settings-graph-swatch[data-graph-theme="colorful"] {
+    --chart-1: #4a90f0;   /* blue */
+    --chart-2: #31a05c;   /* green */
+    --chart-3: #c95cd8;   /* magenta */
+    --chart-4: #d07c22;   /* orange */
+    --chart-5: #20a6c0;   /* cyan */
+    --chart-6: #a8871a;   /* gold */
+    --chart-7: #9a7bf0;   /* violet */
+    --chart-8: #e85f6b;   /* red */
+
+    /* Green/red/blue again, re-picked for this surface — and the trio's red is
+       deliberately NOT --chart-8 here, the only place the named series leave the
+       ramp. The dark lightness band is half the width of the light one, and
+       inside it green and red collapse to ΔE 4.7 under deuteranopia; clearing
+       the target needs a red lighter than the band allows. A trio drawn on its
+       own, never alongside the other eight, can spend that: this red sits a step
+       above the band and the pair reaches 8.9. Everything else stays in-band. */
+    --chart-income:   #278a4a;
+    --chart-expense:  #f07d85;
+    --chart-transfer: #4a90f0;
+}

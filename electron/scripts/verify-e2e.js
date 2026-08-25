@@ -186,6 +186,24 @@ app.whenReady().then(async () => {
     // Back to the default so the checks after this one see an untouched theme.
     await evalJs('document.querySelector(".settings-theme-btn[data-theme=\'\']").click()');
 
+    // The graph palette is the second appearance axis and swaps the same way:
+    // an attribute on <html> that re-points --chart-*, no reload. Assert the
+    // attribute landed AND that the tokens the charts read actually moved —
+    // the picker being wired is not the same as the palette being applied.
+    check('graph palette swap re-points the chart tokens', await evalJs(`(() => {
+      const chart1 = () => getComputedStyle(document.documentElement)
+        .getPropertyValue('--chart-1').trim();
+      const before = chart1();
+      document.querySelector(".settings-graph-btn[data-graph-theme='colorful']").click();
+      const after = chart1();
+      return document.documentElement.dataset.graphTheme === 'colorful'
+        && after !== before
+        && !document.querySelector("[data-modal='preferences']").hidden
+        && document.querySelector(".settings-graph-btn[data-graph-theme='colorful']").classList.contains('active');
+    })()`));
+    // Back to the accent ramp, same as the theme above.
+    await evalJs('document.querySelector(".settings-graph-btn[data-graph-theme=\'\']").click()');
+
     // Category management lives in the Statements Cash Flow ⋮ menu — open
     // "Manage Categories" and prove the modal editor renders the search field,
     // the three collapsible type groups (Income / Expense / Transfer), each

@@ -133,8 +133,7 @@
     <div class="settings-card">
         <div class="settings-row">
             <div class="settings-row-label">
-                <div class="settings-row-name">Color Theme</div>
-                <div class="settings-row-desc">Adjusts the color palette of surfaces, text, and accents across the app.</div>
+                <div class="settings-row-name">Surface</div>
             </div>
             <div class="settings-theme-options">
                 <button class="settings-theme-btn" data-theme="">
@@ -152,6 +151,26 @@
                 <button class="settings-theme-btn" data-theme="system">
                     <div class="settings-theme-swatch settings-theme-swatch-system"></div>
                     <span class="settings-theme-label">System</span>
+                </button>
+            </div>
+        </div>
+        <div class="settings-row">
+            <div class="settings-row-label">
+                <div class="settings-row-name">Graphs</div>
+            </div>
+            <!-- Each swatch carries its OWN data-graph-theme, which puts it in that
+                 palette's token context (themes.css) exactly like the surface
+                 swatches above do with data-theme — so the preview shows the real
+                 colors of the palette it offers, in the current surface theme, and
+                 keeps showing them when the other palette is the live one. -->
+            <div class="settings-theme-options">
+                <button class="settings-graph-btn" data-graph-theme="">
+                    <div class="settings-graph-swatch" data-graph-theme=""></div>
+                    <span class="settings-theme-label">Accent</span>
+                </button>
+                <button class="settings-graph-btn" data-graph-theme="colorful">
+                    <div class="settings-graph-swatch" data-graph-theme="colorful"></div>
+                    <span class="settings-theme-label">Colorful</span>
                 </button>
             </div>
         </div>

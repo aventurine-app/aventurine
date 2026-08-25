@@ -25,6 +25,15 @@
         : t;
     if (effective) document.documentElement.dataset.theme = effective;
 
+    // Graph palette — a SECOND, independent axis from the surface theme above
+    // (see the block at the foot of themes.css). Stored 'graph-theme' values:
+    // '' (the accent-derived ramp, the default) or 'colorful'. Set pre-paint
+    // for the same reason as the theme: the charts read these tokens at draw
+    // time, and a page that painted under the wrong palette would have to be
+    // told to repaint itself.
+    const g = localStorage.getItem('graph-theme');
+    if (g) document.documentElement.dataset.graphTheme = g;
+
     if (localStorage.getItem('ui-density') === 'compact') {
         document.documentElement.dataset.density = 'compact';
     }

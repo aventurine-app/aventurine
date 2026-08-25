@@ -724,13 +724,16 @@
             return;
         }
 
-        // Read the UI accent so the net-worth line, gradient and nodes follow the
-        // accent colour and retone when the user swaps the palette. Net worth is a
-        // neutral metric, not a gain/loss figure, so it tracks the accent rather
-        // than the finance-positive green (which stays reserved for the +/- delta
-        // numbers and the income/asset indicators).
+        // Read the first chart stop so the net-worth line, gradient and nodes
+        // retone when the user swaps either palette. --chart-1, not
+        // --accent-primary: it resolves TO the accent under the default graph
+        // palette, and to the first colourful stop under the other one, so a
+        // single-series chart still belongs to the same set as every other.
+        // Net worth is a neutral metric, not a gain/loss figure, so it tracks
+        // the palette rather than the finance-positive green (which stays
+        // reserved for the +/- delta numbers and the income/asset indicators).
         const accentColor = getComputedStyle(document.documentElement)
-            .getPropertyValue('--accent-primary').trim() || '#8fb088';
+            .getPropertyValue('--chart-1').trim() || '#8fb088';
         const series = [{ label: 'Net Worth', color: accentColor, points: filtered }];
 
         observeChart('networth-chart', (W, animate) => buildChartSVG({ series, slots, W, animate }));
@@ -766,17 +769,19 @@
 
     // ─── Income & Expenses + Account Balances charts ─────────────────────────────
 
-    /** Pull income/expense line colours from the accent-derived --chart-* tokens so
-     *  the chart follows the UI accent and retones on a palette/theme swap. Income
-     *  leads on the base accent, expenses take a high-contrast accent shade so the two
-     *  lines stay apart within the single-hue family. The green/red gain-loss tokens
-     *  stay reserved for the numeric figures (deltas, ledger amounts). */
+    /** Pull income/expense line colours from the two NAMED chart tokens
+     *  (--chart-income / --chart-expense, style.css) so the chart retones on a
+     *  palette/theme swap. Named rather than numbered because these two series
+     *  mean something: under the accent ramp they resolve to the base accent and
+     *  a high-contrast shade of it (income leading, expenses apart from it within
+     *  the single-hue family), and under a palette with hues to spend they resolve
+     *  to green and red. Reading a slot number here would pin them to the former. */
     function getIEColors() {
         const cs = getComputedStyle(document.documentElement);
         const v  = (name, fallback) => cs.getPropertyValue(name).trim() || fallback;
         return {
-            income:   v('--chart-1', '#8fb088'),
-            expenses: v('--chart-4', '#33402d'),
+            income:   v('--chart-income', '#8fb088'),
+            expenses: v('--chart-expense', '#33402d'),
         };
     }
 
@@ -1039,14 +1044,15 @@
         return `${MONTHS[dashboardMonth.monthIdx]} ${dashboardMonth.year}`;
     }
 
-    // Monthly Cash Flow rows, in display order. Income leads on the base accent
-    // and expenses take the high-contrast shade — the same pairing as the Income
-    // & Expenses line chart (getIEColors) — with transfers on an intermediate
-    // accent stop.
+    // Monthly Cash Flow rows, in display order, on the three named chart tokens —
+    // the same two getIEColors reads plus transfers, so this card and the Income
+    // & Expenses line chart can never disagree about what income looks like.
+    // Under the accent ramp that is the base accent, its high-contrast shade and
+    // an intermediate stop; under a palette with hues to spend, green/red/blue.
     const MCF_ROWS = [
-        { key: 'income',   label: 'Income',    token: '--chart-1', fallback: '#8fb088' },
-        { key: 'expense',  label: 'Expenses',  token: '--chart-4', fallback: '#33402d' },
-        { key: 'transfer', label: 'Transfers', token: '--chart-2', fallback: '#5c7152' },
+        { key: 'income',   label: 'Income',    token: '--chart-income',   fallback: '#8fb088' },
+        { key: 'expense',  label: 'Expenses',  token: '--chart-expense',  fallback: '#33402d' },
+        { key: 'transfer', label: 'Transfers', token: '--chart-transfer', fallback: '#5c7152' },
     ];
 
     /**
@@ -1204,7 +1210,8 @@
      *  type's base colour at full strength for the segment nearest the axis,
      *  fading toward the page background outward, so a bar reads as its own
      *  colour subdivided into little category bars. Nested color-mix is valid —
-     *  the base token (--chart-2/-4) is itself a color-mix expression. */
+     *  the base token may itself be a color-mix expression (it is, under the
+     *  accent ramp: --chart-income and friends resolve to accent mixes there). */
     function segmentShade(base, j, n) {
         if (n <= 1) return base;
         const pct = Math.round(100 - (j / (n - 1)) * 45);   // 100% (axis) → 55% (outer)

@@ -96,6 +96,46 @@
     wireThemeButtons();
 
 
+    // ── Graph palette ─────────────────────────────────────────────────────────
+    // The second appearance axis: the theme above picks the page, this picks what
+    // the charts are painted with, and the two compose (see themes.css). '' is
+    // the accent-derived ramp — the default, and the reason it stores an empty
+    // string rather than the word 'accent': absent attribute = the --chart-*
+    // definitions in style.css, with no override block to keep in step.
+    //
+    // Swapping it is the same token swap the theme does, so it reuses the same
+    // 'themechange' event to tell the already-drawn charts to repaint from the
+    // state they hold. The charts don't care WHICH of the two axes moved — they
+    // re-read their colours off <html> either way — so a second event would be a
+    // second name for one thing, and every listener would have to bind both.
+    function applyGraphTheme(palette) {
+        if (palette) {
+            document.documentElement.dataset.graphTheme = palette;
+        } else {
+            delete document.documentElement.dataset.graphTheme;
+        }
+        localStorage.setItem('graph-theme', palette);
+        syncGraphButtons();
+        window.dispatchEvent(new CustomEvent('themechange', { detail: { graphTheme: palette } }));
+    }
+
+    function syncGraphButtons() {
+        const saved = localStorage.getItem('graph-theme') ?? '';
+        document.querySelectorAll('.settings-graph-btn').forEach(btn => {
+            btn.classList.toggle('active', (btn.dataset.graphTheme ?? '') === saved);
+        });
+    }
+
+    function wireGraphButtons() {
+        syncGraphButtons();
+        document.querySelectorAll('.settings-graph-btn').forEach(btn => {
+            btn.addEventListener('click', () => applyGraphTheme(btn.dataset.graphTheme ?? ''));
+        });
+    }
+
+    wireGraphButtons();
+
+
     // ── Display preferences (localStorage-backed pill toggles + selects) ───────
     // Density / symbol-position / hide-cents are simple radio pill toggles backed
     // by localStorage; number-format is a select. Each may exist twice (page +
@@ -198,7 +238,7 @@
     // reset (though it only touches settings, never financial data).
 
     const PREF_KEYS = [
-        'color-theme', 'ui-density', 'merchant_icons', 'currency_symbol', 'number_format',
+        'color-theme', 'graph-theme', 'ui-density', 'merchant_icons', 'currency_symbol', 'number_format',
         'symbol_position', 'hide_cents', 'negative_style', 'date_format', 'week_start',
         'zoom_level',
     ];

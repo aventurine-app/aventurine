@@ -24,10 +24,12 @@
   // The two sides are coloured on DIFFERENT principles, which is what tells
   // inflow from outflow at a glance:
   //
-  //   income (left)   — the accent ramp (--chart-*). It's a handful of sources,
-  //       usually one dominant one, so they don't each need an identity; keeping
-  //       the whole inflow in the UI accent, leading into an accent hub, reads
-  //       as one stream arriving.
+  //   income (left)   — six shades of ONE colour (--chart-inflow-*). It's a
+  //       handful of sources, usually one dominant one, so they don't each need
+  //       an identity; keeping the whole inflow in one colour, leading into a
+  //       hub of that same colour (--chart-net), reads as one stream arriving.
+  //       Which colour depends on the graph palette: the UI accent under the
+  //       accent ramp, green under Colorful (themes.css).
   //   expenses (right)— the merchant spectrum (--cat-*), a hue per category, the
   //       same eight colours the Spending report and the ledger's avatars use.
   //       This side is where a dozen bands fan out and each one is a thing the
@@ -35,10 +37,10 @@
   //       lightness and read as one undifferentiated flow, with no rung the eye
   //       could carry back to a label.
   //
-  // The hub takes the accent too — it isn't a category, and staying out of the
-  // spectrum is what says so. Colours are read from the tokens at render time so
-  // an accent/theme swap retones the diagram; the arrays below are first-paint
-  // fallbacks mirroring the light theme.
+  // The hub takes the inflow colour too — it isn't a category, and staying out
+  // of the spectrum is what says so. Colours are read from the tokens at render
+  // time so an accent/theme/palette swap retones the diagram; the arrays below
+  // are first-paint fallbacks mirroring the light theme.
   const NET_FALLBACK = '#497e74';
   const INCOME_FALLBACK = ['#497e74', '#79b2a7', '#365e56', '#25413b', '#5b9f92', '#9bc5bd'];
   const CAT_FALLBACK = [
@@ -50,9 +52,8 @@
     const cs = getComputedStyle(document.documentElement);
     const v = (name, fb) => cs.getPropertyValue(name).trim() || fb;
     return {
-      net: v('--accent-primary', NET_FALLBACK),
-      income: ['--chart-1', '--chart-3', '--chart-5', '--chart-7', '--chart-2', '--chart-6']
-        .map((n, i) => v(n, INCOME_FALLBACK[i])),
+      net: v('--chart-net', NET_FALLBACK),
+      income: INCOME_FALLBACK.map((fb, i) => v(`--chart-inflow-${i + 1}`, fb)),
       expense: CAT_FALLBACK.map((fb, i) => v(`--cat-${i + 1}`, fb)),
     };
   }

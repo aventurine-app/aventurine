@@ -210,14 +210,53 @@
     * flip per theme, one definition here works for light and dark, and tracks
     * any accent the user picks — no per-theme duplication. Ordered so adjacent
     * series stay distinguishable within the single-hue family. */
-   --chart-1: var(--accent-primary);
-   --chart-2: color-mix(in srgb, var(--accent-primary) 50%, var(--text-primary));
-   --chart-3: color-mix(in srgb, var(--accent-primary) 72%, var(--background));
-   --chart-4: color-mix(in srgb, var(--accent-primary) 25%, var(--text-primary));
-   --chart-5: color-mix(in srgb, var(--accent-primary) 78%, var(--text-primary));
-   --chart-6: color-mix(in srgb, var(--accent-primary) 52%, var(--background));
-   --chart-7: color-mix(in srgb, var(--accent-primary) 90%, var(--text-primary));
-   --chart-8: color-mix(in srgb, var(--accent-primary) 38%, var(--text-primary));
+   --chart-accent-1: var(--accent-primary);
+   --chart-accent-2: color-mix(in srgb, var(--accent-primary) 50%, var(--text-primary));
+   --chart-accent-3: color-mix(in srgb, var(--accent-primary) 72%, var(--background));
+   --chart-accent-4: color-mix(in srgb, var(--accent-primary) 25%, var(--text-primary));
+   --chart-accent-5: color-mix(in srgb, var(--accent-primary) 78%, var(--text-primary));
+   --chart-accent-6: color-mix(in srgb, var(--accent-primary) 52%, var(--background));
+   --chart-accent-7: color-mix(in srgb, var(--accent-primary) 90%, var(--text-primary));
+   --chart-accent-8: color-mix(in srgb, var(--accent-primary) 38%, var(--text-primary));
+
+   /* --chart-* is what the charts actually read, and it points at the ramp above
+      unless a graph palette re-points it (themes.css). The stops keep their own
+      --chart-accent-* names so the Preferences swatch can show THIS ramp while
+      another palette is the live one — without a second copy of the mixes here
+      to drift out of step with these. */
+   --chart-1: var(--chart-accent-1);
+   --chart-2: var(--chart-accent-2);
+   --chart-3: var(--chart-accent-3);
+   --chart-4: var(--chart-accent-4);
+   --chart-5: var(--chart-accent-5);
+   --chart-6: var(--chart-accent-6);
+   --chart-7: var(--chart-accent-7);
+   --chart-8: var(--chart-accent-8);
+
+   /* Income / expense / transfer — the one place a chart series carries a
+      MEANING rather than just an identity, so the three get names instead of
+      slot numbers (the Dashboard's Income & Expenses lines and its Monthly Cash
+      Flow bars). Under the accent ramp they are three stops of it, exactly as
+      they were before the names existed: nothing about the default palette
+      changes. A graph palette that has real hues to spend can re-point them at
+      the colours those words already mean (themes.css). */
+   --chart-income:   var(--chart-1);
+   --chart-expense:  var(--chart-4);
+   --chart-transfer: var(--chart-2);
+
+   /* Cash Flow Sankey. Its two sides are coloured on different principles (see
+      widgets/cashflow-sankey.js): the INFLOW is one stream in six shades of one
+      colour, the outflow is a hue per category from --cat-*. The six stops and
+      the hub get names for the same reason the three above do — under the
+      accent ramp they are the ramp's stops, exactly as before, and a palette
+      with hues to spend can say something with them instead. */
+   --chart-inflow-1: var(--chart-1);
+   --chart-inflow-2: var(--chart-3);
+   --chart-inflow-3: var(--chart-5);
+   --chart-inflow-4: var(--chart-7);
+   --chart-inflow-5: var(--chart-2);
+   --chart-inflow-6: var(--chart-6);
+   --chart-net:      var(--accent-primary);
 
    /* (A --chart-muted-* ramp lived here — greyed accent stops for the Sankey's
       expense side, back when both sides were the accent and saturation was what

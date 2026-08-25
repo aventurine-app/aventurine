@@ -170,6 +170,63 @@
         var(--color-accent-700) 0 24%, transparent 24%);
 }
 
+/* ── Graph palette swatches ─────────────────────────────────────────────
+   Same card as the theme swatches above (same size, same active border, same
+   label), so the two appearance rows read as one control stacked twice. The
+   preview is a four-bar mini chart rather than the theme swatch's three bands,
+   because what changes here is what the CHARTS are painted with, not the page.
+
+   Each variant only sets --sw-1..4; the bars themselves are one rule. Accent
+   reads --chart-accent-* (style.css) and Colorful reads --chart-* from its own
+   data-graph-theme context (themes.css), which is why either preview shows its
+   true colours while the other palette is the live one. */
+.settings-graph-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    background: var(--surface2);
+    transition: border-color 0.15s ease;
+    overflow: hidden;
+}
+
+.settings-graph-btn:hover  { border-color: var(--text-tertiary); }
+.settings-graph-btn.active { border-color: var(--accent-primary); }
+
+.settings-graph-swatch {
+    width: 76px;
+    height: 46px;
+    flex-shrink: 0;
+    background-color: var(--surface1);
+    background-repeat: no-repeat;
+    /* Four bars off a shared bottom baseline, at uneven heights so the preview
+       reads as a chart and not as a colour strip. */
+    background-image:
+        linear-gradient(var(--sw-1), var(--sw-1)),
+        linear-gradient(var(--sw-2), var(--sw-2)),
+        linear-gradient(var(--sw-3), var(--sw-3)),
+        linear-gradient(var(--sw-4), var(--sw-4));
+    background-size: 12px 42%, 12px 68%, 12px 88%, 12px 56%;
+    background-position: 10px bottom, 26px bottom, 42px bottom, 58px bottom;
+}
+
+.settings-graph-swatch[data-graph-theme=""] {
+    --sw-1: var(--chart-accent-1);
+    --sw-2: var(--chart-accent-2);
+    --sw-3: var(--chart-accent-3);
+    --sw-4: var(--chart-accent-4);
+}
+
+.settings-graph-swatch[data-graph-theme="colorful"] {
+    --sw-1: var(--chart-1);
+    --sw-2: var(--chart-2);
+    --sw-3: var(--chart-3);
+    --sw-4: var(--chart-4);
+}
+
 .settings-theme-label {
     display: block;
     text-align: center;
