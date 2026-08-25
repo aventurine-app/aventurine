@@ -126,7 +126,7 @@
      *  time somebody adds a card, so the destination is what gets checked. */
     const PAID_PATHS = new Set([
         '/statements', '/portfolio', '/reports', '/recurring',
-        '/credit-cards', '/report-card',
+        '/credit-cards',
     ]);
 
     /** Trailing slashes only; '/' is the Dashboard and is free. */

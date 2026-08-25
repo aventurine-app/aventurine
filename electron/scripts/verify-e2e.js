@@ -137,12 +137,11 @@ app.whenReady().then(async () => {
       '/credit-cards':    'Credit Cards',
       '/reports':         'Reports',
       '/recurring':       'Recurring',
-      '/report-card':     'Report Card',
     };
     for (const [route, name] of Object.entries(routes)) {
       await win.loadURL(`app://aventurine${route}`);
-      // A route whose sidebar link is commented out (Credit Cards, Report Card)
-      // is still reachable by URL but has nothing to highlight. Ask the rendered
+      // A route whose sidebar link is commented out (Credit Cards) is still
+      // reachable by URL but has nothing to highlight. Ask the rendered
       // sidebar which it is, rather than assuming every route is linked —
       // otherwise disabling a nav link turns this check permanently red.
       const linked = await evalJs(

@@ -389,18 +389,26 @@
     },
     // static/js/widgets/forecast.js — see forecastFixture above.
     '/api/forecast': forecastFixture,
-    // static/js/pages/reportcard.js — year-over-year income/expense summary
-    // plus pass/fail goal checks.
+    // static/js/pages/metrics.js — the Metrics report: one year's totals, the
+    // ratios behind them, and pass/fail goal checks. Newest year first (the
+    // year picker and the default selection both rely on that order).
     '/api/report-card': {
       ok: true,
       years: [
         {
-          year, income: 72000, expenses: 45000, debt: 9000,
+          year, income: 72000, expenses: 45000, transfers: 9600, invested: 6000,
+          net: 27000, debt: 9000,
+          topExpense: { key: 'housing', name: 'Housing', amount: 16200 },
           changes: {
-            income:   { abs: 6000,  pct: 0.0909 },
-            expenses: { abs: -1000, pct: -0.0217 },
+            income:    { abs: 6000,  pct: 0.0909 },
+            expenses:  { abs: -1000, pct: -0.0217 },
+            transfers: { abs: 2400,  pct: 0.3333 },
+            net:       { abs: 7000,  pct: 0.35 },
           },
-          metrics: { expenseToIncome: 0.625, debtToIncome: 0.125, cashFlowMargin: 0.375 },
+          metrics: {
+            expenseToIncome: 0.625, debtToIncome: 0.125, cashFlowMargin: 0.375,
+            savingsRate: 0.1333, investedRate: 0.0833, topExpenseShare: 0.36,
+          },
           goals: [
             { key: 'expense_ratio',   label: 'Expenses under 70% of income',   value: 0.625,   status: 'met' },
             { key: 'debt_to_income',  label: 'Total debt under 25% of income', value: 0.125,   status: 'met' },
@@ -409,9 +417,14 @@
           ],
         },
         {
-          year: year - 1, income: 66000, expenses: 46000, debt: 12000,
-          changes: { income: null, expenses: null },
-          metrics: { expenseToIncome: 0.697, debtToIncome: 0.1818, cashFlowMargin: 0.303 },
+          year: year - 1, income: 66000, expenses: 46000, transfers: 7200, invested: 4800,
+          net: 20000, debt: 12000,
+          topExpense: { key: 'housing', name: 'Housing', amount: 15840 },
+          changes: { income: null, expenses: null, transfers: null, net: null },
+          metrics: {
+            expenseToIncome: 0.697, debtToIncome: 0.1818, cashFlowMargin: 0.303,
+            savingsRate: 0.1091, investedRate: 0.0727, topExpenseShare: 0.3443,
+          },
           goals: [
             { key: 'expense_ratio',  label: 'Expenses under 70% of income',   value: 0.697,  status: 'met' },
             { key: 'debt_to_income', label: 'Total debt under 25% of income', value: 0.1818, status: 'met' },

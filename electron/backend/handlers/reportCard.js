@@ -4,8 +4,10 @@
 // Cash Flow (Income & Expenses) activity into income / expense totals, plus the
 // latest Balance-Sheet debt snapshot, then hands the per-year totals to
 // services/reportCard.js for the year-over-year changes, ratios, and goal
-// outcomes. Transfer categories feed no bucket — money moved to savings or a
-// brokerage is excluded from the income/spend surfaces the Report Card grades.
+// outcomes. Transfer categories are graded by nothing — money moved to savings
+// or a brokerage is excluded from the income/spend surfaces — but their total is
+// still reported, because "what share of income did I put away" is a metric the
+// Metrics report exists to answer.
 //
 // "Relevant years" are the years on the Cash Flow statement (the `active_years`
 // table) — so every year the user tracks gets a card, even one with no activity
@@ -16,32 +18,48 @@
 const { computedCells, manualCells, blendCells } = require('./incomeExpenses');
 const { buildReportCards } = require('../services/reportCard');
 
-// cat_type → which headline bucket a category feeds. Transfer categories map to
-// nothing: money moved to savings/brokerage is excluded from income and spend.
+// cat_type → which headline bucket a category feeds. Transfers get their OWN
+// bucket rather than being dropped: they stay out of income and spend (the two
+// headline figures and every goal), but the total is what answers "what share of
+// income did I move into savings" — which is precisely the money the income and
+// spend surfaces refuse to count.
 const BUCKET_BY_CAT_TYPE = {
   income: 'income',
   expense: 'expenses',
+  transfer: 'transfers',
 };
 
+// The seeded transfer category meaning "moved into a brokerage" (seed.js).
+// Renaming it in the UI keeps the key, so the invested share survives a rename;
+// a user who invents their own brokerage category instead is still counted by
+// the savings rate (all transfers), just not by this one.
+const INVESTING_KEY = 'investing';
+
 /**
- * Per-year { income, expenses } from the Cash Flow statement. Mirrors
- * incomeExpenses.dataGet's data sourcing exactly: every active year is seeded
+ * Per-year { income, expenses, transfers, invested, topExpense } from the Cash
+ * Flow statement. Mirrors incomeExpenses.dataGet's sourcing exactly: every
+ * active year is seeded
  * (so empty years still get a card), and each cell contributes its blended
  * value — the transaction sum unless a manual Entry overrides that cell. A
  * category key maps to a bucket by its cat_type (the uncat_* buckets are real
- * categories); cells for transfer/unknown/typeless keys are skipped.
+ * categories); cells for unknown/typeless keys are skipped.
  */
 function yearlyTotals(db) {
   const bucketByKey = new Map();
-  for (const c of db.prepare('SELECT "key", cat_type FROM categories').all()) {
+  const nameByKey = new Map();
+  for (const c of db.prepare('SELECT "key", name, cat_type FROM categories').all()) {
     const bucket = BUCKET_BY_CAT_TYPE[c.cat_type];
     if (bucket) bucketByKey.set(c.key, bucket);
+    nameByKey.set(c.key, c.name);
   }
 
-  const totals = new Map(); // year -> { income, expenses }
+  const totals = new Map(); // year -> { income, expenses, transfers, invested, expenseByCat }
   const ensure = (year) => {
     let t = totals.get(year);
-    if (!t) { t = { income: 0, expenses: 0 }; totals.set(year, t); }
+    if (!t) {
+      t = { income: 0, expenses: 0, transfers: 0, invested: 0, expenseByCat: new Map() };
+      totals.set(year, t);
+    }
     return t;
   };
 
@@ -57,9 +75,29 @@ function yearlyTotals(db) {
       for (const [key, amt] of Object.entries(cells)) {
         const bucket = bucketByKey.get(key);
         if (!bucket) continue;
-        ensure(year)[bucket] += amt;
+        const t = ensure(year);
+        t[bucket] += amt;
+        if (bucket === 'transfers' && key === INVESTING_KEY) t.invested += amt;
+        // Per-category expense sums back the "largest expense" metric. Kept
+        // here rather than in the service: the service takes plain totals and
+        // has no way to turn a category key into the name the tile shows.
+        if (bucket === 'expenses') {
+          t.expenseByCat.set(key, (t.expenseByCat.get(key) || 0) + amt);
+        }
       }
     }
+  }
+
+  // Resolve each year's biggest expense category once the sums are complete.
+  for (const t of totals.values()) {
+    let top = null;
+    for (const [key, amount] of t.expenseByCat) {
+      if (amount > 0 && (!top || amount > top.amount)) {
+        top = { key, name: nameByKey.get(key) || key, amount };
+      }
+    }
+    t.topExpense = top;
+    delete t.expenseByCat;
   }
 
   return totals;
@@ -104,6 +142,9 @@ function reportCardGet(ctx) {
     year,
     income: t.income,
     expenses: t.expenses,
+    transfers: t.transfers,
+    invested: t.invested,
+    topExpense: t.topExpense,
     debt: debt.has(year) ? debt.get(year) : null,
   }));
 

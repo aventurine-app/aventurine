@@ -1,8 +1,8 @@
 'use strict';
 
-// Yearly Report Card (Reports). NEW behaviour (not a Python port) → no oracle
-// fixture: the metrics/goals service is pinned by the deterministic unit tests
-// below, and the aggregation endpoint by API tests over a seeded DB.
+// Metrics (Reports). NEW behaviour (not a Python port) → no oracle fixture:
+// the metrics/goals service is pinned by the deterministic unit tests below,
+// and the aggregation endpoint by API tests over a seeded DB.
 
 const test = require('node:test');
 const assert = require('node:assert');
@@ -161,9 +161,15 @@ test('report-card API: aggregates a Cash Flow year by category cat_type', (t) =>
   assert.ok(y, 'expected a 2025 card');
   assert.equal(y.income, 100000);
   assert.equal(y.expenses, 50000); // transfers excluded
+  assert.equal(y.net, 50000);
   assert.equal(y.debt, null);
   assert.equal(y.metrics.expenseToIncome, 0.5);
   assert.equal(y.metrics.cashFlowMargin, 0.5);
+  // ...but transfers are still REPORTED, as their own total and two ratios.
+  assert.equal(y.transfers, 20000);   // savings + investing
+  assert.equal(y.invested, 5000);     // the investing category alone
+  assert.equal(y.metrics.savingsRate, 0.2);
+  assert.equal(y.metrics.investedRate, 0.05);
   // 50% expenses → ratio goal met; no prior year → trends na.
   assert.equal(statusOf(y.goals, 'expense_ratio'), 'met');
   assert.equal(statusOf(y.goals, 'spending_trend'), 'na');
@@ -238,4 +244,80 @@ test('report-card API: multiple years come back newest-first with YoY changes', 
 
   assert.deepEqual(years.find((y) => y.year === 2025).changes.income, { abs: 20000, pct: 0.25 });
   assert.equal(years.find((y) => y.year === 2024).changes.income, null);
+});
+
+// ── the transfer / concentration metrics the Metrics report added ────────────
+
+test('report-card API: the savings rate counts every transfer category, invested only Investing', (t) => {
+  const c = makeClient(t);
+  c.post('/api/year', { year: 2025 });
+  const entry = (category, value) =>
+    c.post('/api/entry', { year: 2025, month: 'February', category, value });
+
+  // A user's own brokerage category, invented alongside the seeded pair.
+  const cat = c.post('/api/categories', { name: 'Vacation Fund', cat_type: 'transfer' });
+  assert.equal(cat.status, 200, JSON.stringify(cat.body));
+
+  entry('income', 100000);
+  entry('savings', 10000);
+  entry('investing', 15000);
+  entry(cat.body.category.key, 5000);
+
+  const y = c.get('/api/report-card').body.years.find((yr) => yr.year === 2025);
+  assert.equal(y.transfers, 30000);
+  assert.equal(y.metrics.savingsRate, 0.3);
+  // The custom category rides the savings rate but is not "invested" — only the
+  // seeded investing key is.
+  assert.equal(y.invested, 15000);
+  assert.equal(y.metrics.investedRate, 0.15);
+});
+
+test('report-card API: largest expense names the biggest category and its share of spending', (t) => {
+  const c = makeClient(t);
+  c.post('/api/year', { year: 2025 });
+  const entry = (category, value) =>
+    c.post('/api/entry', { year: 2025, month: 'March', category, value });
+
+  entry('income', 50000);
+  entry('rent', 12000);
+  entry('food', 4000);
+  entry('automobile', 4000);
+
+  const y = c.get('/api/report-card').body.years.find((yr) => yr.year === 2025);
+  assert.equal(y.topExpense.key, 'rent');
+  assert.equal(typeof y.topExpense.name, 'string');
+  assert.equal(y.topExpense.amount, 12000);
+  // Measured against EXPENSES (20000), not income.
+  assert.equal(y.metrics.topExpenseShare, 0.6);
+});
+
+test('report-card API: a year with no spending has no largest expense', (t) => {
+  const c = makeClient(t);
+  c.post('/api/year', { year: 2025 });
+  c.post('/api/entry', { year: 2025, month: 'April', category: 'income', value: 50000 });
+
+  const y = c.get('/api/report-card').body.years.find((yr) => yr.year === 2025);
+  assert.equal(y.topExpense, null);
+  assert.equal(y.metrics.topExpenseShare, null);
+  assert.equal(y.transfers, 0);
+  assert.equal(y.metrics.savingsRate, 0);
+});
+
+test('report-card API: net and its YoY pill ignore transfers entirely', (t) => {
+  const c = makeClient(t);
+  c.post('/api/year', { year: 2024 });
+  c.post('/api/year', { year: 2025 });
+  c.post('/api/entry', { year: 2024, month: 'January', category: 'income', value: 80000 });
+  c.post('/api/entry', { year: 2024, month: 'January', category: 'rent',   value: 40000 });
+  c.post('/api/entry', { year: 2025, month: 'January', category: 'income', value: 100000 });
+  c.post('/api/entry', { year: 2025, month: 'January', category: 'rent',   value: 50000 });
+  // Money moved to savings in 2025 only — net must not notice.
+  c.post('/api/entry', { year: 2025, month: 'January', category: 'savings', value: 25000 });
+
+  const years = c.get('/api/report-card').body.years;
+  const y2025 = years.find((y) => y.year === 2025);
+  assert.equal(y2025.net, 50000);
+  assert.deepEqual(y2025.changes.net, { abs: 10000, pct: 0.25 });
+  assert.deepEqual(y2025.changes.transfers, { abs: 25000, pct: null }); // grew from nothing
+  assert.equal(years.find((y) => y.year === 2024).changes.net, null);
 });

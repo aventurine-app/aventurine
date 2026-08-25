@@ -6,6 +6,7 @@
     <!-- @include head -->
     <link rel="stylesheet" href="/static/css/forecast.css">
     <link rel="stylesheet" href="/static/css/trends.css">
+    <link rel="stylesheet" href="/static/css/metrics.css">
 </head>
 <body>
     <!-- @include chrome -->
@@ -29,6 +30,8 @@
             data-tab="spending" aria-controls="rep-panel-spending" aria-selected="false" tabindex="-1">Spending</button>
         <button type="button" class="rep-tab" id="rep-tab-forecast" role="tab"
             data-tab="forecast" aria-controls="rep-panel-forecast" aria-selected="false" tabindex="-1">Forecast</button>
+        <button type="button" class="rep-tab" id="rep-tab-metrics" role="tab"
+            data-tab="metrics" aria-controls="rep-panel-metrics" aria-selected="false" tabindex="-1">Metrics</button>
     </div>
 
     <div class="rep-panel" id="rep-panel-cashflow" role="tabpanel"
@@ -198,6 +201,36 @@
 
     </div><!-- /.rep-panel -->
 
+    <div class="rep-panel" id="rep-panel-metrics" role="tabpanel"
+        data-panel="metrics" aria-labelledby="rep-tab-metrics" tabindex="0" hidden>
+
+<div class="metrics-page">
+
+    <!-- The old standalone "Yearly Report Card" page, which nothing linked to,
+         living here as a report instead. ONE year at a time, chosen from the
+         header picker: every other report on this page is read that way, and
+         six ratios plus four goals need the width that stacking every year
+         side by side was spending. Controller: static/js/pages/metrics.js. -->
+    <div class="met-card">
+        <div class="dashboard-card-header">
+            <span class="dashboard-card-title">Metrics<span class="fc-info" tabindex="0" role="note"
+                aria-label="The selected year's totals, the ratios behind them, and four money goals: spending under 70% of income, total debt under 25% of income, spending down year over year, and income up year over year. Transfers between your own accounts are never counted as income or spending."
+                data-tip="The selected year's totals, the ratios behind them, and four money goals: spending under 70% of income, total debt under 25% of income, spending down year over year, and income up year over year. Transfers between your own accounts are never counted as income or spending.">i</span></span>
+            <div class="met-controls">
+                <div class="range-selector" id="metrics-year">
+                    <button class="range-selector-btn" id="metrics-year-btn" type="button">Year</button>
+                    <div class="range-selector-menu" id="metrics-year-menu" hidden></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="metrics-body"></div>
+    </div>
+
+</div>
+
+    </div><!-- /.rep-panel -->
+
 </div><!-- /.rep-reports -->
 
         </div>
@@ -210,5 +243,6 @@
     <script src="/static/js/widgets/cashflow-sankey.js"></script>
     <script src="/static/js/pages/trends.js"></script>
     <script src="/static/js/pages/topmerchants.js"></script>
+    <script src="/static/js/pages/metrics.js"></script>
 </body>
 </html>

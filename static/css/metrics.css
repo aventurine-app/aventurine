@@ -1,0 +1,189 @@
+/* ============================================================================
+   metrics.css — the Metrics report, a tab of the Reports page.
+
+   Loads only alongside forecast.css (pages/reports.html), which owns the .rep-*
+   tab shell, the card header chrome (.dashboard-card-header / -title), the
+   "i" info badge and the page padding. What lives here is the report's own
+   column: the headline figure tiles, the ratio grid, and the goals list —
+   inherited from the standalone Report Card page this report replaced.
+   ============================================================================ */
+
+.metrics-page {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.met-card {
+    min-width: 0;
+    border: var(--border-width) solid var(--border);
+    border-radius: 8px;
+    background: var(--surface1);
+    box-shadow: var(--shadow-card);
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ─── Header controls: year picker ────────────────────────────────────────── */
+.met-controls { display: flex; align-items: center; gap: 16px; }
+
+/* ─── Headline figures ────────────────────────────────────────────────────── */
+/* Four money totals across the top, and below them six ratios in threes.
+   Both counts are FIXED at each breakpoint rather than auto-fit, because
+   auto-fit sizes by available width and would leave 6 tiles as 5 + 1 on a wide
+   window — a ragged last row reads as a tile that didn't load. Folding 4 → 2 and
+   6 → 3 → 2 keeps every row full at every width. Breakpoints match
+   dashboard.css: the sidebar and page padding take ~280px off the viewport. */
+.met-figures {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px 28px;
+    padding: 4px 0 22px;
+    border-bottom: var(--border-width) solid var(--border);
+}
+.met-figure { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.met-figure-label {
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wide);
+    text-transform: uppercase;
+}
+.met-figure-value {
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-h3);
+    font-weight: var(--weight-semibold);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+/* Net is the one figure that can be negative, and a minus sign in a column of
+   money is easy to miss — so it carries the loss colour too. */
+.met-figure-negative .met-figure-value { color: var(--accent-negative); }
+
+.met-change {
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wide);
+}
+.met-change-good { color: var(--accent-positive); }
+.met-change-bad  { color: var(--accent-negative); }
+.met-change-flat { color: var(--text-tertiary); }
+.met-change-up   { color: var(--accent-positive); }
+.met-change-none { color: var(--text-tertiary); font-style: italic; font-weight: var(--weight-regular); }
+
+/* ─── Ratio grid ──────────────────────────────────────────────────────────── */
+.met-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 22px 28px;
+    padding: 22px 0;
+    border-bottom: var(--border-width) solid var(--border);
+}
+
+@media (max-width: 1100px) {
+    .met-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .met-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+    .met-figures,
+    .met-metrics { grid-template-columns: minmax(0, 1fr); }
+}
+.met-metric { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.met-metric-label {
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wide);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+}
+.met-metric-value {
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-h3);
+    font-weight: var(--weight-semibold);
+    font-variant-numeric: tabular-nums;
+}
+.met-metric-na .met-metric-value { color: var(--text-tertiary); }
+/* Names the thing the percentage is ABOUT (the biggest expense category), so
+   the tile can say "31% — Housing" without a second tile to hold the name. */
+.met-metric-sub {
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ─── Goals ───────────────────────────────────────────────────────────────── */
+.met-goals-wrap { padding: 22px 0 4px; }
+.met-goals-title {
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+}
+.met-goals {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 0 32px;
+}
+.met-goal {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 7px 0;
+}
+.met-goal-icon {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    line-height: 18px;
+    text-align: center;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: var(--weight-bold);
+    align-self: center;
+}
+.met-goal-met .met-goal-icon {
+    color: var(--accent-positive);
+    background: color-mix(in srgb, var(--accent-positive) 18%, transparent);
+}
+.met-goal-miss .met-goal-icon {
+    color: var(--accent-negative);
+    background: color-mix(in srgb, var(--accent-negative) 18%, transparent);
+}
+.met-goal-na .met-goal-icon {
+    color: var(--text-tertiary);
+    background: color-mix(in srgb, var(--text-tertiary) 15%, transparent);
+}
+.met-goal-label {
+    flex: 1;
+    min-width: 0;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+}
+.met-goal-miss .met-goal-label,
+.met-goal-na .met-goal-label { color: var(--text-tertiary); }
+.met-goal-value {
+    flex-shrink: 0;
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-variant-numeric: tabular-nums;
+}

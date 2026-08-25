@@ -38,7 +38,6 @@ const PAGE_ROUTES = {
     // Cash Flow, Spending and Forecast are tabs of this one page.
     '/reports':         'reports.html',
     '/recurring':       'recurring.html',
-    '/report-card':     'report-card.html',
 };
 
 // app:// must be registered as standard+secure BEFORE app.whenReady so the
