@@ -18,14 +18,40 @@
 
 const { round2 } = require('../validate');
 
-// Goal targets. The first two are absolute ratios; the last two are
+// Goal targets. The first three are absolute ratios; the last two are
 // year-over-year movements.
-const EXPENSE_RATIO_GOAL = 0.70; // keep expenses ≤ 70% of income
-const DTI_GOAL = 0.25;           // keep total debt ≤ 25% of income
+const EXPENSE_RATIO_GOAL = 0.70;      // keep expenses ≤ 70% of income
+const DTI_GOAL = 0.25;                // keep total debt ≤ 25% of income
+const SAVINGS_GOAL = 0.20;            // put ≥ 20% of income away, anywhere
+const INVESTED_GOAL = [0.15, 0.20];   // of which 15–20% goes to investing
+
+// How far past a goal still counts as CLOSE rather than missed. Every goal is
+// graded on three levels, not two: hit (or beaten), slightly off, off. A single
+// pass/fail line makes 71% and 140% the same answer, which is the one thing a
+// year-long figure should never say.
+const NEAR_BAND = 0.05;   // ratio goals: 5 points past the bound
+const NEAR_TREND = 0.02;  // trend goals: a move under 2% the wrong way
 
 /** a / b, or null when the denominator is non-positive (ratio undefined). */
 function ratio(a, b) {
   return b > 0 ? a / b : null;
+}
+
+/** A goal with a CEILING: at or under `bound` is met, within NEAR_BAND over it
+ *  is near, past that is missed. */
+function gradeUnder(value, bound) {
+  if (value == null) return 'na';
+  if (value <= bound) return 'met';
+  return value <= bound + NEAR_BAND ? 'near' : 'miss';
+}
+
+/** A goal with a FLOOR: at or over `floor` is met — beating a goal is still
+ *  hitting it, so the top of a target range is never a fail — within NEAR_BAND
+ *  under it is near, below that is missed. */
+function gradeOver(value, floor) {
+  if (value == null) return 'na';
+  if (value >= floor) return 'met';
+  return value >= floor - NEAR_BAND ? 'near' : 'miss';
 }
 
 /** Year-over-year change vs a prior figure. abs is rounded to cents; pct is
@@ -37,51 +63,94 @@ function change(curr, prev) {
 }
 
 /**
- * Evaluate the four money goals for one year. `prev` is the previous year's
- * normalized row (or null for the earliest year). Every card shows all four
- * goals at all times; each yields { key, label, value, status } where status is
- * 'met' (✓), 'miss' (✕), or 'na' (—) — a goal is 'na' when it can't be judged
- * (undefined ratio, no prior year to compare against) or when a trend goal saw
- * no year-over-year change. `value` is null only when there's nothing to show.
+ * Evaluate the six money goals for one year. `prev` is the previous year's
+ * normalized row (or null for the earliest year). Every card shows all six
+ * goals at all times; each yields { key, label, value, target, range, status }
+ * where status is 'met' (✓), 'near' (!), 'miss' (✕), or 'na' (—) — a goal is
+ * 'na' when it can't be judged (undefined ratio, no prior year to compare
+ * against) or when a trend goal saw no year-over-year change. `value` is null
+ * only when there's nothing to show.
+ *
+ * `target` is the single threshold the goal is judged against, and `range` the
+ * band it is judged against where the goal is a band rather than a line. Both
+ * ship so the renderer can DRAW them (the Metrics tiles notch the meter at the
+ * target and shade the band) rather than keeping a second copy of these
+ * constants in the frontend, where it would silently disagree the first time
+ * one is retuned. The two trend goals have neither — "down from last year" is a
+ * direction, not a level — so theirs are null and their tiles get no notch.
+ *
+ * The saving and investing goals are FLOORS, so beating either is still hitting
+ * it. Investing is the one drawn as a BAND: below 15% of income is short of it
+ * and 20% is where it is fully met, but anything above that is beating it, not
+ * overshooting it, so the top of the range grades 'met' like the rest. The two
+ * do not compete — saving counts every transfer category and investing counts
+ * the investing slice of it, so one goal can be met while the other is not.
  */
-function evaluateGoals({ income, expenses, debt, prev }) {
-  // status for a goal whose `value` is undefined (null) → 'na'; otherwise the
-  // result of the threshold test passed in.
-  const judge = (value, met) => (value == null ? 'na' : met ? 'met' : 'miss');
-
+function evaluateGoals({ income, expenses, debt, transfers, invested, prev }) {
   const er = ratio(expenses, income);
   const dti = debt == null ? null : ratio(debt, income);
+  const sr = ratio(transfers || 0, income);
+  const ir = ratio(invested || 0, income);
 
   // Trend goals: 'na' with no prior year (value null) or when the figure was
-  // unchanged year-over-year (value 0, no movement to reward or penalise).
+  // unchanged year-over-year (value 0, no movement to reward or penalise). A
+  // move the wrong way is 'near' while it is under NEAR_TREND — a year that
+  // spent 1% more is not the same answer as one that spent 30% more.
   const spendingValue = prev && prev.expenses > 0 ? (expenses - prev.expenses) / prev.expenses : null;
   const incomeValue = prev && prev.income > 0 ? (income - prev.income) / prev.income : null;
-  const trendStatus = (value, improved) =>
-    value == null ? 'na' : value === 0 ? 'na' : improved ? 'met' : 'miss';
+  const trendStatus = (value, improved) => {
+    if (value == null || value === 0) return 'na';
+    if (improved) return 'met';
+    return Math.abs(value) <= NEAR_TREND ? 'near' : 'miss';
+  };
 
   return [
     {
       key: 'expense_ratio',
       label: 'Expenses under 70% of income',
       value: er,
-      status: judge(er, er <= EXPENSE_RATIO_GOAL),
+      target: EXPENSE_RATIO_GOAL,
+      range: null,
+      status: gradeUnder(er, EXPENSE_RATIO_GOAL),
     },
     {
       key: 'debt_to_income',
       label: 'Total debt under 25% of income',
       value: dti,
-      status: judge(dti, dti <= DTI_GOAL),
+      target: DTI_GOAL,
+      range: null,
+      status: gradeUnder(dti, DTI_GOAL),
+    },
+    {
+      key: 'savings_rate',
+      label: 'Saving at least 20% of income',
+      value: sr,
+      target: SAVINGS_GOAL,
+      range: null,
+      status: gradeOver(sr, SAVINGS_GOAL),
+    },
+    {
+      key: 'invested_rate',
+      label: 'Investing 15% to 20% of income',
+      value: ir,
+      target: INVESTED_GOAL[0],
+      range: INVESTED_GOAL,
+      status: gradeOver(ir, INVESTED_GOAL[0]),
     },
     {
       key: 'spending_trend',
       label: 'Spending down from last year',
       value: spendingValue,
+      target: null,
+      range: null,
       status: trendStatus(spendingValue, spendingValue < 0),
     },
     {
       key: 'income_trend',
       label: 'Income up from last year',
       value: incomeValue,
+      target: null,
+      range: null,
       status: trendStatus(incomeValue, incomeValue > 0),
     },
   ];
@@ -162,4 +231,8 @@ module.exports = {
   evaluateGoals,
   EXPENSE_RATIO_GOAL,
   DTI_GOAL,
+  SAVINGS_GOAL,
+  INVESTED_GOAL,
+  NEAR_BAND,
+  NEAR_TREND,
 };

@@ -10,12 +10,13 @@ const assert = require('node:assert');
 const { buildReportCards, evaluateGoals } = require('../services/reportCard');
 const { makeClient } = require('./helpers');
 
-// ── service: every card shows all four goals, status met/miss/na ──────────────
+// ── service: every card shows all six goals, status met/near/miss/na ──────────
 
-const ALL_KEYS = ['expense_ratio', 'debt_to_income', 'spending_trend', 'income_trend'];
+const ALL_KEYS = ['expense_ratio', 'debt_to_income', 'savings_rate', 'invested_rate',
+  'spending_trend', 'income_trend'];
 const statusOf = (goals, key) => goals.find((g) => g.key === key).status;
 
-test('evaluateGoals: always returns all four goals in a fixed order', () => {
+test('evaluateGoals: always returns all six goals in a fixed order', () => {
   const goals = evaluateGoals({ income: 100000, expenses: 50000, debt: 10000, prev: null });
   assert.deepEqual(goals.map((g) => g.key), ALL_KEYS);
 });
@@ -46,6 +47,74 @@ test('evaluateGoals: zero income makes the ratio goals na (undefined ratios)', (
   const goals = evaluateGoals({ income: 0, expenses: 1000, debt: 500, prev: null });
   assert.equal(statusOf(goals, 'expense_ratio'), 'na');
   assert.equal(statusOf(goals, 'debt_to_income'), 'na');
+});
+
+// ── service: three levels, and the investing BAND ─────────────────────────────
+
+test('evaluateGoals: a ratio goal just past its bound is near, not missed', () => {
+  // 73% expenses / 28% debt: both over, both inside the 5-point near band.
+  const near = evaluateGoals({ income: 100000, expenses: 73000, debt: 28000, prev: null });
+  assert.equal(statusOf(near, 'expense_ratio'), 'near');
+  assert.equal(statusOf(near, 'debt_to_income'), 'near');
+
+  // 76% / 31%: past the band, and now genuinely missed.
+  const off = evaluateGoals({ income: 100000, expenses: 76000, debt: 31000, prev: null });
+  assert.equal(statusOf(off, 'expense_ratio'), 'miss');
+  assert.equal(statusOf(off, 'debt_to_income'), 'miss');
+});
+
+test('evaluateGoals: the saving goal is a floor at 20%, counting every transfer', () => {
+  const grade = (transfers) =>
+    statusOf(evaluateGoals({ income: 100000, expenses: 50000, debt: null, transfers, prev: null }), 'savings_rate');
+  assert.equal(grade(14000), 'miss');  // 14% — under the near band
+  assert.equal(grade(17000), 'near');  // 17% — short, but close
+  assert.equal(grade(20000), 'met');   // 20% — the floor itself
+  assert.equal(grade(31000), 'met');   // 31% — beating it still counts
+
+  // Saving and investing are graded apart: the investing slice can fall short
+  // while the total put away clears its own floor.
+  const goals = evaluateGoals({ income: 100000, expenses: 50000, debt: null, transfers: 24000, invested: 8000, prev: null });
+  assert.equal(statusOf(goals, 'savings_rate'), 'met');
+  assert.equal(statusOf(goals, 'invested_rate'), 'miss');
+});
+
+test('evaluateGoals: the investing goal is a floor — beating the band still counts', () => {
+  const grade = (invested) =>
+    statusOf(evaluateGoals({ income: 100000, expenses: 50000, debt: null, invested, prev: null }), 'invested_rate');
+  assert.equal(grade(9000), 'miss');   // 9% — under the near band
+  assert.equal(grade(12000), 'near');  // 12% — short, but close
+  assert.equal(grade(15000), 'met');   // 15% — the floor itself
+  assert.equal(grade(18000), 'met');   // 18% — inside the band
+  assert.equal(grade(40000), 'met');   // 40% — beating it is not overshooting it
+});
+
+test('evaluateGoals: the investing goal ships the band it is drawn against', () => {
+  const goal = evaluateGoals({ income: 100000, expenses: 50000, debt: 10000, invested: 18000, prev: null })
+    .find((g) => g.key === 'invested_rate');
+  assert.deepEqual(goal.range, [0.15, 0.20]);
+  assert.equal(goal.target, 0.15);
+  // The threshold goals are lines, not bands.
+  const er = evaluateGoals({ income: 100000, expenses: 50000, debt: 10000, prev: null })
+    .find((g) => g.key === 'expense_ratio');
+  assert.equal(er.range, null);
+  assert.equal(er.target, 0.70);
+});
+
+test('evaluateGoals: a small move the wrong way is near, a large one is missed', () => {
+  // Spending up 1.5%, income down 1%: both adverse, both under the 2% band.
+  const near = evaluateGoals({
+    income: 99000, expenses: 60900, debt: null,
+    prev: { income: 100000, expenses: 60000 },
+  });
+  assert.equal(statusOf(near, 'spending_trend'), 'near');
+  assert.equal(statusOf(near, 'income_trend'), 'near');
+
+  const off = evaluateGoals({
+    income: 80000, expenses: 75000, debt: null,
+    prev: { income: 100000, expenses: 60000 },
+  });
+  assert.equal(statusOf(off, 'spending_trend'), 'miss');
+  assert.equal(statusOf(off, 'income_trend'), 'miss');
 });
 
 // ── service: year-over-year trend goals ───────────────────────────────────────
@@ -111,7 +180,7 @@ test('buildReportCards: zero income → undefined ratios are null, not NaN/Infin
   assert.equal(card.metrics.expenseToIncome, null);
   assert.equal(card.metrics.debtToIncome, null);
   assert.equal(card.metrics.cashFlowMargin, null);
-  // All four goals are still shown, every one na (nothing evaluable).
+  // All six goals are still shown, every one na (nothing evaluable).
   assert.deepEqual(card.goals.map((g) => g.key), ALL_KEYS);
   assert.ok(card.goals.every((g) => g.status === 'na'));
 });
@@ -138,8 +207,8 @@ test('report-card API: a fresh DB shows only the seeded current year, no evaluab
   const y = r.body.years[0];
   assert.equal(y.income, 0);
   assert.equal(y.expenses, 0);
-  // All four goals shown, none evaluable yet (no income/prior year) → all na.
-  assert.equal(y.goals.length, 4);
+  // All six goals shown, none evaluable yet (no income/prior year) → all na.
+  assert.equal(y.goals.length, 6);
   assert.ok(y.goals.every((g) => g.status === 'na'));
 });
 
@@ -182,7 +251,7 @@ test('report-card API: a tracked year with no activity still gets a (goal-less) 
   const y = c.get('/api/report-card').body.years.find((yr) => yr.year === 2020);
   assert.ok(y, 'expected a 2020 card even with no activity');
   assert.equal(y.income, 0);
-  assert.equal(y.goals.length, 4);
+  assert.equal(y.goals.length, 6);
   assert.ok(y.goals.every((g) => g.status === 'na'));
 });
 

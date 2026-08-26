@@ -4,14 +4,18 @@
    Loads only alongside forecast.css (pages/reports.html), which owns the .rep-*
    tab shell, the card header chrome (.dashboard-card-header / -title), the
    "i" info badge and the page padding. What lives here is the report's own
-   column: the headline figure tiles, the ratio grid, and the goals list —
-   inherited from the standalone Report Card page this report replaced.
+   column: the composition bar, the headline figure tiles and their sparklines,
+   and the ratio grid drawn as meters.
+
+   Every mark on this card is drawn from a number that is also printed beside
+   it — the bar has its legend, the meters have their percentages, the
+   sparklines have the year picker. Nothing here is reachable only by looking.
    ============================================================================ */
 
 .metrics-page {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: var(--space-24);
 }
 
 .met-card {
@@ -20,13 +24,103 @@
     border-radius: 8px;
     background: var(--surface1);
     box-shadow: var(--shadow-card);
-    padding: 24px 28px;
+    padding: var(--space-24) 28px;
     display: flex;
     flex-direction: column;
 }
 
 /* ─── Header controls: year picker ────────────────────────────────────────── */
-.met-controls { display: flex; align-items: center; gap: 16px; }
+.met-controls { display: flex; align-items: center; gap: var(--space-16); }
+
+/* ─── Composition bar ─────────────────────────────────────────────────────────
+   The year's income split into where it went. ONE mark that answers three of
+   the six ratios below (cash-flow margin, savings rate, and by difference the
+   share left), which is why it earns the top of the card.
+
+   The bands wear the categorical ramp rather than gain-green / loss-red: money
+   spent is not a loss and money put away is not a gain, and those two colours
+   are spoken for elsewhere in the app. "Left over" is the remainder, so it wears
+   a neutral — the same instinct as the Saved & Invested legend's "Other". */
+.met-composition {
+    padding: var(--space-4) 0 var(--space-20);
+    border-bottom: var(--border-width) solid var(--border);
+}
+
+.met-bar {
+    display: flex;
+    height: 12px;
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+    background: var(--frost-2);
+    /* Grows as ONE piece, the way it is read, rather than each band sprouting
+       on its own (mirrors the stacked columns in transfers.css). */
+    transform: scaleX(0);
+    transform-origin: left center;
+    animation: met-bar-grow 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.met-band { display: block; height: 100%; min-width: 0; }
+/* A hairline of the card's own background between bands — enough separation to
+   count them without a gap that would make the widths lie. */
+.met-band + .met-band { box-shadow: inset 1px 0 0 var(--surface1); }
+.met-band-spent { background: var(--cat-1); }
+.met-band-saved { background: var(--cat-2); }
+.met-band-left  { background: color-mix(in srgb, var(--text-tertiary) 22%, transparent); }
+
+/* Only drawn when the year spent more than it earned: where income ran out. */
+.met-band-notch {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    margin-left: -1px;
+    background: var(--text-primary);
+}
+
+.met-keys {
+    list-style: none;
+    margin: var(--space-12) 0 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8) var(--space-24);
+}
+.met-key {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-8);
+    min-width: 0;
+}
+.met-key-dot {
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    align-self: center;
+}
+.met-key-spent .met-key-dot { background: var(--cat-1); }
+.met-key-saved .met-key-dot { background: var(--cat-2); }
+.met-key-left  .met-key-dot { background: color-mix(in srgb, var(--text-tertiary) 45%, transparent); }
+.met-key-label {
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    white-space: nowrap;
+}
+.met-key-value {
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+    font-variant-numeric: tabular-nums;
+}
+.met-key-amount {
+    color: var(--text-tertiary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-micro);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
 
 /* ─── Headline figures ────────────────────────────────────────────────────── */
 /* Four money totals across the top, and below them six ratios in threes.
@@ -38,11 +132,11 @@
 .met-figures {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 20px 28px;
-    padding: 4px 0 22px;
+    gap: var(--space-20) 28px;
+    padding: var(--space-20) 0 var(--space-24);
     border-bottom: var(--border-width) solid var(--border);
 }
-.met-figure { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.met-figure { min-width: 0; display: flex; flex-direction: column; gap: var(--space-4); }
 .met-figure-label {
     color: var(--text-tertiary);
     font-family: var(--font-h3);
@@ -50,6 +144,15 @@
     font-weight: var(--weight-semibold);
     letter-spacing: var(--track-wide);
     text-transform: uppercase;
+}
+/* The value and its sparkline sit adjacent, not spread to the tile's edges: at
+   the one-column breakpoint a right-aligned spark would float a long way from
+   the number it belongs to. */
+.met-figure-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-12);
+    min-width: 0;
 }
 .met-figure-value {
     color: var(--text-primary);
@@ -63,6 +166,22 @@
    money is easy to miss — so it carries the loss colour too. */
 .met-figure-negative .met-figure-value { color: var(--accent-negative); }
 
+/* ─── Sparklines ──────────────────────────────────────────────────────────────
+   Every tracked year of one figure, with the selected year marked. Drawn 1:1 at
+   its own pixel size (no preserveAspectRatio stretching), so the marker stays a
+   circle and the stroke keeps its width. Deliberately quiet: it is context for
+   the number beside it, not a second reading of the card. */
+.met-spark { flex: none; overflow: visible; }
+.met-spark-area { fill: color-mix(in srgb, var(--accent-primary) 13%, transparent); }
+.met-spark-line {
+    fill: none;
+    stroke: color-mix(in srgb, var(--accent-primary) 55%, transparent);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.met-spark-dot { fill: var(--accent-primary); }
+
 .met-change {
     font-family: var(--font-h3);
     font-size: var(--size-micro);
@@ -70,18 +189,20 @@
     letter-spacing: var(--track-wide);
 }
 .met-change-good { color: var(--accent-positive); }
+/* A move the wrong way, but a small one — the amber the goal tiles use for
+   "slightly off". Same three-level scale, said on the pill instead of a badge
+   because the two trend goals have no tile of their own. */
+.met-change-near { color: var(--warning); }
 .met-change-bad  { color: var(--accent-negative); }
 .met-change-flat { color: var(--text-tertiary); }
-.met-change-up   { color: var(--accent-positive); }
 .met-change-none { color: var(--text-tertiary); font-style: italic; font-weight: var(--weight-regular); }
 
 /* ─── Ratio grid ──────────────────────────────────────────────────────────── */
 .met-metrics {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 22px 28px;
-    padding: 22px 0;
-    border-bottom: var(--border-width) solid var(--border);
+    gap: var(--space-24) 28px;
+    padding: var(--space-24) 0 var(--space-4);
 }
 
 @media (max-width: 1100px) {
@@ -92,8 +213,9 @@
 @media (max-width: 700px) {
     .met-figures,
     .met-metrics { grid-template-columns: minmax(0, 1fr); }
+    .met-keys { gap: var(--space-8) var(--space-16); }
 }
-.met-metric { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.met-metric { min-width: 0; display: flex; flex-direction: column; gap: var(--space-4); }
 .met-metric-label {
     color: var(--text-tertiary);
     font-family: var(--font-h3);
@@ -104,6 +226,12 @@
     display: flex;
     align-items: center;
 }
+.met-metric-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    min-width: 0;
+}
 .met-metric-value {
     color: var(--text-primary);
     font-family: var(--font-numeric);
@@ -112,43 +240,11 @@
     font-variant-numeric: tabular-nums;
 }
 .met-metric-na .met-metric-value { color: var(--text-tertiary); }
-/* Names the thing the percentage is ABOUT (the biggest expense category), so
-   the tile can say "31% — Housing" without a second tile to hold the name. */
-.met-metric-sub {
-    color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
 
-/* ─── Goals ───────────────────────────────────────────────────────────────── */
-.met-goals-wrap { padding: 22px 0 4px; }
-.met-goals-title {
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wider);
-    text-transform: uppercase;
-    margin-bottom: 12px;
-}
-.met-goals {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 0 32px;
-}
-.met-goal {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    padding: 7px 0;
-}
-.met-goal-icon {
+/* The goal verdict, on the tile whose number IS the goal. Three levels, not
+   two: hit or beaten, slightly off, off. Colour is paired with a glyph, never
+   carrying the verdict on its own. */
+.met-status {
     flex-shrink: 0;
     width: 18px;
     height: 18px;
@@ -157,33 +253,111 @@
     border-radius: 50%;
     font-size: 11px;
     font-weight: var(--weight-bold);
-    align-self: center;
+    cursor: default;
 }
-.met-goal-met .met-goal-icon {
+.met-status-met {
     color: var(--accent-positive);
     background: color-mix(in srgb, var(--accent-positive) 18%, transparent);
 }
-.met-goal-miss .met-goal-icon {
+.met-status-near {
+    color: var(--warning);
+    background: color-mix(in srgb, var(--warning) 20%, transparent);
+}
+.met-status-miss {
     color: var(--accent-negative);
     background: color-mix(in srgb, var(--accent-negative) 18%, transparent);
 }
-.met-goal-na .met-goal-icon {
-    color: var(--text-tertiary);
-    background: color-mix(in srgb, var(--text-tertiary) 15%, transparent);
+
+/* ─── Meters ──────────────────────────────────────────────────────────────────
+   A percentage against the full 0–100% it is a share of, with the goal's target
+   notched on the track where the ratio has one.
+
+   A GRADED tile's fill takes the goal's colour, so a row of tiles answers "how
+   is the year going" before a single number is read. An ungraded ratio keeps
+   the neutral accent — there is no verdict, so there is no colour to give it.
+
+   The tick lane below the track is reserved on EVERY tile, target or not, so a
+   row of tiles keeps one baseline whether or not it is graded. */
+.met-meter {
+    position: relative;
+    margin-top: var(--space-4);
+    padding-bottom: var(--space-20);
 }
-.met-goal-label {
-    flex: 1;
+.met-meter-track {
+    position: relative;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--frost-2);
+}
+/* An UNGRADED ratio's fill is neutral, not the app accent: the accent green
+   sits close enough to the "goal met" green that a row of bars stopped reading
+   as graded / ungraded at a glance, which is the one thing this row is for. */
+.met-meter-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--text-tertiary) 60%, transparent);
+    transform: scaleX(0);
+    transform-origin: left center;
+    animation: met-fill-grow 0.55s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.met-metric-na .met-meter-fill { animation: none; transform: none; }
+.met-graded-met  .met-meter-fill { background: var(--accent-positive); }
+.met-graded-near .met-meter-fill { background: var(--warning); }
+.met-graded-miss .met-meter-fill { background: var(--accent-negative); }
+
+/* A goal that is a BAND rather than a line: the stretch of track the year is
+   aiming to land in. Stands a little proud of the track so it reads as a target
+   laid over the meter, the way the single-line notch does. Sits UNDER the fill:
+   a year that reaches the band paints over it, which is exactly what reaching
+   it should look like. */
+.met-meter-band {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--text-secondary) 34%, transparent);
+}
+/* Stands taller than the track so the target reads as a threshold laid ACROSS
+   the meter rather than a segment of it. */
+.met-meter-notch {
+    position: absolute;
+    top: -3px;
+    bottom: -3px;
+    width: 2px;
+    margin-left: -1px;
+    border-radius: 1px;
+    background: var(--text-secondary);
+}
+.met-meter-tick {
+    position: absolute;
+    top: 13px;
+    transform: translateX(-50%);
+    color: var(--text-tertiary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-micro);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* Names the thing the percentage is ABOUT (the biggest expense category), so
+   the tile can say "31% Housing" without a second tile to hold the name. It
+   rides on the value's line, not one of its own: only one tile in the grid has
+   a sub, and an extra line pushed that tile's meter out of step with the two
+   beside it. */
+.met-metric-sub {
     min-width: 0;
     color: var(--text-secondary);
     font-family: var(--font-menu);
     font-size: var(--size-small);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
-.met-goal-miss .met-goal-label,
-.met-goal-na .met-goal-label { color: var(--text-tertiary); }
-.met-goal-value {
-    flex-shrink: 0;
-    color: var(--text-primary);
-    font-family: var(--font-numeric);
-    font-size: var(--size-small);
-    font-variant-numeric: tabular-nums;
+
+@keyframes met-bar-grow  { to { transform: scaleX(1); } }
+@keyframes met-fill-grow { to { transform: scaleX(1); } }
+
+@media (prefers-reduced-motion: reduce) {
+    .met-bar,
+    .met-meter-fill { animation: none; transform: scaleX(1); }
 }

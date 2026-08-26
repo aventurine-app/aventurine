@@ -214,6 +214,128 @@
   // real backend route implemented in electron/backend/handlers/ and must
   // stay shape-compatible with it, since pages can't tell which one
   // answered. Comments below name the primary page/widget each entry feeds.
+  // static/js/pages/transfers.js — the Saved & Invested report. Built the way
+  // the real handler builds it (per-merchant months first, totals derived from
+  // them), so the stack sums to the line here exactly as it does against the
+  // backend. One fixture serves every window, since query strings aren't modeled
+  // — the picker changes the label and not the bars. Nine merchants on purpose:
+  // eight get a palette slot and the ninth has to fold into "Other", which is
+  // the case the legend and the neutral swatch exist for. The mix is savings AND
+  // brokerage, because the report reads the transfer DIRECTION rather than one
+  // category and both belong here.
+  const transfersFixture = (() => {
+    const brokers = [
+      { key: 'n:vanguard',        name: 'Vanguard',           search: 'Vanguard',           base: 600, drift: 12 },
+      { key: 'n:fidelity',        name: 'Fidelity',           search: 'Fidelity',           base: 400, drift: 8 },
+      { key: 'n:robinhood',       name: 'Robinhood',          search: 'Robinhood',          base: 180, drift: -4 },
+      { key: 'n:coinbase',        name: 'Coinbase',           search: 'Coinbase',           base: 120, drift: 6 },
+      { key: 'd:harbor crest',    name: 'HARBOR CREST FUNDS', search: 'HARBOR CREST FUNDS', base: 95,  drift: 0 },
+      { key: 'd:ally savings',    name: 'ALLY SAVINGS XFER',  search: 'ALLY SAVINGS',       base: 75,  drift: 3 },
+      { key: 'n:acorns',          name: 'Acorns',             search: 'Acorns',             base: 60,  drift: 2 },
+      { key: 'n:betterment',      name: 'Betterment',         search: 'Betterment',         base: 50,  drift: 1 },
+      { key: 'd:northgate trust', name: 'NORTHGATE TRUST',    search: 'NORTHGATE TRUST',    base: 40,  drift: 0 },
+    ];
+    const monthly = {};
+    let total = 0;
+    const merchants = brokers.map((b) => {
+      const m = {};
+      trendsMonths.forEach((ym, i) => {
+        // Every third month sits out, so the stack has gaps and short columns
+        // to draw rather than eight flat bands of identical height.
+        const v = i % 3 === 1 && b.base < 200 ? 0 : Math.max(Math.round(b.base + b.drift * i), 0);
+        if (!v) return;
+        m[ym] = v;
+        monthly[ym] = (monthly[ym] || 0) + v;
+        total += v;
+      });
+      return { key: b.key, name: b.name, search: b.search, total: Object.values(m).reduce((a, c) => a + c, 0), count: Object.keys(m).length, monthly: m };
+    });
+    // The folded tail: not one merchant, so it carries no search term and wears
+    // a neutral instead of a ninth hue.
+    const otherMonthly = {};
+    trendsMonths.forEach((ym, i) => {
+      const v = 25 + (i % 4) * 10;
+      otherMonthly[ym] = v;
+      monthly[ym] = (monthly[ym] || 0) + v;
+      total += v;
+    });
+    merchants.push({
+      key: '__other__', name: 'Other', search: null,
+      total: Object.values(otherMonthly).reduce((a, c) => a + c, 0),
+      count: 14, monthly: otherMonthly,
+    });
+    return { ok: true, window: 12, months: trendsMonths, total, monthly, merchants, everTransferred: true };
+  })();
+
+  // static/js/pages/metrics.js — the Metrics report: one year's totals, the
+  // ratios behind them, and pass/fail goal checks. FIVE years, so the
+  // sparklines on the headline figures have a shape to draw and the year picker
+  // has something to pick; the figures improve across them so the target
+  // notches on the ratio meters are seen both missed and met. Mirrors
+  // electron/backend/services/reportCard.js — the same derivations off raw
+  // yearly totals, so fixture mode and the real backend agree on shape.
+  const reportCardFixture = (() => {
+    const raw = [
+      { year: year - 4, income: 52000, expenses: 43000, transfers: 2400, invested: 900,  debt: 24000, top: 15480 },
+      { year: year - 3, income: 57500, expenses: 45800, transfers: 3600, invested: 1800, debt: 20000, top: 16000 },
+      { year: year - 2, income: 61000, expenses: 47400, transfers: 5400, invested: 3000, debt: 15500, top: 16600 },
+      { year: year - 1, income: 66000, expenses: 46000, transfers: 7200, invested: 4800, debt: 12000, top: 15840 },
+      { year,           income: 72000, expenses: 45000, transfers: 9600, invested: 6000, debt: 9000,  top: 16200 },
+    ];
+    const r2 = (n) => Math.round(n * 100) / 100;
+    const ratio = (a, b) => (b > 0 ? a / b : null);
+    const change = (curr, prev) =>
+      (prev == null ? null : { abs: r2(curr - prev), pct: prev > 0 ? (curr - prev) / prev : null });
+    // Three levels, mirroring services/reportCard.js: hit or beaten, slightly
+    // off (within 5 ratio points / a 2% move), off.
+    const under = (v, bound) => (v == null ? 'na' : v <= bound ? 'met' : v <= bound + 0.05 ? 'near' : 'miss');
+    const over = (v, floor) => (v == null ? 'na' : v >= floor ? 'met' : v >= floor - 0.05 ? 'near' : 'miss');
+    const trend = (v, ok) =>
+      (v == null || v === 0 ? 'na' : ok ? 'met' : Math.abs(v) <= 0.02 ? 'near' : 'miss');
+
+    const cards = raw.map((r, i) => {
+      const prev = i ? raw[i - 1] : null;
+      const net = r2(r.income - r.expenses);
+      const prevNet = prev ? r2(prev.income - prev.expenses) : null;
+      const er = ratio(r.expenses, r.income);
+      const dti = ratio(r.debt, r.income);
+      const sr = ratio(r.transfers, r.income);
+      const ir = ratio(r.invested, r.income);
+      const spend = prev && prev.expenses > 0 ? (r.expenses - prev.expenses) / prev.expenses : null;
+      const inc = prev && prev.income > 0 ? (r.income - prev.income) / prev.income : null;
+      return {
+        year: r.year, income: r.income, expenses: r.expenses, transfers: r.transfers,
+        invested: r.invested, net, debt: r.debt,
+        topExpense: { key: 'housing', name: 'Housing', amount: r.top },
+        changes: {
+          income: change(r.income, prev && prev.income),
+          expenses: change(r.expenses, prev && prev.expenses),
+          transfers: change(r.transfers, prev && prev.transfers),
+          net: change(net, prevNet),
+        },
+        metrics: {
+          expenseToIncome: er,
+          debtToIncome: dti,
+          cashFlowMargin: (r.income - r.expenses) / r.income,
+          savingsRate: sr,
+          investedRate: ir,
+          topExpenseShare: ratio(r.top, r.expenses),
+        },
+        goals: [
+          { key: 'expense_ratio',  label: 'Expenses under 70% of income',    value: er,    target: 0.70, range: null,         status: under(er, 0.70) },
+          { key: 'debt_to_income', label: 'Total debt under 25% of income',  value: dti,   target: 0.25, range: null,         status: under(dti, 0.25) },
+          { key: 'savings_rate',   label: 'Saving at least 20% of income',   value: sr,    target: 0.20, range: null,         status: over(sr, 0.20) },
+          { key: 'invested_rate',  label: 'Investing 15% to 20% of income',  value: ir,    target: 0.15, range: [0.15, 0.20], status: over(ir, 0.15) },
+          { key: 'spending_trend', label: 'Spending down from last year',    value: spend, target: null, range: null,         status: trend(spend, spend < 0) },
+          { key: 'income_trend',   label: 'Income up from last year',        value: inc,   target: null, range: null,         status: trend(inc, inc > 0) },
+        ],
+      };
+    });
+    // Newest year first — the year picker and the default selection both rely
+    // on that order.
+    return { ok: true, years: cards.reverse() };
+  })();
+
   const FL_FIXTURES = {
     // static/js/shell/license.js — Settings → License. Fixture mode shows an
     // ACTIVATED copy: pure-UI work should be looking at the app as a buyer sees
@@ -387,53 +509,12 @@
         { key: 'n:shell',          name: 'Shell',            total: 96.2,    count: 4,  last_date: `${year}-07-25`, search: 'Shell' },
       ],
     },
+    // static/js/pages/transfers.js — see transfersFixture above.
+    '/api/transfers': transfersFixture,
     // static/js/widgets/forecast.js — see forecastFixture above.
     '/api/forecast': forecastFixture,
-    // static/js/pages/metrics.js — the Metrics report: one year's totals, the
-    // ratios behind them, and pass/fail goal checks. Newest year first (the
-    // year picker and the default selection both rely on that order).
-    '/api/report-card': {
-      ok: true,
-      years: [
-        {
-          year, income: 72000, expenses: 45000, transfers: 9600, invested: 6000,
-          net: 27000, debt: 9000,
-          topExpense: { key: 'housing', name: 'Housing', amount: 16200 },
-          changes: {
-            income:    { abs: 6000,  pct: 0.0909 },
-            expenses:  { abs: -1000, pct: -0.0217 },
-            transfers: { abs: 2400,  pct: 0.3333 },
-            net:       { abs: 7000,  pct: 0.35 },
-          },
-          metrics: {
-            expenseToIncome: 0.625, debtToIncome: 0.125, cashFlowMargin: 0.375,
-            savingsRate: 0.1333, investedRate: 0.0833, topExpenseShare: 0.36,
-          },
-          goals: [
-            { key: 'expense_ratio',   label: 'Expenses under 70% of income',   value: 0.625,   status: 'met' },
-            { key: 'debt_to_income',  label: 'Total debt under 25% of income', value: 0.125,   status: 'met' },
-            { key: 'spending_trend',  label: 'Spending down from last year',   value: -0.0217, status: 'met' },
-            { key: 'income_trend',    label: 'Income up from last year',       value: 0.0909,  status: 'met' },
-          ],
-        },
-        {
-          year: year - 1, income: 66000, expenses: 46000, transfers: 7200, invested: 4800,
-          net: 20000, debt: 12000,
-          topExpense: { key: 'housing', name: 'Housing', amount: 15840 },
-          changes: { income: null, expenses: null, transfers: null, net: null },
-          metrics: {
-            expenseToIncome: 0.697, debtToIncome: 0.1818, cashFlowMargin: 0.303,
-            savingsRate: 0.1091, investedRate: 0.0727, topExpenseShare: 0.3443,
-          },
-          goals: [
-            { key: 'expense_ratio',  label: 'Expenses under 70% of income',   value: 0.697,  status: 'met' },
-            { key: 'debt_to_income', label: 'Total debt under 25% of income', value: 0.1818, status: 'met' },
-            { key: 'spending_trend', label: 'Spending down from last year',   value: null,   status: 'na' },
-            { key: 'income_trend',   label: 'Income up from last year',       value: null,   status: 'na' },
-          ],
-        },
-      ],
-    },
+    // static/js/pages/metrics.js — see reportCardFixture above.
+    '/api/report-card': reportCardFixture,
     // static/js/shell/settings.js — feature toggles read by the settings
     // panel; tx_auto_match configures the learned auto-categorization
     // matcher (electron/backend/services/matchRules.js on the real backend).

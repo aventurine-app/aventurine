@@ -1,0 +1,147 @@
+/* ============================================================================
+   transfers.css — the Saved & Invested report, a tab of the Reports page.
+
+   Loads alongside forecast.css and trends.css (pages/reports.html). forecast.css
+   owns the .rep-* tab shell, the page padding and the .dashboard-card-header /
+   .chart-area chrome; trends.css owns the .dashboard-chart .chart-* hooks the
+   SVG from chart.js needs. What is left for this file is the report's own
+   column: the shared toolbar row, the two cards, the stacked-column marks, and
+   the legend that doubles as the stack's table view.
+   ============================================================================ */
+
+.tfr-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+}
+
+/* ─── The one control, above both cards ───────────────────────────────────────
+   Both charts are the same rows over the same months, so they answer to one
+   picker (see pages/reports.html). It sits at the right edge, where a card
+   header's own controls sit, so the column of controls down the page still
+   lines up. */
+.tfr-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+/* Mirrors .trends-card / .forecast-card — the same card the whole Reports page
+   is built from. */
+.tfr-card {
+    min-width: 0;
+    border: var(--border-width) solid var(--border);
+    border-radius: 8px;
+    background: var(--surface1);
+    box-shadow: var(--shadow-card);
+    padding: var(--space-24) 28px;
+    display: flex;
+    flex-direction: column;
+}
+
+#transfers-chart,
+#transfers-merchants-chart { width: 100%; }
+
+/* The window's total, opposite the first card's title. Proportional figures,
+   not tabular: tabular-nums gives every digit the width of a zero, which reads
+   as loose on a standalone number. It is a column of numbers that needs the
+   alignment, and this is one number. */
+.tfr-total {
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-body);
+    font-weight: var(--weight-semibold);
+    line-height: var(--lh-tight);
+    white-space: nowrap;
+}
+
+/* ─── Stacked columns (consumed by chart.js' buildStackedSVG) ─────────────────
+   The column scales up from the baseline as one piece, so a stack assembles the
+   way it is read rather than each band sprouting on its own. Separation between
+   bands is a 2px gap of surface cut by the geometry, never a stroke: a border is
+   ink that isn't data, and on a thin band it becomes most of the band. */
+.dashboard-chart .chart-col {
+    transform: scaleY(0);
+    animation: tfr-col-grow 0.55s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.dashboard-chart.chart-no-anim .chart-col { transform: none; animation: none; }
+
+/* Hover dims the band rather than outlining it, for the same reason the gap is
+   not a stroke. The whole column carries a total in its own tooltip, so the
+   gaps between bands are a live target too. */
+.dashboard-chart .chart-seg { transition: opacity 0.15s ease; }
+.dashboard-chart .chart-seg:hover { opacity: 0.78; }
+
+@keyframes tfr-col-grow { to { transform: scaleY(1); } }
+
+@media (prefers-reduced-motion: reduce) {
+    .dashboard-chart .chart-col { animation: none; transform: none; }
+}
+
+/* ─── Legend ──────────────────────────────────────────────────────────────────
+   Always present, because eight bands cannot be told apart by hue alone and
+   colour is never the only channel allowed to carry identity. It is also the
+   stack's table view: every band's window total is stated here, so no value in
+   the chart is reachable only by hovering it. Each row links into the ledger on
+   the Top Merchants rule; "Other" is not one group of transactions, so it stays
+   plain text. */
+.tfr-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8) var(--space-16);
+    margin-top: var(--space-16);
+}
+
+.tfr-legend-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    min-width: 0;
+    padding: var(--space-4) var(--space-8);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    letter-spacing: var(--track-wider);
+}
+
+.tfr-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.tfr-legend-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 180px;
+}
+
+/* Text wears text tokens, never the band's colour: a light categorical step is
+   illegible as type on the surface. The swatch beside it carries the identity.
+   Tabular here, unlike .tfr-total — these DO sit in a row of numbers the eye
+   compares. */
+.tfr-legend-amount {
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.tfr-legend-link { cursor: pointer; }
+.tfr-legend-link:hover {
+    background: var(--frost-2);
+    color: var(--text-primary);
+}
+.tfr-legend-link:hover .tfr-legend-name { text-decoration: underline; }
+.tfr-legend-link:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+    .tfr-legend-name { max-width: 120px; }
+}

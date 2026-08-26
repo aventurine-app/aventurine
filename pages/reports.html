@@ -6,6 +6,7 @@
     <!-- @include head -->
     <link rel="stylesheet" href="/static/css/forecast.css">
     <link rel="stylesheet" href="/static/css/trends.css">
+    <link rel="stylesheet" href="/static/css/transfers.css">
     <link rel="stylesheet" href="/static/css/metrics.css">
 </head>
 <body>
@@ -28,6 +29,8 @@
             data-tab="cashflow" aria-controls="rep-panel-cashflow" aria-selected="true">Cash Flow</button>
         <button type="button" class="rep-tab" id="rep-tab-spending" role="tab"
             data-tab="spending" aria-controls="rep-panel-spending" aria-selected="false" tabindex="-1">Spending</button>
+        <button type="button" class="rep-tab" id="rep-tab-transfers" role="tab"
+            data-tab="transfers" aria-controls="rep-panel-transfers" aria-selected="false" tabindex="-1">Saved &amp; Invested</button>
         <button type="button" class="rep-tab" id="rep-tab-forecast" role="tab"
             data-tab="forecast" aria-controls="rep-panel-forecast" aria-selected="false" tabindex="-1">Forecast</button>
         <button type="button" class="rep-tab" id="rep-tab-metrics" role="tab"
@@ -125,6 +128,62 @@
 
     </div><!-- /.rep-panel -->
 
+    <div class="rep-panel" id="rep-panel-transfers" role="tabpanel"
+        data-panel="transfers" aria-labelledby="rep-tab-transfers" tabindex="0" hidden>
+
+<div class="tfr-page">
+
+    <!-- Investing. Two cards, ONE picker: the second card is the first one
+         broken out by merchant, so the two are readings of the same rows over
+         the same months and the stack has to total the line. Two pickers would
+         let them fall out of step, and a stack that doesn't explain the chart
+         above it is worse than no second chart. The panel-level toolbar row is
+         the sanctioned home for a control that scopes more than one card (see
+         the note at the top of this file); a report's controls still never get
+         hoisted into the tab bar. Controller: static/js/pages/transfers.js. -->
+    <div class="tfr-toolbar">
+        <div class="range-selector" id="transfers-range">
+            <button class="range-selector-btn" id="transfers-range-btn" type="button"
+                aria-haspopup="menu" title="Time frame for both charts">12 Months</button>
+            <div class="range-selector-menu" id="transfers-range-menu" hidden>
+                <button data-window="3"  type="button">3 Months</button>
+                <button data-window="6"  type="button">6 Months</button>
+                <button data-window="12" type="button">12 Months</button>
+                <button data-window="24" type="button">24 Months</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="tfr-card">
+        <div class="dashboard-card-header">
+            <span class="dashboard-card-title">Saved &amp; Invested Over Time<span class="fc-info" tabindex="0" role="note"
+                aria-label="How much you moved into your own savings and investment accounts each month. Any category you have set to Transfer counts, so nothing needs sorting by hand. Money moved this way is never counted as spending, so this is the one place it is reported. The current, incomplete month is excluded."
+                data-tip="How much you moved into your own savings and investment accounts each month. Any category you have set to Transfer counts, so nothing needs sorting by hand. Money moved this way is never counted as spending, so this is the one place it is reported. The current, incomplete month is excluded.">i</span></span>
+            <div class="tfr-total" id="transfers-total"></div>
+        </div>
+
+        <div class="chart-area">
+            <div id="transfers-chart"></div>
+        </div>
+    </div>
+
+    <div class="tfr-card">
+        <div class="dashboard-card-header">
+            <span class="dashboard-card-title">Saved &amp; Invested by Merchant<span class="fc-info" tabindex="0" role="note"
+                aria-label="The same months split by where the money went. The eight biggest get their own color and everything else is grouped as Other, so the columns always add up to the chart above. Click a name to see those transactions."
+                data-tip="The same months split by where the money went. The eight biggest get their own color and everything else is grouped as Other, so the columns always add up to the chart above. Click a name to see those transactions.">i</span></span>
+        </div>
+
+        <div class="chart-area">
+            <div id="transfers-merchants-chart"></div>
+        </div>
+        <div class="tfr-legend" id="transfers-legend"></div>
+    </div>
+
+</div>
+
+    </div><!-- /.rep-panel -->
+
     <div class="rep-panel" id="rep-panel-forecast" role="tabpanel"
         data-panel="forecast" aria-labelledby="rep-tab-forecast" tabindex="0" hidden>
 
@@ -214,8 +273,8 @@
     <div class="met-card">
         <div class="dashboard-card-header">
             <span class="dashboard-card-title">Metrics<span class="fc-info" tabindex="0" role="note"
-                aria-label="The selected year's totals, the ratios behind them, and four money goals: spending under 70% of income, total debt under 25% of income, spending down year over year, and income up year over year. Transfers between your own accounts are never counted as income or spending."
-                data-tip="The selected year's totals, the ratios behind them, and four money goals: spending under 70% of income, total debt under 25% of income, spending down year over year, and income up year over year. Transfers between your own accounts are never counted as income or spending.">i</span></span>
+                aria-label="The selected year's totals, the ratios behind them, and six money goals: spending under 70% of income, total debt under 25% of income, saving at least 20% of income, investing 15% to 20% of income, spending down year over year, and income up year over year. Transfers between your own accounts are never counted as income or spending."
+                data-tip="The selected year's totals, the ratios behind them, and six money goals: spending under 70% of income, total debt under 25% of income, saving at least 20% of income, investing 15% to 20% of income, spending down year over year, and income up year over year. Transfers between your own accounts are never counted as income or spending.">i</span></span>
             <div class="met-controls">
                 <div class="range-selector" id="metrics-year">
                     <button class="range-selector-btn" id="metrics-year-btn" type="button">Year</button>
@@ -243,6 +302,7 @@
     <script src="/static/js/widgets/cashflow-sankey.js"></script>
     <script src="/static/js/pages/trends.js"></script>
     <script src="/static/js/pages/topmerchants.js"></script>
+    <script src="/static/js/pages/transfers.js"></script>
     <script src="/static/js/pages/metrics.js"></script>
 </body>
 </html>

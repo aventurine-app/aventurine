@@ -116,6 +116,7 @@ app.whenReady().then(async () => {
         apiFetch("/api/forecast"),
         apiFetch("/api/trends"),
         apiFetch("/api/top-merchants"),
+        apiFetch("/api/transfers"),
         apiFetch("/api/recurring"),
         apiFetch("/api/report-card"),
         apiFetch("/api/portfolio/data"),

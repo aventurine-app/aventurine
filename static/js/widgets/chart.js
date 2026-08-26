@@ -1,12 +1,18 @@
 'use strict';
 
 // ─── chart.js ────────────────────────────────────────────────────────────────
-// Shared hand-rolled multi-series SVG line chart, exposed as window.FinanceChart.
+// Shared hand-rolled multi-series SVG chart, exposed as window.FinanceChart.
 // It's a faithful copy of the renderer the Dashboard uses (dashboard.js), lifted
 // into a reusable module so other pages (Spending Trends, and later others) get
 // the identical frame, smoothing, nice-tick axis, entrance animation, and
 // responsive redraw — without a per-page copy. Dashboard/forecast keep their own code
 // for now; they can migrate here later.
+//
+// Two forms share the frame: render() draws smoothed lines (one measure over
+// time), renderStacked() draws stacked columns (a part-to-whole broken out over
+// time, for Reports → Investing). They share niceTicks, the axis, the padding,
+// the label stride and the responsive mount, because the alternative was a
+// second copy of all of that in a widget file of its own.
 //
 // Series shape:  [{ label, color, points: [{ year, monthIdx, value }] }]
 // Slots:         [{ year, monthIdx }]  — the x-axis columns to plot across.
@@ -77,20 +83,31 @@
   function smoothPath(pts) {
     const f = (n) => Math.round(n * 100) / 100;
     if (pts.length < 3) return pts.map((p, i) => `${i ? 'L' : 'M'} ${f(p.x)} ${f(p.y)}`).join(' ');
+    // Catmull-Rom tangents let a segment OVERSHOOT the two points it connects:
+    // a run of equal values followed by a rise bows the curve past the flat
+    // part first. On a chart whose axis is fitted to the data that reads as
+    // swoopiness; on a zero-based one (Reports → Investing) it draws the line
+    // BELOW zero between two months of zero, which states something that cannot
+    // happen. Clamping each control point into its own segment's y-range costs
+    // a little of the swell at a peak and buys a curve that never claims a
+    // value neither of its endpoints has.
+    const clamp = (v, a, b) => Math.min(Math.max(v, Math.min(a, b)), Math.max(a, b));
     let d = `M ${f(pts[0].x)} ${f(pts[0].y)}`;
     for (let i = 0; i < pts.length - 1; i++) {
       const p0 = pts[i - 1] || pts[i];
       const p1 = pts[i];
       const p2 = pts[i + 1];
       const p3 = pts[i + 2] || p2;
-      d += ` C ${f(p1.x + (p2.x - p0.x) / 6)} ${f(p1.y + (p2.y - p0.y) / 6)},`
-        + ` ${f(p2.x - (p3.x - p1.x) / 6)} ${f(p2.y - (p3.y - p1.y) / 6)},`
+      const c1y = clamp(p1.y + (p2.y - p0.y) / 6, p1.y, p2.y);
+      const c2y = clamp(p2.y - (p3.y - p1.y) / 6, p1.y, p2.y);
+      d += ` C ${f(p1.x + (p2.x - p0.x) / 6)} ${f(c1y)},`
+        + ` ${f(p2.x - (p3.x - p1.x) / 6)} ${f(c2y)},`
         + ` ${f(p2.x)} ${f(p2.y)}`;
     }
     return d;
   }
 
-  function buildChartSVG({ series, slots, W, animate = true }) {
+  function buildChartSVG({ series, slots, W, animate = true, zeroBase = false }) {
     const N = slots.length;
     const allValues = series.flatMap((s) => s.points.map((p) => p.value));
     if (allValues.length === 0) return null;
@@ -100,7 +117,15 @@
     const CW = W - PL - PR;
     const CH = H - PT - PB;
 
-    const yTicks = niceTicks(Math.min(...allValues), Math.max(...allValues), 4);
+    // zeroBase floors the axis at zero. The line form fits its ticks to the
+    // data by default, which is right for a bare line; it is NOT right once the
+    // line carries an AREA FILL, because a filled shape reads its height from
+    // the baseline and a baseline of 1,800 states a swing that isn't there. Any
+    // report pairing this chart with a stacked one (Reports → Investing) also
+    // needs both halves on the same floor, or the same months look volatile
+    // above and steady below.
+    const lo = Math.min(...allValues);
+    const yTicks = niceTicks(zeroBase ? Math.min(0, lo) : lo, Math.max(...allValues), 4);
     const minVal = yTicks[0];
     const maxVal = yTicks[yTicks.length - 1];
     const valRange = maxVal - minVal || 1;
@@ -123,16 +148,7 @@
       svg += `<line class="chart-zero" x1="${PL}" y1="${y0}" x2="${W - PR}" y2="${y0}"/>`;
     }
 
-    const multiYear = new Set(slots.map((s) => s.year)).size > 1;
-    const stride = N <= 8 ? 1 : N <= 14 ? 2 : N <= 26 ? 3 : 6;
-    const lastDist = (N - 1) % stride;
-    slots.forEach((s, i) => {
-      const isLast = i === N - 1;
-      if (!isLast && i % stride !== 0) return;
-      if (isLast && lastDist !== 0 && lastDist < 2) return;
-      const label = (multiYear && s.monthIdx === 0) ? s.year : MONTHS_SHORT[s.monthIdx];
-      svg += `<text class="chart-label" x="${xScale(i)}" y="${H - PB + 18}" text-anchor="middle">${label}</text>`;
-    });
+    svg += xAxisLabels(slots, xScale, H - PB + 18);
 
     series.forEach((s, si) => {
       const pointMap = new Map(s.points.map((p) => [`${p.year}-${p.monthIdx}`, p.value]));
@@ -176,15 +192,166 @@
     return svg;
   }
 
-  /** Render into a container and keep it responsive (re-render on resize; the
-   *  first paint animates, resizes don't). Pass empty `series` to clear. */
-  function render(containerId, { series, slots }) {
+  /** The month labels under the plot. Shared by both chart forms so a line and
+   *  a stack of the same months read the same across a report: every slot while
+   *  they fit, then a widening stride, and the newest slot is always labelled
+   *  unless it would crowd the one before it. January prints its YEAR instead
+   *  of its name when the span crosses one, which is the only date context a
+   *  12- or 24-month axis needs. */
+  function xAxisLabels(slots, xAt, y) {
+    const N = slots.length;
+    const multiYear = new Set(slots.map((s) => s.year)).size > 1;
+    const stride = N <= 8 ? 1 : N <= 14 ? 2 : N <= 26 ? 3 : 6;
+    const lastDist = (N - 1) % stride;
+    let out = '';
+    slots.forEach((s, i) => {
+      const isLast = i === N - 1;
+      if (!isLast && i % stride !== 0) return;
+      if (isLast && lastDist !== 0 && lastDist < 2) return;
+      const label = (multiYear && s.monthIdx === 0) ? s.year : MONTHS_SHORT[s.monthIdx];
+      out += `<text class="chart-label" x="${xAt(i)}" y="${y}" text-anchor="middle">${label}</text>`;
+    });
+    return out;
+  }
+
+  // ─── Stacked columns ───────────────────────────────────────────────────────
+  // One column per slot, split into a segment per series, growing from a zero
+  // baseline. Written for Reports → Investing, where the question is "how much,
+  // and to whom" over the same months.
+  //
+  // Geometry notes, all of them deliberate:
+  //   - Columns sit at BAND CENTRES (PL + (i + 0.5) * band), not at the line
+  //     form's endpoints-on-the-axis scale. A bar drawn at x = PL has half its
+  //     width outside the plot; a band is the only layout where the first and
+  //     last columns are whole.
+  //   - The bar is CAPPED at BAR_MAX and never fills its band. The leftover is
+  //     air between columns, which is what makes a stack read as one column
+  //     rather than as a wall.
+  //   - Segments are separated by a 2px GAP OF SURFACE, not by a stroke. A
+  //     border around a segment adds ink that isn't data, and on a thin segment
+  //     the border becomes most of the segment.
+  //   - Only the top of the whole column is rounded (BAR_RADIUS), and only when
+  //     the segment is tall enough to take a radius without deforming. The
+  //     baseline end stays square: it is a shared zero, not a data end.
+  //   - The y axis starts at zero, always. A stacked column whose baseline is
+  //     not zero states a proportion that isn't true.
+  const BAR_MAX = 24;
+  const BAR_RADIUS = 4;
+  const SEG_GAP = 2;
+  // A band this tall or shorter keeps its full height and forgoes its gap. The
+  // gap exists to separate two fills; on a 3px band it eats most of the fill
+  // and a column of small contributors turns into a barcode, which is a worse
+  // failure than two neighbouring bands touching. The bands that DO have room
+  // all keep the same 2px, so the gap is still one consistent width wherever
+  // it is drawn.
+  const SEG_GAP_MIN_H = 5;
+
+  /** A rect with only its top corners rounded, or a plain rect when there is no
+   *  room for the radius (a short segment with rounded corners reads as a lozenge
+   *  rather than as a bar end). */
+  function topRoundedRect(x, y, w, h, r) {
+    const rr = Math.min(r, w / 2, h);
+    if (rr < 1.5) return `<rect x="${x}" y="${y}" width="${w}" height="${h}"/>`;
+    return `<path d="M ${x} ${y + h} L ${x} ${y + rr} A ${rr} ${rr} 0 0 1 ${x + rr} ${y}`
+      + ` L ${x + w - rr} ${y} A ${rr} ${rr} 0 0 1 ${x + w} ${y + rr} L ${x + w} ${y + h} Z"/>`;
+  }
+
+  function buildStackedSVG({ series, slots, W, animate = true }) {
+    const N = slots.length;
+    if (!N || !series.length) return null;
+
+    const valueAt = (s, sl) => {
+      const hit = s.points.find((p) => p.year === sl.year && p.monthIdx === sl.monthIdx);
+      return hit ? Number(hit.value) || 0 : 0;
+    };
+    const totals = slots.map((sl) => series.reduce((sum, s) => sum + valueAt(s, sl), 0));
+    const maxTotal = Math.max(...totals);
+    if (!(maxTotal > 0)) return null;
+
+    const H = Math.max(Math.round(W * CHART_RATIO), 170);
+    const { l: PL, r: PR, t: PT, b: PB } = CHART_PAD;
+    const CW = W - PL - PR;
+    const CH = H - PT - PB;
+
+    const yTicks = niceTicks(0, maxTotal, 4);
+    const maxVal = yTicks[yTicks.length - 1] || 1;
+    const baseY = PT + CH;
+    const yScale = (v) => baseY - (v / maxVal) * CH;
+
+    const band = CW / N;
+    const barW = Math.max(3, Math.min(BAR_MAX, band * 0.62));
+    const xCentre = (i) => PL + band * (i + 0.5);
+
+    let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" class="dashboard-chart${animate ? '' : ' chart-no-anim'}" style="display:block;">`;
+
+    const fmtAxis = axisFormatter(yTicks);
+    for (const v of yTicks) {
+      const y = yScale(v);
+      svg += `<line class="chart-grid" x1="${PL}" y1="${y}" x2="${W - PR}" y2="${y}"/>`;
+      svg += `<text class="chart-label" x="${PL - 10}" y="${y}" text-anchor="end" dominant-baseline="middle">${escapeHtml(fmtAxis(v))}</text>`;
+    }
+    svg += xAxisLabels(slots, xCentre, H - PB + 18);
+
+    slots.forEach((sl, i) => {
+      if (!(totals[i] > 0)) return;
+      const x = xCentre(i) - barW / 2;
+      // Which series actually appear in THIS column, bottom-first. A series
+      // that contributed nothing this month draws nothing and, crucially, does
+      // not spend a gap — otherwise a column with one contributor would carry
+      // seven invisible seams.
+      const parts = series
+        .map((s) => ({ s, value: valueAt(s, sl) }))
+        .filter((p) => p.value > 0);
+
+      // The whole column scales up from the baseline as one piece, so the stack
+      // assembles the way it is read rather than each segment sprouting alone.
+      svg += `<g class="chart-col" style="transform-origin:0px ${baseY}px;animation-delay:${Math.min(i * 22, 500)}ms">`;
+      svg += `<title>${MONTHS[sl.monthIdx]} ${sl.year}: ${fmtTooltip(totals[i])}</title>`;
+
+      let bottom = 0;
+      parts.forEach((p, pi) => {
+        const top = bottom + p.value;
+        const yTop = yScale(top);
+        const yBottom = yScale(bottom);
+        const isTop = pi === parts.length - 1;
+        // The gap is taken off the TOP of every segment but the highest, so it
+        // falls between two fills and the column still meets the baseline. A
+        // band with no room to spare keeps its height instead (SEG_GAP_MIN_H).
+        const raw = yBottom - yTop;
+        const gap = isTop || raw <= SEG_GAP_MIN_H ? 0 : SEG_GAP;
+        const h = Math.max(raw - gap, 1);
+        const yDraw = yTop + gap;
+        const shape = isTop
+          ? topRoundedRect(x, yDraw, barW, h, BAR_RADIUS)
+          : `<rect x="${x}" y="${yDraw}" width="${barW}" height="${h}"/>`;
+        svg += `<g class="chart-seg" fill="${p.s.color}">${shape}`
+          + `<title>${escapeHtml(p.s.label)} — ${MONTHS[sl.monthIdx]} ${sl.year}: ${fmtTooltip(p.value)}</title></g>`;
+        bottom = top;
+      });
+      svg += '</g>';
+    });
+
+    svg += '</svg>';
+    return svg;
+  }
+
+  /** Render stacked columns into a container. Pass empty `series` to clear. */
+  function renderStacked(containerId, { series, slots }) {
+    mount(containerId, series.length > 0 && slots.length > 0, (W, animate) =>
+      buildStackedSVG({ series, slots, W, animate }));
+  }
+
+  /** Draw into a container and keep it responsive: re-render on resize, with
+   *  the first paint animating and resizes not. `build(W)` returns the SVG for
+   *  a given pixel width. Shared by both chart forms — a second copy of this
+   *  was the main cost of putting stacked bars in a widget file of their own. */
+  function mount(containerId, hasData, build) {
     const el = document.getElementById(containerId);
     if (!el) return;
     const existing = observers.get(containerId);
     if (existing) { existing.disconnect(); observers.delete(containerId); }
 
-    if (!series.length || !slots.length) { el.innerHTML = ''; return; }
+    if (!hasData) { el.innerHTML = ''; return; }
 
     const target = el.parentElement || el;
     let animate = true;       // flips off after the first successful paint
@@ -194,7 +361,7 @@
       w = Math.round(w);
       if (w > 0 && w !== lastW) {
         lastW = w;
-        el.innerHTML = buildChartSVG({ series, slots, W: w, animate }) || '';
+        el.innerHTML = build(w, animate) || '';
         animate = false;
       }
     };
@@ -217,6 +384,13 @@
     draw(target.clientWidth);
   }
 
+  /** Render smoothed lines into a container. Pass empty `series` to clear.
+   *  `zeroBase` floors the y axis at zero — see buildChartSVG. */
+  function render(containerId, { series, slots, zeroBase }) {
+    mount(containerId, series.length > 0 && slots.length > 0, (W, animate) =>
+      buildChartSVG({ series, slots, W, animate, zeroBase }));
+  }
+
   /** Map<key, colour>, assigned in order. `palette` is 'accent' (default) or
    *  'categorical' — see the palette block at the top of this file. */
   function colorMap(keys, palette) {
@@ -224,5 +398,5 @@
     return new Map(keys.map((k, i) => [k, colors[i % colors.length]]));
   }
 
-  window.FinanceChart = { render, colorMap, PALETTE, CAT_PALETTE };
+  window.FinanceChart = { render, renderStacked, colorMap, PALETTE, CAT_PALETTE };
 }());
