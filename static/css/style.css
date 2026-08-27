@@ -356,9 +356,15 @@
    --stroke-medium:    rgba(0,0,0, 0.16);
    --stroke-strong:    rgba(0,0,0, 0.22);
 
-   /* Dialog chrome — opaque surface/border rather than translucent tints */
-   --dialog-surface:   var(--surface1);
-   --dialog-stroke:    var(--border);
+   /* Dialog chrome — opaque surface/border rather than translucent tints.
+      --dialog-surface-raised is one shade lighter than the dialog itself: the
+      fill for a panel grouping controls INSIDE a modal, where --surface2/3
+      cannot serve because they step DARKER on light and the panel has to read
+      as raised on both themes. Light's surface ramp bottoms out at base-050
+      (the dialog's own fill), so the rung above it is white. */
+   --dialog-surface:        var(--surface1);
+   --dialog-surface-raised: #ffffff;
+   --dialog-stroke:         var(--border);
 
    /* Segmented control (Statements/Dashboard/Reports tabs) — a grey track holding
       the options, outlined with the same hairline as every other bordered

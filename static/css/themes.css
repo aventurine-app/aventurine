@@ -124,8 +124,11 @@ html[data-theme="dark"],
 
     /* Dialog chrome — separate from frost because light theme sets these
      * to opaque surface tokens rather than translucent rgba values. */
-    --dialog-surface: rgb(38, 38, 40);
-    --dialog-stroke:  rgba(255,255,255, 0.12);
+    --dialog-surface:        rgb(38, 38, 40);
+    /* One rung lighter, on the dialog's own hand-tuned scale rather than the
+       base ramp: raised means lighter here, the same direction as --surface1-4. */
+    --dialog-surface-raised: rgb(48, 48, 51);
+    --dialog-stroke:         rgba(255,255,255, 0.12);
 
     /* Segmented control — only hover needs a dark value. The track follows
        --surface1 (the nav fill) and the stroke/active fill follow --border /

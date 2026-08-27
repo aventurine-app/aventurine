@@ -667,13 +667,18 @@ app.whenReady().then(async () => {
       await sleep(700);
       if (await js('!!document.querySelector(".tx-edit-dialog")')) {
         await shotEl('bulk-edit-step-edit', '.tx-edit-dialog');
+        // The edit step is one control row over the rows it rewrites, whatever
+        // the selection size, so the category goes in that row and not in the
+        // read-only rows below it. This runs after the step-1 shot: it exists to
+        // give steps 2 and 3 something to be about, since the cascade searches
+        // on the category the control row hands the batch — without it the
+        // similar step shoots its own "nothing has a category" empty state.
         await js(`(() => {
-          [...document.querySelectorAll('.tx-edit-row')].forEach(r => {
-            const sel = r.querySelector('.tx-input-category');
-            if (!sel) return;
+          const sel = document.querySelector('#tx-bulk-apply .tx-input-category');
+          if (sel) {
             const opt = [...sel.options].find(o => o.textContent.trim() === 'Food');
             if (opt) { sel.value = opt.value; sel.dispatchEvent(new Event('change', { bubbles: true })); }
-          });
+          }
           const cb = document.getElementById('tx-cascade-cb');
           if (cb) cb.checked = true;
         })()`);

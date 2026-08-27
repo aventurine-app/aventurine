@@ -82,6 +82,15 @@
         return formatCurrency(Math.abs(n));
     }
 
+    // The Amount *input's* value: cents always shown, no symbol and no
+    // separators, so it reads like a ledger figure and still parses back
+    // through txReadFields unchanged. txFmtAmount is for display cells only —
+    // its currency symbol would come back as NaN on save.
+    function txAmountValue(n) {
+        if (n == null || n === '' || !Number.isFinite(Number(n))) return '';
+        return Number(n).toFixed(2);
+    }
+
     function txFmtDate(iso) {
         return formatDate(iso);
     }
@@ -179,25 +188,46 @@
         return txState.accountsByKey[key] ?? null;
     }
 
-    function txCategoryType(id) {
-        return txCategoryById(id)?.cat_type ?? null;
+    // ─── Row rendering ───────────────────────────────────────────────────────────
+
+    // How a direction paints a row: income green, expense red, transfer blue —
+    // the same trio on the Category pill and on the amount, so the two always
+    // agree. Module scope because the edit modal's review step draws rows the
+    // ledger's way too, and a second copy could drift from this one.
+    const TX_TYPE_META = {
+        income:   { catCls: 'tx-category-income',   amtCls: 'tx-amount-income',   sign: '+ ' },
+        expense:  { catCls: 'tx-category-expense',  amtCls: 'tx-amount-expense',  sign: '- ' },
+        transfer: { catCls: 'tx-category-transfer', amtCls: 'tx-amount-transfer', sign: '- ' },
+    };
+
+    // The direction a row carries: its category's when it has one (the direction
+    // rule — Category owns tx_type), else the row's own.
+    function txEffectiveType(t) {
+        if (t.category_id == null) return t.tx_type;
+        return txCategoryById(t.category_id)?.cat_type || t.tx_type;
     }
 
-    // ─── Row rendering ───────────────────────────────────────────────────────────
+    // A transaction as it will stand once a PARTIAL update payload is applied —
+    // the payload's keys over the row's own, plus the two derivations the backend
+    // performs on save: a user-set description clears the curated display name
+    // (the clean-display-name rule), and Category re-derives direction. One copy,
+    // so the edit modal's live preview and its review table can never disagree
+    // about what saving will produce.
+    function txApplyPayload(t, payload) {
+        const next = { ...t, ...payload };
+        if ('description' in payload) next.display_name = null;
+        next.tx_type = txEffectiveType(next);
+        return next;
+    }
 
     function txRenderDisplayRow(t) {
         // The Type column is merged into Category: a categorized row's pill is
-        // tinted by its (category-implied) direction — income green, expense red,
-        // transfer blue, the same trio the amount uses — so the colour carries the
-        // direction the Type pill used to spell out. An uncategorized row always
-        // reads amber ("needs review"), regardless of its backend tx_type.
+        // tinted by its (category-implied) direction — see TX_TYPE_META — so the
+        // colour carries the direction the Type pill used to spell out. An
+        // uncategorized row always reads amber ("needs review"), regardless of
+        // its backend tx_type.
         const catName = txCategoryName(t.category_id);
-        const TYPE_META = {
-            income:   { catCls: 'tx-category-income',   amtCls: 'tx-amount-income',   sign: '+ ' },
-            expense:  { catCls: 'tx-category-expense',  amtCls: 'tx-amount-expense',  sign: '- ' },
-            transfer: { catCls: 'tx-category-transfer', amtCls: 'tx-amount-transfer', sign: '- ' },
-        };
-        const meta        = TYPE_META[t.tx_type] || TYPE_META.expense;
+        const meta        = TX_TYPE_META[t.tx_type] || TX_TYPE_META.expense;
         const amountClass = meta.amtCls;
         const sign        = meta.sign;
         const catCell = catName
@@ -297,8 +327,9 @@
     //
     // No Type <select>: the main ledger merged Type into the Category column, and
     // this row lives in that table and must stay column-aligned — a new row's
-    // direction follows the category it's given. The edit modal, which lays its
-    // fields out on its own, is where an uncategorized row's direction is set.
+    // direction follows the category it's given. The edit modal drops it for the
+    // same reason, so direction is now stated in exactly one place app-wide: a
+    // row left uncategorized keeps whichever direction it arrived with.
     function txEditFieldsCells(t) {
         // Account sits between Description and Category, matching the ledger's
         // column order; both the inline add row and the edit modal carry it, so a
@@ -320,55 +351,13 @@
         </td>
         <td class="tx-col-amount">
             <input type="text" inputmode="decimal" class="tx-input tx-input-amount" data-field="amount"
-                   value="${t.amount != null ? t.amount : ''}" placeholder="0.00">
+                   value="${txAmountValue(t.amount)}" placeholder="0.00">
         </td>
         <td class="tx-col-notes">
             <input type="text" class="tx-input tx-input-notes" data-field="notes"
                    value="${txEsc(t.notes || '')}" placeholder="Optional">
         </td>
     `;
-    }
-
-    // The same fields as a labelled form, for the single-transaction shape of the
-    // edit modal. A row of controls is what the en-masse shape needs (every column
-    // has to line up with the preview rows underneath it) and it is the wrong
-    // frame for one transaction: there is nothing to line up with, and a date
-    // mask, selects and text boxes sharing one dialog width left every control too
-    // narrow to read its own value. Same class names and data-field names, so
-    // txReadFields() reads this exactly as it read the row it replaces.
-    //
-    // No Type control: the direction rule gives a categorized row its direction
-    // from its category, so the field spent nearly all its time locked, restating
-    // the answer the Category select above it had already given. It is the ledger's
-    // own arrangement (Type merged into the Category column) and the inline add
-    // row's. Nothing is lost on save — a payload without tx_type leaves an
-    // uncategorized row's own direction alone, and a categorized one takes its
-    // category's either way.
-    function txEditFieldsForm(t) {
-        const field = (label, control, { wide = false } = {}) => `
-            <label class="tx-edit-field${wide ? ' tx-edit-field-wide' : ''}">
-                <span class="tx-edit-field-label">${label}</span>
-                ${control}
-            </label>`;
-        return `
-        <div class="tx-edit-form tx-edit-row" data-id="${t.id}">
-            ${field('Date', `
-                <input type="date" class="tx-input tx-input-date" data-field="date"
-                       value="${txEsc(t.date || '')}">`)}
-            ${field('Amount', `
-                <input type="text" inputmode="decimal" class="tx-input tx-input-amount" data-field="amount"
-                       value="${t.amount != null ? t.amount : ''}" placeholder="0.00">`)}
-            ${field('Description', `
-                <input type="text" class="tx-input tx-input-description" data-field="description"
-                       value="${txEsc(t.description || '')}" placeholder="Description">`, { wide: true })}
-            ${field('Category', `
-                <select class="tx-select tx-input-category" data-field="category_id">${txCategoryOptions(t.category_id)}</select>`)}
-            ${field('Account', `
-                <select class="tx-select tx-input-account" data-field="account_key">${txAccountOptions(t.account_key)}</select>`)}
-            ${field('Notes', `
-                <input type="text" class="tx-input tx-input-notes" data-field="notes"
-                       value="${txEsc(t.notes || '')}" placeholder="Optional">`, { wide: true })}
-        </div>`;
     }
 
     // ─── En-masse edit controls ──────────────────────────────────────────────────
@@ -378,25 +367,35 @@
     // once the user actually sets it, so an untouched column leaves each row's
     // own value alone. Blank is never a value here — clearing a text field puts
     // it back to Keep. The label is one word because it has to fit the narrowest
-    // column (Type) without truncating; the line of copy above the row is what
-    // spells out what keeping means.
+    // column (Type) without truncating, and it is now the ONLY thing that says
+    // what an untouched column does — the paragraph that used to spell that out
+    // above the row is gone, along with the rest of the modal's prose. A
+    // sentinel sitting in every control, an accent border on the ones that are
+    // set, and the rows below redrawing themselves with the values those
+    // controls hold say it three times over, live, which a paragraph never did.
     const TX_KEEP = '__keep__';
     const TX_KEEP_LABEL = 'Keep';
 
-    // The seven edit columns, shared by the control row and the preview list so
-    // a struck-through preview cell always sits under the control that replaces
-    // it. table-layout is fixed (transactions.css §11) — these widths are what
-    // keeps the two tables in column lockstep.
+    // The six edit columns — the ledger's own set — shared by the control row
+    // and the preview list so a struck-through preview cell always sits under
+    // the control that replaces it. table-layout is fixed (transactions.css §11)
+    // — these widths are what keeps the two tables in column lockstep.
+    //
+    // No Type column: the direction rule gives a categorized row its direction
+    // from its category, so the control spent nearly all its time locked,
+    // restating the answer the Category select beside it had already given. This
+    // is the ledger's own arrangement (Type merged into the Category column) and
+    // the inline add row's. A payload without tx_type leaves an uncategorized
+    // row's own direction alone, and a categorized one takes its category's.
     const TX_BULK_COLGROUP = `
         <colgroup>
-            <col style="width:16%"><col style="width:19%"><col style="width:12%">
-            <col style="width:15%"><col style="width:16%"><col style="width:9%"><col style="width:13%">
+            <col style="width:15%"><col style="width:25%"><col style="width:16%">
+            <col style="width:18%"><col style="width:11%"><col style="width:15%">
         </colgroup>`;
 
     const TX_EDIT_HEAD_CELLS = `
         <th class="tx-col-date">Date</th>
         <th class="tx-col-description">Description</th>
-        <th class="tx-col-type">Type</th>
         <th class="tx-col-account">Account</th>
         <th class="tx-col-category">Category</th>
         <th class="tx-col-amount">Amount</th>
@@ -414,15 +413,6 @@
         <td class="tx-col-description">
             <input type="text" class="tx-input tx-input-description" data-field="description"
                    placeholder="${TX_KEEP_LABEL}" aria-label="Set the description on every selected transaction">
-        </td>
-        <td class="tx-col-type">
-            <select class="tx-select tx-input-type" data-field="tx_type"
-                    aria-label="Set the type on every selected transaction">
-                ${keep}
-                <option value="expense">Expense</option>
-                <option value="income">Income</option>
-                <option value="transfer">Transfer</option>
-            </select>
         </td>
         <td class="tx-col-account">
             <select class="tx-select tx-input-account" data-field="account_key"
@@ -469,11 +459,8 @@
             out.account_key = account === '' ? null : account;
         }
 
-        // Direction is owned by the category, so an explicit type only means
-        // something when the batch isn't being handed a category as well.
-        const type = get('tx_type');
-        if (type && type !== TX_KEEP && out.category_id == null) out.tx_type = type;
-
+        // No tx_type: the control row has no Type column, so direction is only
+        // ever the category's (or, for a row left uncategorized, its own).
         const amount = (get('amount') || '').toString().replace(/,/g, '').trim();
         if (amount) out.amount = parseFloat(amount);
 
@@ -483,26 +470,97 @@
         return out;
     }
 
-    // One read-only line under the control row: the transaction exactly as it
-    // stands today. Each cell names the field it holds so syncBulkPreview can
-    // strike through the columns the control row is about to replace.
-    function txBulkPreviewRow(t) {
+    // The six preview columns in the ledger's order: the cell's class, and the
+    // ONE renderer that draws a value into it. Shared by the first render and by
+    // syncBulkPreview's live swap — the swap redraws a claimed cell as the value
+    // it is BECOMING, so a second copy of this would let the new value be
+    // formatted differently from the old one it stands in for.
+    const TX_BULK_COLS = [
+        { col: 'date', cls: 'tx-col-date',
+          html: (t) => txEsc(txFmtDate(t.date)) },
+        { col: 'description', cls: 'tx-col-description',
+          html:  (t) => txEsc(t.display_name || t.description || ''),
+          title: (t) => t.description || '' },
+        { col: 'account_key', cls: 'tx-col-account',
+          html: (t) => {
+              const name = txAccountName(t.account_key);
+              return name ? txEsc(name) : '<span class="tx-bulk-none">No account</span>';
+          } },
+        { col: 'category_id', cls: 'tx-col-category',
+          html: (t) => {
+              const name = txCategoryName(t.category_id);
+              return name
+                  ? `<span class="tx-category-pill">${txEsc(name)}</span>`
+                  : '<span class="tx-category-pill tx-category-empty">Uncategorized</span>';
+          } },
+        { col: 'amount', cls: 'tx-col-amount',
+          html: (t) => txFmtAmount(t.amount) },
+        { col: 'notes', cls: 'tx-col-notes',
+          html:  (t) => t.notes ? txEsc(t.notes) : '<span class="tx-bulk-none">—</span>',
+          title: (t) => t.notes || '' },
+    ];
+
+    // ─── Review-step rows ────────────────────────────────────────────────────
+    // Step 3 shows every affected transaction AS THE LEDGER WILL SHOW IT once
+    // saved, so it carries the ledger's own columns and colours: the merchant
+    // avatar, the direction-tinted Category pill, the signed and coloured
+    // amount. Deliberately NOT the step-1 preview's rendering — that table's job
+    // is "what am I about to change", and it marks the changed cells in the
+    // accent to say so; by this screen the question is "is the result right",
+    // and an accent here would be highlighting decisions already made.
+    //
+    // The ledger's own interactive parts are dropped: no select checkbox, and
+    // the description renders flat rather than as the show-original toggle
+    // (nothing on this screen is clickable, and the raw string stays one hover
+    // away in the title).
+    const TX_REVIEW_COLGROUP = `
+        <colgroup>
+            <col style="width:13%"><col style="width:44px"><col style="width:24%">
+            <col style="width:15%"><col style="width:17%"><col style="width:11%"><col style="width:13%">
+        </colgroup>`;
+
+    const TX_REVIEW_HEAD_CELLS = `
+        <th class="tx-col-date">Date</th>
+        <th class="tx-col-avatar"></th>
+        <th class="tx-col-description">Description</th>
+        <th class="tx-col-account">Account</th>
+        <th class="tx-col-category">Category</th>
+        <th class="tx-col-amount">Amount</th>
+        <th class="tx-col-notes">Notes</th>`;
+
+    function txReviewRow(t) {
+        const meta    = TX_TYPE_META[t.tx_type] || TX_TYPE_META.expense;
         const catName = txCategoryName(t.category_id);
         const catCell = catName
-            ? `<span class="tx-category-pill">${txEsc(catName)}</span>`
+            ? `<span class="tx-category-pill ${meta.catCls}">${txEsc(catName)}</span>`
             : '<span class="tx-category-pill tx-category-empty">Uncategorized</span>';
         const acctName = txAccountName(t.account_key);
+        const acctCell = acctName
+            ? `<span class="tx-account-tag">${txEsc(acctName)}</span>`
+            : '<span class="tx-account-tag tx-account-empty">—</span>';
+        const label = t.display_name || t.description || '';
         return `
-        <tr class="tx-bulk-row" data-id="${t.id}">
-            <td class="tx-col-date"        data-col="date">${txEsc(txFmtDate(t.date))}</td>
-            <td class="tx-col-description" data-col="description" title="${txEsc(t.description || '')}">${txEsc(t.display_name || t.description || '')}</td>
-            <td class="tx-col-type"        data-col="tx_type">${txEsc(TX_TYPE_LABELS[t.tx_type] || t.tx_type || '')}</td>
-            <td class="tx-col-account"     data-col="account_key">${acctName ? txEsc(acctName) : '<span class="tx-bulk-none">No account</span>'}</td>
-            <td class="tx-col-category"    data-col="category_id">${catCell}</td>
-            <td class="tx-col-amount"      data-col="amount">${txFmtAmount(t.amount)}</td>
-            <td class="tx-col-notes"       data-col="notes" title="${txEsc(t.notes || '')}">${t.notes ? txEsc(t.notes) : '<span class="tx-bulk-none">—</span>'}</td>
-        </tr>
-    `;
+        <tr>
+            <td class="tx-col-date">${txEsc(txFmtDate(t.date))}</td>
+            <td class="tx-col-avatar">${merchantAvatarHtml(label)}</td>
+            <td class="tx-col-description" title="${txEsc(t.description || '')}">${txEsc(label)}</td>
+            <td class="tx-col-account">${acctCell}</td>
+            <td class="tx-col-category">${catCell}</td>
+            <td class="tx-col-amount ${meta.amtCls}">${meta.sign}${txFmtAmount(t.amount)}</td>
+            <td class="tx-col-notes" title="${txEsc(t.notes || '')}">${txEsc(t.notes)}</td>
+        </tr>`;
+    }
+
+    // One read-only line under the control row: the transaction as it stands
+    // today and, once a control is set, as it will stand after saving —
+    // syncBulkPreview swaps the claimed cells to their new values in place.
+    // Each cell names the field it holds so the swap can find it again.
+    function txBulkPreviewRow(t) {
+        const cells = TX_BULK_COLS.map((c) => {
+            const title = c.title ? ` title="${txEsc(c.title(t))}"` : '';
+            return `<td class="${c.cls}" data-col="${c.col}"${title}>${c.html(t)}</td>`;
+        }).join('');
+        return `<tr class="tx-bulk-row" data-id="${t.id}">${cells}</tr>`;
     }
 
     // The inline add row — the only inline editor left (existing rows edit via the
@@ -1450,13 +1508,19 @@
     }
 
     // Editing wizard → three steps inside one overlay:
-    //   1. Edit — one of two shapes, depending on how much is selected:
-    //        · a single row is a labelled two-column form, one field per control;
-    //        · two or more become an **en-masse** update — one control row on
-    //          top holds the edit, and the rows it will rewrite are listed
-    //          read-only beneath it, columns struck through as they're claimed.
-    //      Either way a footer checkbox offers to cascade the chosen categories
-    //      onto other transactions with similar descriptions.
+    //   1. Edit — the **en-masse** shape, whatever the selection size: one
+    //      control row on top holds the edit, and the rows it will rewrite are
+    //      listed read-only beneath it, each claimed column redrawn in place as
+    //      the value it is about to receive. One row used to get a form of its own,
+    //      and carrying two shapes bought nothing: the same wizard, the same
+    //      payloads and the same save loop ran behind both, so the fork was a
+    //      second layout to keep in step for no behavioural difference. It also
+    //      made the modal change shape with the count, which read as two
+    //      different dialogs for one action. The table is the shape that
+    //      survives because it is the one that scales — it is the ledger's own
+    //      column order, and a selection of one is just its shortest list.
+    //      A footer checkbox offers to cascade the chosen categories onto other
+    //      transactions with similar descriptions.
     //   2. Find similar (only when the checkbox is on) — a match-strength slider
     //      (always starting at 80%) over a live-updating list of candidate rows,
     //      grouped by the category each would receive.
@@ -1466,54 +1530,49 @@
     // and match-rule learning), so a row that fails stays selected for a retry;
     // the cascade runs categorize-similar with overwrite (the user confirmed
     // each row in the match list).
-    function txOpenBulkEditModal() {
+    function txOpenEditModal() {
         const txs = txSelectedRows();
         if (!txs.length) return;
         const plural = txs.length === 1 ? '' : 's';
-        const bulk   = txs.length > 1;
+        const byId   = new Map(txs.map(t => [t.id, t]));
 
-        const editStepHtml = bulk ? `
-                <div class="tx-bulk-intro">
-                    Set only the fields you want to change — every selected transaction
-                    takes the values from this row. Any field left on
-                    <strong>Keep</strong> stays exactly as it already is below.
-                </div>
+        const editStepHtml = `
                 <div class="tx-bulk-head">
-                    <table class="tx-edit-table tx-bulk-table">
-                        ${TX_BULK_COLGROUP}
-                        <thead><tr>${TX_EDIT_HEAD_CELLS}</tr></thead>
-                        <tbody><tr class="tx-bulk-apply-row" id="tx-bulk-apply">${txBulkFieldsCells()}</tr></tbody>
-                    </table>
-                    <div class="tx-bulk-count" id="tx-bulk-count"></div>
+                    <div class="tx-bulk-panel">
+                        <table class="tx-edit-table tx-bulk-table">
+                            ${TX_BULK_COLGROUP}
+                            <thead><tr>${TX_EDIT_HEAD_CELLS}</tr></thead>
+                            <tbody><tr class="tx-bulk-apply-row" id="tx-bulk-apply">${txBulkFieldsCells()}</tr></tbody>
+                        </table>
+                    </div>
+                    <div class="tx-bulk-count">Selected</div>
                 </div>
-                <table class="tx-edit-table tx-bulk-table tx-bulk-preview-table">
-                    ${TX_BULK_COLGROUP}
-                    <tbody>${txs.map(txBulkPreviewRow).join('')}</tbody>
-                </table>`
-            : txEditFieldsForm(txs[0]);
+                <div class="tx-bulk-panel tx-bulk-preview-panel">
+                    <table class="tx-edit-table tx-bulk-table tx-bulk-preview-table">
+                        ${TX_BULK_COLGROUP}
+                        <tbody>${txs.map(txBulkPreviewRow).join('')}</tbody>
+                    </table>
+                </div>`;
 
         const overlay = document.createElement('div');
         overlay.className = 'tx-edit-overlay';
         overlay.id = 'tx-edit-overlay';
         overlay.innerHTML = `
-        <div class="tx-edit-dialog is-edit-step${bulk ? ' is-bulk-edit' : ''}">
+        <div class="tx-edit-dialog is-edit-step is-bulk-edit">
             <div class="tx-edit-header">
                 <span class="tx-edit-title" id="tx-edit-title">Edit ${txs.length} transaction${plural}</span>
                 <button class="tx-import-close" id="tx-edit-close" aria-label="Close">&times;</button>
             </div>
-            <div class="tx-edit-body${bulk ? ' tx-bulk-body' : ''}" data-step="edit">${editStepHtml}
+            <div class="tx-edit-body tx-bulk-body" data-step="edit">${editStepHtml}
             </div>
             <div class="tx-edit-body" data-step="match" hidden>
                 <div class="tx-match-slider-row">
                     <label class="tx-match-slider-label" for="tx-match-slider">Match strength</label>
+                    <span class="tx-match-end">Loose</span>
                     <input type="range" id="tx-match-slider" class="tx-match-slider"
                            min="0.5" max="1" step="0.05" value="0.8">
+                    <span class="tx-match-end">Exact</span>
                     <span class="tx-match-value" id="tx-match-value">80%</span>
-                </div>
-                <div class="tx-match-hint">
-                    Transactions whose descriptions match the ones you edited get the
-                    same categories. <strong>100%</strong> matches identical descriptions
-                    only; lower values match progressively fuzzier.
                 </div>
                 <div class="tx-match-results" id="tx-match-results"></div>
             </div>
@@ -1523,7 +1582,7 @@
             <div class="tx-edit-footer">
                 <label class="tx-cascade-toggle" id="tx-cascade-toggle">
                     <input type="checkbox" class="tx-checkbox" id="tx-cascade-cb">
-                    <span>Find similar transactions and apply the same categories</span>
+                    <span>Apply to similar transactions</span>
                 </label>
                 <button class="tx-similar-skip" id="tx-edit-back" hidden>Back</button>
                 <button class="tx-similar-skip" id="tx-edit-cancel">Cancel</button>
@@ -1533,7 +1592,7 @@
         document.body.appendChild(overlay);
 
         const $ = (sel) => overlay.querySelector(sel);
-        const applyRow = bulk ? $('#tx-bulk-apply') : null;
+        const applyRow = $('#tx-bulk-apply');
         const steps = {
             edit:   $('[data-step="edit"]'),
             match:  $('[data-step="match"]'),
@@ -1550,124 +1609,114 @@
         let step   = 'edit';
         let edits  = [];      // [{id, payload, orig}] collected on leaving step 1
         let saving = false;
+        // Every candidate the similar-search has returned this session, by id.
+        // checkedMatches() yields ids only, and the review table needs the whole
+        // row to draw it the way the ledger will.
+        const matchById = new Map();
 
         // No backdrop-click dismissal: a mid-wizard misclick would silently
         // discard edits. Leaving is explicit — the × or the Cancel button.
         const close = () => overlay.remove();
         $('#tx-edit-close').addEventListener('click', close);
-        $('#tx-edit-cancel').addEventListener('click', close);
+        const cancelBtn = $('#tx-edit-cancel');
+        cancelBtn.addEventListener('click', close);
 
         function showStep(next) {
             step = next;
             for (const [k, el] of Object.entries(steps)) el.hidden = k !== step;
-            // Step 1 is settled content the dialog can size itself to; the wizard
-            // steps go back to the fixed height (transactions.css §11).
-            $('.tx-edit-dialog').classList.toggle('is-edit-step', step === 'edit');
+            // Steps 1 and 3 are settled content the dialog can size itself to;
+            // only the match step, whose list resizes under the slider, keeps the
+            // fixed height (transactions.css §11).
+            $('.tx-edit-dialog').classList.toggle('is-edit-step', step !== 'match');
             $('#tx-cascade-toggle').hidden = step !== 'edit';
             backBtn.hidden = step === 'edit';
+            // Review is the last step, where Back already walks the wizard out
+            // and the × still leaves outright — a third way out beside the one
+            // Save button is noise at the moment of committing.
+            cancelBtn.hidden = step === 'review';
             titleEl.textContent =
                 step === 'edit'  ? `Edit ${txs.length} transaction${plural}` :
                 step === 'match' ? 'Find similar transactions' :
                                    'Review changes';
             nextBtn.textContent = step === 'review' ? 'Save all changes' : 'Next';
+            // Step 1 gates Next on having something set; the later steps don't.
+            if (step === 'edit') syncBulkPreview(); else nextBtn.disabled = false;
         }
 
         // ── En-masse control row ───────────────────────────────────────────────
-        // Keeps the list below honest while the control row is filled in: a
-        // column the user has set reads as struck through, because the value
-        // those rows become is the one sitting directly above them.
+        // Keeps the list below honest while the control row is filled in: every
+        // column the user sets is REDRAWN in the rows below as the value it is
+        // about to receive, so the list reads as the ledger will read after
+        // saving. It used to strike the old value through instead, which asked
+        // the user to hold the new one in their head from the control above;
+        // releasing a control puts the row's own value straight back.
         function syncBulkPreview() {
             const overrides = txReadBulkFields(applyRow);
+
+            // A typed amount that isn't a number claims nothing: it marks its own
+            // control and holds the wizard there, instead of striking a column
+            // through on a value that can't be saved (and instead of an alert on
+            // the way out of the step).
+            const badAmount = 'amount' in overrides && !Number.isFinite(overrides.amount);
+            if (badAmount) delete overrides.amount;
+            applyRow.querySelector('.tx-input-amount').classList.toggle('is-invalid', badAmount);
+
             const claimed = new Set(Object.keys(overrides));
-            // Handing the batch a category re-derives direction (the direction
-            // rule), so Type is replaced too even though it isn't in the payload.
-            if (overrides.category_id != null) claimed.add('tx_type');
 
             for (const cell of applyRow.children) {
                 const field = cell.querySelector('[data-field]')?.dataset.field;
                 cell.classList.toggle('is-set', !!field && field in overrides);
             }
-            for (const cell of overlay.querySelectorAll('.tx-bulk-row td[data-col]')) {
-                cell.classList.toggle('is-replaced', claimed.has(cell.dataset.col));
+            for (const row of overlay.querySelectorAll('.tx-bulk-row')) {
+                const t = byId.get(parseInt(row.dataset.id, 10));
+                if (!t) continue;
+                const next = txApplyPayload(t, overrides);
+
+                for (const c of TX_BULK_COLS) {
+                    const cell = row.querySelector(`td[data-col="${c.col}"]`);
+                    if (!cell) continue;
+                    const replaced = claimed.has(c.col);
+                    const src      = replaced ? next : t;
+                    const html     = c.html(src);
+                    if (cell.innerHTML !== html) cell.innerHTML = html;
+                    if (c.title) cell.title = c.title(src);
+                    cell.classList.toggle('is-replaced', replaced);
+                }
             }
 
-            const countEl = $('#tx-bulk-count');
-            countEl.textContent = claimed.size
-                ? `All ${txs.length} transactions below will be updated`
-                : `${txs.length} selected transactions — nothing set to change yet`;
-            countEl.classList.toggle('is-armed', claimed.size > 0);
+            // Nothing set is nothing to do: the primary action stays inert rather
+            // than answering a click with a validation alert. Between the tinted
+            // control row, the accent borders, the struck-through columns and a
+            // Next button that lights up, the step explains itself without copy.
+            nextBtn.disabled = !claimed.size || badAmount;
         }
 
-        if (bulk) {
-            // Same direction lock as a per-row editor, minus one wrinkle: the
-            // Type select has to fall back to whatever the user had picked if
-            // they undo the category, or a value they never chose would ride
-            // along into the payload.
-            const catSel  = applyRow.querySelector('.tx-input-category');
-            const typeSel = applyRow.querySelector('.tx-input-type');
-            let keptType  = typeSel.value;
-            catSel.addEventListener('change', () => {
-                const catId = (catSel.value === TX_KEEP || catSel.value === '')
-                    ? null : parseInt(catSel.value, 10);
-                if (catId != null) {
-                    if (!typeSel.disabled) keptType = typeSel.value;
-                    typeSel.value    = txCategoryType(catId) || typeSel.value;
-                    typeSel.disabled = true;
-                } else if (typeSel.disabled) {
-                    typeSel.disabled = false;
-                    typeSel.value    = keptType;
-                }
-            });
-            applyRow.addEventListener('input',  syncBulkPreview);
-            applyRow.addEventListener('change', syncBulkPreview);
-            syncBulkPreview();
-        }
+        // The direction lock that used to keep the Type select in step with the
+        // Category one went with the column: with nothing restating direction,
+        // there is nothing left to hold in step.
+        applyRow.addEventListener('input',  syncBulkPreview);
+        applyRow.addEventListener('change', syncBulkPreview);
+        syncBulkPreview();
 
         // Validate up front so a bad field doesn't leave a half-saved batch.
         function collectEdits() {
-            if (bulk) {
-                const overrides = txReadBulkFields(applyRow);
-                if (!Object.keys(overrides).length) {
-                    alert('Set at least one field to apply to the selected transactions.');
-                    return null;
-                }
-                if ('amount' in overrides && !Number.isFinite(overrides.amount)) {
-                    alert('Amount must be a number.');
-                    return null;
-                }
-                // One partial payload per row: the update endpoint touches only
-                // the keys it's handed, so every other column survives untouched.
-                return txs.map(t => ({ id: t.id, payload: { ...overrides }, orig: t }));
-            }
-            const out = [];
-            for (const row of overlay.querySelectorAll('.tx-edit-row')) {
-                const payload = txReadFields(row);
-                if (!payload.date)                    { alert('Every transaction needs a date.'); return null; }
-                if (!Number.isFinite(payload.amount)) { alert('Every amount must be a number.');  return null; }
-                const id = parseInt(row.dataset.id, 10);
-                out.push({ id, payload, orig: txs.find(t => t.id === id) });
-            }
-            return out;
+            // Both of these are already refused by the disabled Next button —
+            // kept as a guard, with nothing to say the controls don't show.
+            const overrides = txReadBulkFields(applyRow);
+            if (!Object.keys(overrides).length) return null;
+            if ('amount' in overrides && !Number.isFinite(overrides.amount)) return null;
+            // One partial payload per row: the update endpoint touches only
+            // the keys it's handed, so every other column survives untouched.
+            return txs.map(t => ({ id: t.id, payload: { ...overrides }, orig: t }));
         }
 
-        // The fields whose old → new values the review step reports.
-        const FIELD_LABELS = {
-            date: 'Date', description: 'Description', tx_type: 'Type',
-            category_id: 'Category', account_key: 'Account', amount: 'Amount', notes: 'Notes',
-        };
-
-        function fieldDisplay(field, value) {
-            if (field === 'category_id') return value == null ? 'Uncategorized' : (txCategoryName(value) ?? '—');
-            if (field === 'account_key') return value == null || value === '' ? 'No account' : (txAccountName(value) ?? '—');
-            if (field === 'amount')      return txFmtAmount(value);
-            if (field === 'date')        return txFmtDate(value);
-            if (field === 'tx_type')     return TX_TYPE_LABELS[value] || value;
-            return value == null || value === '' ? '—' : String(value);
-        }
+        // The fields a payload may carry — the set rowChanges compares over.
+        const EDITABLE_FIELDS = ['date', 'description', 'category_id',
+                                 'account_key', 'amount', 'notes'];
 
         function rowChanges(orig, payload) {
             const out = [];
-            for (const field of Object.keys(FIELD_LABELS)) {
+            for (const field of EDITABLE_FIELDS) {
                 // The en-masse control row sends a partial payload — a field it
                 // never set isn't a change, it's an absence.
                 if (!(field in payload)) continue;
@@ -1707,7 +1756,7 @@
             }
             if (!queries.length) {
                 results.classList.remove('tx-match-loading');
-                results.innerHTML = '<div class="tx-match-empty">None of the edited transactions has a category, so there is nothing to apply to similar ones.</div>';
+                results.innerHTML = '<div class="tx-match-empty">No category set</div>';
                 return;
             }
             // Only the results swap: a re-query keeps the current list in
@@ -1740,6 +1789,7 @@
                 for (const m of matches) {
                     if (claimed.has(m.id) || m.category_id === q.category_id) continue;
                     claimed.add(m.id);
+                    matchById.set(m.id, m);
                     let g = byCat.get(q.category_id);
                     if (!g) {
                         g = {
@@ -1759,7 +1809,7 @@
         function renderMatches(groups) {
             results.classList.remove('tx-match-loading');
             if (!groups.length) {
-                results.innerHTML = '<div class="tx-match-empty">No similar transactions found at this match strength. Lower the slider to search fuzzier.</div>';
+                results.innerHTML = '<div class="tx-match-empty">No matches at this strength</div>';
                 return;
             }
             const rowHtml = (g) => g.matches.map(t => {
@@ -1831,67 +1881,55 @@
             return byCat;
         }
 
-        // ── Step 3: summary ────────────────────────────────────────────────────
+        // ── Step 3: the result ─────────────────────────────────────────────────
+        // Every affected transaction as the ledger will show it once saved, not
+        // a summary of the fields that moved. The step-1 table already answered
+        // "what am I changing" and marked the changed cells in the accent; this
+        // one answers "is that right", so it drops the marking entirely and
+        // renders in the ledger's ordinary colours — a row here should be
+        // indistinguishable from the row the user will see afterwards.
+        //
+        // Rows an edit wouldn't move are still listed: they are part of what the
+        // selection will look like, and leaving them out would make the table
+        // disagree with the count in the title.
         function renderSummary() {
-            const changed = [];
-            let untouched = 0;
-            for (const { payload, orig } of edits) {
-                const diffs = rowChanges(orig, payload);
-                if (diffs.length) changed.push({ orig, payload, diffs });
-                else untouched++;
-            }
+            const table = (rows) => `
+                <div class="tx-bulk-panel tx-review-panel">
+                    <table class="tx-review-table">
+                        ${TX_REVIEW_COLGROUP}
+                        <thead><tr>${TX_REVIEW_HEAD_CELLS}</tr></thead>
+                        <tbody>${rows.map(txReviewRow).join('')}</tbody>
+                    </table>
+                </div>`;
 
-            // An en-masse edit applies the same values everywhere, so listing it
-            // per row would just be the same block N times over: report the one
-            // set of values and how many rows it actually moves.
-            const overrides = bulk ? (edits[0]?.payload ?? {}) : null;
-            const bulkHtml = () => `
-                    <div class="tx-review-row">
-                        <div class="tx-review-desc">Applied to ${changed.length} transaction${changed.length === 1 ? '' : 's'}</div>
-                        <ul class="tx-review-changes">
-                            ${Object.keys(FIELD_LABELS).filter(f => f in overrides).map(f => `
-                                <li>
-                                    <span class="tx-review-field">${FIELD_LABELS[f]}</span>
-                                    <span class="tx-review-arrow">→</span>
-                                    <strong>${txEsc(fieldDisplay(f, overrides[f]))}</strong>
-                                </li>`).join('')}
-                        </ul>
-                    </div>`;
+            const finals = edits.map(({ orig, payload }) => txApplyPayload(orig, payload));
+            const editHtml = finals.length
+                ? table(finals)
+                : '<div class="tx-match-empty">Nothing to change</div>';
 
-            const editHtml = !changed.length
-                ? '<div class="tx-match-empty">No field changes.</div>'
-                : bulk
-                ? bulkHtml()
-                : changed.map(({ orig, payload, diffs }) => `
-                    <div class="tx-review-row">
-                        <div class="tx-review-desc">${txEsc(payload.description || orig.description || '—')}</div>
-                        <ul class="tx-review-changes">
-                            ${diffs.map(d => `
-                                <li>
-                                    <span class="tx-review-field">${FIELD_LABELS[d.field]}</span>
-                                    <span class="tx-review-before">${txEsc(fieldDisplay(d.field, d.before))}</span>
-                                    <span class="tx-review-arrow">→</span>
-                                    <strong>${txEsc(fieldDisplay(d.field, d.after))}</strong>
-                                </li>`).join('')}
-                        </ul>
-                    </div>`).join('');
-
+            // The cascade rewrites transactions too, so they get the same table
+            // rather than a count — the whole point of this screen is that every
+            // row the save touches can be read before it happens. They are kept
+            // in their own section because they were never part of the
+            // selection: the user found them here.
             let cascadeHtml = '';
             if (cascadeCb.checked) {
-                const byCat = checkedMatches();
-                const items = [...byCat].map(([cat, ids]) => `
-                    <li><strong>${txEsc(txCategoryName(cat) ?? '—')}</strong>
-                        applied to ${ids.length} similar transaction${ids.length === 1 ? '' : 's'}</li>`).join('');
+                const cascaded = [];
+                for (const [cat, ids] of checkedMatches()) {
+                    for (const id of ids) {
+                        const m = matchById.get(id);
+                        if (m) cascaded.push(txApplyPayload(m, { category_id: cat }));
+                    }
+                }
+                cascaded.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
                 cascadeHtml = `
                     <div class="tx-review-section-title">Similar transactions</div>
-                    ${byCat.size
-                        ? `<ul class="tx-review-cascade">${items}</ul>`
-                        : '<div class="tx-match-empty">No similar transactions selected.</div>'}`;
+                    ${cascaded.length ? table(cascaded)
+                                      : '<div class="tx-match-empty">None selected</div>'}`;
             }
 
             $('#tx-review-body').innerHTML = `
-                <div class="tx-review-section-title">Your edits</div>
-                ${untouched ? `<div class="tx-review-note">${untouched} transaction${untouched === 1 ? '' : 's'} ${bulk ? 'already ' + (untouched === 1 ? 'matches' : 'match') + ' these values.' : 'unchanged.'}</div>` : ''}
+                <div class="tx-review-section-title">Selected transactions</div>
                 ${editHtml}
                 ${cascadeHtml}`;
         }
@@ -2074,7 +2112,7 @@
         document.querySelector('.tx-add-btn')?.addEventListener('click', txOnAddClick);
 
         // Selection-driven header actions + the select-all header checkbox.
-        document.querySelector('.tx-edit-btn')?.addEventListener('click', txOpenBulkEditModal);
+        document.querySelector('.tx-edit-btn')?.addEventListener('click', txOpenEditModal);
         document.querySelector('.tx-delete-btn')?.addEventListener('click', txConfirmBulkDelete);
         document.getElementById('tx-select-all')?.addEventListener('change', (e) => txToggleSelectAll(e.target.checked));
         document.getElementById('tx-pagination')?.addEventListener('click', txOnPaginationClick);

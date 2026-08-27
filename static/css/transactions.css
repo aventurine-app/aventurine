@@ -682,7 +682,6 @@
    from the calc() above so notes gives up exactly this much room. */
 .tx-col-avatar       { width: 44px; text-align: center; }
 .tx-col-description { width: 30%; }
-.tx-col-type        { width: 140px; }
 .tx-col-account     { width: var(--tx-w-account, 150px); max-width: 220px; }
 .tx-col-category    { width: var(--tx-w-category, 140px); }
 .tx-col-amount       {
@@ -1842,10 +1841,9 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 /* ─── 11. Edit modal ─────────────────────────────────────────────────────── */
 /* Opened from the header Edit button, in one of two shapes: a single selected
    transaction is a labelled form, while two or more become an en-masse update —
-   one control row over the rows it will rewrite. Either way there's one Save-all
-   button. Shell mirrors the similar / import modals; the two shapes size
-   differently (see the modifiers below), because one is a form and the other is
-   a seven-column table. */
+   one control row over the rows it will rewrite, whether that's one row or
+   forty. There's one Save-all button. Shell mirrors the similar / import
+   modals. */
 
 /* Positioning + centering come from the shared overlay rule in style.css §8. */
 .tx-edit-overlay {
@@ -1871,23 +1869,25 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     overflow: hidden;
 }
 
-/* …except on step 1, whose content is settled the moment the dialog opens: a
-   form of fixed size, or a list of exactly the rows the user selected. Neither
-   resizes after that, so the dialog takes its height from what it holds instead
-   of standing 82vh tall around three preview rows. The fixed height comes back
-   for the wizard steps, whose match list is the thing that DOES resize under
-   the slider — showStep() owns the swap. */
+/* …except on the steps whose content is settled the moment they are shown: the
+   edit step (a control row over exactly the rows the user selected) and the
+   review step (a summary of changes already decided). Neither resizes after
+   that, so the dialog takes its height from what it holds instead of standing
+   82vh tall around three preview rows. The fixed height is only for the match
+   step, whose list is the thing that DOES resize under the slider — showStep()
+   owns the swap. */
 .tx-edit-dialog.is-edit-step {
     height: auto;
     max-height: 82vh;
 }
 
-/* The en-masse shape is the one that genuinely needs seven columns (Date ·
-   Description · Type · Category · Account · Amount · Notes — the ledger's own
-   set), so it gets the width to hold them: at 1040 the date cell clipped its
-   own mm/dd/yyyy mask. Set for the whole flow rather than per step, because a
-   dialog that changed width under the Next button would read as a different
-   dialog. */
+/* The edit step needs six columns (Date · Description · Account · Category ·
+   Amount · Notes — the ledger's own set), so it gets the width to hold them: at
+   1040 the date cell clipped its own mm/dd/yyyy mask. Set for the whole flow
+   rather than per step, because a dialog that changed width under the Next
+   button would read as a different dialog — the same reason the width no longer
+   tracks the selection size. A seventh column (Type) was dropped rather than
+   fitted: the direction rule already answers it from Category. */
 .tx-edit-dialog.is-bulk-edit { max-width: 1280px; }
 
 .tx-edit-header {
@@ -1934,56 +1934,11 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     vertical-align: middle;
 }
 
-/* ── Single edit (exactly 1 row selected) ─────────────────────────────────
-   One transaction has no preview rows to stay column-aligned with, so it drops
-   the table: the fields become a two-column form, each control labelled above
-   itself. As a row of seven, a date mask, three selects and three text boxes
-   shared one dialog width and every one of them was too narrow to read its own
-   value — the account and category names truncated mid-word.
-
-   Capped and centred rather than stretched across the dialog. The dialog is
-   wide because the wizard's match list needs the room, not because a form
-   does, and a Notes box half a metre across reads as a mistake. Two columns
-   because the pairs are real ones: when something happened and for how much,
-   then what it was and which way it ran. */
-.tx-edit-form {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    max-width: 720px;
-    margin: 0 auto;
-    padding: 8px 0;
-}
-
-.tx-edit-field {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    /* Grid items floor at min-content otherwise, and a long option would push
-       the column past its track instead of letting the select ellipsise. */
-    min-width: 0;
-}
-
-.tx-edit-field-wide { grid-column: 1 / -1; }
-
-/* The eyebrow voice the app labels dialog fields in (.rec-add-label) and the
-   same one the table header above used, so the shapes read as one control. */
-.tx-edit-field-label {
-    color: var(--text-tertiary);
-    font-family: var(--font-menu);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wider);
-    text-transform: uppercase;
-}
-
-/* Amount is right-aligned in the ledger's narrow column; given a whole field to
-   itself it reads left, where every other value in the form starts. */
-.tx-edit-form .tx-input-amount { text-align: left; }
-
-/* ── En-masse edit (2+ rows selected) ──────────────────────────────────────
+/* ── The edit step (any selection size) ────────────────────────────────────
    One control row on top, the transactions it will rewrite listed read-only
-   beneath it. Both live in the same scroll container as two separate tables,
+   beneath it. A single row once got a labelled two-column form instead; the
+   fork is gone, because both shapes drove the same wizard and the same payload
+   and the modal changing shape with the count read as two different dialogs. Both live in the same scroll container as two separate tables,
    so the control row can stick to the top of a long selection; a shared
    <colgroup> + fixed layout is what keeps their columns in lockstep. */
 .tx-bulk-table {
@@ -1991,21 +1946,8 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 }
 
 /* The body's own top padding would leave a strip for rows to show through
-   above the sticky control row, so the intro carries that spacing instead. */
+   above the sticky control row, so the sticky block carries that spacing. */
 .tx-bulk-body { padding-top: 0; }
-
-.tx-bulk-intro {
-    padding: 16px 0 12px;
-    color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    line-height: 1.5;
-}
-
-.tx-bulk-intro strong {
-    color: var(--text-primary);
-    font-weight: var(--weight-semibold);
-}
 
 /* Sticky so the row doing the editing never scrolls away from the rows it
    edits. The surface fill is load-bearing — preview rows pass underneath. */
@@ -2013,22 +1955,43 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     position: sticky;
     top: 0;
     z-index: 2;
+    padding-top: 16px;
     background: var(--dialog-surface);
 }
 
-/* Tinted so the control row reads as a single instruction rather than another
-   ledger line, and carries an accent rail on the side it applies from. */
-.tx-bulk-apply-row td {
-    padding: 6px 8px 10px;
-    background: color-mix(in srgb, var(--accent-primary) 10%, var(--dialog-surface));
+/* The two panels: one holds the column headers WITH the control row they label,
+   the other holds the rows that control row rewrites. Grouping the headers into
+   the first panel is what makes the row read as one instrument rather than a
+   strip of controls under a floating set of captions.
+   Raised a shade off the dialog instead of tinted with the accent it used to
+   carry: the accent is now spoken for by the borders on the fields the user has
+   actually set, and a whole panel wearing it competed with them.
+   The horizontal padding is LOAD-BEARING — the two tables only stay in column
+   lockstep while both panels inset by exactly the same amount. */
+.tx-bulk-panel {
+    padding: 12px 10px;
+    /* --surface1, the token .tx-wrapper paints, so the panels inside the dialog
+       read as the table the selection came from. */
+    background: var(--surface1);
+    border-radius: 8px;
 }
 
-.tx-bulk-apply-row td:first-child { border-radius: 6px 0 0 6px; }
-.tx-bulk-apply-row td:last-child  { border-radius: 0 6px 6px 0; }
+/* Only the vertical inset differs: the preview rows carry their own row padding
+   and would otherwise sit in a panel twice as tall as its contents. */
+.tx-bulk-preview-panel {
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
 
-/* Seven controls across one dialog leaves each of them narrow, so the control
-   row trims the gutters the ledger's own edit row can afford — enough to keep
-   "Expense" and a full date mask from clipping. */
+/* No fill of its own any more — .tx-bulk-panel above is the surface, and it
+   holds the headers too, so the row and its captions are one block. */
+.tx-bulk-apply-row td {
+    padding: 2px 8px 0;
+}
+
+/* Six controls across one dialog still leaves each of them narrow, so the
+   control row trims the gutters the ledger's own edit row can afford — enough
+   to keep a full date mask and a long category name from clipping. */
 .tx-bulk-apply-row .tx-input,
 .tx-bulk-apply-row .tx-select {
     padding-left: 8px;
@@ -2047,22 +2010,35 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     border-color: var(--accent-primary);
 }
 
+/* An amount that isn't a number. It marks the control that holds the wizard
+   up, which is why the step needs no message to say what's wrong. Listed after
+   (and at the weight of) the .is-set rule above, which would otherwise paint
+   the same border accent — an unusable value must not read as an accepted one. */
+.tx-bulk-apply-row td .tx-input.is-invalid,
+.tx-bulk-apply-row td.is-set .tx-input.is-invalid {
+    border-color: var(--accent-negative);
+}
+
+/* Names the panel beneath it, so the two read as "what to apply" over "what it
+   applies to" without a line of copy saying so. It sits OUTSIDE that panel —
+   a caption for the container, not a row inside it — and stays sticky with the
+   control row, so the label survives a long selection. */
 .tx-bulk-count {
-    padding: 10px 8px;
+    padding: 14px 2px 6px;
     color: var(--text-tertiary);
     font-family: var(--font-menu);
     font-size: var(--size-micro);
     font-weight: var(--weight-semibold);
     letter-spacing: var(--track-wider);
     text-transform: uppercase;
-    border-bottom: var(--border-width) solid var(--dialog-stroke);
 }
-
-.tx-bulk-count.is-armed { color: var(--accent-primary); }
 
 .tx-bulk-preview-table td {
     padding: 9px 8px;
-    color: var(--text-secondary);
+    /* One step quieter than the controls above: this list is what the edit acts
+       on, not what the user is filling in, and the cells that DO change lift out
+       of it in the accent (.is-replaced below). */
+    color: var(--text-tertiary);
     font-family: var(--font-menu);
     font-size: var(--size-small);
     /* One line per transaction: the list can run long, and a wrapping cell
@@ -2084,21 +2060,56 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 
 .tx-bulk-row td.tx-col-amount { text-align: right; }
 
-.tx-bulk-none { color: var(--text-tertiary); }
-
-/* A value the control row is about to overwrite. Struck through rather than
-   swapped for the new one: every row in the column becomes the same thing, and
-   that thing is already spelled out in the control directly above. */
-.tx-bulk-row td.is-replaced {
+/* "No account" / "—" — placeholders, not values. They shared --text-tertiary
+   with the cells around them once those stepped down a rung, so they take their
+   distance in opacity instead; there is no rung below tertiary. */
+.tx-bulk-none {
     color: var(--text-tertiary);
-    text-decoration: line-through;
-    text-decoration-thickness: 1px;
-    opacity: 0.55;
+    opacity: 0.62;
 }
 
+/* ── The preview list on dark ──────────────────────────────────────────────
+   --text-tertiary is the QUIETER rung in both themes, but quieter is a
+   different direction in each: light steps it lighter (base-700 → 600, away
+   from the near-black text) while dark steps it DARKER (base-300 → 400, back
+   toward the surface). One rung of quiet that cost noticeably more legibility
+   here than the same rung did on light, over a panel that is itself raised —
+   so dark takes its step back and reads the list at --text-secondary. The
+   placeholders keep their distance the same way, just less of it: 0.62 of a
+   dim colour on a dark panel is nearly the panel.
+
+   :not(.is-replaced) is LOAD-BEARING, not decoration: [data-theme] counts as a
+   class, so without it this selector outweighs .tx-bulk-row td.is-replaced and
+   repaints every changed cell grey — the accent that links the two tables
+   vanished on dark and only the category pill (which is styled through its own
+   deeper selector) survived. Excluding them leaves the accent rule unopposed
+   instead of racing it with a heavier one. */
+html[data-theme="dark"] .tx-bulk-preview-table td:not(.is-replaced) {
+    color: var(--text-secondary);
+}
+
+html[data-theme="dark"] .tx-bulk-none { opacity: 0.78; }
+
+/* A cell the control row has claimed. It now holds the NEW value (syncBulkPreview
+   redraws it), so the row reads as it will read after saving rather than as a
+   struck-through record of what it used to be. Marked in the accent the control
+   above it wears — that is the whole link between the two tables, and without it
+   a changed cell would be indistinguishable from one the edit never touched. */
+.tx-bulk-row td.is-replaced {
+    color: var(--accent-primary);
+    font-weight: var(--weight-semibold);
+}
+
+/* The Category cell holds a pill, which paints its own fill and text and would
+   otherwise ignore the rule above — leaving the one changed value that looks
+   like a tag reading as unchanged. It takes the accent in the pill's own tinted
+   idiom (15% fill + solid text, the same recipe as the direction variants) and
+   the semibold the other changed cells wear. Specificity is what beats
+   .tx-category-empty, so a row set back to Uncategorized marks as changed too. */
 .tx-bulk-row td.is-replaced .tx-category-pill {
-    text-decoration: line-through;
-    opacity: 0.7;
+    background: color-mix(in srgb, var(--accent-primary) 15%, transparent);
+    color: var(--accent-primary);
+    font-weight: var(--weight-semibold);
 }
 
 .tx-edit-footer {
@@ -2134,7 +2145,7 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding-bottom: 6px;
+    padding-bottom: 14px;
 }
 
 .tx-match-slider-label {
@@ -2205,15 +2216,17 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     font-variant-numeric: tabular-nums;
 }
 
-.tx-match-hint {
-    padding-bottom: 14px;
-    color: var(--text-secondary);
-    font-family: var(--font-h3);
-    font-size: var(--size-small);
-    line-height: var(--lh-relaxed);
+/* What the two ends of the track mean, said where the user is already
+   looking — the paragraph that used to say it in prose is gone. */
+.tx-match-end {
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wider);
+    text-transform: uppercase;
+    white-space: nowrap;
 }
-
-.tx-match-hint strong { color: var(--text-primary); }
 
 /* Re-queries dim the current list in place until the new results land. */
 .tx-match-results { transition: opacity 0.15s ease; }
@@ -2231,7 +2244,15 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 
 .tx-similar-col-cat { white-space: nowrap; }
 
-/* ── Wizard step 3: review summary. ── */
+/* ── Wizard step 3: the result. ──
+   A table of every transaction the save will touch, drawn the way the LEDGER
+   draws it — direction-tinted Category pill, signed and coloured amount,
+   merchant avatar — so the row reads exactly as it will read afterwards. It
+   deliberately shares nothing with the step-1 preview's palette: that table
+   marks its changed cells in the accent to say what is about to move, and
+   repeating the mark here would point at decisions the user has already made.
+   The panel is the same raised surface the edit step uses, so the two steps
+   read as one dialog. */
 .tx-review-section-title {
     padding: 4px 0 8px;
     color: var(--text-tertiary);
@@ -2242,62 +2263,21 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     text-transform: uppercase;
 }
 
-.tx-review-section-title + .tx-review-section-title,
-.tx-review-row + .tx-review-section-title,
-.tx-review-cascade + .tx-review-section-title {
-    margin-top: 16px;
+.tx-review-panel + .tx-review-section-title { margin-top: 18px; }
+
+.tx-review-panel { padding: 10px; }
+
+.tx-review-table {
+    width: 100%;
+    /* Fixed, like the edit step's tables: the columns are percentage tracks and
+       a long merchant name must ellipsise rather than push the amount out. */
+    table-layout: fixed;
+    border-collapse: collapse;
 }
 
-.tx-review-note {
-    padding-bottom: 8px;
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: var(--size-small);
-}
-
-.tx-review-row {
-    padding: 10px 12px;
-    border: var(--border-width) solid var(--border);
-    border-radius: 6px;
-}
-
-.tx-review-row + .tx-review-row { margin-top: 8px; }
-
-.tx-review-desc {
-    color: var(--text-primary);
-    font-family: var(--font-h3);
-    font-size: var(--size-small);
-    font-weight: var(--weight-semibold);
-    margin-bottom: 6px;
-}
-
-.tx-review-changes,
-.tx-review-cascade {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-.tx-review-changes li,
-.tx-review-cascade li {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 6px;
-    padding: 2px 0;
-    color: var(--text-secondary);
-    font-family: var(--font-h3);
-    font-size: var(--size-small);
-    line-height: var(--lh-relaxed);
-}
-
-.tx-review-changes strong,
-.tx-review-cascade strong {
-    color: var(--text-primary);
-}
-
-.tx-review-field {
-    min-width: 84px;
+.tx-review-table th {
+    text-align: left;
+    padding: 0 8px 8px;
     color: var(--text-tertiary);
     font-family: var(--font-menu);
     font-size: var(--size-micro);
@@ -2306,9 +2286,44 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     text-transform: uppercase;
 }
 
-.tx-review-before { text-decoration: line-through; }
+/* Full-strength text, unlike the step-1 preview's quieted list: this is the
+   ledger, not the thing an edit is being applied to. */
+.tx-review-table td {
+    padding: 8px;
+    vertical-align: middle;
+    color: var(--text-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    /* One line per transaction — the list can run long. */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
-.tx-review-arrow { color: var(--text-tertiary); }
+.tx-review-table tbody tr + tr td {
+    border-top: var(--border-width) solid var(--dialog-stroke);
+}
+
+.tx-review-table td.tx-col-date,
+.tx-review-table td.tx-col-amount {
+    font-family: var(--font-numeric);
+    font-variant-numeric: tabular-nums;
+}
+
+.tx-review-table td.tx-col-amount { text-align: right; }
+
+/* The ledger's amount colours are scoped to .tx-row, which these rows are not
+   (they carry none of its hover/selection behaviour). Same three tokens. */
+.tx-review-table td.tx-amount-income   { color: var(--accent-positive); }
+.tx-review-table td.tx-amount-expense  { color: var(--accent-negative); }
+.tx-review-table td.tx-amount-transfer { color: var(--accent-info); }
+
+/* The avatar column is a fixed 44px track in the colgroup; overflow:hidden on
+   the shared td rule would clip the circle at that width. */
+.tx-review-table td.tx-col-avatar {
+    overflow: visible;
+    text-align: center;
+}
 
 
 /* ─── 7. Pagination ──────────────────────────────────────────────────────────
