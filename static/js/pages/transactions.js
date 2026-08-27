@@ -1200,7 +1200,14 @@
         for (const col of TX_FIT_COLS) {
             let max = 0;
             table.querySelectorAll(`tr:not(.tx-new) > .tx-col-${col}`).forEach(cell => {
-                if (cell.offsetWidth > max) max = cell.offsetWidth;
+                // getBoundingClientRect(), not offsetWidth: offsetWidth is
+                // ROUNDED to a whole pixel, so a cell whose real content is
+                // 118.4px wide measures 118 and gets written back 0.4px too
+                // narrow — enough to wrap the one date whose glyphs land on
+                // the wrong side of the rounding ("Aug 20, 2026" did). Ceil so
+                // the width is never short.
+                const w = Math.ceil(cell.getBoundingClientRect().width);
+                if (w > max) max = w;
             });
             if (TX_FIT_MAX[col]) max = Math.min(max, TX_FIT_MAX[col]);
             widths[col] = max;

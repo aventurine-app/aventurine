@@ -671,7 +671,12 @@
    .tx-desc-toggle). Notes is the one column left without an explicit width,
    so table-layout: fixed hands it whatever the others don't claim — it's
    the flex column now, with a 120px floor. */
-.tx-col-date        { width: var(--tx-w-date, 140px); }
+/* nowrap belongs on the column itself, not only on the measuring pass: the
+   measured width is what makes the date fit, and a single fractional pixel of
+   drift (a stale measurement, a font swapping in after render) is enough to
+   break "Aug 20, 2026" across two lines and shove the row's height around. A
+   date is one short atomic string, so there is never a good place to break it. */
+.tx-col-date        { width: var(--tx-w-date, 140px); white-space: nowrap; }
 /* Merchant avatar — fixed, not content-fit: it's a decorative circle, not
    text, so there's nothing for it to conform to. Its width is subtracted
    from the calc() above so notes gives up exactly this much room. */
