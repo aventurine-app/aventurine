@@ -384,26 +384,16 @@
     menu.innerHTML = state.years
       .map((row) => `<button type="button" data-year="${row.year}">${row.year}</button>`)
       .join('');
-    menu.querySelectorAll('button[data-year]').forEach((b) =>
-      b.addEventListener('click', () => {
-        const y = parseInt(b.dataset.year, 10);
-        menu.hidden = true;
-        if (y === state.year) return;
-        state.year = y;
-        btn.textContent = String(y);
-        render();
-      }));
   }
 
   function wireYearPicker() {
-    const btn = document.getElementById('metrics-year-btn');
-    const menu = document.getElementById('metrics-year-menu');
-    if (!btn || !menu) return;
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (!btn.disabled) menu.hidden = !menu.hidden;
+    UI.wirePicker('metrics-year-btn', 'metrics-year-menu', (b) => {
+      const y = parseInt(b.dataset.year, 10);
+      if (y === state.year) return;
+      state.year = y;
+      document.getElementById('metrics-year-btn').textContent = String(y);
+      render();
     });
-    document.addEventListener('click', () => { menu.hidden = true; });
   }
 
   async function load() {

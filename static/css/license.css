@@ -59,7 +59,7 @@
 }
 
 .license-gate-close:hover {
-    background: var(--surface-hover, rgba(127, 127, 127, 0.12));
+    background: var(--surface3);
     color: var(--text-primary);
 }
 

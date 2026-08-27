@@ -4,7 +4,7 @@
 // currency.js — User-configurable currency symbol + currency formatters.
 // ============================================================================
 //
-// Loaded globally from base.html, before every other JS file, so the symbol
+// Loaded globally from pages/partials/scripts.html, before every other JS file, so the symbol
 // is available wherever currency is rendered (tables, portfolio, home,
 // insights).
 //
@@ -117,7 +117,6 @@
     // and unaffected. Default 'long' keeps the prior "Jun 18, 2026" look.
 
     const DATE_FORMATS = ['long', 'iso', 'us', 'eu'];
-    const _MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
     let DATE_FORMAT = DATE_FORMATS.includes(localStorage.getItem('date_format'))
         ? localStorage.getItem('date_format') : 'long';
@@ -142,7 +141,7 @@
             case 'iso': return `${y}-${pad(m)}-${pad(d)}`;
             case 'us':  return `${pad(m)}/${pad(d)}/${y}`;
             case 'eu':  return `${pad(d)}/${pad(m)}/${y}`;
-            default:    return `${_MONTHS_SHORT[m - 1]} ${d}, ${y}`;
+            default:    return `${MONTHS_SHORT[m - 1]} ${d}, ${y}`;
         }
     }
 

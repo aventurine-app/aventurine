@@ -33,9 +33,6 @@
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December',
   ];
-  const MONTHS_SHORT = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
   const CYCLE_LABEL = {
     weekly: 'Weekly', biweekly: 'Biweekly', monthly: 'Monthly', quarterly: 'Quarterly', yearly: 'Yearly',
   };
@@ -76,17 +73,6 @@
     const year = Math.floor(total / 12);
     const mo = (total % 12) + 1;
     return `${year}-${String(mo).padStart(2, '0')}`;
-  }
-
-  function todayIso() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }
-
-  function fmtShortDate(iso) {
-    const [y, m, d] = iso.split('-').map(Number);
-    const thisYear = new Date().getFullYear();
-    return y === thisYear ? `${MONTHS_SHORT[m - 1]} ${d}` : `${MONTHS_SHORT[m - 1]} ${d}, ${y}`;
   }
 
   // Mirror of services/predictions.js's normaliseDesc — used client-side only

@@ -128,19 +128,14 @@
   // ─── Controls ──────────────────────────────────────────────────────────────
 
   function wireRangePicker() {
-    const btn = document.getElementById('merchants-range-btn');
-    const menu = document.getElementById('merchants-range-menu');
-    if (!btn || !menu) return;
-    btn.addEventListener('click', (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; });
-    document.addEventListener('click', () => { menu.hidden = true; });
-    menu.querySelectorAll('button[data-window]').forEach((b) =>
-      b.addEventListener('click', () => {
-        const w = b.dataset.window;
-        if (!ALLOWED_WINDOWS.includes(w)) return;
-        state.window = w;
-        menu.hidden = true;
-        load();
-      }));
+    // The window is a STRING here ('3' … 'all'), not a month count — 'all'
+    // has no number to parse.
+    UI.wirePicker('merchants-range-btn', 'merchants-range-menu', (b) => {
+      const w = b.dataset.window;
+      if (!ALLOWED_WINDOWS.includes(w)) return;
+      state.window = w;
+      load();
+    });
   }
 
   document.addEventListener('DOMContentLoaded', () => {

@@ -16,7 +16,7 @@
 // The backend ships monthly_spend for EVERY expense category up front, so
 // switching a card's category dropdown recomputes instantly with no fetch.
 //
-// What it borrows from globals already loaded by base.html / this page:
+// What it borrows from globals already loaded by pages/partials/scripts.html / this page:
 //   escapeHtml (escape.js); CURRENCY_SYMBOL, formatCurrency,
 //   applyCurrencyFormat, stripCurrencyValue (currency.js);
 //   debounce + the .confirm-* dialog classes (tables.js / tables.css).

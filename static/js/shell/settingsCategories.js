@@ -34,7 +34,7 @@
 (function () {
 
     // ── HTML safety ──────────────────────────────────────────────────────────
-    // Alias of the shared global in escape.js (loaded by base.html).
+    // Alias of the shared global in escape.js (loaded by pages/partials/scripts.html).
     const esc = escapeHtml;
 
     // ── API ─────────────────────────────────────────────────────────────────

@@ -21,7 +21,7 @@
 (function () {
     const TxFileExport = (() => {
 
-        // Alias of the shared global in escape.js (loaded by base.html).
+        // Alias of the shared global in escape.js (loaded by pages/partials/scripts.html).
         const esc = escapeHtml;
 
         const FORMATS = [
@@ -31,12 +31,6 @@
             { id: 'qif', label: 'QIF', desc: 'Quicken Interchange Format — for older finance software.' },
         ];
         const EXT_RX = /\.(csv|ofx|qfx|qif)$/i;
-
-        function todayIso() {
-            const d = new Date();
-            const pad = (n) => String(n).padStart(2, '0');
-            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-        }
 
         // ── Modal shell ───────────────────────────────────────────────────────────
         // Same structure and CSS classes as txfileimport.js's buildModal, plus a

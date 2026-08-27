@@ -54,7 +54,7 @@
         return closest.el;
     }
 
-    // escapeHtml is a global from escape.js (loaded by base.html before this
+    // escapeHtml is a global from escape.js (loaded by pages/partials/scripts.html before this
     // file). ALL column labels, year strings, account names, and other user-
     // controlled values MUST pass through it when building HTML via template
     // literals.

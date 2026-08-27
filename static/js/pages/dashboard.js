@@ -26,9 +26,8 @@
     const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     const MONTH_INDEX = new Map(MONTHS.map((m, i) => [m, i]));
 
-    // escapeHtml is a global from escape.js (loaded by base.html). All
+    // escapeHtml is a global from escape.js (loaded by pages/partials/scripts.html). All
     // user-controlled label values go through it before innerHTML interpolation.
-    const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
     // Chart series palette — read from the accent-derived --chart-* tokens (style.css)
     // at use time so every graph follows the UI accent and retones on a palette/theme
@@ -74,7 +73,7 @@
         return out;
     }
 
-    // Uses CURRENCY_SYMBOL from currency.js (loaded globally in base.html).
+    // Uses CURRENCY_SYMBOL from currency.js (loaded globally in pages/partials/scripts.html).
     // Read at call time so a user changing the symbol in Settings is reflected
     // on the next render without a full reload of this script.
     function fmtValue(n) {
@@ -223,7 +222,7 @@
             <span class="accounts-legend-dot" style="background:${s.color}"></span>
             <div class="accounts-legend-text">
                 <div class="accounts-legend-head">
-                    <div class="accounts-legend-label">${s.label}</div>
+                    <div class="accounts-legend-label">${escapeHtml(s.label)}</div>
                     <div class="accounts-legend-pct">${pct.toFixed(1)}%</div>
                 </div>
                 <div class="accounts-legend-value">${fmtValue(s.signed)}</div>
@@ -344,6 +343,8 @@
      * a flowing line instead of a jagged polyline. Falls back to straight
      * segments below 3 points, where smoothing is meaningless.
      */
+    const clampSeg = (v, a, b) => Math.min(Math.max(v, Math.min(a, b)), Math.max(a, b));
+
     function smoothPath(pts) {
         const f = (n) => Math.round(n * 100) / 100;
         if (pts.length < 3) {
@@ -355,9 +356,20 @@
             const p1 = pts[i];
             const p2 = pts[i + 1];
             const p3 = pts[i + 2] || p2;
-            // Tension 1/6 — the classic Catmull-Rom pass-through conversion.
-            d += ` C ${f(p1.x + (p2.x - p0.x) / 6)} ${f(p1.y + (p2.y - p0.y) / 6)},`
-               + ` ${f(p2.x - (p3.x - p1.x) / 6)} ${f(p2.y - (p3.y - p1.y) / 6)},`
+            // Tension 1/6 — the classic Catmull-Rom pass-through conversion,
+            // with each control point CLAMPED into its own segment's y-range.
+            // Unclamped, a tangent lets a segment overshoot the two points it
+            // connects: a run of equal values followed by a rise bows the
+            // curve past the flat part first, and between two months of zero
+            // it draws below zero — a value neither endpoint has. Costs a
+            // little swell at a peak. Same fix and same reasoning as
+            // widgets/chart.js:smoothPath and widgets/forecast.js:
+            // bezierSegments; the three chart engines each carry their own
+            // copy of this curve, so a change here belongs in all three.
+            const c1y = clampSeg(p1.y + (p2.y - p0.y) / 6, p1.y, p2.y);
+            const c2y = clampSeg(p2.y - (p3.y - p1.y) / 6, p1.y, p2.y);
+            d += ` C ${f(p1.x + (p2.x - p0.x) / 6)} ${f(c1y)},`
+               + ` ${f(p2.x - (p3.x - p1.x) / 6)} ${f(c2y)},`
                + ` ${f(p2.x)} ${f(p2.y)}`;
         }
         return d;
@@ -837,9 +849,9 @@
 
         container.innerHTML = series.map(s => {
             const active = ieHidden.has(s.label) ? '' : 'active';
-            return `<button class="account-toggle ${active}" data-series="${s.label}">
+            return `<button class="account-toggle ${active}" data-series="${escapeHtml(s.label)}">
             <span class="account-toggle-dot" style="background:${s.color}"></span>
-            ${s.label}
+            ${escapeHtml(s.label)}
         </button>`;
         }).join('');
 

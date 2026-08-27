@@ -1,22 +1,3 @@
-/* The base .page rule (style.css) centers content vertically. That works
-   when the page fits, but settings now extends past one viewport thanks to
-   the categories editor — anything above the viewport center gets clipped
-   off the top. Anchor to flex-start + scrollable so longer settings always
-   start from the top. Same pattern used by Insights and the db-* trackers. */
-.page:has(.settings-page) {
-  align-items: flex-start;
-  padding: 40px 40px 60px;
-  box-sizing: border-box;
-}
-
-.settings-page {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  width: 100%;
-  max-width: 640px;
-}
-
 .settings-section {
   display: flex;
   flex-direction: column;
@@ -500,7 +481,7 @@
    title / close button + the scrollable-body scrollbar are shared via
    style.css §8; only the deltas below are settings-specific. */
 .settings-modal-overlay {
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--scrim);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
     z-index: 1300;

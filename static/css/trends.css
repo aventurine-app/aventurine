@@ -30,23 +30,6 @@
    which is always loaded on this page. */
 #trends-chart { width: 100%; }
 
-.chart-empty {
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: var(--size-small);
-    text-align: center;
-    margin: 0;
-    padding: 70px 0;
-}
-
-.trends-hint {
-    color: var(--text-tertiary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    margin: 0;
-    padding: 8px 0;
-}
-
 /* ─── Header controls: window picker ──────────────────────────────────────── */
 .trends-controls { display: flex; align-items: center; gap: 16px; }
 

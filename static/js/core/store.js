@@ -4,7 +4,7 @@
 // store.js — Shared client-side cache of the user's data.
 // ============================================================================
 //
-// Loaded by base.html BEFORE every per-page script. Provides a single
+// Loaded by pages/partials/scripts.html BEFORE every per-page script. Provides a single
 // in-memory snapshot of the year-table datasets, backed by sessionStorage so
 // that navigating between pages reuses the data instead of refetching.
 //

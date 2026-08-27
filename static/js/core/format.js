@@ -13,6 +13,19 @@
 //                              separators, preserving the caret position.
 //   formatDisplay(num)       → read-only display string: commas, ".00"
 //                              hidden, other decimals kept.
+//
+// Plus the three plain-date helpers every dated surface needs. They live here
+// rather than in currency.js because they carry no currency and no user
+// setting: currency.js owns the date format the user CHOSE (formatDate), these
+// are the fixed ones the app writes and reads itself. Five files had their own
+// copy of MONTHS_SHORT, three their own todayIso and two their own
+// fmtShortDate — all byte-identical, and all a chance to drift.
+//
+//   MONTHS_SHORT             → ['Jan' … 'Dec'], the app's one month-abbrev list.
+//   todayIso()               → today as 'YYYY-MM-DD' in LOCAL time. Never
+//                              toISOString(), which is UTC and rolls the date
+//                              over for anyone west of Greenwich in the evening.
+//   fmtShortDate(iso)        → "Mar 4" this year, "Mar 4, 2025" otherwise.
 
 (function () {
     // Precompiled — formatWithCommas / applyCommaFormat run inside input
@@ -90,6 +103,33 @@
         return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), delay); };
     }
 
+    // ── Plain dates ────────────────────────────────────────────────────────
+    const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    /** Today as 'YYYY-MM-DD', built from the LOCAL calendar fields — the same
+     *  "today" services/predictions.js uses on the backend (Python's
+     *  date.today()), so a chip the renderer calls "due today" and a row the
+     *  backend calls "due today" always mean the same day. */
+    function todayIso() {
+        const d = new Date();
+        const p = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    }
+
+    /** 'YYYY-MM-DD' → "Mar 4", or "Mar 4, 2025" when the year is not this one.
+     *  Parsed by splitting rather than through Date: `new Date('2026-03-04')`
+     *  is parsed as UTC midnight and renders as the 3rd in any western zone. */
+    function fmtShortDate(iso) {
+        const [y, m, d] = String(iso).split('-').map(Number);
+        return y === new Date().getFullYear()
+            ? `${MONTHS_SHORT[m - 1]} ${d}`
+            : `${MONTHS_SHORT[m - 1]} ${d}, ${y}`;
+    }
+
+    window.MONTHS_SHORT = MONTHS_SHORT;
+    window.todayIso = todayIso;
+    window.fmtShortDate = fmtShortDate;
     window.debounce = debounce;
     window.applyCommaFormat = applyCommaFormat;
     window.formatDisplay = formatDisplay;

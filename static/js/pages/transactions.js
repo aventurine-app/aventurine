@@ -70,7 +70,7 @@
     // ─── HTML safety ─────────────────────────────────────────────────────────────
     // User-controlled strings (description, notes, category name) all pass
     // through this before being placed in innerHTML. Alias of the shared global
-    // in escape.js (loaded by base.html).
+    // in escape.js (loaded by pages/partials/scripts.html).
     const txEsc = escapeHtml;
 
     // ─── Formatters ──────────────────────────────────────────────────────────────

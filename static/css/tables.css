@@ -569,7 +569,7 @@
 }
 
 .year-prompt-input.invalid {
-    border-color: rgba(200, 60, 60, 0.7);
+    border-color: var(--accent-negative);
 }
 
 .year-prompt-input::-webkit-outer-spin-button,

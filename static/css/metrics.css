@@ -261,7 +261,7 @@
 }
 .met-status-near {
     color: var(--warning);
-    background: color-mix(in srgb, var(--warning) 20%, transparent);
+    background: var(--warning-fill);
 }
 .met-status-miss {
     color: var(--accent-negative);

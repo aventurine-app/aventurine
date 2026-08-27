@@ -269,16 +269,6 @@
    cards — the block supplies its own gap between heading and CTA. */
 .dashboard-card .empty-state { padding: var(--space-16) var(--space-8); }
 
-.chart-empty {
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: var(--size-small);
-    text-align: center;
-    margin: 0;
-    padding: 80px 0;
-}
-
-
 /* ─── 5. Net Worth card ──────────────────────────────────────────────────── */
 /* Same title-to-content gap the sibling cards give their selector chips, so
    the three card bodies start on one line. */

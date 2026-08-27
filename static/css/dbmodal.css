@@ -6,7 +6,7 @@
    live here. */
 
 .db-modal-overlay {
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--scrim);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
     z-index: 1300;
@@ -196,7 +196,7 @@
 
 .db-modal-error {
     margin: 0;
-    color: var(--accent-negative, #e5484d);
+    color: var(--accent-negative);
     font-size: var(--size-small);
 }
 

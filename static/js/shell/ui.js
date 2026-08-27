@@ -20,8 +20,11 @@
 //              button only moves you to the page that has one.
 //       compact: tighter padding for small/aside cards.
 //
-//   UI.skLine(w) / UI.skLines([w…]) / UI.skBlock(h) / UI.skRows(n) / UI.skChart(h)
-//       Skeleton markup builders (strings). Widths are the sk-w-* steps.
+//   UI.skRows(n) / UI.skChart(h)
+//       Skeleton markup builders (strings) — a list-shaped placeholder and a
+//       block-shaped one. The line/block primitives they compose stay private:
+//       nothing outside this file drew its own skeleton, and exporting them
+//       invited two files to invent two different placeholder rhythms.
 //
 //   UI.skeletonGuard(showFn, delay=160) → cancel()
 //       Show a skeleton only if the load outlasts `delay`, so fast (warm)
@@ -31,6 +34,17 @@
 //       Dropdown menu anchored to a button (the ⋮ table menus, the stepper
 //       month/year pickers). items: [{ label, action, danger?, selected? }].
 //       Styling: .p-table-dropdown / .p-dropdown-item in ui.css.
+//
+//   UI.wirePicker(btnId, menuId, onPick?) → { close } | null
+//       The app's one dropdown-picker shape, shared by every report header's
+//       range / year control (Spending, Top Merchants, Saved & Invested,
+//       Forecast, Metrics, Cash Flow). Six copies of this had drifted apart —
+//       one had lost its "element missing" guard, two had lost the
+//       btn.disabled check that stops an empty picker from opening. onPick is
+//       DELEGATED off the menu, so the year pickers whose menus are rebuilt
+//       per load no longer re-bind a listener to each option on every rebuild.
+//       Callers read their own data-* attribute off the button they are handed
+//       and do their own validation — the helper owns open/close, nothing else.
 //
 //   UI.lockPickerWidth(btn, captions)
 //       Pin a picker button (.stepper-label) to the width of the widest
@@ -95,7 +109,6 @@
 
         // ── Skeletons ──────────────────────────────────────────────────────────
         const skLine  = (w) => `<div class="skeleton skeleton-line${w ? ' sk-w-' + w : ''}"></div>`;
-        const skLines = (widths) => widths.map(skLine).join('');
         const skBlock = (h) => `<div class="skeleton skeleton-block" style="height:${h}px"></div>`;
         const skChart = (h = 220) => skBlock(h);
 
@@ -202,6 +215,39 @@
             document.fonts?.ready?.then(measure);
         }
 
+        // ── Dropdown picker ────────────────────────────────────────────────────
+        // Toggle a [hidden] menu off its button; any click elsewhere closes it.
+        // Returns { close } so a caller can dismiss the menu from its own code
+        // (the Forecast picker closes its hover card at the same time), or null
+        // when the page does not hold this picker — the Reports tabs share one
+        // document, so every picker script runs on every tab.
+        function wirePicker(btnId, menuId, onPick) {
+            const btn = document.getElementById(btnId);
+            const menu = document.getElementById(menuId);
+            if (!btn || !menu) return null;
+
+            const close = () => { menu.hidden = true; };
+            btn.addEventListener('click', (e) => {
+                // Stop the document listener below from seeing this same click
+                // and closing the menu we are opening.
+                e.stopPropagation();
+                // A picker with nothing to pick (no years in the ledger) is
+                // disabled rather than empty, so it must not open.
+                if (!btn.disabled) menu.hidden = !menu.hidden;
+            });
+            document.addEventListener('click', close);
+
+            if (onPick) {
+                menu.addEventListener('click', (e) => {
+                    const item = e.target.closest('button');
+                    if (!item || !menu.contains(item)) return;
+                    close();
+                    onPick(item);
+                });
+            }
+            return { close };
+        }
+
         // ── Toast ──────────────────────────────────────────────────────────────
         // A single persistent element, shown/hidden by class so repeated calls
         // coalesce (see the header comment). textContent (never innerHTML) keeps
@@ -232,7 +278,7 @@
             _toastTimer = setTimeout(_hideToast, duration);
         }
 
-        return { emptyState, ICONS, skLine, skLines, skBlock, skChart, skRows, skeletonGuard, openMenu, lockPickerWidth, toast };
+        return { emptyState, ICONS, skChart, skRows, skeletonGuard, openMenu, wirePicker, lockPickerWidth, toast };
     })();
 
     window.UI = UI;

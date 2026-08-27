@@ -435,7 +435,7 @@
        blur: enough lift to read as floating, not enough to stain the calendar.
        (--shadow-card, which raised surfaces use, resolves to no shadow at all,
        which would leave the card flat against the grid.) */
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+    box-shadow: var(--shadow-popover);
     padding: 10px 12px;
 }
 .rec-pop[hidden] { display: none; }
@@ -631,7 +631,7 @@ html[data-theme="dark"] .rec-pop-cadence {
    by a hand-added schedule (nothing backs it) or one whose transactions have
    never been categorized. */
 .rec-type-empty {
-    background: color-mix(in srgb, var(--warning) 15%, transparent);
+    background: var(--warning-fill);
     color: var(--warning);
 }
 

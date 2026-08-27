@@ -23,8 +23,6 @@
 (function () {
   const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
-  const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   // Two series palettes, both read from CSS tokens at colorMap() time so they
   // retone on a theme swap; the arrays are only first-paint fallbacks for the
   // rare frame before styles resolve.

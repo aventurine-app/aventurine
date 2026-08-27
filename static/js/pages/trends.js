@@ -131,18 +131,12 @@
   // ─── Controls ────────────────────────────────────────────────────────────────
 
   function wireRangePicker() {
-    const btn = document.getElementById('trends-range-btn');
-    const menu = document.getElementById('trends-range-menu');
-    btn.addEventListener('click', (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; });
-    document.addEventListener('click', () => { menu.hidden = true; });
-    menu.querySelectorAll('button[data-window]').forEach((b) =>
-      b.addEventListener('click', () => {
-        const w = parseInt(b.dataset.window, 10);
-        if (!ALLOWED_WINDOWS.includes(w)) return;
-        state.window = w;
-        menu.hidden = true;
-        load();
-      }));
+    UI.wirePicker('trends-range-btn', 'trends-range-menu', (b) => {
+      const w = parseInt(b.dataset.window, 10);
+      if (!ALLOWED_WINDOWS.includes(w)) return;
+      state.window = w;
+      load();
+    });
   }
 
   document.addEventListener('DOMContentLoaded', () => {

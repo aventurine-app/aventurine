@@ -24,7 +24,7 @@
    .confirm-overlay (positioning + scrim, tables.css) and only adds the
    backdrop blur. */
 .cat-manager-overlay {
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--scrim);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }

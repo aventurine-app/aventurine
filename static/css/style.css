@@ -63,20 +63,6 @@
  * change values here only. The accents are a placeholder olive palette;
  * a real brand palette will replace them once approved. */
 :root {
-    /* Neutral Palette 
-  --base-050: #f3f2f2;
-  --base-100: #e6e6e5;
-  --base-200: #d0cfcd;
-  --base-300: #b7b6b3;
-  --base-400: #9e9d99;
-  --base-500: #878580;
-  --base-600: #6c6a66;
-  --base-700: #51504d;
-  --base-800: #373634;
-  --base-900: #1a1a19;
-  --base-950: #0d0d0c;
-  */
-
   --color-base-050: #f2f3f2;
   --color-base-100: #e5e6e5;
   --color-base-200: #cdd0ce;
@@ -178,6 +164,15 @@
     --accent-secondary: #1e87b8;
     --accent-quatenary: #a74fc2;
     --warning:          #dd9e00;
+    /* The two surfaces a warning is ever painted on: a tinted pill behind
+       amber text, and the hairline around a warning banner. Both are mixes of
+       --warning itself, so a theme that retones the amber (themes.css) retones
+       these with it. Four call sites had each re-derived the pill by hand at
+       15% or 20%, and two more had hard-coded a *different* amber outright, so
+       the Transactions duplicate badge and the parse-error banner beside it
+       were two unrelated oranges. */
+    --warning-fill:     color-mix(in srgb, var(--warning) 15%, transparent);
+    --warning-stroke:   color-mix(in srgb, var(--warning) 30%, transparent);
 
    /* Gain green — the green that means "gain / income / in your favor",
       paired with --accent-negative red wherever a number or verdict carries
@@ -291,6 +286,20 @@
    --spectrum-mid-7: #5c4077;
    --spectrum-mid-8: #774040;
 
+   /* Ink and plate for the merchant avatar (ui.css). Fixed values, like the
+      spectrum itself: every swatch in a theme lands at one lightness, so one
+      ink covers all eight discs, and it is picked against the SWATCH, not
+      against the page — which is why it does not follow --text-primary and
+      does not flip with the surface tokens.
+        ink       — initials on a pale disc (light theme).
+        ink-dark  — initials on a mid-tone disc (dark theme).
+        icon-bg   — the neutral plate a transparent brand mark is inset on.
+                    Neutral on purpose: a real logo brings its own colour and
+                    must not be tinted by whatever hue its initials hashed to. */
+   --avatar-ink:      #0b0b0b;
+   --avatar-ink-dark: #ffffff;
+   --avatar-icon-bg:  #f0f0f2;
+
    /* ── Categorical series palette ──────────────────────────────────────────
     * Where a chart's series are CATEGORIES, hue is the label, not decoration:
     * the Reports page's Spending report (one line per expense category) and the
@@ -338,7 +347,6 @@
    --frost-focus:      rgba(0,0,0, 0.30);
    --frost-dim:        rgba(0,0,0, 0.28);
    --frost-caret:      rgba(0,0,0, 0.50);
-   --frost-icon:       rgba(0,0,0, 0.30);
    --frost-text:       rgba(0,0,0, 0.70);
 
    /* Hairline strokes — black-tinted for the light theme, tuned a touch heavier
@@ -532,12 +540,17 @@
        consistent across the spreadsheet pages. */
     --cell-pad-y: var(--space-12);
 
-    /* Elevation drop shadow shared by every raised content surface: the report/
-       summary cards, the table wrapper, dropdown menus, and info tooltips. One
-       token so they all read at the same elevation. The sidebar nav keeps its
-       own downward shadow (it casts vertically, not as a floating card) and
-       modals keep their heavier overlay shadow. Theme-independent — shadows are
-       black in both light and dark. */
+    /* Elevation for every raised content surface: the report / summary cards,
+       the table wrapper, and info tooltips. One token so they all read at the
+       same height. The sidebar nav keeps its own downward shadow (it casts
+       vertically, not as a floating card).
+
+       DELIBERATELY FLAT. The app separates a card from the page with its
+       border and its lighter fill, not with a drop shadow, so the value is
+       zeroed rather than the token being removed — eleven rules read it, and
+       keeping the knob is what lets the whole set be raised again by editing
+       one line. A non-zero alpha is left in place so the shape of the value is
+       still obvious to whoever does. */
     --shadow-card: 0 0px 0px rgba(0, 0, 0, 0.2);
 
     /* Elevation drop shadow shared by every dropdown menu / popover (titlebar
@@ -545,6 +558,33 @@
        Floats above the page, so it reads heavier than --shadow-card but
        lighter than a modal. Theme-independent, like --shadow-card. */
     --shadow-menu: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+    /* Elevation drop shadow for a MODAL — the top rung of the ladder
+       (card → menu → modal). Every dialog that raises a scrim reads at this
+       one depth: the DB / Preferences / .cat-manager frames (§7 below), the
+       confirm dialog, and the four Transactions overlays (import review,
+       bulk edit, categorize-similar, export). Those last four carried their
+       own `0 24px 60px rgba(0,0,0,0.55)` and the §7 frames a slightly
+       different `0 20px 50px rgba(0,0,0,0.5)`, which made two dialogs opened
+       from the same page float at two different heights. Theme-independent,
+       like the two above. */
+    --shadow-modal: 0 20px 50px rgba(0, 0, 0, 0.5);
+
+    /* Hover card / floating popover raised OFF a chart or calendar rather than
+       out of a menu button (the Recurring day card, the Forecast pin card).
+       Shallower than --shadow-menu: it is anchored to the thing it describes
+       and sits nearer the surface, so a menu-weight shadow reads as detached. */
+    --shadow-popover: 0 4px 14px rgba(0, 0, 0, 0.22);
+
+    /* ── Scrim ────────────────────────────────────────────────────────────
+       The dim behind every modal overlay. One value, deliberately: the eight
+       overlays in the app had drifted to three opacities (0.5 / 0.55 / 0.6)
+       with no rule saying which dialog earned which, so opening Preferences
+       and then Export dimmed the page by different amounts for no reason the
+       user could act on. Theme-independent — a scrim darkens whatever is
+       behind it, and on the dark theme the surfaces above it are what carry
+       the separation. */
+    --scrim: rgba(0, 0, 0, 0.55);
 }
 
 /* Compact display density (Settings → Appearance). Tightens the spreadsheet
@@ -627,7 +667,6 @@
     transform: translateY(-3px);
     transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
 }
-.fc-info-right::after { left: auto; right: 0; }
 .fc-info:hover::after,
 .fc-info:focus-visible::after {
     opacity: 1;
@@ -762,7 +801,7 @@ div.page::-webkit-scrollbar-thumb:hover {
     background: var(--surface1);
     border: var(--border-width) solid var(--border);
     border-radius: 10px;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--shadow-modal);
     max-width: calc(100vw - 64px);
     max-height: calc(100vh - 96px);
     display: flex;
@@ -852,7 +891,7 @@ div.page::-webkit-scrollbar-thumb:hover {
  * (the menu UI.openMenu builds) already lived in ui.css; only the small
  * *trigger* button and the confirm-dialog shell were still page-scoped. */
 .confirm-overlay {
-    background: rgba(0, 0, 0, 0.55);
+    background: var(--scrim);
     z-index: 1000;
 }
 
@@ -863,7 +902,7 @@ div.page::-webkit-scrollbar-thumb:hover {
     border-radius: 8px;
     padding: 24px 28px;
     max-width: 340px;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--shadow-modal);
 }
 
 .confirm-dialog p {

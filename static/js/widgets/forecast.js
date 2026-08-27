@@ -40,10 +40,6 @@
 
 (function () {
   const ALLOWED_MONTHS = [1, 3, 6];
-  const MONTHS_SHORT = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
   const MONTHS_LONG = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December',
@@ -84,12 +80,6 @@
 
   // ─── Dates ───────────────────────────────────────────────────────────────
 
-  function todayIso() {
-    const d = new Date();
-    const p = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-  }
-
   const DAY_MS = 86400000;
   const toUTC = (iso) => {
     const [y, m, d] = iso.split('-').map(Number);
@@ -102,12 +92,6 @@
   };
   const daysBetween = (a, b) => Math.round((toUTC(b) - toUTC(a)) / DAY_MS);
   const addDays = (iso, n) => fromUTC(toUTC(iso) + n * DAY_MS);
-
-  function fmtShortDate(iso) {
-    const [y, m, d] = iso.split('-').map(Number);
-    const thisYear = new Date().getFullYear();
-    return y === thisYear ? `${MONTHS_SHORT[m - 1]} ${d}` : `${MONTHS_SHORT[m - 1]} ${d}, ${y}`;
-  }
 
   /** 'YYYY-MM' → "March 2026", for the starting-balance provenance line. */
   function fmtMonthKey(key) {
@@ -352,7 +336,17 @@
 
   /** Catmull-Rom → bezier control points (same construction as dashboard.js), as
    *  one cubic segment per gap. Kept as data rather than only as path text so the
-   *  drawn line and a pin's height are read off the SAME geometry — see curveYAt. */
+   *  drawn line and a pin's height are read off the SAME geometry — see curveYAt.
+   *
+   *  Control points are CLAMPED into their own segment's y-range, exactly as
+   *  widgets/chart.js:smoothPath clamps its. An unclamped tangent lets a
+   *  segment dip below both of its endpoints, and on a BALANCE line that draws
+   *  the account going negative in a week where it never does — contradicting
+   *  summary.belowZero, which is computed from the real values and is what the
+   *  card's one sentence reports. The clamp lives here rather than in
+   *  smoothPath so curveYAt evaluates the same curve the user is looking at. */
+  const clampSeg = (v, a, b) => Math.min(Math.max(v, Math.min(a, b)), Math.max(a, b));
+
   function bezierSegments(pts) {
     const segs = [];
     for (let i = 0; i < pts.length - 1; i++) {
@@ -363,8 +357,8 @@
       segs.push({
         p1,
         p2,
-        c1: { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 },
-        c2: { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 },
+        c1: { x: p1.x + (p2.x - p0.x) / 6, y: clampSeg(p1.y + (p2.y - p0.y) / 6, p1.y, p2.y) },
+        c2: { x: p2.x - (p3.x - p1.x) / 6, y: clampSeg(p2.y - (p3.y - p1.y) / 6, p1.y, p2.y) },
       });
     }
     return segs;
@@ -1003,23 +997,15 @@
   }
 
   function wireRangePicker() {
-    const btn = document.getElementById('forecast-range-btn');
-    const menu = document.getElementById('forecast-range-menu');
-    if (!btn || !menu) return;
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      menu.hidden = !menu.hidden;
+    UI.wirePicker('forecast-range-btn', 'forecast-range-menu', (b) => {
+      const m = parseInt(b.dataset.months, 10);
+      if (!ALLOWED_MONTHS.includes(m)) return;
+      setHorizon(m);
+      // A pinned pin card is anchored to a point on the old horizon's line,
+      // which is about to be redrawn out from under it.
+      closeCard();
+      load();
     });
-    document.addEventListener('click', () => { menu.hidden = true; });
-    menu.querySelectorAll('button[data-months]').forEach((b) =>
-      b.addEventListener('click', () => {
-        const m = parseInt(b.dataset.months, 10);
-        if (!ALLOWED_MONTHS.includes(m)) return;
-        setHorizon(m);
-        menu.hidden = true;
-        closeCard();
-        load();
-      }));
   }
 
   /** Planned items stored outside the longest horizon — they contribute nothing

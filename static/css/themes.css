@@ -111,7 +111,6 @@ html[data-theme="dark"],
     --frost-focus:    rgba(255,255,255, 0.40);   /* focused input bg */
     --frost-dim:      rgba(255,255,255, 0.15);   /* dimmed text / icons */
     --frost-caret:    rgba(255,255,255, 0.80);   /* input caret */
-    --frost-icon:     rgba(255,255,255, 0.30);   /* icon default */
     --frost-text:     rgba(255,255,255, 0.65);   /* secondary text */
 
     /* Hairline strokes — the border-side companion to the frost tints above,

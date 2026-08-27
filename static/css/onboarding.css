@@ -14,7 +14,7 @@
 
 /* Positioning/centering come from the shared overlay rule in style.css §8. */
 .onb-overlay {
-    background: rgba(0, 0, 0, 0.6);
+    background: var(--scrim);
     z-index: 1100;
     padding: 24px;
     box-sizing: border-box;
@@ -33,7 +33,7 @@
     background: var(--dialog-surface);
     border: var(--border-width) solid var(--dialog-stroke);
     border-radius: 10px;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+    box-shadow: var(--shadow-modal);
 }
 
 /* The only way to dismiss the modal before an account is chosen (first-run has
@@ -72,16 +72,6 @@
     font-family: var(--font-h3);
     font-size: var(--size-small);
     line-height: var(--lh-relaxed);
-}
-
-.onb-section-label {
-    margin-bottom: 10px;
-    color: var(--text-tertiary);
-    font-family: var(--font-menu);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-widest);
-    text-transform: uppercase;
 }
 
 /* Accounts already imported in this session, so a multi-account run shows its

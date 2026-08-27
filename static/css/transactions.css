@@ -236,7 +236,7 @@
 /* Action chips lift on hover. */
 .tx-chip:not(:disabled):hover {
     color: var(--text-primary);
-    border-color: var(--border-strong, var(--border));
+    border-color: var(--border);
     background: var(--frost-3);
 }
 
@@ -883,7 +883,7 @@
 .tx-category-pill.tx-category-empty {
     padding: 3px 11px;
     font-weight: var(--weight-semibold);
-    background: color-mix(in srgb, var(--warning) 15%, transparent);
+    background: var(--warning-fill);
     color: var(--warning);
 }
 
@@ -963,7 +963,6 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 
 /* Edit-mode rows keep the same height — only the horizontal padding shrinks
    so the bordered inputs have a touch more room. */
-.tx-row.tx-editing td,
 .tx-row.tx-new td {
     padding-left: 10px;
     padding-right: 10px;
@@ -1182,7 +1181,7 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 /* Positioning + centering come from the shared overlay rule in style.css §8;
    only the scrim, stacking order and viewport padding are import-specific. */
 .tx-import-overlay {
-    background: rgba(0, 0, 0, 0.6);
+    background: var(--scrim);
     z-index: 1100;
     padding: 24px;
     box-sizing: border-box;
@@ -1198,7 +1197,7 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     background: var(--dialog-surface);
     border: var(--border-width) solid var(--dialog-stroke);
     border-radius: 10px;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+    box-shadow: var(--shadow-modal);
     overflow: hidden;
 }
 
@@ -1415,8 +1414,8 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     margin-left: 6px;
     padding: 1px 7px;
     border-radius: 20px;
-    background: rgba(255, 180, 0, 0.12);
-    color: rgba(255, 180, 0, 0.75);
+    background: var(--warning-fill);
+    color: var(--warning);
     font-size: 10px;
     font-family: var(--font-menu);
     font-weight: var(--weight-semibold);
@@ -1438,8 +1437,8 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 
 /* Parse-error banner (rows skipped during mapping) */
 .tx-import-errors-banner {
-    background: rgba(255, 140, 0, 0.08);
-    border: var(--border-width) solid rgba(255, 140, 0, 0.25);
+    background: var(--warning-fill);
+    border: var(--border-width) solid var(--warning-stroke);
     border-radius: 6px;
     color: var(--warning);
     font-family: var(--font-menu);
@@ -1507,7 +1506,7 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 
 /* Positioning + centering come from the shared overlay rule in style.css §8. */
 .tx-similar-overlay {
-    background: rgba(0, 0, 0, 0.6);
+    background: var(--scrim);
     z-index: 1100;
     padding: 24px;
     box-sizing: border-box;
@@ -1522,7 +1521,7 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     background: var(--dialog-surface);
     border: var(--border-width) solid var(--dialog-stroke);
     border-radius: 10px;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+    box-shadow: var(--shadow-modal);
     overflow: hidden;
 }
 
@@ -1845,7 +1844,7 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 
 /* Positioning + centering come from the shared overlay rule in style.css §8. */
 .tx-edit-overlay {
-    background: rgba(0, 0, 0, 0.6);
+    background: var(--scrim);
     z-index: 1100;
     padding: 24px;
     box-sizing: border-box;
@@ -1863,7 +1862,7 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     background: var(--dialog-surface);
     border: var(--border-width) solid var(--dialog-stroke);
     border-radius: 10px;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+    box-shadow: var(--shadow-modal);
     overflow: hidden;
 }
 

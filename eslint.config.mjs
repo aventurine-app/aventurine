@@ -76,6 +76,9 @@ const appGlobals = {
   debounce: 'readonly',
   applyCommaFormat: 'readonly',
   formatDisplay: 'readonly',
+  MONTHS_SHORT: 'readonly',
+  todayIso: 'readonly',
+  fmtShortDate: 'readonly',
   // widgets/tables.js
   confirmDelete: 'readonly',
   promptAddYear: 'readonly',

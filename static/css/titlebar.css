@@ -230,7 +230,7 @@ html[data-theme="dark"] {
     /* No focus outline at all — mouse-click focus on window controls is
        just noise. :focus-visible below restores a subtle ring for
        keyboard users (Tab traversal), but the buttons have tabindex="-1"
-       in base.html so that path is currently dormant. */
+       in pages/partials/chrome.html so that path is currently dormant. */
     outline: none;
 }
 

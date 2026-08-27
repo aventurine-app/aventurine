@@ -46,7 +46,7 @@ protocol.registerSchemesAsPrivileged([
     { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } },
 ]);
 
-// Kill the default File/Edit/View menu — base.html owns the title bar.
+// Kill the default File/Edit/View menu — pages/partials/chrome.html owns the title bar.
 Menu.setApplicationMenu(null);
 
 // One-time rebrand migration (Oliv → Aventurine, 2026-07): the userData dir
@@ -321,7 +321,7 @@ async function createWindow() {
         width:  1280,
         height: 800,
         title:  'Aventurine',
-        // Frameless: the page draws its own title bar (base.html snapshot).
+        // Frameless: the page draws its own title bar (pages/partials/chrome.html).
         frame:            false,
         backgroundColor:  '#212121',
         webPreferences: {

@@ -147,15 +147,12 @@
    the same vertical space the real line will. Width modifiers vary the run so
    stacked lines look like prose, not a barcode. */
 .skeleton-line   { height: 12px; }
-.skeleton-line.sk-sm { height: 10px; }
-.skeleton-line.sk-lg { height: 16px; }
 .sk-w-25  { width: 25%; }
 .sk-w-40  { width: 40%; }
 .sk-w-50  { width: 50%; }
 .sk-w-60  { width: 60%; }
 .sk-w-75  { width: 75%; }
 .sk-w-90  { width: 90%; }
-.sk-w-100 { width: 100%; }
 
 .skeleton-circle { border-radius: 50%; }
 .skeleton-block  { width: 100%; border-radius: 8px; }
@@ -201,7 +198,7 @@
     letter-spacing: var(--track-normal);
     user-select: none;
     flex-shrink: 0;
-    color: #0b0b0b;
+    color: var(--avatar-ink);
 }
 
 /* 8 fixed slots off the merchant spectrum (--spectrum-* in style.css, which
@@ -228,7 +225,7 @@
    palette) — pastel-light would glow against a near-black background, the
    opposite of "desaturated"; a darker, less saturated step reads as calm there
    instead. Ink flips to white for all 8 (see above for why one ink suffices). */
-html[data-theme="dark"] .avatar-circle { color: #ffffff; }
+html[data-theme="dark"] .avatar-circle { color: var(--avatar-ink-dark); }
 html[data-theme="dark"] .avatar-circle-0 { background: var(--spectrum-mid-1); }
 html[data-theme="dark"] .avatar-circle-1 { background: var(--spectrum-mid-2); }
 html[data-theme="dark"] .avatar-circle-2 { background: var(--spectrum-mid-3); }
@@ -262,7 +259,7 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
      rather than `contain`: these are square by construction, and a clipped
      hair beats a ring of grey around a colour tile. */
 .avatar-circle-icon {
-    background: #f0f0f2;
+    background: var(--avatar-icon-bg);
     overflow: hidden;
 }
 .avatar-circle-icon img {
@@ -384,8 +381,8 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
     color: var(--accent-negative);
 }
 
-.dashboard-panel[hidden], .rep-panel[hidden], .stmt-panel[hidden] { display: none; }
-.dashboard-panel:focus, .rep-panel:focus, .stmt-panel:focus { outline: none; }
+.rep-panel[hidden], .stmt-panel[hidden] { display: none; }
+.rep-panel:focus, .stmt-panel:focus { outline: none; }
 
 /* ─── Segmented tab control + toolbar row ───────────────────────────────────
  * Shared by Statements (.stmt-*), Dashboard (.dashboard-*), and Reports (.rep-*).
@@ -606,7 +603,7 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
     background: var(--dialog-surface);
     border: var(--border-width) solid var(--dialog-stroke);
     border-radius: 6px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--shadow-menu);
     color: var(--text-primary);
     font-family: var(--font-menu);
     font-size: var(--size-small);
