@@ -1676,6 +1676,9 @@
         if (appData) {
             renderNetworthSection(appData);
             renderAccountsPie(appData);
+            // The selector's dots carry their colour inline too, so they need
+            // the same repaint as the chart they key.
+            renderAccountSelector(appData);
             renderAccountChart();
         }
         if (ieData) renderIEChart(ieData);
