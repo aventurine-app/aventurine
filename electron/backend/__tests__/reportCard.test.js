@@ -69,10 +69,10 @@ test('evaluateGoals: the saving goal is a floor at 20%, counting every transfer'
   assert.equal(grade(14000), 'miss');  // 14% — under the near band
   assert.equal(grade(17000), 'near');  // 17% — short, but close
   assert.equal(grade(20000), 'met');   // 20% — the floor itself
-  assert.equal(grade(31000), 'met');   // 31% — beating it still counts
+  assert.equal(grade(31000), 'met');   // 31% — above the floor still grades met
 
-  // Saving and investing are graded apart: the investing slice can fall short
-  // while the total put away clears its own floor.
+  // Saving and investing are graded separately: the investing share can fall
+  // below its floor while the total transfers share clears its own.
   const goals = evaluateGoals({ income: 100000, expenses: 50000, debt: null, transfers: 24000, invested: 8000, prev: null });
   assert.equal(statusOf(goals, 'savings_rate'), 'met');
   assert.equal(statusOf(goals, 'invested_rate'), 'miss');
@@ -234,7 +234,7 @@ test('report-card API: aggregates a Cash Flow year by category cat_type', (t) =>
   assert.equal(y.debt, null);
   assert.equal(y.metrics.expenseToIncome, 0.5);
   assert.equal(y.metrics.cashFlowMargin, 0.5);
-  // ...but transfers are still REPORTED, as their own total and two ratios.
+  // ...but transfers are still REPORTED, as a separate total and two ratios.
   assert.equal(y.transfers, 20000);   // savings + investing
   assert.equal(y.invested, 5000);     // the investing category alone
   assert.equal(y.metrics.savingsRate, 0.2);
@@ -323,7 +323,7 @@ test('report-card API: the savings rate counts every transfer category, invested
   const entry = (category, value) =>
     c.post('/api/entry', { year: 2025, month: 'February', category, value });
 
-  // A user's own brokerage category, invented alongside the seeded pair.
+  // A user-created brokerage category, added alongside the seeded pair.
   const cat = c.post('/api/categories', { name: 'Vacation Fund', cat_type: 'transfer' });
   assert.equal(cat.status, 200, JSON.stringify(cat.body));
 
@@ -380,7 +380,7 @@ test('report-card API: net and its YoY pill ignore transfers entirely', (t) => {
   c.post('/api/entry', { year: 2024, month: 'January', category: 'rent',   value: 40000 });
   c.post('/api/entry', { year: 2025, month: 'January', category: 'income', value: 100000 });
   c.post('/api/entry', { year: 2025, month: 'January', category: 'rent',   value: 50000 });
-  // Money moved to savings in 2025 only — net must not notice.
+  // Money moved to savings in 2025 only — net must be unchanged.
   c.post('/api/entry', { year: 2025, month: 'January', category: 'savings', value: 25000 });
 
   const years = c.get('/api/report-card').body.years;

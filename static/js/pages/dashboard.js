@@ -1,8 +1,8 @@
 'use strict';
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
-// Two stacked sections, both on the page at once, each with its own heading
-// row carrying the one control that scopes its three cards:
+// Two stacked sections, both on the page at once, each with a heading row
+// carrying the one control that scopes its three cards:
 //
 // "Month to Month" — the monthly view, defaulting to the current month with a
 // section-level stepper (arrows + a year and a month picker) to look back at
@@ -13,7 +13,7 @@
 //   2. Spending (bar chart: the month's expense total per category, same data)
 //   3. Balances (donut by account type, latest known balances)
 //
-// "Year to Year" — the long-run view, scoped by its own range picker:
+// "Year to Year" — the long-run view, scoped by a range picker:
 //   4. Net worth over time (line chart from balance data)
 //   5. Income & Expenses monthly totals (line chart)
 //   6. Per-account balances (line chart, user picks which accounts to compare)
@@ -214,10 +214,10 @@
 
         legendEl.innerHTML = slices.map(s => {
             const pct = (s.value / total) * 100;
-            // Share rides on the label's line rather than in a column of its own,
+            // The share sits on the label's line rather than in a separate column,
             // so the figure below it gets the legend's full width — in a
-            // third-width card a separate percent column costs the dollars their
-            // last digits.
+            // third-width card a percent column would truncate the dollar
+            // amounts.
             return `<div class="accounts-legend-item">
             <span class="accounts-legend-dot" style="background:${s.color}"></span>
             <div class="accounts-legend-text">
@@ -356,16 +356,15 @@
             const p1 = pts[i];
             const p2 = pts[i + 1];
             const p3 = pts[i + 2] || p2;
-            // Tension 1/6 — the classic Catmull-Rom pass-through conversion,
-            // with each control point CLAMPED into its own segment's y-range.
+            // Tension 1/6 — the standard Catmull-Rom pass-through conversion,
+            // with each control point CLAMPED to its segment's y-range.
             // Unclamped, a tangent lets a segment overshoot the two points it
-            // connects: a run of equal values followed by a rise bows the
-            // curve past the flat part first, and between two months of zero
-            // it draws below zero — a value neither endpoint has. Costs a
-            // little swell at a peak. Same fix and same reasoning as
-            // widgets/chart.js:smoothPath and widgets/forecast.js:
-            // bezierSegments; the three chart engines each carry their own
-            // copy of this curve, so a change here belongs in all three.
+            // connects: a run of equal values followed by a rise bows the curve
+            // past the flat part first, and between two months of zero it draws
+            // below zero, a value neither endpoint has. The cost is slightly less
+            // curvature at a peak. Same fix as widgets/chart.js:smoothPath and
+            // widgets/forecast.js:bezierSegments; the three chart engines each
+            // hold a copy of this curve, so a change here applies to all three.
             const c1y = clampSeg(p1.y + (p2.y - p0.y) / 6, p1.y, p2.y);
             const c2y = clampSeg(p2.y - (p3.y - p1.y) / 6, p1.y, p2.y);
             d += ` C ${f(p1.x + (p2.x - p0.x) / 6)} ${f(c1y)},`
@@ -540,26 +539,26 @@
      * are torn down when new data is loaded.
      *
      * The first paint of each registration animates (initial load, and
-     * user-driven re-renders like the range picker or account toggles, which
-     * call observeChart again); pure window resizes re-render without the
-     * entrance so the chart doesn't strobe while dragging. The width guard
-     * also swallows the ResizeObserver's immediate same-size callback, which
-     * would otherwise cancel the entrance animation one frame in.
+     * user-driven re-renders like the range picker or account toggles, which call
+     * observeChart again); plain window resizes re-render without the entrance so
+     * the chart does not flicker while dragging. The width guard also discards the
+     * ResizeObserver's immediate same-size callback, which would otherwise cancel
+     * the entrance animation one frame in.
      *
-     * `fillHeight` opts a chart into being redrawn when the host's HEIGHT
-     * changes too, and hands that height to renderFn as its third argument.
-     * Only a chart that derives its height from the host rather than from its
-     * own width may ask for this (Monthly Cash Flow, see dashboard.css §4) —
-     * for every other chart the host's height is an echo of the SVG just drawn
-     * into it, so tracking it would repaint on our own output.
+     * `fillHeight` makes a chart redraw when the host's HEIGHT changes too, and
+     * passes that height to renderFn as its third argument. Only a chart that
+     * derives its height from the host rather than from its width should set this
+     * (Monthly Cash Flow, see dashboard.css §4) — for every other chart the host's
+     * height comes from the SVG just drawn into it, so tracking it would trigger a
+     * repaint on each render.
      */
     function observeChart(containerId, renderFn, { fillHeight = false } = {}) {
         const existing = chartObservers.get(containerId);
         if (existing) existing.disconnect();
         const el = document.getElementById(containerId);
         if (!el) return;
-        // Observe the parent so shrinking the window triggers a re-render —
-        // the chart div itself can't shrink below the SVG it already contains.
+        // Observe the parent so shrinking the window triggers a re-render — the
+        // chart div cannot shrink below the SVG it already contains.
         const target = el.parentElement || el;
 
         let animate     = true;   // flips off after the first successful paint
@@ -580,22 +579,21 @@
         const obs = new ResizeObserver(entries => {
             const w = Math.round(entries[0].contentRect.width);
             const h = Math.round(entries[0].contentRect.height);
-            // A ResizeObserver always fires once immediately after observe().
-            // If the synchronous paint below already ran (animate is now false),
-            // that first callback is synthetic, not a real resize — adopt its
-            // content-box width as the baseline and return WITHOUT repainting,
-            // so the entrance animation isn't cancelled a frame in. We can't tell
-            // this apart by width alone: the sync paint uses clientWidth, this
-            // reports contentRect.width, and a layout shift in between (e.g. the
-            // page scrollbar appearing as other cards populate) makes them differ.
+            // A ResizeObserver always fires once immediately after observe(). If
+            // the synchronous paint below already ran (animate is now false), that
+            // first callback is not a real resize — record its content-box width as
+            // the baseline and return WITHOUT repainting, so the entrance animation
+            // is not cancelled a frame in. Width alone cannot distinguish the two
+            // cases: the sync paint uses clientWidth, this reports
+            // contentRect.width, and a layout shift in between (e.g. the page
+            // scrollbar appearing as other cards populate) makes them differ.
             //
-            // The height is the exception for a fillHeight chart: the sync paint
-            // measured the host before the row's other cards had finished
-            // filling, so a first callback reporting a DIFFERENT height is real
-            // news (a neighbour just made the card taller) and has to be drawn.
-            // It is still the first thing the user sees — this callback lands
-            // before the frame paints — so the entrance is re-armed rather than
-            // spent.
+            // Height is the exception for a fillHeight chart: the sync paint
+            // measured the host before the row's other cards finished filling, so a
+            // first callback reporting a DIFFERENT height is a real change (a
+            // neighbouring card grew) and must be drawn. This callback still lands
+            // before the frame paints, so the entrance animation is re-armed rather
+            // than skipped.
             if (!sawInitial) {
                 sawInitial = true;
                 if (!animate) {
@@ -716,9 +714,10 @@
         if (!container) return;
 
         // With no balances at all the summary is two em dashes over an empty
-        // state — placeholder stacked on placeholder, and it pushes the notice
-        // off the card's centre. Drop it and let the empty state have the card.
-        // A range that merely happens to be empty keeps it: those figures are real.
+        // state — two placeholders stacked, which also pushes the notice off the
+        // card's centre. Hide it and give the empty state the whole card. A range
+        // that happens to be empty keeps the summary, since those figures are
+        // real.
         document.querySelector('.networth-card')
             ?.classList.toggle('is-empty', all.points.length === 0);
 
@@ -1058,7 +1057,7 @@
 
     // Monthly Cash Flow rows, in display order, on the three named chart tokens —
     // the same two getIEColors reads plus transfers, so this card and the Income
-    // & Expenses line chart can never disagree about what income looks like.
+    // & Expenses line chart use identical colours for income.
     // Under the accent ramp that is the base accent, its high-contrast shade and
     // an intermediate stop; under a palette with hues to spend, green/red/blue.
     const MCF_ROWS = [
@@ -1084,9 +1083,9 @@
      *
      * Each bar is subdivided into its categories: `segments` tile the bar in
      * proportion to their share of the type, shaded from the type's base colour
-     * (nearest the axis) fading outward, separated by a hairline gap — little
-     * per-category bars within the flow-type bar. Each segment carries its own
-     * value tooltip; the row's total is still annotated at the end.
+     * (nearest the axis) fading outward, separated by a hairline gap, forming
+     * per-category bars within the flow-type bar. Each segment carries a value
+     * tooltip; the row's total is annotated at the end.
      *
      *   rows: [{ label, color, value, segments: [{ name, value }] }]
      *         — values ≥ 0; segments optional (a bare bar is drawn without them).
@@ -1149,11 +1148,11 @@
                     const xe   = x0 + widths[j];
                     const w    = xe - x0;
                     const last = j === segs.length - 1;
-                    // Butt-jointed paths leave a hairline of card background at
-                    // the seam once antialiased, which reads as the gap we just
-                    // removed. Every segment but the last runs half a pixel long
-                    // and the next one paints over it (later paths win, in the
-                    // DOM and in hit-testing alike), so the joint is solid.
+                    // Butt-jointed paths leave a hairline of card background at the
+                    // seam once antialiased, which looks like the gap being
+                    // removed. Every segment but the last runs half a pixel long and
+                    // the next one paints over it (later paths take precedence in
+                    // the DOM and in hit-testing), so the joint is solid.
                     const xd = last ? xe : xe + 0.5;
                     if (w >= 0.5) {
                         const fill  = segmentShade(r.color, j, segs.length);
@@ -1220,10 +1219,10 @@
 
     /** Shade for the j-th of n category segments within one flow-type bar: the
      *  type's base colour at full strength for the segment nearest the axis,
-     *  fading toward the page background outward, so a bar reads as its own
-     *  colour subdivided into little category bars. Nested color-mix is valid —
-     *  the base token may itself be a color-mix expression (it is, under the
-     *  accent ramp: --chart-income and friends resolve to accent mixes there). */
+     *  fading toward the page background outward, so the bar reads as one colour
+     *  subdivided into category segments. Nested color-mix is valid — the base
+     *  token may itself be a color-mix expression, as it is under the accent ramp,
+     *  where --chart-income and friends resolve to accent mixes. */
     function segmentShade(base, j, n) {
         if (n <= 1) return base;
         const pct = Math.round(100 - (j / (n - 1)) * 45);   // 100% (axis) → 55% (outer)
@@ -1449,9 +1448,9 @@
         const month = sliceStatementMonth(data);
         renderMonthlyCashflow(month.totals, month.segments);
         renderSpendingChart(month.categories);
-        // The Balances donut is month-scoped too. Balance data isn't in
-        // yet on the first call from init() — that path renders the pie itself
-        // once the fetch lands.
+        // The Balances donut is month-scoped too. Balance data has not arrived on
+        // the first call from init(); that path renders the pie once the fetch
+        // completes.
         if (appData) renderAccountsPie(appData);
     }
 
@@ -1546,29 +1545,30 @@
     // ─── Bootstrap ───────────────────────────────────────────────────────────────
 
     /** Inject loading skeletons into the dashboard's chart and list slots. Shown
-     *  only when the data fetch outlasts the skeletonGuard delay (cold loads);
-     *  warm cached loads render straight to content with no flash (see store.js). */
+     *  only when the data fetch takes longer than the skeletonGuard delay (cold
+     *  loads); warm cached loads render content directly with no flash (see
+     *  store.js). */
     function showDashboardSkeletons() {
         const fill = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
         fill('networth-chart',  UI.skChart(220));
         fill('ie-chart',        UI.skChart(220));
         fill('account-chart',   UI.skChart(220));
-        // Fluid, like the ring it stands in for (.accounts-pie is a share of the
-        // card body, not a fixed 220px) — a fixed skeleton overflows the column.
+        // Fluid, like the ring it replaces (.accounts-pie is a share of the card
+        // body, not a fixed 220px) — a fixed-size skeleton overflows the column.
         fill('accounts-pie',    '<div class="skeleton skeleton-circle" style="width:100%;aspect-ratio:1"></div>');
         fill('accounts-legend', UI.skRows(3));
     }
 
     // ── First run ─────────────────────────────────────────────────────────────
-    // On a database holding nothing the user put there, the dashboard has nothing
-    // to say, so it steps aside for a single invitation to import. The check is
-    // answered from data (GET /api/onboarding), which means it can neither
-    // interrupt someone with real history nor be permanently lost — it stops
-    // appearing the moment anything lands, or when the user waves it off.
+    // On a database with no user data, the dashboard has nothing to render, so it
+    // is replaced by a single invitation to import. The check is computed from
+    // data (GET /api/onboarding), so it never appears for someone with real
+    // history and is never permanently lost — it stops appearing once any data
+    // exists, or once the user skips it.
     //
-    // Skipping is honoured immediately and remembered server-side: the ordinary
-    // dashboard comes back with its own per-card empty states, each pointing at
-    // the surface it belongs to.
+    // Skipping applies immediately and is stored server-side: the ordinary
+    // dashboard returns with its per-card empty states, each linking to the
+    // matching page.
     async function maybeOfferOnboarding() {
         const hero = document.getElementById('dashboard-firstrun');
         if (!hero || !window.Onboarding) return;
@@ -1579,14 +1579,14 @@
             if (!r.ok) return;
             state = await r.json();
         } catch {
-            return;   // never let a failed check hide a working dashboard
+            return;   // a failed check must not hide a working dashboard
         }
         if (!state.fresh || state.dismissed) return;
 
         const setHero = (on) => {
             hero.hidden = !on;
-            // Each section carries its own scope control; while the hero stands
-            // in for them they'd only offer controls over nothing.
+            // Each section carries a scope control; while the hero replaces them
+            // those controls would have no data to scope.
             document.querySelectorAll('.dashboard-section')
                 .forEach(el => el.classList.toggle('is-preempted', on));
         };
@@ -1688,9 +1688,9 @@
     document.addEventListener('DOMContentLoaded', () => {
         init();
         window.addEventListener('themechange', repaintCharts);
-        // Runs alongside the dashboard load, not in front of it: the hero reveals
-        // itself once the check resolves, and a database with data never waits on
-        // it. Bound once per page load (init() is not re-entered — see above).
+        // Runs alongside the dashboard load, not before it: the hero appears once
+        // the check resolves, and a database with data never waits on it. Bound
+        // once per page load (init() is not re-entered — see above).
         maybeOfferOnboarding();
     });
 }());

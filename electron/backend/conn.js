@@ -1,13 +1,13 @@
 'use strict';
 
-// Connection manager — owns the live database handle and the runtime switch
+// Connection manager — holds the live database handle and the runtime switch
 // logic. This is the Node counterpart of dbstate.rebind_engine + the
-// routes/database.py _switch_to helper, with the same rollback guarantee:
-// if migrating/seeding a candidate database fails, the previous database
-// stays active and untouched.
+// routes/database.py _switch_to helper, with the same rollback guarantee: if
+// migrating or seeding a candidate database fails, the previous database stays
+// active and unmodified.
 //
-// Factory, not singleton, so tests build isolated instances (the way each
-// Python test built a fresh app via create_app()).
+// Factory, not singleton, so tests build isolated instances (the way each Python
+// test built a fresh app via create_app()).
 
 const fs = require('fs');
 const path = require('path');
@@ -22,7 +22,7 @@ function secureChmod(p) {
   try {
     fs.chmodSync(p, 0o600);
   } catch {
-    // best-effort; Windows ACLs / odd filesystems may refuse
+    // best-effort; may fail on Windows ACLs or unusual filesystems
   }
 }
 
@@ -33,18 +33,18 @@ function createConn() {
 
   // ─── File-write authorization (renderer-trust-boundary containment) ────────
   // The renderer is sandboxed: these backend file endpoints (db create /
-  // save-as, transactions export) are its ONLY way to write to disk. A path
-  // can reach them from three places — a native OS dialog, the in-modal file
-  // browser, or free typing — and the renderer is the one relaying it, so a
-  // compromised renderer could ask to write anywhere the user can.
+  // save-as, transactions export) are its ONLY way to write to disk. A path can
+  // reach them from three places — a native OS dialog, the in-modal file
+  // browser, or typed input — and the renderer relays it, so a compromised
+  // renderer could request a write anywhere the user has permission.
   //
   // The Electron shell injects a guard (setWriteGuard) and pre-approves every
-  // path it hands out through a native save/open dialog (approveWrite) — those
-  // the renderer cannot drive. authorizeWrite() then lets dialog-issued paths
-  // through untouched but routes any other path through a native confirmation
-  // the renderer can't auto-dismiss. With no guard injected (host-Node tests,
-  // smoke, plain-browser dev — no untrusted renderer) writes are unrestricted,
-  // so behavior off the Electron boundary is unchanged.
+  // path it returns from a native save/open dialog (approveWrite), which the
+  // renderer cannot drive. authorizeWrite() then passes dialog-issued paths
+  // through unchanged and sends any other path through a native confirmation
+  // the renderer cannot dismiss. With no guard injected (host-Node tests, smoke,
+  // plain-browser dev — no untrusted renderer) writes are unrestricted, so
+  // behavior outside Electron is unchanged.
   let writeGuard = null;
   const approvedWrites = new Set();
   const normWrite = (p) => path.resolve(p);
@@ -59,16 +59,16 @@ function createConn() {
   }
 
   /** Gate a pending file write. Throws ApiError(403) if the user declines a
-   *  path that wasn't dialog-issued. No-op when no guard is wired.
+   *  path that was not dialog-issued. No-op when no guard is wired.
    *
-   *  `allowProposedDir` waives the prompt for a new file sitting directly in
-   *  the folder WE proposed (defaultDbDir — the one the New Database modal
+   *  `allowProposedDir` skips the prompt for a new file directly inside the
+   *  folder the app proposed (defaultDbDir — the one the New Database modal
    *  displays before the user presses Create). That location did not come from
-   *  the renderer, the user reads it first, and the only caller that passes
-   *  this refuses to overwrite an existing file — so the worst a compromised
-   *  renderer buys is a new empty database in a folder the app already owns.
-   *  Immediate children only: comparing the parent exactly means no `..` walks
-   *  out and no subtree comes along. */
+   *  the renderer, it is shown to the user first, and the only caller passing
+   *  this flag refuses to overwrite an existing file — so a compromised renderer
+   *  can at most create a new empty database in the app's own folder. Immediate
+   *  children only: comparing the parent exactly excludes `..` escapes and
+   *  subdirectories. */
   function authorizeWrite(p, { allowProposedDir = false } = {}) {
     if (!writeGuard) return;
     const key = normWrite(p);
@@ -107,9 +107,9 @@ function createConn() {
       locked: state.locked,
       // Encryption ships in-binary now; field kept for frontend compat.
       encryption_available: true,
-      // Where a new database goes unless the user says otherwise, plus the
-      // separator to join a file name onto it: the New Database modal offers
-      // this location so naming the file is the only required step.
+      // The default location for a new database, plus the separator for joining
+      // a file name onto it: the New Database modal pre-fills this location so
+      // only the file name is required.
       default_dir: defaultDbDir(state.path),
       sep: path.sep,
     };
@@ -154,11 +154,11 @@ function createConn() {
   }
 
   /**
-   * Re-protect an encrypted database: drop the in-memory key and close the
-   * handle, so the DB is locked (the next /api/* answers 423 and the renderer
-   * shows the unlock prompt). Only meaningful for an encrypted DB — an
-   * unencrypted file has no passphrase to re-enter, so there's nothing to
-   * protect. Idempotent: locking an already-locked DB just reports status.
+   * Re-lock an encrypted database: discard the in-memory key and close the
+   * handle, so the DB is locked (the next /api/* returns 423 and the renderer
+   * shows the unlock prompt). Only applies to an encrypted DB — an unencrypted
+   * file has no passphrase to re-enter. Idempotent: locking an already-locked
+   * DB returns the status unchanged.
    */
   function lock() {
     if (!state.encrypted) throw new ApiError('database is not encrypted', 400);
@@ -181,7 +181,7 @@ function createConn() {
    *
    * Data-integrity guard: the file is copied to a sidecar backup before the
    * rekey; on any failure the backup is restored and the original key/handle
-   * reopened, so a botched rekey can never leave a corrupt or half-keyed DB.
+   * reopened, so a failed rekey cannot leave a corrupt or half-keyed DB.
    */
   function rekey({ action, currentPassword, newPassword }) {
     if (state.locked || !handle) throw new ApiError('db_locked', 423);

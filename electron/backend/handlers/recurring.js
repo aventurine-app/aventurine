@@ -4,21 +4,21 @@
 // (services/predictions.js) as a full listing rather than the top-N "due
 // soon" slice /api/predictions/upcoming returns, plus a per-month calendar of
 // occurrences (actual past charges + projected future ones) for the
-// requested month. Income, expense, AND transfer patterns are all detected
-// here (unlike Cash Flow/Forecast, which exclude transfers) — a recurring
-// autosave/auto-invest transfer is exactly the kind of thing this page exists
-// to surface. Every schedule's label/direction/cadence/amount is a
-// correctable prediction (recurring_overrides), and a schedule can also be
-// added by hand, removed, or cleared en masse (DELETE
-// /api/recurring/schedules) — see the handler doc comments below.
+// requested month. Income, expense, AND transfer patterns are all detected here
+// (unlike Cash Flow/Forecast, which exclude transfers), since a recurring
+// autosave or auto-invest transfer is one of the schedules this page is for.
+// Every schedule's label/direction/cadence/amount can be corrected
+// (recurring_overrides), and a schedule can also be added by hand, removed, or
+// cleared all at once (DELETE /api/recurring/schedules) — see the handler doc
+// comments below.
 //
-// ADOPTION (the reason there are two listing endpoints): detection is a
-// guess, so it doesn't get to populate the page by itself. GET /api/recurring
-// returns only ADOPTED schedules — a fresh database answers with an empty
-// list no matter how much recurring history it holds. The user runs detection
-// explicitly (GET /api/recurring/candidates → the picker dialog) and adopts
-// the ones they recognize (POST /api/recurring/adopt). Everything downstream
-// — the calendar, the editable list — reads the adopted set only.
+// ADOPTION (the reason there are two listing endpoints): detection is heuristic,
+// so it does not populate the page on its own. GET /api/recurring returns only
+// ADOPTED schedules — a fresh database returns an empty list however much
+// recurring history it holds. The user runs detection explicitly (GET
+// /api/recurring/candidates → the picker dialog) and adopts the ones they
+// recognize (POST /api/recurring/adopt). The calendar and the editable list read
+// the adopted set only.
 
 const { bad, cleanLabel, isFiniteNumber, round2, parseIsoDate } = require('../validate');
 const { serialiseTx } = require('../services/transactions');
@@ -60,8 +60,8 @@ function reverseStepCycle(iso, cycle) {
  * actual amounts) always stays what was actually detected. A cadence
  * override recomputes next_date/due_in_days from the series' real last_date,
  * so the calendar's future projection follows the new cycle immediately;
- * PAST occurrences (services/predictions.js's `dates`) are untouched, so
- * history never silently rewrites itself.
+ * PAST occurrences (services/predictions.js's `dates`) are untouched, so an
+ * override never rewrites recorded history.
  */
 function withOverride(s, ov, todayIso) {
   if (!ov) return s;
@@ -89,12 +89,12 @@ function withOverride(s, ov, todayIso) {
  * POST /api/recurring/schedule create flow.
  *
  * Unlike withOverride's single-step cadence recompute (safe there because a
- * DETECTED series' last_date is always recent — LAPSED_GRACE_DAYS caps it at
- * 90 days), a manual schedule's last_date never advances on its own (nothing
- * ever posts against it), so it can go stale indefinitely. next_date is
- * therefore walked forward via the same catch-up loop placeRecurring uses,
- * so a schedule added once keeps reading as "next Aug 15", "next Sep 15", …
- * forever, not frozen at whatever was first entered.
+ * DETECTED series' last_date is always recent — LAPSED_GRACE_DAYS caps it at 90
+ * days), a manual schedule's last_date never advances, since no transactions
+ * post against it, so it can become arbitrarily old. next_date is therefore
+ * walked forward with the same catch-up loop placeRecurring uses, so a schedule
+ * added once continues to read "next Aug 15", "next Sep 15", … rather than
+ * staying at the date first entered.
  */
 function manualSeries(ov, todayIso) {
   if (!ov.display_name || !ov.direction || !ov.cycle || ov.amount == null || !ov.last_date) return null;
@@ -159,8 +159,8 @@ function categoryByKey(rows) {
  * transactions carry, and the term that finds those transactions in the
  * ledger. No override layering and no adoption filter — the raw detection
  * result, shared by the listing (which then keeps the adopted ones), the
- * candidate picker (which keeps the rest) and delete (which only needs to know
- * whether a key is detected at all).
+ * candidate picker (which keeps the rest) and delete (which only checks whether
+ * a key is detected at all).
  */
 function detectAll(db, todayIso) {
   const cats = db.prepare('SELECT id, name, cat_type FROM categories').all();
@@ -196,12 +196,12 @@ function serialiseSeries(s) {
     display_name: s.display_name,
     direction: s.direction,
     // The category its transactions carry, for the card's pill. Null on a
-    // hand-added schedule (nothing backs it) or one nothing has categorized.
+    // hand-added schedule (no backing transactions) or an uncategorized one.
     category_id: s.category_id ?? null,
     category: s.category ?? null,
-    // What to type into the ledger's Name filter to see this schedule's
-    // transactions (searchTermByKey). Null on a hand-added schedule — nothing
-    // backs it, so there is nothing to go and look at.
+    // The ledger Name-filter term that matches this schedule's transactions
+    // (searchTermByKey). Null on a hand-added schedule, which has no backing
+    // transactions.
     search: s.search ?? null,
     amount: s.amount,
     cycle: s.cycle,
@@ -299,13 +299,13 @@ function recurringCandidates(ctx) {
 
 /**
  * Adopt the schedules the user ticked in the picker (POST body: {keys: [...]}
- * of detection keys). Adoption is the only thing that puts a detected series
- * on the page, and it's deliberately just a flag: the schedule's fields keep
- * coming from live detection, so an adopted series still follows the ledger
- * until the user edits a field. Unrecognized keys are accepted rather than
- * rejected — an adopted row for a key detection no longer produces is inert
- * (it renders as nothing, since manualSeries needs the full field set), and a
- * stale key in a submitted picker is a race, not a client bug worth 400ing.
+ * of detection keys). Adoption is the only thing that puts a detected series on
+ * the page, and it is only a flag: the schedule's fields still come from live
+ * detection, so an adopted series continues to follow the ledger until the user
+ * edits a field. Unrecognized keys are accepted rather than rejected — an
+ * adopted row for a key detection no longer produces renders as nothing (since
+ * manualSeries requires the full field set), and a stale key in a submitted
+ * picker is a race, not a client bug worth a 400.
  */
 function recurringAdopt(ctx, { body }) {
   const db = ctx.db();
@@ -326,11 +326,11 @@ function recurringAdopt(ctx, { body }) {
  * Upsert a user override for one recurring schedule (POST body: {key,
  * display_name?, direction?, cycle?, amount?} — any subset, each null clears
  * that field back to auto-detected). Recurring rows have no surrogate id (a
- * detected series is recomputed fresh from transactions on every read — see
- * detectRecurringSeries), so the client's own grouping key IS the identity,
- * same as Cash Flow's /api/entry keys on a category string rather than a row
- * id. Editing a manual schedule's date isn't supported here — only
- * POST /api/recurring/schedule (create) sets last_date; delete + re-add to
+ * detected series is recomputed from transactions on every read — see
+ * detectRecurringSeries), so the grouping key is the identifier, the same way
+ * Cash Flow's /api/entry keys on a category string rather than a row id.
+ * Editing a manual schedule's date is not supported here — only
+ * POST /api/recurring/schedule (create) sets last_date; delete and re-add to
  * change one.
  */
 function recurringOverrideUpsert(ctx, { body }) {
@@ -367,10 +367,10 @@ function recurringOverrideUpsert(ctx, { body }) {
     }
   }
   if (!Object.keys(patch).length) bad('no fields to update');
-  // Editing a schedule is itself an act of adopting it: the only way to reach
-  // this endpoint through the UI is from a row already on the page, and a
-  // caller correcting a candidate's name/amount directly plainly wants to keep
-  // it. Harmless for an already-adopted row, which is the normal case.
+  // Editing a schedule also adopts it: the only UI path to this endpoint is a
+  // row already on the page, and a caller correcting a candidate's name or
+  // amount directly is keeping that schedule. No effect on an already-adopted
+  // row, which is the normal case.
   patch.adopted = 1;
 
   db.prepare('INSERT INTO recurring_overrides ("key") VALUES (?) ON CONFLICT("key") DO NOTHING').run(key);
@@ -383,15 +383,14 @@ function recurringOverrideUpsert(ctx, { body }) {
 
 /**
  * Create (or fully replace) a MANUAL recurring schedule — one with no
- * backing transactions ("I know I'll be charged $12/mo starting next
- * month"). Every field is required, unlike the partial-patch upsert above.
- * The key is derived from display_name via normaliseDesc — the SAME
- * grouping key real transactions for that merchant would produce — so if
- * matching transactions ever show up, detection naturally takes over and
- * this row keeps applying as a plain override on top of it (withOverride).
- * `next_date` is the more intuitive thing for a user to enter ("when's this
- * next due"), but a schedule is stored/projected the same way a detected
- * series is (last_date + cycle), so it's reverse-stepped once here.
+ * backing transactions (a charge the user expects but has not been billed for
+ * yet). Every field is required, unlike the partial-patch upsert above.
+ * The key is derived from display_name via normaliseDesc — the SAME grouping key
+ * real transactions for that merchant would produce — so once matching
+ * transactions are imported, detection takes over and this row continues to
+ * apply as an override on top of it (withOverride). `next_date` is what the user
+ * enters, but a schedule is stored and projected the same way a detected series
+ * is (last_date + cycle), so it is reverse-stepped once here.
  * A hand-added schedule is adopted on the spot — the user just declared it,
  * there is nothing left to confirm in a detection picker.
  */
@@ -447,14 +446,14 @@ function recurringScheduleDelete(ctx, { params }) {
 
 /**
  * Take the whole page back to blank — the bulk form of the delete above, and
- * it follows exactly the same rule schedule-by-schedule: detected series are
- * un-adopted (corrections kept, back in the picker), manual ones are dropped
- * outright. So this clears the CALENDAR, not the user's history: everything
- * detection can find is one "Find recurring schedules" run away from coming
- * back, and no transaction is touched.
+ * it follows the same rule schedule-by-schedule: detected series are un-adopted
+ * (corrections kept, returned to the picker), manual ones are deleted. This
+ * clears the CALENDAR, not the user's history: anything detection can find
+ * returns on the next "Find recurring schedules" run, and no transaction is
+ * modified.
  *
  * Idempotent — clearing an already-empty page is a 200 with cleared: 0, not an
- * error. There is nothing to confirm at this layer; the UI owns that prompt.
+ * error. No confirmation at this layer; the UI shows that prompt.
  */
 function recurringClearAll(ctx) {
   const db = ctx.db();

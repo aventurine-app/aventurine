@@ -44,8 +44,8 @@ test('db: status reports active db', (t) => {
 test('db: status proposes where a new database goes', (t) => {
   const c = makeClient(t);
   const s = c.get('/api/db/status').body;
-  // The New Database modal names a file in this folder instead of making the
-  // user browse; the active DB's own folder is the standing proposal.
+  // The New Database modal pre-fills a file in this folder instead of requiring
+  // a browse; the active DB's folder is the default proposal.
   assert.equal(s.default_dir, path.dirname(path.resolve(c.dbPath)));
   assert.equal(s.sep, path.sep);
 });
@@ -63,13 +63,13 @@ test('db: the app profile dir is never proposed for a new database', (t) => {
     else process.env.AVENTURINE_DOCUMENTS_DIR = prevDocs;
   });
 
-  // A database that never moved out of the app's own profile dir: proposing
-  // that folder would file the user's finances in app plumbing.
+  // A database still in the app's profile dir: proposing that folder would store
+  // the user's finances inside app internals.
   assert.equal(
     defaultDbDir(path.join(dir, 'profile', 'finance.db')),
     path.join(dir, 'Documents', 'Aventurine')
   );
-  // One the user placed themselves: propose the folder they chose.
+  // One the user placed: propose the folder they chose.
   assert.equal(defaultDbDir(path.join(dir, 'Vault', 'ours.db')), path.join(dir, 'Vault'));
   // Proposing a folder must not create it — only writing a database does.
   assert.ok(!fs.existsSync(path.join(dir, 'Documents')));
@@ -222,8 +222,8 @@ test('db: save-as preserves encryption and key', (t) => {
   assert.equal(r.body.encrypted, true);
   // The copy is genuinely encrypted on disk…
   assert.ok(!header(b).equals(SQLITE_MAGIC));
-  // …and reopening it requires the inherited key. Switch off the copy first
-  // (back to the encrypted original, which needs its own password).
+  // …and reopening it requires the inherited key. Switch off the copy first,
+  // back to the encrypted original, which needs its password.
   assert.equal(c.post('/api/db/open', { path: a, password: 'pw7' }).status, 200);
   let r2 = c.post('/api/db/open', { path: b });
   assert.equal(r2.status, 401);

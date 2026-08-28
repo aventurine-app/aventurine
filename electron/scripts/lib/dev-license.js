@@ -13,9 +13,9 @@
 // only, so nothing here can validate a key a user might hold, and no key minted
 // here survives the process.
 //
-// Call it AFTER app.whenReady() — main.js sets AVENTURINE_CONFIG_DIR from
+// Call it AFTER app.whenReady(): main.js sets AVENTURINE_CONFIG_DIR from
 // userData in startBackend(), and its ready handler is registered first, so by
-// the time a script's own handler runs the license lands in the right profile.
+// the time a script's handler runs the license is written to the right profile.
 //
 // For an interactive `npm start` loop, don't use this: generate the real pair
 // once (scripts/make-license-keypair.js), then mint yourself a key

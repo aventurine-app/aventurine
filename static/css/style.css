@@ -103,9 +103,9 @@
        than the OS appearance. */
    color-scheme: light;
 
-    /* Native <input type=date> picker glyph, replaced with our own SVG so it
-       matches --text-primary in either theme. We swap the glyph via
-       background-image (appearance:none) — the native colour isn't reliable
+    /* Native <input type=date> picker glyph, replaced with a bundled SVG so it
+       matches --text-primary in either theme. The glyph is swapped via
+       background-image (appearance:none) — the native colour is not reliable
        across themes here, and masking the indicator renders invisibly in this
        Electron build. The SVG is a same-origin file (NOT a data: URI): the
        page CSP is img-src 'self' with no data:, so inline data URIs are
@@ -194,10 +194,10 @@
     * Balances pie, account balances — draw their line/slice colours from these
     * tokens so the charts FOLLOW THE UI ACCENT and retone whenever the accent
     * is swapped — as does the income side of the Cash Flow Sankey. (The
-    * category-shaped surfaces take --cat-* instead; see below.) They are
-    * deliberately separate from the green/red gain-loss tokens (--accent-positive / --accent-negative),
-    * which stay reserved for the NUMERIC figures: +/- deltas, ROI, and ledger
-    * amounts. Charts = accent; numbers = green/red.
+    * category-shaped surfaces use --cat-* instead; see below.) They are separate
+    * from the green/red gain-loss tokens (--accent-positive / --accent-negative),
+    * which are reserved for NUMERIC figures: +/- deltas, ROI, and ledger amounts.
+    * Charts = accent; numbers = green/red.
     *
     * Each stop is a mix of the accent with --text-primary (the high-contrast
     * direction in EITHER theme — dark on light, light on dark) or with
@@ -239,11 +239,11 @@
    --chart-expense:  var(--chart-4);
    --chart-transfer: var(--chart-2);
 
-   /* Cash Flow Sankey. Its two sides are coloured on different principles (see
+   /* Cash Flow Sankey. Its two sides use different colour schemes (see
       widgets/cashflow-sankey.js): the INFLOW is one stream in six shades of one
       colour, the outflow is a hue per category from --cat-*. The six stops and
-      the hub get names for the same reason the three above do — under the
-      accent ramp they are the ramp's stops, exactly as before, and a palette
+      the hub are named for the same reason the three above are — under the
+      accent ramp they are the ramp's stops, unchanged, and a palette
       with hues to spend can say something with them instead. */
    --chart-inflow-1: var(--chart-1);
    --chart-inflow-2: var(--chart-3);
@@ -266,8 +266,8 @@
     *          (the avatar circles in the light theme).
     *   mid  — a muted mid-tone, for a colour used as INK on a surface
     *          (chart lines, Sankey expense bands) or as a fill on a dark one.
-    * Unlike --chart-* these are fixed values, not accent mixes: their whole
-    * job is to tell categories apart, which a single-hue family can't do. */
+    * Unlike --chart-* these are fixed values, not accent mixes: they exist to
+    * distinguish categories, which a single-hue family cannot do. */
    --spectrum-pale-1: #bec7e4;   /* blue */
    --spectrum-pale-2: #e4dbbe;   /* orange */
    --spectrum-pale-3: #bee4e4;   /* aqua */
@@ -304,17 +304,17 @@
     * Where a chart's series are CATEGORIES, hue is the label, not decoration:
     * the Reports page's Spending report (one line per expense category) and the
     * expense side of its Cash Flow Sankey (one band each) draw from these
-    * instead of the --chart-* ramp. A ramp of one accent asks the eye to rank
-    * eight lines by lightness, which it can't, so neighbouring categories bled
-    * together. Everything that plots ONE measure over time — net worth,
-    * forecast, balances, and the Sankey's income side — keeps the accent ramp,
-    * so the app still reads as accent-coloured.
+    * instead of the --chart-* ramp. A single-accent ramp requires distinguishing
+    * eight lines by lightness alone, which made neighbouring categories hard to
+    * separate. Everything that plots ONE measure over time — net worth, forecast,
+    * balances, and the Sankey's income side — keeps the accent ramp, so the app
+    * stays accent-coloured overall.
     *
-    * These are the spectrum's ink step: mid-tone on the light theme, and the
-    * pale step on dark (see themes.css) — whichever side of the page
-    * background carries contrast. The avatars use the two steps the other way
-    * round, because there the colour is the fill and the initials are the ink.
-    * Ordered hue-alternating (cool/warm) so adjacent series stay apart. */
+    * These are the spectrum's ink step: mid-tone on the light theme, and the pale
+    * step on dark (see themes.css), whichever contrasts with the page background.
+    * The avatars use the two steps the other way round, since there the colour is
+    * the fill and the initials are the ink. Ordered hue-alternating (cool/warm)
+    * so adjacent series differ. */
    --cat-1: var(--spectrum-mid-1);
    --cat-2: var(--spectrum-mid-2);
    --cat-3: var(--spectrum-mid-3);
@@ -415,9 +415,9 @@
 
 
 /* ─── 2. Typography ─────────────────────────────────────────────────────────
- * The type system is inspired by Linear / Vercel: a 1.25 modular scale anchored
- * at 15px body, paired with a small set of weights and a deliberate tracking
- * scale (tight on display sizes, wide on micro all-caps eyebrows).
+ * The type system uses a 1.25 modular scale anchored at 15px body, with a small
+ * set of weights and a tracking scale (tight on display sizes, wide on micro
+ * all-caps eyebrows).
  *
  * Tokens come in four groups (family, size, weight, line-height, tracking).
  * Per-page component rules compose them directly. */
@@ -497,9 +497,9 @@
 :root {
     /* ── Spacing scale — 4px base grid ───────────────────────────────────
      * The single ramp every padding / margin / gap should draw from. All
-     * multiples of 4 (8px steps past 16) so spacing reads as deliberate
-     * rather than hand-tuned. Names encode the pixel value for grep-ability.
-     * Component rules should prefer these over raw px. */
+     * multiples of 4 (8px steps past 16), so spacing is consistent rather than
+     * per-component. Names encode the pixel value for grep-ability. Component
+     * rules should prefer these over raw px. */
     --space-4:   4px;
     --space-8:   8px;
     --space-12: 12px;
@@ -1015,9 +1015,9 @@ div.page::-webkit-scrollbar-thumb:hover {
     transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-/* surface3 is the rung that MEANS hover (see the surface token comments); the
-   surface1 → surface2 step this used to make is a no-op on dark, where both
-   resolve to base-900, leaving the colour/border deltas to carry it alone. */
+/* surface3 is the hover rung (see the surface token comments); the surface1 →
+   surface2 step this used to make is a no-op on dark, where both resolve to
+   base-900, leaving only the colour and border deltas. */
 .p-menu-btn:hover {
     background: var(--surface3);
     color: var(--text-primary);

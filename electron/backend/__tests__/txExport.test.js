@@ -1,9 +1,9 @@
 'use strict';
 
-// Export feature (no Python ancestor): serialiser coverage for
-// services/txExport.js and the chunked POST /api/transactions/export
-// protocol — header/append/footer over <path>.part, overwrite guard, and
-// the rename-into-place on the final chunk.
+// Export feature (no Python predecessor): serialiser coverage for
+// services/txExport.js and the chunked POST /api/transactions/export protocol —
+// header/append/footer over <path>.part, overwrite guard, and the
+// rename-into-place on the final chunk.
 
 const test = require('node:test');
 const assert = require('node:assert');
@@ -313,7 +313,7 @@ test('export validates filters', (t) => {
   assert.equal(r.status, 400);
   assert.match(r.body.error, /category_id must not be an empty list/);
 
-  // Empty filters object behaves exactly like no filters.
+  // An empty filters object behaves the same as no filters.
   createTx(c, 'Something');
   const body = exportAll(c, dest, 'csv', { filters: {} });
   assert.deepEqual({ exported: body.exported, total: body.total }, { exported: 1, total: 1 });

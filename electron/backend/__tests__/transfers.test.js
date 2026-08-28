@@ -13,9 +13,9 @@ function catId(c, key) {
   return c.conn.db().prepare('SELECT id FROM categories WHERE "key" = ?').get(key).id;
 }
 
-/** A category the seed does not ship, made the way the UI makes one. Note the
- *  backend derives its own key ('cat_<id>'), which is exactly the point: the
- *  report cannot be keyed off a name the user chose, only off the direction. */
+/** A category the seed does not ship, created the way the UI creates one. The
+ *  backend derives the key ('cat_<id>'), which is the point: the report cannot
+ *  key off a user-chosen name, only off the direction. */
 function makeCategory(c, { name, cat_type }) {
   const r = c.post('/api/categories', { name, cat_type });
   assert.equal(r.status, 200, JSON.stringify(r.body));
@@ -80,10 +80,9 @@ test('transfers: any transfer category counts, no curation needed', (t) => {
   const c = makeClient(t);
   const m1 = monthsAgo(1);
 
-  // The point of the refactor: the report follows the DIRECTION, so a category
-  // the user invented themselves counts exactly like the seeded ones, and a
-  // seeded one re-typed away from transfer stops counting. Neither needs the
-  // import lexicon to have recognised anything.
+  // The report follows the DIRECTION, so a user-created category counts the same
+  // as the seeded ones, and a seeded one re-typed away from transfer stops
+  // counting. Neither depends on the import lexicon matching anything.
   const savings = catId(c, 'savings');
   const investing = catId(c, 'investing');
   const brokerage = makeCategory(c, { name: 'Brokerage', cat_type: 'transfer' });
@@ -101,11 +100,11 @@ test('transfers: any transfer category counts, no curation needed', (t) => {
   assert.equal(c.get('/api/transfers?window=12').body.total, 600);
 });
 
-test('transfers: an uncategorized row is judged by its own tx_type', (t) => {
+test('transfers: an uncategorized row takes its direction from tx_type', (t) => {
   const c = makeClient(t);
   const m1 = monthsAgo(1);
-  // The direction rule: no category, so the row speaks for itself. Same way
-  // handlers/topMerchants.js decides an uncategorized row is spending.
+  // The direction rule: no category, so the row's own tx_type applies. Same rule
+  // handlers/topMerchants.js uses for an uncategorized row.
   insertTx(c, { date: m1.date, amount: 120, description: 'ALLY SAVINGS XFER', category_id: null, tx_type: 'transfer' });
   insertTx(c, { date: m1.date, amount: 900, description: 'CORNER DELI', category_id: null, tx_type: 'expense' });
   const r = c.get('/api/transfers?window=12');
@@ -127,9 +126,9 @@ test('transfers: months stop where the ledger does, but real zeroes stay', (t) =
   const m4 = monthsAgo(4);
   const m1 = monthsAgo(1);
 
-  // The ledger begins four months ago, so a 24-month window cannot honestly
-  // plot the twenty months before it — nothing was ever imported for them, and
-  // a zero column would claim the user put nothing away.
+  // The ledger begins four months ago, so a 24-month window cannot plot the
+  // twenty months before it: nothing was imported for them, and a zero column
+  // would show no saving for months with no data.
   insertTx(c, { date: m4.date, amount: 100, description: 'VANGUARD BUY', category_id: investing });
   insertTx(c, { date: m1.date, amount: 100, description: 'VANGUARD BUY', category_id: investing });
 
@@ -174,8 +173,8 @@ test('transfers: merchants group by the shared rule and rank by total', (t) => {
   assert.equal(vanguard.count, 2);
   assert.equal(vanguard.monthly[m1.ym], 600);
   assert.equal(vanguard.monthly[m2.ym], 400);
-  // A curated name filters the ledger as itself (the Name filter matches
-  // display_name); an unnamed group needs the substring its rows share.
+  // A curated name is used as the filter term directly (the Name filter matches
+  // display_name); an unnamed group uses the substring its rows share.
   assert.equal(vanguard.search, 'Vanguard');
   assert.equal(r.body.merchants[1].search, 'HARBOR CREST FUNDS');
 });
@@ -185,9 +184,9 @@ test('transfers: the stack always totals the line', (t) => {
   const investing = catId(c, 'investing');
   const m1 = monthsAgo(1);
 
-  // Nine distinct merchants (one past the eight the palette can colour) plus a
-  // row that names nobody at all. Everything past the eighth, and the nameless
-  // row, has to land in OTHER or the two charts would disagree.
+  // Nine distinct merchants (one more than the eight the palette can colour) plus
+  // a row matching no merchant. Everything past the eighth, and the unmatched
+  // row, must land in OTHER or the two charts would not match.
   const names = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel', 'India'];
   names.forEach((n, i) => {
     insertTx(c, { date: m1.date, amount: (names.length - i) * 100, description: `${n} Funds`, category_id: investing });
@@ -223,9 +222,9 @@ test('transfers: an empty ledger answers with the months and nothing else', (t) 
 test('transfers: everTransferred ignores the window', (t) => {
   const c = makeClient(t);
   const investing = catId(c, 'investing');
-  // Older than any window the picker offers, so the report itself is empty —
-  // but the ledger HAS held a transfer, and the empty state has to say so
-  // rather than telling the user to go make their first one.
+  // Older than any window the picker offers, so the report is empty, but the
+  // ledger DOES hold a transfer, so the empty state must suggest a longer window
+  // rather than a first transfer.
   insertTx(c, { date: monthsAgo(40).date, amount: 500, description: 'VANGUARD BUY', category_id: investing });
   const r = c.get('/api/transfers?window=3');
   assert.equal(r.body.total, 0);

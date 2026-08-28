@@ -92,8 +92,8 @@ test('top merchants: an unnamed group links through the substring its rows share
   const c = makeClient(t);
   const m1 = monthsAgo(1);
 
-  // Deliberately a merchant the lexicon does NOT know, so this exercises tier 2.
-  // (A brand it does know is resolved to a curated name and searched as that.)
+  // A merchant absent from the lexicon, so this exercises tier 2. (A brand in the
+  // lexicon resolves to a curated name and is searched as that.)
   insertTx(c, { date: m1.date, description: 'BRIGHTWATER LAUNDRY 8667797', amount: 15.49, tx_type: 'expense' });
   insertTx(c, { date: m1.date, description: 'BRIGHTWATER LAUNDRY 8667799', amount: 15.49, tx_type: 'expense' });
 
@@ -122,9 +122,9 @@ test('top merchants: statement furniture in FRONT of the name does not split it'
   const c = makeClient(t);
   const m1 = monthsAgo(1);
 
-  // The real-world case a positional key cannot absorb on its own: the noise
-  // arrives before the merchant, and "PMTS" survives NOISE_PATTERNS (which
-  // matches the singular "pmt"). "SGQBDG" is a vowel-less reference code.
+  // The case a positional key cannot handle alone: the noise comes before the
+  // merchant, and "PMTS" survives NOISE_PATTERNS (which matches the singular
+  // "pmt"). "SGQBDG" is a vowel-less reference code.
   insertTx(c, { date: m1.date, description: 'WEB PMTS Greenspring', amount: 100, tx_type: 'expense' });
   insertTx(c, { date: m1.date, description: 'GREENSPRING WEB PMTS ACH WEB-RECUR SGQBDG', amount: 50, tx_type: 'expense' });
   insertTx(c, { date: m1.date, description: 'Greenspring', amount: 25, tx_type: 'expense' });
@@ -147,7 +147,7 @@ test('top merchants: a brand keeps digits at either end of its own name', (t) =>
 
   const r = c.get('/api/top-merchants?window=12');
   assert.deepEqual(r.body.merchants.map((m) => m.count), [2, 1]);
-  // Both branches are one merchant, and it is named after itself.
+  // Both branches group as one merchant, labelled with its own name.
   assert.ok(/5GUYS/i.test(r.body.merchants[0].name), r.body.merchants[0].name);
   assert.ok(/ISC2/i.test(r.body.merchants[1].name), r.body.merchants[1].name);
 });
@@ -289,7 +289,8 @@ test('top merchants: caps at 20 bars, ranked highest to lowest', (t) => {
   const c = makeClient(t);
   const m1 = monthsAgo(1);
 
-  // 25 merchants, each spending its own index — so the top 20 are 25 down to 6.
+  // 25 merchants, each spending its index amount, so the top 20 are 25 down to
+  // 6.
   for (let i = 1; i <= 25; i++) {
     insertTx(c, { date: m1.date, description: `SHOP ${String.fromCharCode(64 + i)}`, amount: i, tx_type: 'expense' });
   }

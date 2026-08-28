@@ -5,13 +5,13 @@
 // Ctrl/Cmd + -  : zoom out
 // Ctrl/Cmd + 0  : reset to 100%
 //
-// The renderer owns the canonical zoom value (persisted in localStorage so
-// it survives restarts). main.js just receives the new level over IPC and
-// applies it to the live webContents.
+// The renderer holds the canonical zoom value (persisted in localStorage so it
+// survives restarts). main.js receives the new level over IPC and applies it to
+// the live webContents.
 //
-// Chromium's zoom-level scale: each integer is ~20%; useful range is
-// [-3, +5] → roughly 50% .. 250%. We step in halves for a smoother feel
-// than full integer jumps.
+// Chromium's zoom-level scale: each integer is ~20%; the useful range is
+// [-3, +5] → roughly 50% .. 250%. Steps are half-integers, which change the
+// size less abruptly than full integers.
 
 (function () {
     if (!window.electronWindow) return;   // not running under Electron

@@ -1,9 +1,8 @@
 'use strict';
 
-// License verification. The property under test is narrow and load-bearing:
-// the app can CHECK a key and can never MINT one. Everything else here defends
-// the wire format, since a format drift silently invalidates every key already
-// sold.
+// License verification. The main property under test: the app can CHECK a key
+// and cannot MINT one. The rest of these tests pin the wire format, since a
+// format change invalidates every key already sold.
 
 const test = require('node:test');
 const assert = require('node:assert');
@@ -113,11 +112,12 @@ test('Crockford aliases fold, stray characters do not', (t) => {
   withKey(t, 0, real.raw);
   const key = L.encode(BASE, real.sign);
 
-  // I/L -> 1 and O -> 0 are the classic transcription slips; they self-correct.
+  // I/L -> 1 and O -> 0 are common transcription errors; the decoder maps them
+  // back.
   const slipped = key.replace(/1/g, 'I').replace(/0/g, 'O');
   assert.ok(L.verify(slipped, { major: 1 }).ok, 'I/O aliases should fold back');
 
-  // U is deliberately absent from the alphabet, so it is a paste error.
+  // U is not in the alphabet, so it indicates a paste error.
   assert.equal(L.verify(`${key}U`, { major: 1 }).reason, 'malformed');
   assert.equal(L.verify(key.replace(/./, '!'), { major: 1 }).reason, 'malformed');
 });
@@ -150,7 +150,8 @@ test('slots are independent, so rotation strands nobody', (t) => {
 
   assert.ok(L.verify(L.encode({ ...BASE, slot: 0 }, oldPair.sign), { major: 1 }).ok);
   assert.ok(L.verify(L.encode({ ...BASE, slot: 1 }, newPair.sign), { major: 1 }).ok);
-  // A key is bound to its slot; the signature does not travel.
+  // A key is bound to its slot; a signature from one slot does not verify under
+  // another.
   assert.equal(
     L.verify(L.encode({ ...BASE, slot: 1 }, oldPair.sign), { major: 1 }).reason,
     'bad_signature'
@@ -168,8 +169,8 @@ test('entitlement gates by major version and names the license', (t) => {
   const res = L.verify(key, { major: 2 });
   assert.equal(res.ok, false);
   assert.equal(res.reason, 'entitlement');
-  // The license still comes back, so the UI can say WHOSE license needs the
-  // upgrade instead of showing a forgery warning to a paying customer.
+  // The license is still returned, so the UI can show which license needs the
+  // upgrade instead of an invalid-key error.
   assert.equal(res.license.email, 'buyer@example.com');
 });
 
@@ -273,10 +274,10 @@ test('api: activation works while the database is still locked', (t) => {
   withKey(t, 0, real.raw);
   withConfigDir(t);
 
-  // An encrypted DB restored from the pointer starts locked. A license belongs
-  // to the INSTALL, so /api/license must answer before any passphrase is
-  // supplied — otherwise a user whose install is BOTH locked and unactivated
-  // could never reach either screen.
+  // An encrypted DB restored from the pointer starts locked. A license applies to
+  // the INSTALL, so /api/license must respond before any passphrase is supplied;
+  // otherwise an install that is both locked and unactivated has no reachable
+  // screen.
   const c = makeClient(t, { licensed: false });
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fl-lic-db-'));
   const p = path.join(dir, 'enc.db');
@@ -304,10 +305,10 @@ test('api: activation works while the database is still locked', (t) => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  // Both gates are up, and which one answers now depends on the route. A FREE
-  // route has no licensing left to say, so the lock speaks; a PAID one is
-  // refused before the lock is ever consulted, because a passphrase prompt
-  // would be a dead end on a feature the user has not bought.
+  // Both gates are active, and which one responds depends on the route. A FREE
+  // route is not license-gated, so it returns the lock status; a PAID one is
+  // refused before the lock is checked, since a passphrase prompt leads nowhere
+  // for an unpurchased feature.
   assert.equal(dispatch(conn2, 'GET', '/api/db/status', null).status, 200);
   assert.equal(dispatch(conn2, 'GET', '/api/data', null).status, 423);
   assert.equal(dispatch(conn2, 'GET', '/api/trends', null).status, 402);
@@ -376,9 +377,9 @@ test('gate: the free tier is a working transaction manager', (t) => {
 test('gate: everything built on top of the ledger needs a key', (t) => {
   const c = unlicensedClient(t);
 
-  // The second half of the sentence. These are whole pages, each with its own
-  // addresses, which is exactly why they can be locked at the route level
-  // while the Dashboard's Year to Year section cannot.
+  // The paid half of the gate. These are whole pages with their own routes, which
+  // is why they can be locked at the route level while the Dashboard's Year to
+  // Year section cannot.
   const paid = [
     ['GET', '/api/forecast', null],
     ['GET', '/api/trends', null],
@@ -389,9 +390,9 @@ test('gate: everything built on top of the ledger needs a key', (t) => {
     ['GET', '/api/report-card', null],
     ['GET', '/api/credit-cards/data', null],
     ['GET', '/api/portfolio/data', null],
-    // The year grids on the Statements page. Import still writes year tables,
-    // but it does so inside the backend rather than over these addresses, so
-    // locking them cannot break the free tier's own import.
+    // The year grids on the Statements page. Import still writes year tables, but
+    // it does so inside the backend rather than over these routes, so locking them
+    // does not break the free tier's import.
     ['POST', '/api/entry', {}],
     ['DELETE', '/api/entry', {}],
     ['POST', '/api/year', {}],
@@ -434,8 +435,8 @@ test('gate: activating lifts it immediately, removing puts it back', (t) => {
   withKey(t, 0, real.raw);
   const c = unlicensedClient(t);
 
-  // Probed on a PAID route: the ledger answers either way now, so it can no
-  // longer tell an activated install from an unactivated one.
+  // Probed on a PAID route: the ledger routes respond either way, so they cannot
+  // distinguish an activated install from an unactivated one.
   assert.equal(dispatch(c.conn, 'GET', '/api/trends', null).status, 402);
 
   const key = L.encode({ ...BASE, entitlement: 99 }, real.sign);
@@ -500,8 +501,8 @@ test('gate: which gate answers depends on whether the route is free', (t) => {
   assert.equal(free.status, 423);
   assert.equal(free.body.error, 'db_locked');
 
-  // Paid route, same locked database: the license is checked first and there
-  // is nothing to unlock towards, so it answers instead.
+  // Paid route, same locked database: the license is checked first, so 402 is
+  // returned rather than 423.
   const paid = dispatch(c.conn, 'GET', '/api/trends', null);
   assert.equal(paid.status, 402);
   assert.equal(paid.body.error, 'license_required');
@@ -524,9 +525,9 @@ test('api: preview reads a key back without storing it', (t) => {
   assert.equal(r.status, 200);
   assert.equal(r.body.license.email, 'buyer@example.com');
 
-  // The whole point: looking is not activating. A preview must leave the
-  // install exactly as unlicensed as it found it, or pasting a key you decided
-  // against would quietly commit it.
+  // Previewing is not activating. A preview must leave the install as unlicensed
+  // as it found it; otherwise pasting a key would activate it without a further
+  // step.
   assert.equal(c.get('/api/license').body.licensed, false);
   assert.equal(dispatch(c.conn, 'GET', '/api/trends', null).status, 402);
 });

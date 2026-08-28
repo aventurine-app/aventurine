@@ -99,14 +99,14 @@ function train(dataset) {
 // ── Calibrate the abstention gate ───────────────────────────────────────────
 // The classifier only runs on rows the lexicon+keyword layer leaves blank, so
 // every calibration set is filtered to that subset. Goal: zero wrong fires
-// (precision 1.0) across ALL guard sets, then maximize correct fires (recall)
-// on the dedicated classifier-eval positives.
+// (precision 1.0) across ALL guard sets, then maximum correct fires (recall) on
+// the dedicated classifier-eval positives.
 //
 //   recallSet    — classifier-eval: describable merchants the lexicon misses.
-//                  We maximize correct fires here.
-//   guardSets    — recallSet + the real corpus + the hazard corpus. A wrong
-//                  fire on ANY of these disqualifies a gate. Hazards and the
-//                  corpus are NOT used to pick recall, so they stay honest
+//                  Correct fires are maximized against this set.
+//   guardSets    — recallSet + the real corpus + the hazard corpus. A wrong fire
+//                  on ANY of these disqualifies a gate. Hazards and the corpus
+//                  are NOT used to select for recall, so they remain independent
 //                  precision checks.
 function calibrate(model, { evalSet, corpus, hazards }) {
   const blank = (rows) => rows.filter((r) => categorize(r.desc) === null);
@@ -144,8 +144,9 @@ function calibrate(model, { evalSet, corpus, hazards }) {
         if (guardSets.some((rows) => wrongFires(m, rows) > 0)) continue;
         const correct = correctFires(m, recallSet);
         // Maximize recall; on ties prefer the STRICTER gate (larger margins).
-        // Precision beats coverage: a tighter gate that recovers the same rows
-        // here will fire less often — and thus wrong less often — out of sample.
+        // Precision is prioritised over coverage: a tighter gate that recovers the
+        // same rows here fires less often, and so fires wrongly less often, out of
+        // sample.
         const score = correct * 1000 + (marginUnknown + marginRunner) + minKnown;
         if (!best || score > best.score) best = { gate, correct, recallTotal: recallSet.length, score };
       }

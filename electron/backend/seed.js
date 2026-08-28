@@ -9,15 +9,15 @@ const { SYSTEM_CATEGORY_KEYS, insertPos } = require('./services/categories');
 
 // (key, name, cat_type, position)
 //
-// The canonical category set: a recognizable, standard personal-finance taxonomy
-// shipped by default. Users layer their own categories on top (POST /api/categories)
-// and may rename/delete these — keys are stable slugs, so renames don't break
+// The default category set: a standard personal-finance taxonomy shipped with a
+// new database. Users can add their own categories (POST /api/categories) and
+// rename or delete these — keys are stable slugs, so a rename does not break
 // references. The built-in import categorizer (services/merchantCategories.js)
-// targets these keys; recognizable buckets here (a single Food bucket for
-// groceries + restaurants, a real Insurance/Travel category) directly raise
-// auto-categorization usefulness. The two
-// uncat_* buckets are system buckets (NULL-category sums) — see
-// handlers/incomeExpenses.js NULL_SYNC_KEYS — and must not be removed.
+// targets these keys; broad buckets here (a single Food bucket for groceries and
+// restaurants, a dedicated Insurance/Travel category) raise the share of rows
+// auto-categorization can fill. The two uncat_* buckets are system buckets
+// (NULL-category sums) — see handlers/incomeExpenses.js NULL_SYNC_KEYS — and
+// must not be removed.
 const DEFAULT_CATEGORIES = [
   ['income',         'Primary Income',      'income',    0],
   ['other_income',   'Other Income',        'income',    1],
@@ -35,13 +35,13 @@ const DEFAULT_CATEGORIES = [
   ['uncat_expense',  'Uncategorized',       'expense',   13],
   // Transfers: money moved between the user's own accounts (savings, brokerage).
   // Excluded from every income/spend surface. Keys are unchanged so the import
-  // categorizer's merchant lexicon (which targets these keys) keeps landing here.
+  // categorizer's merchant lexicon (which targets these keys) still maps here.
   //
-  // Two buckets, not three: a separate Emergency Fund row split saving in half by
-  // PURPOSE, which is a distinction only the user can draw and most never do — the
-  // money leaves for the same place either way. Anyone who wants it back adds it as
+  // Two buckets, not three: a separate Emergency Fund row split saving by
+  // PURPOSE, a distinction the ledger cannot derive and most users do not draw,
+  // since the destination account is the same either way. It can be re-added as
   // a custom category. (Renamed 2026-07-25; `savings` and `investing` keep their
-  // keys, so the lexicon and the trained classifier are untouched.)
+  // keys, so the lexicon and the trained classifier are unaffected.)
   ['savings',        'Savings',             'transfer',  14],
   ['investing',      'Investing',           'transfer',  15],
 ];
@@ -49,14 +49,13 @@ const DEFAULT_CATEGORIES = [
 // (key, label, col_type, position)
 //
 // The starter accounts. Unlike the category taxonomy above, these are seeded
-// HIDDEN (see balance_columns.hidden): an account name is pure user identity —
-// there is no useful default, and five generic columns the user never chose make
-// their Balance Sheet read as someone else's spreadsheet. So they exist only as
-// stably-keyed, pre-named CHOICES for onboarding and the import account picker
-// ("Which account is this from?"), and each one appears in the app the moment
-// the user adopts it. Users who want something else name their own account,
-// which is born visible; this list is a shortcut, never a limit (two checking
-// accounts are perfectly legal).
+// HIDDEN (see balance_columns.hidden): account names are specific to each user,
+// so there is no useful default, and five generic columns nobody chose would
+// fill the Balance Sheet with unused rows. They exist only as stably-keyed,
+// pre-named CHOICES for onboarding and the import account picker ("Which account
+// is this from?"), and each appears in the app once adopted. A user can also
+// create an account with any name, which is visible immediately; this list is a
+// shortcut, not a limit (two checking accounts are allowed).
 // Positions keep each col_type's run contiguous, in typeOrder — the invariant
 // yearTable.insertPos maintains and the Balance Sheet groups by. Presentation
 // order in the onboarding picker is a separate concern (Credit Card is one of
@@ -79,11 +78,11 @@ function seedDefaults(db) {
     db.prepare('INSERT INTO active_years (year) VALUES (?)').run(year);
   }
 
-  // The default taxonomy seeds only into an EMPTY table — a starting template,
-  // like every other tracker in this function. Re-filling by key on every open
-  // would resurrect defaults the user deliberately deleted (and re-insert them
-  // at their original seed position, colliding with whatever sits there now).
-  // A delete must survive relaunch: the user owns a non-empty table.
+  // The default taxonomy seeds only into an EMPTY table, like every other
+  // tracker in this function. Re-filling by key on every open would re-create
+  // defaults the user deleted, and re-insert them at their original seed
+  // position, colliding with whatever occupies it now. A delete must persist
+  // across relaunch, so a non-empty table is left alone.
   if (!db.prepare('SELECT 1 FROM categories LIMIT 1').get()) {
     const insCat = db.prepare(
       'INSERT INTO categories ("key", name, cat_type, position) VALUES (?, ?, ?, ?)'
@@ -93,12 +92,12 @@ function seedDefaults(db) {
     }
   }
 
-  // System buckets (the two uncat_* rows) are the one exception: they're
-  // load-bearing (NULL-category sums — without the row the Uncategorized
-  // column vanishes from Cash Flow), so a DB written before the API lock
-  // existed gets them re-created if deleted, and healed if renamed/re-typed.
-  // Enforced here at the storage boundary, on every open, so every read path
-  // sees the canonical rows. Position is not healed: reordering is allowed.
+  // System buckets (the two uncat_* rows) are the one exception: they are
+  // required (NULL-category sums — without the row the Uncategorized column
+  // disappears from Cash Flow), so a DB written before the API lock existed gets
+  // them re-created if deleted, and repaired if renamed or re-typed. Applied
+  // here at the storage boundary, on every open, so every read path gets the
+  // canonical rows. Position is not repaired: reordering is allowed.
   const healCat = db.prepare(
     'UPDATE categories SET name = ?, cat_type = ? WHERE "key" = ? AND (name != ? OR cat_type != ?)'
   );

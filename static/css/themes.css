@@ -58,9 +58,9 @@ html[data-theme="dark"],
 
 
     /* Neutral charcoal for secondary buttons (see style.css). A dark charcoal
-       line would vanish on the dark background, so the idle line steps up to a
-       light grey; the hover fill is a true charcoal (base-700) carrying white
-       text, so it still reads as a charcoal button. */
+       line would be invisible on the dark background, so the idle line steps up
+       to a light grey; the hover fill is a true charcoal (base-700) with white
+       text, keeping it a charcoal button. */
     --accent-neutral:      var(--color-base-300);   /* idle text + border */
     --accent-neutral-fill: var(--color-base-700);   /* hover fill */
     /* Idle BORDER — --stroke-medium, NOT the --border this token resolves to in
@@ -125,8 +125,8 @@ html[data-theme="dark"],
     /* Dialog chrome — separate from frost because light theme sets these
      * to opaque surface tokens rather than translucent rgba values. */
     --dialog-surface:        rgb(38, 38, 40);
-    /* One rung lighter, on the dialog's own hand-tuned scale rather than the
-       base ramp: raised means lighter here, the same direction as --surface1-4. */
+    /* One rung lighter, on the dialog's hand-tuned scale rather than the base
+       ramp: raised means lighter here, the same direction as --surface1-4. */
     --dialog-surface-raised: rgb(48, 48, 51);
     --dialog-stroke:         rgba(255,255,255, 0.12);
 

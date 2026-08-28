@@ -1,17 +1,17 @@
 'use strict';
 
 // Boots the REAL app entry with NO license against an isolated profile, and
-// asserts from inside the renderer that the SOFT gate is what it claims to be:
-// the ledger works, the paid destinations do not, the activation screen opens
-// and closes on request, and pasting a valid key lights the rest up.
+// asserts from inside the renderer that the SOFT gate behaves as specified: the
+// ledger works, the paid destinations do not, the activation screen opens and
+// closes on request, and pasting a valid key unlocks the rest.
 //
-// The renderer half matters more here than it did under the total lockout. Then
-// there was one state and it covered everything; now the free tier is a real
-// layout that a stylesheet decides, so "did the paid section actually stay
-// hidden" is a question only a running window can answer.
+// The renderer half matters more here than under the total lockout, where one
+// state covered everything. The free tier is now a layout the stylesheet
+// produces, so whether a paid section stayed hidden can only be checked in a
+// running window.
 //
 // The counterpart to verify-e2e.js, which installs a throwaway license and so
-// never exercises this path at all.
+// never exercises this path.
 //
 //   npx electron scripts/verify-activation.js
 
@@ -76,9 +76,8 @@ app.whenReady().then(async () => {
       + ' if (h && !h.hidden) document.getElementById("dashboard-firstrun-skip").click(); })()');
     await settle(400);
 
-    // The one section the backend cannot defend, so the stylesheet is all
-    // there is. If this ever passes by accident the free tier is giving away
-    // the thing it exists to sell.
+    // The one section the backend cannot gate, so the stylesheet is the only
+    // control. If this check fails, the free tier is showing paid content.
     check('Year to Year is hidden', await evalJs(
       'getComputedStyle(document.querySelector("#dashboard-section-overtime")).display === "none"'
     ));
@@ -137,9 +136,9 @@ app.whenReady().then(async () => {
     await evalJs('document.documentElement.dataset.licenseGate = "off"');
     await settle();
 
-    // A locked link is INERT. No hover, no click, and out of the tab order, so
-    // it cannot promise an action the app will refuse. Clicking one has to do
-    // nothing at all: not navigate, and not raise the screen either.
+    // A locked link is INERT: no hover, no click, and out of the tab order, so it
+    // offers no action the app will refuse. Clicking one must do nothing: no
+    // navigation, and no activation screen.
     check('locked links take no pointer', await evalJs(
       '[...document.querySelectorAll(".nav a[data-paid]")]'
       + '.every(l => getComputedStyle(l).pointerEvents === "none")'
@@ -154,12 +153,11 @@ app.whenReady().then(async () => {
       'document.documentElement.dataset.licenseGate !== "on" && location.pathname === "/"'
     ));
 
-    // The bug the nav-only version had: the dashboard's empty-state cards render
-    // their own links into Statements, and those are not in the nav, so they
-    // walked straight past the lock. Anything pointing at a paid PAGE has to be
-    // answered, wherever it was drawn.
-    // :not([data-paid]) matters: the sidebar's own Statements link comes first
-    // in the DOM, and it is the one link that must stay silent.
+    // The bug in the nav-only version: the dashboard's empty-state cards render
+    // links into Statements, which are not in the nav, so they bypassed the lock.
+    // Any link to a paid PAGE must be intercepted, wherever it was rendered.
+    // :not([data-paid]) matters: the sidebar's Statements link comes first in the
+    // DOM, and it is the one link that must stay inert.
     check('the dashboard really does link into a paid page', await evalJs(
       '!!document.querySelector(\'a[href^="/statements"]:not([data-paid])\')'
     ));
@@ -194,8 +192,8 @@ app.whenReady().then(async () => {
       + ' && b.textContent.includes("aventurine-app.com/activate"); })()'
     ));
 
-    // Closing is the whole difference from the lockout: there is an app back
-    // there, and the user asked to see it.
+    // Closing is the difference from the lockout: there is a usable app behind
+    // the screen.
     await evalJs('document.querySelector("[data-license-close]").click()');
     await settle();
     check('it closes again', await evalJs(
@@ -204,9 +202,9 @@ app.whenReady().then(async () => {
     ));
 
     // ── Activating lights the rest up ─────────────────────────────────────
-    // installDevLicense writes license.json directly, which is what a
-    // successful activate would have produced, so refreshing the panel is the
-    // honest last step.
+    // installDevLicense writes license.json directly, matching what a successful
+    // activate would have produced, so refreshing the panel is the correct last
+    // step.
     require('./lib/dev-license').installDevLicense();
     await evalJs('window.licenseActions.refresh()');
     await settle(400);
@@ -249,8 +247,8 @@ app.whenReady().then(async () => {
       'document.querySelector("[data-modal=\'about\']").hidden === false'
     ));
 
-    // Deactivate asks first, and Cancel has to mean it: a confirm step that
-    // still deactivates on the way out is worse than no confirm step.
+    // Deactivate confirms first, and Cancel must cancel: a confirm step that
+    // deactivates anyway is worse than no confirm step.
     await evalJs('document.querySelector("[data-license-remove]").click()');
     await settle(200);
     check('Deactivate asks before acting', await evalJs(

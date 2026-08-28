@@ -7,13 +7,13 @@
 // editable fields (asset name, ticker, amount, avg price, market price) plus
 // two computed read-only fields (Total = amount × market_price, ROI).
 //
-// What this file owns:
+// What this file contains:
 //   - Page-wide state (ACCOUNTS)
 //   - The portfolio API client (portfolioApi)
 //   - Per-account table DOM (forehead with Add/Remove/⋮ buttons, 7-column
 //     thead, entry rows, totals tfoot)
-//   - Per-row arrow-key navigation (by row + column index, since portfolio
-//     rows aren't keyed by month like year tables are)
+//   - Per-row arrow-key navigation (by row + column index, since portfolio rows
+//     are not keyed by month like year tables are)
 //   - The "Rename Table" / "Duplicate Table" / "Delete Table" ⋮ menu and
 //     the "Remove Asset" modal
 //
@@ -45,8 +45,8 @@
             apiFetch(url, { method, headers: jsonHeaders, body: JSON.stringify(body) });
         // Toast on failure and resolve { ok: false } instead of rejecting: these
         // calls are fired from debounce() without an await, so a rejection would
-        // otherwise become an unhandled promise rejection — and the user would
-        // keep typing over a value that was never stored.
+        // become an unhandled promise rejection and the failed save would go
+        // unreported.
         const guardWrite = (promise) => promise.then(
             (res) => {
                 if (res && res.ok === false) {
@@ -155,9 +155,9 @@
         menuBtn.textContent = '⋮';
         menuBtn.title       = 'Table options';
         menuBtn.addEventListener('click', e => {
-            // Forehead has its own click handler (toggle collapse) on year
-            // tables; portfolio doesn't toggle on title click, but we stop
-            // propagation anyway in case that changes later.
+            // The forehead has a click handler (toggle collapse) on year tables;
+            // portfolio does not toggle on title click, but propagation is stopped
+            // in case that changes later.
             e.stopPropagation();
             openAccountMenu(account, menuBtn, nameSpan);
         });
@@ -229,10 +229,10 @@
     }
 
     /**
-     * Modal asking the user for a new account name. Pre-fills the current name,
-     * commits on Enter / Rename button, cancels on Escape / Cancel button.
+     * Modal asking for a new account name. Pre-fills the current name, commits on
+     * Enter or the Rename button, cancels on Escape or the Cancel button.
      *
-     * We update nameSpan.textContent directly on success so the visible header
+     * nameSpan.textContent is updated directly on success so the visible header
      * label changes without a full page re-render.
      */
     function renameAccountDialog(account, nameSpan) {
@@ -274,9 +274,9 @@
 
     /**
      * Server-side duplicate of an account (copies name + all entries with a
-     * " (Copy)" suffix). On success we append the new account table directly
-     * rather than re-rendering the whole page so the existing tables don't lose
-     * their input focus / cursor state.
+     * " (Copy)" suffix). On success the new account table is appended directly
+     * rather than re-rendering the whole page, so the existing tables keep their
+     * input focus and cursor position.
      */
     async function duplicateAccount(account) {
         const data = await portfolioApi.duplicateAccount(account.id);
@@ -323,17 +323,16 @@
     // ─── Entry row ──────────────────────────────────────────────────────────────
 
     /**
-     * Build one asset row. Each editable field has its own debounced save so we
-     * don't fire one PUT per keystroke. The numeric fields share a single
-     * debouncedSave that batches amount + price + market_price into one PUT.
+     * Build one asset row. Each editable field has a debounced save, so there is
+     * not one PUT per keystroke. The numeric fields share a single debouncedSave
+     * that batches amount + price + market_price into one PUT.
      *
      * Two computed read-only cells (Total, ROI) update synchronously inside
-     * updateComputed() — they're derived from the three numeric fields and need
-     * to refresh on every keystroke (not on debounced save) so the user sees
-     * immediate feedback.
+     * updateComputed(): they are derived from the three numeric fields and refresh
+     * on every keystroke rather than on the debounced save.
      *
-     * After any numeric change we also refresh the table's tfoot via
-     * refreshFooter() so the per-account totals stay in sync.
+     * After any numeric change, refreshFooter() also updates the table's tfoot so
+     * the per-account totals stay in sync.
      */
     function buildEntryRow(entry, accountId, wrapper) {
         const tr = document.createElement('tr');
@@ -357,8 +356,8 @@
         tr.appendChild(nameTd);
 
         // — Ticker (colIdx 1) —
-        // Always uppercased on save; we rewrite the input's value to the upper
-        // form so the cursor sees the same text it just persisted.
+        // Always uppercased on save; the input's value is rewritten to the
+        // uppercase form so the field shows the stored text.
         const tickerTd = document.createElement('td');
         tickerTd.className = 'col-ticker';
         const tickerInput = document.createElement('input');
@@ -554,8 +553,8 @@
         amtTd.innerHTML = `<span class="p-computed">${totalAmt ? formatDisplay(totalAmt) : ''}</span>`;
         tr.appendChild(amtTd);
 
-        // Avg / Mkt price columns blank — there's no meaningful single number
-        // to display here (would have to weight by amount, would be confusing).
+        // Avg / Mkt price columns are blank: a single figure here would require
+        // weighting by amount, which the column header does not describe.
         tr.appendChild(Object.assign(document.createElement('td'), { className: 'col-number' }));
         tr.appendChild(Object.assign(document.createElement('td'), { className: 'col-number' }));
 
@@ -681,9 +680,9 @@
     }
 
     /**
-     * Modal confirming a destructive delete of an entire account. This is the
-     * portfolio analog to confirmDelete() in tables.js, but with a name-aware
-     * message (and the name is user-controlled, so it must be escapeHtml'd).
+     * Modal confirming deletion of an entire account. The portfolio equivalent of
+     * confirmDelete() in tables.js, with the account name in the message (the name
+     * is user-controlled, so it is escapeHtml'd).
      */
     function confirmDeleteAccount(account) {
         const overlay = document.createElement('div');

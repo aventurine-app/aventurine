@@ -21,7 +21,7 @@ function upcoming(ctx, { query }) {
   const rows = db.prepare('SELECT * FROM transactions ORDER BY date').all();
   // Direction resolved the same way /api/transactions does it: a categorized
   // row's type comes from Category.cat_type at read time; the stored tx_type
-  // only speaks for uncategorized rows.
+  // applies only to uncategorized rows.
   const expenses = rows.filter((t) => {
     const dir = t.category_id != null ? catTypes.get(t.category_id) ?? t.tx_type : t.tx_type;
     return dir === 'expense';

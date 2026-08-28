@@ -127,12 +127,11 @@
     function rowHtml(c) {
         // The two seeded "Uncategorized" buckets are read-only: their key is
         // hardcoded elsewhere (Cash Flow/Report Card/credit-card stats) to
-        // bucket NULL-category transactions, so renaming/deleting them would
-        // silently break those totals (backend enforces this too). Their name
-        // is a static label — no input at all, so there's nothing to edit — but
-        // they stay draggable so the user can still reorder them. A lock glyph
-        // sits where the delete × would be, so the missing affordances read as
-        // deliberate rather than broken.
+        // bucket NULL-category transactions, so renaming or deleting them would
+        // break those totals (the backend blocks it too). Their name renders as a
+        // static label with no input, but they stay draggable so they can still
+        // be reordered. A lock glyph sits where the delete × would be, so the
+        // absent controls are visibly intentional.
         if (c.locked) {
             const lockTip = 'Built-in category — can’t be renamed or deleted';
             return `
@@ -191,8 +190,8 @@
         let u = uiByRoot.get(rootEl);
         if (!u) {
             // Everything starts collapsed; the groups behave as an accordion
-            // (opening one closes the rest — see the toggle handler), so at
-            // most one is open at a time. A live search overrides both.
+            // (opening one closes the rest — see the toggle handler), so at most
+            // one is open at a time. A live search overrides both.
             u = { query: '', open: { income: false, expense: false, transfer: false } };
             uiByRoot.set(rootEl, u);
         }
@@ -290,11 +289,11 @@
             const addBtn = e.target.closest('.cat-add-row');
 
             // Group header — accordion expand/collapse: opening a group
-            // collapses the others (drag-across-groups still works — expand
-            // the target group first, and reorders within one group never
-            // needed two open). A live search forces matching groups open
-            // (applyFilter wins), so the stored state only takes effect once
-            // the query is cleared.
+            // collapses the others. Dragging across groups still works by
+            // expanding the target group first, and reordering within one group
+            // never required two open. A live search forces matching groups open
+            // (applyFilter takes precedence), so the stored state applies again
+            // only once the query is cleared.
             if (action === 'toggle') {
                 const section = e.target.closest('.cat-group');
                 const type = section?.dataset?.type;
@@ -433,8 +432,8 @@
         rootEl.addEventListener('dragstart', (e) => {
             const grip = e.target.closest?.('.cat-grip');
             if (!grip) return;
-            // A filtered list shows a partial order — reordering it would
-            // commit positions the user can't see. Clear the search first.
+            // A filtered list shows a partial order — reordering it would write
+            // positions for rows that are not visible. Clear the search first.
             if (ui(rootEl).query.trim()) { e.preventDefault(); return; }
             draggingRow = grip.closest('.cat-row');
             e.dataTransfer.effectAllowed = 'move';
@@ -473,8 +472,8 @@
             const list = e.target.closest?.('.cat-list');
             if (!list) return;
             // A locked row (the Uncategorized buckets) can be reordered but not
-            // recategorized — its type is hardcoded — so it only drops within
-            // its own group. Other groups aren't valid targets for it.
+            // recategorized — its type is fixed — so it can only drop within its
+            // own group. Other groups are not valid targets.
             if (draggingRow.classList.contains('cat-locked') &&
                 list.dataset.type !== srcType) {
                 return;

@@ -34,9 +34,9 @@ async function waitForWindow() {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// A deliberately messy export: mixed date format, a signed amount column, a
-// trailing balance column, merchants the lexicon knows plus one it must abstain
-// on. Synthetic — no real strings (see the repo's no-real-strings rule).
+// A messy export: mixed date format, a signed amount column, a trailing balance
+// column, merchants the lexicon matches plus one it must leave blank. Synthetic —
+// no real strings (see the repo's no-real-strings rule).
 const CSV = [
   'Posting Date,Description,Amount,Balance',
   '03/02/2026,SQ *ZZQX COFFEE ROASTERS 4471,-6.75,2413.19',
@@ -112,7 +112,7 @@ app.whenReady().then(async () => {
       await js('document.querySelector(".onb-next").disabled === true'));
     await shot('02-picker');
 
-    // Choose Checking.
+    // Select Checking.
     await js(`(() => {
       const r = document.querySelector('.onb-dialog input[value="new:checking"]');
       r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true }));
@@ -236,7 +236,7 @@ app.whenReady().then(async () => {
     const onb = await js('apiFetch("/api/onboarding").then(r => r.json())');
     check('no longer fresh', onb.fresh === false);
 
-    // ── Step 4: "Success!" — deliberately minimal, exactly two actions ──
+    // ── Step 4: "Success!" — minimal, exactly two actions ──
     check('Success modal reached', await js(`document.querySelector('.tx-import-dialog--success .tx-import-dialog-title')?.textContent`) === 'Success!');
     check('no header/footer rules on this screen (per spec)',
       await js(`getComputedStyle(document.querySelector('.tx-import-dialog--success .tx-import-dialog-header')).borderBottomWidth`) === '0px'
@@ -272,8 +272,8 @@ app.whenReady().then(async () => {
     check('hero gone', await js('document.getElementById("dashboard-firstrun") === null || document.getElementById("dashboard-firstrun").hidden'));
     await shot('07-dashboard');
 
-    // ── Step 7: the ORDINARY import now asks the same question, up front ──
-    // Same machinery, no onboarding involved: the account step must come before
+    // ── Step 7: the ORDINARY import asks the same question, up front ──
+    // Same code path, no onboarding involved: the account step must come before
     // the file dialog, pre-filled from the account used last.
     await js('window.location.href = "app://aventurine/transactions"');
     await sleep(2500);
@@ -288,9 +288,9 @@ app.whenReady().then(async () => {
       };
     })()`);
 
-    // Fire-and-forget: executeJavaScript resolves a returned promise, and run()
-    // does not settle until the whole flow finishes — awaiting it here would sit
-    // through the very step this is trying to observe.
+    // Not awaited: executeJavaScript resolves a returned promise, and run() does
+    // not settle until the whole flow finishes, so awaiting it here would block
+    // past the step being observed.
     await js('window.__runP = TxFileImport.run(); "started"');
     await sleep(900);
     check('normal import asks the account FIRST, before any file dialog',

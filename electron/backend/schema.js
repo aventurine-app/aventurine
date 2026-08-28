@@ -4,16 +4,16 @@
 // source of truth for the shape a new DB is created with; future schema changes
 // add numbered migrations in migrate.js that climb from SCHEMA_VERSION.
 //
-// Two audiences read this schema: the app, and a user who opens their own DB in
-// any SQLite tool. For that second audience the DDL is deliberately
-// self-describing:
+// This schema is read both by the app and by anyone opening the DB in a SQLite
+// tool. For the second case the DDL is self-describing:
 //   - table/column comments are written INSIDE each statement, so SQLite keeps
 //     them verbatim in sqlite_schema (`.schema` shows them to an external user);
 //   - CHECK constraints document the valid enum/range domains;
 //   - FOREIGN KEY clauses document the relationships. The engine runs with
 //     foreign_keys OFF (see db.js) — referential rules are enforced by the
-//     handlers — so the declared FKs are advisory: they let tools draw the
-//     relationship graph but do not constrain writes at runtime;
+//     handlers — so the declared FKs are advisory: tools can draw the
+//     relationship graph from them, but they do not constrain writes at
+//     runtime;
 //   - the v_* views pre-join the normalized tables into human-readable,
 //     chronologically-sortable shapes for ad-hoc querying.
 
@@ -339,5 +339,5 @@ function createBaselineSchema(db) {
 }
 
 // DDL is exported so migrations can recreate a single view from the baseline
-// text instead of carrying a drifting copy (see migrate.js v8).
+// text instead of holding a second copy that can diverge (see migrate.js v8).
 module.exports = { SCHEMA_VERSION, createBaselineSchema, DDL };

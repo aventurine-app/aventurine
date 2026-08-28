@@ -1,13 +1,13 @@
 'use strict';
 
 // ─── Credit Cards page ──────────────────────────────────────────────────────
-// One container card per credit card. The user fills in four fields
-// (available credit, rewards %, annual fee, linked expense category) and the
-// card answers with derived planning stats:
+// One container card per credit card. The user fills in four fields (available
+// credit, rewards %, annual fee, linked expense category) and the card shows
+// derived planning stats:
 //
 //   - Monthly utilization  = avg monthly spend ÷ available credit, colour-
 //     scaled against credit-building guidance (≤15% green … >50% red)
-//   - Avg monthly spend    = served by the backend per expense category
+//   - Avg monthly spend    = supplied by the backend per expense category
 //     (recent active months of the Cash Flow data — see
 //     electron/backend/services/creditCards.js for the averaging policy)
 //   - Annual rewards       = avg monthly spend × 12 × rewards %
@@ -37,8 +37,8 @@
     ];
 
     // ─── API client ─────────────────────────────────────────────────────────────
-    // updateCard/deleteCard results are never inspected at their call sites
-    // (updateCard fires from debounced input handlers), so guardWrite surfaces
+    // updateCard/deleteCard results are not inspected at their call sites
+    // (updateCard fires from debounced input handlers), so guardWrite reports
     // failures as a toast and resolves { ok: false } instead of rejecting — a
     // rejection out of debounce() would be an unhandled promise rejection.
     const ccApi = (() => {
@@ -114,8 +114,8 @@
             await ccApi.updateCard(card.id, { name });
         }, 600);
         nameInput.addEventListener('input', saveName);
-        // An emptied name field snaps back to the last saved name on blur —
-        // the backend rejects blank names, so don't pretend it stuck.
+        // An emptied name field reverts to the last saved name on blur, since the
+        // backend rejects blank names.
         nameInput.addEventListener('blur', () => {
             if (!nameInput.value.trim()) nameInput.value = card.name;
         });
@@ -138,7 +138,7 @@
 
         fields.appendChild(buildMoneyField(card, 'credit_limit', 'Available Credit', refresh));
 
-        // Rewards % — plain decimal input with a fixed % suffix.
+        // Rewards % — decimal input with a fixed % suffix.
         const pctField = document.createElement('label');
         pctField.className = 'cc-field';
         const pctLabel = document.createElement('span');
@@ -304,7 +304,7 @@
             hintEl.textContent = 'Enter the card’s available credit to see utilization.';
         }
 
-        // Rewards & net gain are annual figures: the monthly average spend
+        // Rewards and net gain are annual figures: the monthly average spend
         // annualized, so they can be compared against the annual fee.
         const annualRewards = spend * 12 * (card.rewards_pct / 100);
         const gain          = annualRewards - card.annual_fee;

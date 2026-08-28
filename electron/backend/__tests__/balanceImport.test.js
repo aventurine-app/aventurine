@@ -1,9 +1,9 @@
 'use strict';
 
 // Imported balances → the Balance Sheet, as ordinary hand-editable cells.
-// An import seeds balance_entries directly (NOT a separate synced/computed
-// layer — automating the Balance Sheet as a derived layer hit design blockers,
-// so imports just fill the cells and they behave like anything the user typed).
+// An import writes balance_entries directly (NOT a separate synced or computed
+// layer — automating the Balance Sheet as a derived layer was attempted and
+// abandoned, so imports fill the cells and they behave like typed values).
 // Editing/clearing a seeded cell is the plain entry upsert/delete already
 // covered by apiTrackers.test.js.
 

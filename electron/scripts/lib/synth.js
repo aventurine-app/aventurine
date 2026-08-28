@@ -14,8 +14,8 @@
 //      brands we already hard-code.
 //   2. NEGATIVES teach abstention. A large, varied 'unknown' class — person
 //      payees, "<word> LLC", bank operations, gibberish merchant codes — so the
-//      classifier can actively predict "leave this blank" instead of forcing a
-//      wrong guess (precision-over-recall: a wrong category is worse than none).
+//      classifier can predict "leave this blank" rather than assign a wrong
+//      category (precision over recall: a wrong category is worse than none).
 //
 // Deterministic: a seeded RNG makes the dataset — and therefore the trained
 // model — byte-reproducible. Dependency-free.
@@ -66,9 +66,9 @@ function addNoise(rng, merchant) {
 }
 
 // ── Category descriptor words — the generalization fuel ─────────────────────
-// Words that strongly imply a category on their own, so the model can label a
-// merchant it has never seen ("COASTAL DERMATOLOGY GROUP" -> health via
-// "dermatology"). Deliberately broader than the precision-first KEYWORDS list.
+// Words that strongly indicate a category on their own, so the model can label a
+// merchant it has not seen ("COASTAL DERMATOLOGY GROUP" -> health via
+// "dermatology"). Broader than the precision-first KEYWORDS list.
 const DESCRIPTORS = {
   food: ['grill', 'grille', 'kitchen', 'bistro', 'diner', 'eatery', 'cantina', 'taqueria',
     'trattoria', 'osteria', 'brasserie', 'gastropub', 'pizzeria', 'ristorante', 'steakhouse',
@@ -116,14 +116,14 @@ const DESCRIPTORS = {
     ...Array(8).fill('rent'), ...Array(8).fill('apts'), 'apt'],
 };
 
-// Neutral proper-ish tokens combined with descriptors. These appear across ALL
-// categories, so they carry no category signal — the descriptor does. That is
-// exactly what we want the model to learn.
+// Neutral proper-noun-like tokens combined with descriptors. These appear across
+// ALL categories, so they carry no category signal; the descriptor does. That is
+// what the model should learn from them.
 // Street-type abbreviations belong here too: a bare "st"/"ave"/"blvd" tail is
 // an address fragment on ANY merchant's row, not a travel signal — without
-// this, the "st regis" lexicon entry (a specific hotel brand) leaks "st" as a
-// standalone travel-leaning token, since that's the only place training data
-// ever sees it as a word on its own.
+// this, the "st regis" lexicon entry (a specific hotel brand) makes "st" a
+// standalone travel-leaning token, since that is the only place the training data
+// contains it as a separate word.
 const NEUTRAL = ['sunrise', 'golden', 'blue', 'main street', 'downtown', 'riverside', 'oak',
   'maple', 'summit', 'coastal', 'urban', 'metro', 'evergreen', 'lakeside', 'north', 'south',
   'valley', 'harbor', 'liberty', 'central', 'grand', 'sunset', 'park avenue', 'union',
@@ -157,12 +157,12 @@ const GIBBER_TAIL = ['outpost', 'holdings', 'trading', 'systems', 'labs', 'depot
 
 // Roommate-style rent splits routed through a P2P app ("VENMO PAYMENT ...
 // RENT SHARE") are a common real-world pattern the base generators never
-// produce: genUnknown's P2P examples are always "<marker> <person name>",
-// so the model has only ever seen a P2P prefix paired with a name, never with
-// a rent word, and defaults to reading any P2P-shaped text as 'unknown'. This
-// teaches the discriminating case directly. (Direction — expense vs. the
-// payee's-side reimbursement — is handled downstream by applyBuiltinCategorize's
-// cat_type guard, not here; this only teaches the TEXT pattern.)
+// produce: genUnknown's P2P examples are always "<marker> <person name>", so the
+// training data pairs a P2P prefix only with a name, never with a rent word, and
+// the model classifies any P2P-shaped text as 'unknown'. These examples cover the
+// distinguishing case. (Direction — expense vs. the payee-side reimbursement — is
+// handled downstream by applyBuiltinCategorize's cat_type guard, not here; this
+// covers the TEXT pattern only.)
 const RENT_SHARE_PHRASE = ['rent share', 'rent split', 'apt rent', 'rent portion',
   'monthly rent share', 'half of rent', 'rent my share'];
 

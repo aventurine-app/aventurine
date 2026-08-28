@@ -24,8 +24,8 @@ const {
 
 const FIX = path.join(__dirname, 'fixtures', 'import');
 
-// parseFile expects an ArrayBuffer (what file.arrayBuffer() yields in the
-// browser); a Node Buffer's view offset must be honoured when converting.
+// parseFile expects an ArrayBuffer (what file.arrayBuffer() returns in the
+// browser); a Node Buffer's view offset must be applied when converting.
 function loadFixture(name) {
   const b = fs.readFileSync(path.join(FIX, name));
   return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength);

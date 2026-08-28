@@ -2,11 +2,10 @@
 
 // Lint fence for the merchant lexicon (services/merchantCategories.js).
 //
-// The lexicon matches needles as SUBSTRINGS of a normalized description, so
-// its failure mode is silent: a needle that hides inside an unrelated word
-// ("mobil" in "mobile deposit", "shell" in "shelly") confidently
-// miscategorizes, which is the one thing the trust rule forbids. These checks
-// make every entry prove, mechanically, that it can't do that:
+// The lexicon matches needles as SUBSTRINGS of a normalized description, so its
+// failure mode produces no error: a needle occurring inside an unrelated word
+// ("mobil" in "mobile deposit", "shell" in "shelly") miscategorizes the row.
+// These checks verify mechanically that no entry can do that:
 //
 //   1. Structural: needles are pre-normalized, unique, reachable, and point at
 //      categories that actually exist in the default taxonomy.
@@ -39,7 +38,7 @@ const ALL_ENTRIES = [
 
 // Three-letter needles individually vetted as safe substrings (brand initials
 // that don't occur inside English words or names we could find). Anything new
-// this short must be argued onto this list, not silently added.
+// this short must be added to this list explicitly, with a stated reason.
 const VETTED_SHORT_NEEDLES = new Set(['cvs', 'kfc', 'gnc', 'fpl', 'bbq', 'dmv', 'h&m', 'qfc', 'dsw']);
 
 test('lexicon: every needle survives its own normalizer', () => {

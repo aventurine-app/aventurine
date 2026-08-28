@@ -12,8 +12,8 @@
 /* ─── Empty states ─────────────────────────────────────────────────────────
  * A centered icon tile + title + optional description + optional call-to-action.
  * Replaces the old text-only `.chart-empty` / `.*-empty` paragraphs. The host
- * container centers it; the block caps its own width so long copy wraps to a
- * comfortable measure rather than the full card. */
+ * container centers it; the block caps its width so long copy wraps to a
+ * readable measure rather than the full card. */
 .empty-state {
     display: flex;
     flex-direction: column;
@@ -123,11 +123,10 @@
 
 
 /* ─── Loading skeletons ────────────────────────────────────────────────────
- * Shimmering placeholders shown while a cold fetch is in flight (warm,
- * cached loads render instantly and skip these — see store.js). The shimmer
- * sweeps a frost gradient across a frost base via background-position only:
- * no layout, no opacity thrash. Falls back to a flat tint when the user
- * prefers reduced motion. */
+ * Shimmering placeholders shown while a cold fetch is in flight (warm, cached
+ * loads render immediately and skip these — see store.js). The shimmer sweeps a
+ * frost gradient across a frost base via background-position only: no layout, no
+ * opacity changes. Falls back to a flat tint under prefers-reduced-motion. */
 .skeleton {
     background-color: var(--frost-2);
     background-image: linear-gradient(
@@ -184,7 +183,7 @@
  * — the Transactions ledger, the Recurring calendar — renders the same
  * merchant the same way without a lookup table to maintain. The icons are
  * committed assets under static/merchant-icons/; nothing is fetched at runtime
- * (offline, no network calls — see PRODUCT.md). */
+ * (no network calls — see PRODUCT.md). */
 .avatar-circle {
     display: inline-flex;
     align-items: center;
@@ -235,19 +234,18 @@ html[data-theme="dark"] .avatar-circle-5 { background: var(--spectrum-mid-6); }
 html[data-theme="dark"] .avatar-circle-6 { background: var(--spectrum-mid-7); }
 html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
 
-/* Brand-icon variants. A real logo brings its OWN colour, so these slots take
-   none of the eight above — the circle is what they have in common, and it is
-   the point: a column of merchants reads as one column of discs instead of a
-   ransom note of squares, roundels and wordmarks.
+/* Brand-icon variants. A logo carries its own colour, so these slots use none of
+   the eight above; the shared circle is what keeps a column of merchants reading
+   as one column of discs rather than a mix of squares, roundels and wordmarks.
 
-   Two treatments, picked per icon at build time from whether its artwork
+   Two treatments, selected per icon at build time from whether its artwork
    reaches the corners (avatar.js: isFullBleed, measured in
-   fetch-merchant-icons.js — CSS cannot ask an image about its own pixels):
+   fetch-merchant-icons.js — CSS cannot read an image's pixels):
 
    .avatar-circle-icon — a mark on transparency (Apple's apple, Chevron's
      chevron). Inset on a pale disc, because these are drawn for a browser tab
-     and are usually dark-on-nothing: over the light theme bare transparency is
-     fine, on dark the mark would disappear. The SAME pale disc under both
+     and are usually dark on transparency: over the light theme bare transparency
+     is fine, on dark the mark would disappear. The SAME pale disc under both
      themes is what lets one downloaded file serve both, instead of needing a
      light and a dark render of every brand. `contain` never crops, so a 4:1
      wordmark letterboxes and stays legible rather than losing its ends.
@@ -334,9 +332,9 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
 
 /* Stepper pickers open centered under the ‹ label › cluster: the opener is the
  * middle label button, flanked by equal arrow buttons, so centering on the
- * stepper container lands the menu dead-center below the label. (Also avoids
- * the right-aligned default spilling off the .page scroll box's left edge —
- * see the note on .p-table-dropdown above.) */
+ * stepper container places the menu centred below the label. (This also avoids
+ * the right-aligned default overflowing the .page scroll box's left edge — see
+ * the note on .p-table-dropdown above.) */
 .stepper .p-table-dropdown {
     right: auto;
     left: 50%;
@@ -398,8 +396,9 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
  * tabs and the ⋮ menu; Dashboard (dashboard.css) has no tab bar — its month
  * stepper sits on the Month to Month section's heading row. */
 
-/* The stepper is display:flex, which beats the UA's [hidden] { display: none }
- * — restate it at author level for any page that hides one. */
+/* The stepper is display:flex, which overrides the UA's
+ * [hidden] { display: none }, so it is restated at author level for any page
+ * that hides one. */
 .stepper[hidden] { display: none; }
 
 .stmt-tabs, .rep-tabs {
@@ -408,13 +407,14 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
     gap: 4px;
     padding: 4px;
     background: var(--segctl-track);
-    /* The same 1px hairline every other bordered control wears, so the track
-       reads as one of them rather than a floating patch of grey. */
+    /* The same 1px hairline as every other bordered control, so the track matches
+       them rather than reading as an unbordered grey block. */
     border: 1px solid var(--segctl-stroke);
-    /* Pill — the app's 999px idiom (the Transactions filter chips, the
+    /* Pill — the app's 999px radius (the Transactions filter chips, the
        onboarding progress bar), not 50%, which on a wide box draws an ellipse
-       rather than a capsule. A pill track needs no concentric arithmetic: the
-       pill segments inside it follow the same arc at any height. */
+       rather than a capsule. A pill track needs no concentric radius
+       calculation: the pill segments inside it follow the same arc at any
+       height. */
     border-radius: 999px;
 }
 
@@ -488,22 +488,22 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
 }
 
 /* ─── Stepper (‹ label ›) ──────────────────────────────────────────────────
- * Prev/label/next picker — Dashboard's month stepper and Statements' year stepper.
- * Moved here from dashboard.css when Statements adopted it. The label is a button:
- * clicking it opens a UI.openMenu picker, and it shares its rules outright with
- * the range selector (see below). */
+ * Prev/label/next picker — Dashboard's month stepper and Statements' year
+ * stepper. Moved here from dashboard.css when Statements began using it. The
+ * label is a button: clicking it opens a UI.openMenu picker, and it shares its
+ * rules with the range selector (see below). */
 .stepper {
     display: flex;
     align-items: center;
     gap: 4px;
 }
 
-/* Each menu-opener gets its own positioned slot, so a stepper carrying more
- * than one picker (the Dashboard's year + month pair) anchors each menu under
- * its OWN button rather than under the whole ‹ › cluster — UI.openMenu mounts
- * into the opener's parent, and .stepper .p-table-dropdown centers on whatever
- * that positioned parent is. A single-picker stepper needs no wrapper: the
- * .stepper itself is the slot, and centering on it lands under the lone label. */
+/* Each menu-opener gets a positioned slot, so a stepper with more than one
+ * picker (the Dashboard's year + month pair) anchors each menu under its own
+ * button rather than under the whole ‹ › cluster — UI.openMenu mounts into the
+ * opener's parent, and .stepper .p-table-dropdown centers on that positioned
+ * parent. A single-picker stepper needs no wrapper: the .stepper is the slot,
+ * and centering on it places the menu under the single label. */
 .stepper-picker {
     position: relative;
     display: flex;
@@ -520,12 +520,12 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
     line-height: 1;
 }
 
-/* THE menu-opener button, worn by both the stepper label and the range selector
- * (.range-selector-btn — its own rules folded into these when the two drifted
- * apart). A fixed minimum keeps "May 2026" ↔ "September 2026" from shifting the
- * stepper arrows; --stepper-label-min lets narrower content like a bare year
- * tighten it. Both are real <button>s — hover/focus affordances signal the
- * picker behind them. */
+/* The menu-opener button, used by both the stepper label and the range selector
+ * (.range-selector-btn — its rules were merged into these when the two
+ * diverged). A fixed minimum keeps "May 2026" ↔ "September 2026" from shifting
+ * the stepper arrows; --stepper-label-min allows narrower content like a bare
+ * year to reduce it. Both are real <button>s, so hover and focus states indicate
+ * the picker they open. */
 .stepper-label, .range-selector-btn {
     /* Theme-tuned fill (style.css/themes.css): surface2 on dark, one rung
        lighter on light where surface2 would disappear into the page
@@ -589,10 +589,10 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
 }
 
 /* ─── Toast (UI.toast) ───────────────────────────────────────────────────────
- * Single transient notice, bottom-center; ui.js reuses one element and
- * toggles .ui-toast-show so repeated messages coalesce instead of stacking.
- * z-index 1400 sits above every modal layer (confirm dialogs 1000/1100, DB
- * modal 1300): a failed-save notice must stay visible over whatever opened. */
+ * Single transient notice, bottom-center; ui.js reuses one element and toggles
+ * .ui-toast-show so repeated messages replace each other instead of stacking.
+ * z-index 1400 sits above every modal layer (confirm dialogs 1000/1100, DB modal
+ * 1300), so a failed-save notice stays visible over whatever is open. */
 .ui-toast {
     position: fixed;
     left: 50%;

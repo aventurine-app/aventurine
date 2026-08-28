@@ -7,11 +7,10 @@
 //
 // Transfers (money moved to savings/brokerage accounts) stay out of every
 // income/spend surface — they are not spending and not earning, so no goal is
-// graded on them and they never dent the cash-flow margin. They are still
+// graded on them and they do not reduce the cash-flow margin. They are still
 // REPORTED, as their own figure and as two ratios (savings rate, invested
-// share): "what share of what I earned did I put away" is a question only the
-// transfer total can answer, and it is the one the income/spend view is blind
-// to by design.
+// share): the share of income put away can be derived only from the transfer
+// total, which the income/spend figures exclude.
 //
 // NEW behaviour (not a Python port) → no oracle fixture; pinned by the
 // deterministic unit tests in __tests__/reportCard.test.js.
@@ -27,8 +26,7 @@ const INVESTED_GOAL = [0.15, 0.20];   // of which 15–20% goes to investing
 
 // How far past a goal still counts as CLOSE rather than missed. Every goal is
 // graded on three levels, not two: hit (or beaten), slightly off, off. A single
-// pass/fail line makes 71% and 140% the same answer, which is the one thing a
-// year-long figure should never say.
+// pass/fail line would give 71% and 140% the same result.
 const NEAR_BAND = 0.05;   // ratio goals: 5 points past the bound
 const NEAR_TREND = 0.02;  // trend goals: a move under 2% the wrong way
 
@@ -45,9 +43,9 @@ function gradeUnder(value, bound) {
   return value <= bound + NEAR_BAND ? 'near' : 'miss';
 }
 
-/** A goal with a FLOOR: at or over `floor` is met — beating a goal is still
- *  hitting it, so the top of a target range is never a fail — within NEAR_BAND
- *  under it is near, below that is missed. */
+/** A goal with a FLOOR: at or over `floor` is met — exceeding a goal counts as
+ *  meeting it, so the top of a target range never grades as a miss — within
+ *  NEAR_BAND under it is near, below that is missed. */
 function gradeOver(value, floor) {
   if (value == null) return 'na';
   if (value >= floor) return 'met';
@@ -55,8 +53,8 @@ function gradeOver(value, floor) {
 }
 
 /** Year-over-year change vs a prior figure. abs is rounded to cents; pct is
- *  null when there is no prior year, or the prior figure was zero (growth from
- *  nothing has no finite percentage — the UI renders that as "new"). */
+ *  null when there is no prior year, or the prior figure was zero (no finite
+ *  percentage from a zero base — the UI renders that as "new"). */
 function change(curr, prev) {
   if (prev == null) return null;
   return { abs: round2(curr - prev), pct: prev > 0 ? (curr - prev) / prev : null };
@@ -67,24 +65,23 @@ function change(curr, prev) {
  * normalized row (or null for the earliest year). Every card shows all six
  * goals at all times; each yields { key, label, value, target, range, status }
  * where status is 'met' (✓), 'near' (!), 'miss' (✕), or 'na' (—) — a goal is
- * 'na' when it can't be judged (undefined ratio, no prior year to compare
- * against) or when a trend goal saw no year-over-year change. `value` is null
- * only when there's nothing to show.
+ * 'na' when it cannot be graded (undefined ratio, no prior year to compare
+ * against) or when a trend goal has no year-over-year change. `value` is null
+ * only when there is nothing to display.
  *
- * `target` is the single threshold the goal is judged against, and `range` the
- * band it is judged against where the goal is a band rather than a line. Both
- * ship so the renderer can DRAW them (the Metrics tiles notch the meter at the
- * target and shade the band) rather than keeping a second copy of these
- * constants in the frontend, where it would silently disagree the first time
- * one is retuned. The two trend goals have neither — "down from last year" is a
- * direction, not a level — so theirs are null and their tiles get no notch.
+ * `target` is the single threshold the goal is graded against, and `range` the
+ * band, where the goal is a band rather than a line. Both are sent so the
+ * renderer can DRAW them (the Metrics tiles notch the meter at the target and
+ * shade the band) rather than holding a second copy of these constants in the
+ * frontend, which would diverge the first time one is retuned. The two trend
+ * goals have neither — "down from last year" is a direction, not a level — so
+ * theirs are null and their tiles get no notch.
  *
- * The saving and investing goals are FLOORS, so beating either is still hitting
- * it. Investing is the one drawn as a BAND: below 15% of income is short of it
- * and 20% is where it is fully met, but anything above that is beating it, not
- * overshooting it, so the top of the range grades 'met' like the rest. The two
- * do not compete — saving counts every transfer category and investing counts
- * the investing slice of it, so one goal can be met while the other is not.
+ * The saving and investing goals are FLOORS, so exceeding either grades 'met'.
+ * Investing is the one drawn as a BAND: below 15% of income is short of it and
+ * 20% is fully met, and anything above 20% also grades 'met'. The two are
+ * independent — saving counts every transfer category and investing counts the
+ * investing slice of it, so one goal can be met while the other is not.
  */
 function evaluateGoals({ income, expenses, debt, transfers, invested, prev }) {
   const er = ratio(expenses, income);
@@ -92,10 +89,10 @@ function evaluateGoals({ income, expenses, debt, transfers, invested, prev }) {
   const sr = ratio(transfers || 0, income);
   const ir = ratio(invested || 0, income);
 
-  // Trend goals: 'na' with no prior year (value null) or when the figure was
-  // unchanged year-over-year (value 0, no movement to reward or penalise). A
-  // move the wrong way is 'near' while it is under NEAR_TREND — a year that
-  // spent 1% more is not the same answer as one that spent 30% more.
+  // Trend goals: 'na' with no prior year (value null) or when the figure is
+  // unchanged year-over-year (value 0, no movement to grade). A move in the
+  // wrong direction grades 'near' while it is under NEAR_TREND, so a year that
+  // spent 1% more is separated from one that spent 30% more.
   const spendingValue = prev && prev.expenses > 0 ? (expenses - prev.expenses) / prev.expenses : null;
   const incomeValue = prev && prev.income > 0 ? (income - prev.income) / prev.income : null;
   const trendStatus = (value, improved) => {
@@ -182,10 +179,10 @@ function buildReportCards(rows) {
 
   return sorted.map((r) => {
     const prev = byYear.get(r.year - 1) || null;
-    // Net is a DERIVED figure, not a fourth total: it is income minus expenses
-    // and nothing else, so transfers can never make it look like a worse year
-    // than it was. Its YoY pill compares against the previous year's net by the
-    // same rule (a prior net of zero or below has no finite percentage).
+    // Net is a DERIVED figure, not a fourth total: income minus expenses and
+    // nothing else, so transfers cannot lower it. Its YoY pill compares against
+    // the previous year's net by the same rule (a prior net of zero or below
+    // has no finite percentage).
     const net = round2(r.income - r.expenses);
     const prevNet = prev ? round2(prev.income - prev.expenses) : null;
     return {
@@ -206,19 +203,18 @@ function buildReportCards(rows) {
       metrics: {
         expenseToIncome: ratio(r.expenses, r.income),
         debtToIncome: r.debt == null ? null : ratio(r.debt, r.income),
-        // What share of income is left after expenses — the year's overall
-        // cash-flow margin. (Transfers to savings/brokerage are money moved,
-        // not spent, so they don't reduce the margin.)
+        // Share of income left after expenses — the year's overall cash-flow
+        // margin. Transfers to savings/brokerage are money moved, not spent, so
+        // they are not subtracted here.
         cashFlowMargin: r.income > 0 ? (r.income - r.expenses) / r.income : null,
-        // Share of income moved into the user's own savings/brokerage
-        // accounts (every transfer category), and the slice of that which went
-        // to the investing category specifically.
+        // Share of income moved into the user's savings/brokerage accounts
+        // (every transfer category), and the part of that which went to the
+        // investing category specifically.
         savingsRate: ratio(r.transfers, r.income),
         investedRate: ratio(r.invested, r.income),
         // Concentration: how much of the year's spending went to its single
-        // biggest category. Measured against EXPENSES, not income — it answers
-        // "where did the spending go", so a year that earned nothing still has
-        // a meaningful answer.
+        // biggest category. Measured against EXPENSES, not income, so a year
+        // with no income still produces a defined value.
         topExpenseShare: r.topExpense ? ratio(r.topExpense.amount, r.expenses) : null,
       },
       goals: evaluateGoals({ ...r, prev }),

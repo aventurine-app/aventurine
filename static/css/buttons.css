@@ -118,14 +118,14 @@
    the same weight (see the note beside it in themes.css). --border-width comes
    along too, so the line thickness stops being a second hard-coded value. */
 .button-secondary {
-   /* OUTLINED means no fill, and that has to be said out loud. Leaving
-      background unset does not give a <button> a transparent box — it gives it
-      the UA's `buttonface`, which follows color-scheme: under the dark theme
-      that is a mid grey (#6b6b6b), so these rendered as pale filled pills that
-      were the lightest thing on the page. The light theme hid it: buttonface
-      there is #efefef, near-identical to the --surface1 (#f2f3f2) table behind
-      it, so the same missing line looked correct. .empty-state-action (ui.css),
-      the same shape, has always said `background: none` — this rule is the copy
+   /* OUTLINED means no fill, which has to be set explicitly. Leaving background
+      unset does not give a <button> a transparent box — it gives it the UA's
+      `buttonface`, which follows color-scheme: under the dark theme that is a
+      mid grey (#6b6b6b), so these rendered as pale filled pills, the lightest
+      element on the page. The light theme masked it: buttonface there is
+      #efefef, near-identical to the --surface1 (#f2f3f2) table behind it, so the
+      same missing declaration looked correct. .empty-state-action (ui.css), the
+      same shape, has always set `background: none` — this rule is the copy
       that forgot, which is also why only this one had the bug. */
    background: transparent;
    color: var(--accent-neutral);

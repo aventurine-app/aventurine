@@ -4,24 +4,23 @@
 // The activation screen, and the license read-out in About.
 //
 // Under the soft gate (electron/backend/router.js) an unactivated install is a
-// working transaction manager, so this file drives two things rather than one:
-// the FEATURE TIER, which is a flag on <html> that the stylesheet reads, and
-// the ACTIVATION SCREEN, which is now an upsell the user opens and closes
-// rather than the only screen the app has.
+// working transaction manager, so this file drives two separate things: the
+// FEATURE TIER, a flag on <html> that the stylesheet reads, and the ACTIVATION
+// SCREEN, an upsell the user opens and closes rather than the app's only screen.
 //
 // The screen is raised from three places: the sidebar's Unlock button, a click
 // on ANY link into a paid page, and a 402 from a paid route. The first two are
-// the user asking; the third is the app admitting it cannot draw the page.
+// user-initiated; the third means the page cannot be drawn.
 //
 // The locked NAV links are the one exception, and they raise nothing: they are
-// inert, and they already carry a lock that explains itself. An in-page link
-// like the dashboard's "Open Statements" carries no such mark, so answering a
-// deliberate click with silence would read as the app being broken.
+// inert and already carry a lock icon. An in-page link like the dashboard's
+// "Open Statements" carries no such marker, so a click with no response would
+// look like a broken control.
 //
-// Nothing here touches the network. An unlock key is a signed token the backend
-// verifies locally (electron/backend/license.js); the user obtains it from the
-// activation page in their own browser, so the app's offline guarantee holds
-// even during activation. "Open Activation Page" hands a URL to the OS browser
+// Nothing here makes a network request. An unlock key is a signed token the
+// backend verifies locally (electron/backend/license.js); the user obtains it
+// from the activation page in their own browser, so the app stays offline even
+// during activation. "Open Activation Page" passes a URL to the OS browser
 // through the preload bridge rather than loading anything in-app.
 
 (function () {
@@ -40,32 +39,31 @@
     // Lives in the sidebar, not the gate, so it is reached from the document.
     const unlockBtn = document.querySelector('[data-license-unlock]');
 
-    // About's license section. The address is the watermark's whole point, so
-    // it is on display: a shared key advertises whose it is.
+    // About's license section. The registered address is displayed, since that
+    // is what the email watermark is for: a shared key shows who bought it.
     const aboutSection = document.querySelector('[data-about-license-section]');
     const aboutEmail   = document.querySelector('[data-about-license]');
     const aboutIssued  = document.querySelector('[data-about-issued]');
     const removeBtn    = document.querySelector('[data-license-remove]');
 
-    // Its confirmation. Deactivating is reversible, so this asks rather than
-    // demanding a typed phrase — see the modal's own note in chrome.html.
+    // Its confirmation. Deactivating is reversible, so this confirms rather than
+    // requiring a typed phrase — see the note in chrome.html.
     const confirmEl      = document.querySelector('[data-modal="license-deactivate"]');
     const confirmBtn     = document.querySelector('[data-license-remove-confirm]');
     const confirmCancel  = document.querySelector('[data-license-remove-cancel]');
     const confirmError   = document.querySelector('[data-license-remove-error]');
 
-    // The .html is load-bearing: the site is plain static files and every one
-    // of its own links carries the extension, so the extensionless path is a
-    // 404. main.js's open-external allowlist is host-based, so the path is free
-    // to change without touching it.
+    // The .html suffix is required: the site is plain static files and all its
+    // internal links carry the extension, so the extensionless path returns 404.
+    // main.js's open-external allowlist is host-based, so the path can change
+    // without updating it.
     const ACTIVATION_URL = 'https://aventurine-app.com/activate.html';
 
-    // The copy the gate leads with, read OFF the markup rather than repeated
-    // here. render() replaces this line when the gate is up for a reason other
-    // than "this copy is brand new" — an expired entitlement or a key that
-    // stopped verifying reads as a bug unless the screen says otherwise — and
-    // has to be able to put the original back. Holding a second copy in this
-    // file made chrome.html's version dead text that silently lost every edit.
+    // The gate's lead line, read from the markup rather than duplicated here.
+    // render() replaces this line when the gate is up for a specific reason (an
+    // expired entitlement, or a key that stopped verifying), and must be able to
+    // restore the original. Keeping a second copy in this file made chrome.html's
+    // version unused text that lost every edit.
     const DEFAULT_LEAD = leadEl.textContent.trim();
 
     let busy = false;
@@ -80,15 +78,15 @@
 
         // The <html> flag is what the stylesheet reads to hide Year to Year and
         // mark the locked nav links (see license.css), and the localStorage hint
-        // is what lets theme-init.js get the next launch right before the
-        // backend has answered. Neither is a security boundary: the backend
-        // re-decides on every request, and every locked destination has its own
-        // routes on the paid side of the allowlist.
+        // is what lets theme-init.js set the tier on the next launch before the
+        // backend responds. Neither is a security boundary: the backend re-checks
+        // on every request, and every locked destination's routes are on the paid
+        // side of the allowlist.
         document.documentElement.dataset.licenseTier = licensed ? 'full' : 'free';
         try {
             localStorage.setItem('license-activated', licensed ? '1' : '0');
         } catch {
-            // Private-mode / quota failures cost a pre-paint flash, nothing more.
+            // Private-mode or quota failures only cause a pre-paint flash.
         }
 
         // A user who HAS activated and is being asked again is owed the reason.
@@ -118,12 +116,12 @@
         if (licensed) closeGate();
     }
 
-    /** Every page the key buys. Held here as PATHS rather than derived from the
-     *  nav, because the links that actually leaked were not in the nav at all:
-     *  the dashboard's empty-state cards render their own "Open Statements" and
-     *  "Add balances" buttons, and the Forecast card links to the Balance Sheet.
-     *  Marking link sites one at a time is a list that silently goes stale every
-     *  time somebody adds a card, so the destination is what gets checked. */
+    /** Every paid page. Listed here as PATHS rather than derived from the nav,
+     *  because the links that were missed were not in the nav: the dashboard's
+     *  empty-state cards render their own "Open Statements" and "Add balances"
+     *  buttons, and the Forecast card links to the Balance Sheet. A list of
+     *  marked link sites goes out of date whenever a card is added, so the
+     *  destination is what is checked. */
     const PAID_PATHS = new Set([
         '/statements', '/portfolio', '/reports', '/recurring',
         '/credit-cards',
@@ -134,15 +132,16 @@
         return PAID_PATHS.has(pathname.replace(/\/+$/, '') || '/');
     }
 
-    /** A locked nav link is INERT, not intercepted. license.css takes the hover
-     *  and the click with pointer-events, which leaves the keyboard and screen
-     *  readers, and neither is covered by a paint rule: without this a locked
-     *  destination is still tabbable and still announced as a link to somewhere
-     *  the app will refuse to go. Removing it from the tab order says the same
-     *  thing the dimming does, to the users the dimming cannot reach.
+    /** A locked nav link is INERT, not intercepted. license.css blocks the hover
+     *  and the click with pointer-events, which does not cover the keyboard or
+     *  screen readers: without this a locked destination is still tabbable and
+     *  still announced as a link to a page that will not open. Removing it from
+     *  the tab order conveys the same state the dimming does, for users who
+     *  cannot see the dimming.
      *
-     *  Not a boundary, like everything else in this file. It runs from render()
-     *  so activating in this window frees the links without a reload. */
+     *  Not a security boundary, like everything else in this file. It runs from
+     *  render(), so activating in this window unlocks the links without a
+     *  reload. */
     function applyNavLocks(licensed) {
         document.querySelectorAll('.nav a[data-paid]').forEach((a) => {
             if (licensed) {
@@ -155,7 +154,7 @@
         });
     }
 
-    // Why the screen went up, which is what decides where closing it leads.
+    // Why the screen was raised, which determines where closing it navigates.
     let gateReason = null;
 
     /** reason: 'asked'   the user opened it (Unlock, or a locked nav link)
@@ -163,13 +162,13 @@
     function openGate(reason) {
         gateReason = reason;
 
-        // Nothing may float above it while it is up. Deactivate is the case
-        // that proves it: the button lives in About, so without this the modal
-        // it was clicked in stays open over the activation screen.
+        // Nothing may sit above it while it is up. Deactivate is the case that
+        // requires this: the button is in About, so without it that modal stays
+        // open over the activation screen.
         closeChromeModals();
         document.documentElement.dataset.licenseGate = 'on';
 
-        // Guarded: re-rendering while the user is mid-paste must not yank the
+        // Guarded: re-rendering while the user is pasting must not move the
         // caret back to the start.
         if (document.activeElement !== inputEl) inputEl.focus();
     }
@@ -179,18 +178,18 @@
         gateReason = null;
         document.documentElement.dataset.licenseGate = 'off';
 
-        // A page that raised the screen by failing is still behind it, showing
-        // whatever it renders with no data. Closing onto that would look like
-        // the app broke, so leave for one the free tier actually owns.
+        // A page that raised the screen by failing is still behind it, rendered
+        // with no data. Closing onto that would look like a failure, so navigate
+        // to a page the free tier can load.
         if (reason === 'blocked' && location.pathname !== '/transactions') {
             location.href = '/transactions';
         }
     }
 
     /** Every overlay in the shared chrome: the Preferences / About / encryption
-     *  modals (titlebar.js) and the database dialog (dbactions.js). Both own
-     *  their own lifecycle and both close by the same one-line means they use
-     *  internally, so this dismisses them without reaching into either. */
+     *  modals (titlebar.js) and the database dialog (dbactions.js). Both manage
+     *  their own lifecycle and both close by setting `hidden`, the same way they
+     *  do internally, so this closes them without calling into either. */
     function closeChromeModals() {
         document
             .querySelectorAll('.settings-modal-overlay, .db-modal-overlay')
@@ -227,10 +226,10 @@
             inputEl.value = '';
             setPreview(null);
             render(body);
-            // Every page behind the gate loaded against a backend that was
-            // answering 402, so its data is not stale, it is absent. A reload
-            // is the honest way back — and it is the one moment in the app's
-            // life where throwing away renderer state costs nothing.
+            // Every page behind the gate loaded against a backend returning 402,
+            // so its data is absent rather than stale. A reload is the simplest
+            // way to repopulate it, and no renderer state is worth keeping at
+            // this point.
             location.reload();
         } catch {
             setError('Activation could not be completed. Please try again.');
@@ -248,17 +247,17 @@
             const res = await window.apiFetch('/api/license', { method: 'DELETE' });
             const body = await res.json();
             if (!res.ok) {
-                // Left on screen with the reason rather than closed: a silent
-                // no-op would read as a successful deactivation, and the user
-                // would go looking for an activation screen that never came.
+                // Left on screen with the reason rather than closed: closing with
+                // no message would look like a successful deactivation, and the
+                // activation screen would never appear.
                 setRemoveError(body.error || 'This copy could not be deactivated.');
                 return;
             }
             render(body);
             // Under the lockout, render() raising the gate was enough. Now there
             // is a live app behind this modal that may be showing paid data on a
-            // page the free tier cannot load, so the honest move is the same one
-            // activation makes: reload and let the tier decide what draws.
+            // page the free tier cannot load, so this does what activation does:
+            // reload, and let the tier determine what renders.
             location.reload();
         } catch {
             setRemoveError('This copy could not be deactivated. Please try again.');
@@ -326,15 +325,15 @@
     unlockBtn?.addEventListener('click', () => openGate('asked'));
 
     // Any link into a paid page, wherever it was rendered. Delegated and in the
-    // CAPTURE phase so it covers markup that did not exist at load (the whole
-    // reason the nav-only version leaked) and beats a page's own handler to the
-    // click. The tier is read per click, so activating in this window frees
-    // every one of these without a reload.
+    // CAPTURE phase so it covers markup that did not exist at load (the reason
+    // the nav-only version missed links) and runs before a page's own handler.
+    // The tier is read per click, so activating in this window unlocks all of
+    // these without a reload.
     document.addEventListener('click', (e) => {
         if (document.documentElement.dataset.licenseTier !== 'free') return;
         const a = e.target instanceof Element ? e.target.closest('a[href]') : null;
-        // The nav answers for itself, in silence. Letting this handler have it
-        // too would put the upsell back on the one link that must not raise it.
+        // The nav links are handled below, silently. Letting this handler also
+        // run would raise the upsell on the one link that must not raise it.
         if (!a || a.hasAttribute('data-paid')) return;
 
         let dest;
@@ -348,12 +347,11 @@
     }, true);
 
     // pointer-events keeps a real pointer off a locked link, but that is a paint
-    // rule: a synthetic click, or Enter on a focus reached some other way, still
-    // navigates. So the navigation is refused outright too, and refused in
-    // SILENCE. Raising the upsell here would be answering a request for a page
-    // with a sales screen the user never opened, which is the thing "no click"
-    // was meant to rule out. The tier is read per click rather than captured, so
-    // activating in this window frees the links without a reload.
+    // rule: a synthetic click, or Enter on a focus reached another way, still
+    // navigates. So the navigation is also blocked here, and blocked SILENTLY.
+    // Raising the upsell here would replace a page request with a sales screen
+    // the user did not open. The tier is read per click rather than captured, so
+    // activating in this window unlocks the links without a reload.
     document.querySelectorAll('.nav a[data-paid]').forEach((a) => {
         a.addEventListener('click', (e) => {
             if (document.documentElement.dataset.licenseTier === 'free') e.preventDefault();
@@ -365,31 +363,30 @@
         if (e.key === 'Escape' && document.documentElement.dataset.licenseGate === 'on') closeGate();
     });
 
-    // Deactivate asks first. The × and backdrop-click and Escape closes are
+    // Deactivate confirms first. The ×, backdrop-click and Escape closes are
     // already wired for every .settings-modal-overlay by shell/titlebar.js, so
-    // only the two footer buttons belong here.
+    // only the two footer buttons are handled here.
     removeBtn?.addEventListener('click', () => {
         setRemoveError('');
         if (confirmEl) confirmEl.hidden = false;
-        confirmCancel?.focus();   // the safe option, not the destructive one
+        confirmCancel?.focus();   // focus Cancel, not the destructive button
     });
     confirmCancel?.addEventListener('click', () => { confirmEl.hidden = true; });
     confirmBtn?.addEventListener('click', remove);
 
-    // Step one's URL. Handed to the OS browser: window.open is denied and
-    // will-navigate is locked to the app origin, so this is the only way out,
-    // and main.js checks the URL against its own allowlist before opening
-    // anything. With no shell bridge (a plain browser) there is nothing to do
-    // and nothing to say — the button's own label is the address, so a reader
-    // who cannot click it can still type it.
+    // The activation page URL. Passed to the OS browser: window.open is denied
+    // and will-navigate is locked to the app origin, so this is the only exit,
+    // and main.js checks the URL against an allowlist before opening it. With no
+    // shell bridge (a plain browser) nothing happens — the button's label is the
+    // address, so it can be typed manually.
     openBtn?.addEventListener('click', () => {
         window.electronShell?.openExternal(ACTIVATION_URL);
     });
 
-    // A 402 from the backend gate, announced by core/api.js. Under the soft
-    // gate this is an ordinary path rather than a backup: any paid page reached
-    // by URL rather than by the nav lands here, and so does a license that
-    // stops verifying mid-session.
+    // A 402 from the backend gate, dispatched by core/api.js. Under the soft
+    // gate this is a normal path rather than a fallback: any paid page reached by
+    // URL rather than by the nav arrives here, as does a license that stops
+    // verifying mid-session.
     window.addEventListener('aventurine:license-required', () => {
         openGate('blocked');
         refresh();

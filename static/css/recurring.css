@@ -133,9 +133,9 @@
     min-width: 0;
     /* Anchors the add button in the corner (see .rec-day-add). */
     position: relative;
-    /* Only two edges each — the neighbour draws the other two (see
-       .rec-cal-grid). Back to the app's standard hairline now that a line is
-       drawn once instead of twice back-to-back. */
+    /* Only two edges each — the neighbouring cell draws the other two (see
+       .rec-cal-grid). Back to the app's standard hairline now that each line is
+       drawn once rather than twice adjacently. */
     border: 0;
     border-right: var(--border-width) solid var(--border);
     border-bottom: var(--border-width) solid var(--border);
@@ -145,19 +145,19 @@
     gap: 4px;
     background: var(--surface1);
 }
-/* The frame owns the outer edges, so the last column and last row drop theirs.
+/* The frame draws the outer edges, so the last column and last row omit theirs.
    The grid is always a whole number of weeks (recurring.js pads both ends), so
    the last seven children are exactly the last row. */
 .rec-day:nth-child(7n) { border-right: 0; }
 .rec-day:nth-last-child(-n + 7) { border-bottom: 0; }
 
-/* Padding days keep their share of the ruling — a joined grid with holes in it
-   reads as broken, not as "these days are outside the month". */
+/* Padding days keep their borders: a grid with gaps in the ruling reads as a
+   rendering fault rather than as days outside the month. */
 .rec-day-outside { background: transparent; }
 .rec-day-outside .rec-day-num { color: var(--text-tertiary); }
-/* Today can't be a border colour any more (a cell no longer owns all four
-   edges), so it's an inset outline: drawn inside the cell, costs no layout, and
-   can't be swallowed by a neighbour's shared line. */
+/* Today cannot be a border colour any more (a cell no longer draws all four
+   edges), so it is an inset outline: drawn inside the cell, adds no layout, and
+   cannot be covered by a neighbour's shared line. */
 .rec-day-today {
     outline: 2px solid var(--accent-primary);
     outline-offset: -2px;
@@ -179,18 +179,17 @@
 }
 
 /* ─── Add-here button ─────────────────────────────────────────────────────── */
-/* The day's own "+", opposite its number. Adding a schedule by hand is an act
-   about a date, so the affordance sits on the date — the cell the pointer is
-   already in answers "which day", and the dialog opens with it filled in.
-   Absolutely positioned so 31 of these reserve no space in the layout: the
-   grid's rhythm is the chips', and a permanent gutter for a button that is
-   invisible most of the time would bend it.
-   Hidden until the cell is hovered — a + on all 42 cells at rest would out-
-   shout every chip on the page — and `pointer-events` rides along with the
-   opacity so an invisible one can't be clicked by accident. Keyboard users
-   never depend on hover: :focus-visible reveals it identically, which is why
-   the focus ring lives here next to the rule that makes it visible at all
-   rather than in buttons.css with the rest. */
+/* The day cell's "+", opposite its number. Adding a schedule by hand is tied to
+   a date, so the control sits on the date: the cell the pointer is in supplies
+   the day, and the dialog opens with it pre-filled.
+   Absolutely positioned so 31 of these take no space in the layout: the grid's
+   spacing is set by the chips, and a permanent gutter for a mostly invisible
+   button would change it.
+   Hidden until the cell is hovered — a + on all 42 cells at rest would compete
+   with every chip on the page — and `pointer-events` follows the opacity so an
+   invisible one cannot be clicked. Keyboard users do not have hover:
+   :focus-visible reveals it the same way, which is why the focus ring is here
+   next to the rule that makes it visible rather than in buttons.css. */
 .rec-day-add {
     position: absolute;
     top: 4px;
@@ -295,15 +294,14 @@
 .rec-occ-expense  { --rec-chip-hue: var(--accent-negative); }
 .rec-occ-transfer { --rec-chip-hue: var(--accent-info); }
 
-/* The avatar keeps the merchant's own deterministic colour and initials (the
-   same circle the ledger and the card draw — avatar.js / ui.css), scaled to
-   chip size and nothing else. It used to wear a direction-coloured RING, from
-   when the tile was one flat accent and the ring was the only place direction
-   could go; the tile carries direction now, so the ring was saying a second
-   time what the chip already says in a far larger area — and it was doing it
-   at ~2-3:1 against the fill, the most a mid-tone allowed. Gone: the circle is
-   the merchant's identity, full stop, and it reads the same here as in the
-   ledger and on the card. */
+/* The avatar keeps the merchant's deterministic colour and initials (the same
+   circle the ledger and the card draw — avatar.js / ui.css), scaled to chip size
+   and otherwise unchanged. It used to carry a direction-coloured RING, from when
+   the tile was one flat accent and the ring was the only place direction could
+   be shown; the tile carries direction now, so the ring duplicated it in a much
+   smaller area, at ~2-3:1 contrast against the fill. It was removed: the circle
+   identifies the merchant and renders identically here, in the ledger and on the
+   card. */
 .rec-occ .avatar-circle {
     width: 18px;
     height: 18px;
@@ -358,18 +356,17 @@
     color: color-mix(in srgb, var(--rec-chip-hue) 65%, var(--text-primary));
 }
 
-/* Hover deepens the chip's OWN hue rather than moving to a colour of its own:
-   the response has to be "more of this chip", since the same treatment lights
-   up the whole schedule (below) and a shared neutral or accent hover would wipe
-   the direction off every chip it touched. The step is big enough (16% → 32% of
-   the hue) to read as a response on a tile this small, where a couple of
-   percent would not.
-   .rec-occ-active takes the SAME step, and must: recurring.js sets it on every
-   chip of a schedule the moment its card opens, which is the moment the
-   pointer lands on one of them. Any other treatment here would be what "hover"
-   actually looks like, since the hovered chip is always active too. Lighting
-   up the schedule's whole run across the month is the point — a monthly bill
-   shows all its dates at once. (Pinned-vs-previewing is carried by the card's
+/* Hover deepens the chip's existing hue rather than switching to another colour:
+   the same treatment highlights the whole schedule (below), and a shared neutral
+   or accent hover would remove the direction colour from every chip it touched.
+   The step is large enough (16% → 32% of the hue) to be visible on a tile this
+   small, where a few percent would not be.
+   .rec-occ-active uses the SAME step, and must: recurring.js sets it on every
+   chip of a schedule when its card opens, which is when the pointer lands on one
+   of them. A different treatment here would become the visible hover state,
+   since the hovered chip is always active too. Highlighting the schedule's whole
+   run across the month is intentional — a monthly bill shows all its dates at
+   once. (Pinned vs. previewing is shown by the card's
    own accent border.) */
 .rec-occ:hover,
 .rec-occ:focus-visible,
@@ -426,12 +423,12 @@
     border: var(--border-width) solid var(--border);
     border-radius: 8px;
     background: var(--surface1);
-    /* Its own elevation, softer than --shadow-menu (the app's popover shadow,
-       0 8px 24px / 0.5). A menu opens over an arbitrary page and has only its
-       shadow to sit on; this card opens over a pale ruled grid it also has a
-       1px border against, so the border already does the separating and the
-       menu's weight landed as a dark halo across three day cells — a heavier
-       mark than the chip it describes. Halved opacity on a tighter, closer
+    /* A softer elevation than --shadow-menu (the app's popover shadow,
+       0 8px 24px / 0.5). A menu opens over arbitrary page content and has only
+       its shadow for separation; this card opens over a pale ruled grid and also
+       has a 1px border, so the border provides the separation and the menu's
+       shadow rendered as a dark halo across three day cells, heavier than the
+       chip it describes. Halved opacity on a tighter, closer
        blur: enough lift to read as floating, not enough to stain the calendar.
        (--shadow-card, which raised surfaces use, resolves to no shadow at all,
        which would leave the card flat against the grid.) */
@@ -439,17 +436,18 @@
     padding: 10px 12px;
 }
 .rec-pop[hidden] { display: none; }
-/* Pinned by a click: it now survives the pointer leaving, so it says so. */
+/* Pinned by a click: it stays open when the pointer leaves, marked by the accent
+   border. */
 .rec-pop-pinned { border-color: var(--accent-primary); }
 
 /* merchant · amount · category · cadence, then the actions — one flat line, no
-   field nested under another, in the order the question is asked in: who, how
-   much, what kind, how often. The two numbers-and-identity fields lead because
-   they are what the card is opened for; the two tags trail as classification.
-   The row's `gap` is the ONLY thing that separates them: every field below is
-   sized to its own content (flex-basis auto, no min-widths, no text-align
-   padding it out), so the space between each pair is identical no matter what
-   the values are. The name is the sole flexible one, soaking up whatever is
+   field nested under another, in reading order: who, how much, what kind, how
+   often. The identity and amount fields lead because they are what the card is
+   opened for; the two tags follow as classification.
+   The row's `gap` is the ONLY separator: every field below is sized to its
+   content (flex-basis auto, no min-widths, no text-align padding), so the space
+   between each pair is identical regardless of the values. The name is the only
+   flexible one, taking whatever is
    left and ellipsing when it runs out. */
 .rec-pop-row {
     display: flex;
@@ -562,10 +560,9 @@ html[data-theme="dark"] .rec-pop-cadence {
     font-size: var(--size-micro);
 }
 
-/* Edit mode stacks: the name field gets a full row of its own, the three
-   controls and the ✓/✗ share the one below. Cramming all five onto the single
-   display-mode line leaves the name — usually the whole reason the card was
-   opened — a few dozen pixels wide. */
+/* Edit mode stacks: the name field takes a full row, and the three controls plus
+   the ✓/✗ share the row below. Fitting all five onto the single display-mode line
+   leaves the name, usually the field being edited, a few dozen pixels wide. */
 .rec-pop-editing {
     flex-direction: column;
     align-items: stretch;
@@ -734,12 +731,12 @@ html[data-theme="dark"] .rec-pop-cadence {
 .rec-select:focus { border-color: var(--frost-focus); outline: none; }
 .rec-select option { background: var(--surface1); color: var(--text-primary); }
 
-/* Same red/green/blue polarity the calendar chips are tinted with (see
-   .rec-occ above) — with no legend anywhere, this pairing is what carries
-   direction, so every surface showing an amount stays unambiguous. Shared by
-   the card's amount and the detection picker's. Transfer reuses the
-   ledger's own transfer colour (--accent-info, see transactions.css
-   .tx-amount-transfer) rather than red/green — it's neither a gain nor a
+/* Same red/green/blue mapping the calendar chips use (see .rec-occ above). There
+   is no legend, so this colour pairing is what conveys direction, and it is used
+   on every surface showing an amount. Shared by the card's amount and the
+   detection picker's. Transfer reuses the ledger's transfer colour
+   (--accent-info, see transactions.css .tx-amount-transfer) rather than
+   red/green, since it is neither a gain nor a
    spend. */
 .rec-amount-expense  { color: var(--accent-negative); }
 .rec-amount-income   { color: var(--accent-positive); }
@@ -856,7 +853,7 @@ html[data-theme="dark"] .rec-pop-cadence {
     white-space: nowrap;
 }
 
-/* Nothing ticked → nothing to add, so the confirm button says so instead of
+/* Nothing ticked → nothing to add, so the confirm button is disabled rather than
    posting a request the backend would reject. */
 .rec-detect-dialog .confirm-add:disabled {
     opacity: 0.5;

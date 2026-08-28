@@ -77,10 +77,10 @@
         </div>
         <div class="db-modal-body">
             <p class="db-modal-hint" id="db-modal-hint" hidden></p>
-            <!-- New Database asks for a name and states where the file lands
-                 (dbactions.js keeps the two in sync); Save As / Open still take
-                 a whole path. The path row is also New Database's fallback if
-                 the backend never told us a folder to propose. -->
+            <!-- New Database takes a name and displays where the file will be
+                 written (dbactions.js keeps the two in sync); Save As / Open take
+                 a whole path. The path row is also New Database's fallback when
+                 the backend supplied no folder to propose. -->
             <label class="db-field" id="db-name-row" hidden>
                 <span>Name</span>
                 <input type="text" id="db-name-input" placeholder="Finances" spellcheck="false" autocomplete="off" maxlength="80">

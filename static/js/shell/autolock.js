@@ -1,13 +1,13 @@
 'use strict';
 
 // ─── autolock.js ────────────────────────────────────────────────────────────
-// Locks an encrypted database after a period of user inactivity, then surfaces
-// the existing unlock prompt. Locking just drops the in-memory key on the
-// backend (POST /api/db/lock); the next data request answers 423 and the
-// renderer re-prompts — same flow as a restart with an encrypted DB.
+// Locks an encrypted database after a period of user inactivity, then shows the
+// existing unlock prompt. Locking drops the in-memory key on the backend (POST
+// /api/db/lock); the next data request returns 423 and the renderer re-prompts,
+// the same flow as a restart with an encrypted DB.
 //
 // Only an ENCRYPTED, currently-unlocked DB can be auto-locked: a plaintext file
-// has no passphrase to re-enter, so there'd be nothing to protect. Settings:
+// has no passphrase to re-enter. Settings:
 //   localStorage 'auto_lock'         '1' (default, on) | '0'
 //   localStorage 'auto_lock_minutes' minutes of inactivity (default 5)
 // settings.js fires an 'autolockchange' event when either changes so the timer
@@ -47,7 +47,7 @@
         timer = setTimeout(lockNow, minutes() * 60 * 1000);
     }
 
-    // Throttled re-arm for the high-frequency activity listeners (see above).
+    // Throttled re-arm for the frequent activity listeners (see above).
     function onActivity() {
         if (Date.now() - lastArm < ACTIVITY_COALESCE_MS) return;
         schedule();
@@ -72,7 +72,7 @@
         }
     }
 
-    // Learn whether the active DB can be auto-locked, then start the timer.
+    // Read whether the active DB can be auto-locked, then start the timer.
     apiFetch('/api/db/status')
         .then(r => r.json())
         .then(s => { armed = !!s.encrypted && !s.locked; schedule(); })

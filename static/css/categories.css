@@ -208,7 +208,8 @@
   transition: background 0.15s ease;
 }
 
-/* display:flex beats the UA [hidden] rule — restate it for search filtering. */
+/* display:flex overrides the UA [hidden] rule, so it is restated for search
+   filtering. */
 .cat-row[hidden] { display: none; }
 
 .cat-row:hover { background: var(--frost-2); }
@@ -346,7 +347,8 @@
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-/* display:flex beats the UA [hidden] rule — restate it for search filtering. */
+/* display:flex overrides the UA [hidden] rule, so it is restated for search
+   filtering. */
 .cat-add-row[hidden] { display: none; }
 
 .cat-add-row:hover { background: var(--frost-2); color: var(--text-primary); }

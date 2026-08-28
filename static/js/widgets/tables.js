@@ -4,7 +4,7 @@
 // tables.js — Shared table behavior for aventurine spreadsheet pages.
 // ============================================================================
 //
-// Loaded BEFORE every spreadsheet page's own JS. Provides two layers:
+// Loaded BEFORE each spreadsheet page's script. Provides two layers:
 //
 //   (1) Low-level helpers used by every spreadsheet-like page (Income &
 //       Expenses, Balance Sheet, Savings & Investing, Portfolio):
@@ -19,11 +19,11 @@
 //       + Balance Sheet tabs). Each tab reduces to a single
 //       bootstrapYearTablePage(opts) call with a config object describing its
 //       API prefix, column types, and minor UI variations — the Statements
-//       page runs two controllers side by side, scoped apart via the
+//       page runs two controllers side by side, kept separate via the
 //       *Selector options. See bootstrapYearTablePage() at the bottom for the
 //       full option list.
 //
-// Portfolio uses layer (1) but has its own controller (portfolio.js) because
+// Portfolio uses layer (1) but has a separate controller (portfolio.js) because
 // it operates on accounts rather than calendar years and has no column manager.
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -63,10 +63,10 @@
     // (debounce + the plain-number input formatters moved to core/format.js.)
 
     /**
-     * Announce a write that didn't reach the database. A silently dropped save
-     * is data loss — the user saw their value on screen but it was never stored
-     * — so every failed year-table write funnels here (wrapWrite below, plus the
-     * column-delete flow that inspects its own result).
+     * Report a write that did not reach the database. A dropped save with no
+     * message is data loss: the value is on screen but was never stored. Every
+     * failed year-table write routes here (wrapWrite below, plus the
+     * column-delete flow, which inspects its result directly).
      */
     function reportSaveFailure() {
         window.UI?.toast?.("Couldn't save your change — it hasn't been stored.", { type: 'error' });
@@ -153,9 +153,9 @@
     }
 
     /**
-     * Secondary confirmation shown when the user tries to delete a column that
-     * still has saved data. Stacks ABOVE the column manager modal (z-index 1100
-     * vs the manager's 1000). `label` is user-controlled so it is escapeHtml'd.
+     * Secondary confirmation shown when deleting a column that still has saved
+     * data. Stacks ABOVE the column manager modal (z-index 1100 vs the manager's
+     * 1000). `label` is user-controlled, so it is escapeHtml'd.
      */
     function confirmColumnDelete(label, onConfirm) {
         const overlay = document.createElement('div');
@@ -228,10 +228,10 @@
      * The shapes mirror the backend endpoints (electron/backend/routes.js) exactly.
      */
     // Map each API prefix to its Store dataset name. Writes through the API
-    // invalidate the matching cached dataset so that aggregator pages (Dashboard,
-    // Insights, Yearly Review) never read stale data after the user edits a
-    // tracker. Tracker pages themselves don't read through the Store yet — a
-    // background revalidation arriving mid-edit would clobber focus/scroll.
+    // invalidate the matching cached dataset, so aggregator pages (Dashboard,
+    // Insights, Yearly Review) do not read stale data after a tracker edit.
+    // Tracker pages do not read through the Store: a background revalidation
+    // arriving mid-edit would reset focus and scroll position.
     const _STORE_NAME_BY_PREFIX = {
         '/api':         'ie',
         '/api/balance': 'balance',
@@ -245,13 +245,13 @@
         };
         const sendJson = (url, method, body, extra = {}) =>
             apiFetch(url, { method, headers: jsonHeaders, body: JSON.stringify(body), ...extra });
-        // Wrap a write so (a) the Store cache for this feature is dropped once
-        // the request settles and (b) a failure surfaces a toast instead of
-        // vanishing. Failure is either a rejected fetch (backend unreachable) or
-        // an ok:false result — both the raw response-likes (upsertEntry et al.)
-        // and the .json()-ed bodies (column ops) carry `ok`. A rejection resolves
-        // to { ok: false } so callers need no try/catch (see the doc above).
-        // `report: false` is for writes whose caller presents the failure itself
+        // Wrap a write so (a) the Store cache for this feature is dropped once the
+        // request settles and (b) a failure shows a toast instead of being
+        // discarded. A failure is either a rejected fetch (backend unreachable) or
+        // an ok:false result — both the raw response-likes (upsertEntry et al.) and
+        // the .json()-ed bodies (column ops) carry `ok`. A rejection resolves to
+        // { ok: false } so callers need no try/catch (see the doc above).
+        // `report: false` is for writes whose caller displays the failure itself
         // (deleteColumn's expected 'has_data' refusal → confirmColumnDelete).
         const wrapWrite = (promise, { report = true } = {}) => promise
             .then(
@@ -285,8 +285,8 @@
             deleteColumn:  (key, force = false) => {
                 const url = force ? `${prefix}/columns/${key}?force=true` : `${prefix}/columns/${key}`;
                 // report:false — the caller inspects the body: a 'has_data'
-                // refusal is the normal path into confirmColumnDelete, not a
-                // failure to announce.
+                // refusal is the normal path into confirmColumnDelete, not an
+                // error to report.
                 return wrapWrite(apiFetch(url, { method: 'DELETE' }).then(r => r.json()), { report: false });
             },
         };
@@ -295,15 +295,15 @@
     // ─── Render / reload ────────────────────────────────────────────────────────
 
     /**
-     * Rebuild every year-table from scratch from ctx.years/ctx.entries/ctx.columns.
-     * Tables render newest-first; which year is visible is decided by the page
-     * (the Statements year stepper toggles [hidden] on the .db-outer cards).
+     * Rebuild every year-table from ctx.years/ctx.entries/ctx.columns. Tables
+     * render newest-first; which year is visible is set by the page (the
+     * Statements year stepper toggles [hidden] on the .db-outer cards).
      */
     function renderYearTables(ctx) {
-        // Commit any edits still inside their debounce window BEFORE tearing the
-        // inputs down. fire() writes through to ctx.entries synchronously (see
-        // fireSaveFor), so the rebuild below picks the values up even when the
-        // API call is still in flight.
+        // Commit any edits still inside their debounce window BEFORE removing the
+        // inputs. fire() writes through to ctx.entries synchronously (see
+        // fireSaveFor), so the rebuild below reads those values even while the API
+        // call is still in flight.
         flushAllPendingCellSaves();
         ctx.container.innerHTML = '';
         [...ctx.years].sort((a, b) => b - a).forEach(year => {
@@ -343,14 +343,14 @@
      *   - tbody:        twelve month rows of editable currency inputs
      *   - tfoot:        optional totals row (when ctx.includeTotals is true)
      *
-     * No per-table chrome: the year caption and the ⋮ menu live on the Statements
-     * sheet (statements.js), which shows one year at a time and acts on the year
-     * across BOTH datasets. The card's visual top is the page's tab bar, styled
-     * to join the .db-wrapper below it (see statements.css).
+     * No per-table chrome: the year caption and the ⋮ menu are on the Statements
+     * sheet (statements.js), which shows one year at a time and acts on that year
+     * across BOTH datasets. The card's visual top is the page's tab bar, styled to
+     * join the .db-wrapper below it (see statements.css).
      *
      * Uses createElement + textContent rather than innerHTML for any
-     * user-controlled label (column names, year), avoiding any HTML-injection
-     * risk without needing escapeHtml.
+     * user-controlled label (column names, year), removing the HTML-injection risk
+     * without needing escapeHtml.
      */
     function createYearTable(year, ctx) {
         const outer = document.createElement('div');
@@ -365,8 +365,8 @@
 
         // ── thead: column headers ───────────────────────────────────────────────
         const thead = document.createElement('thead');
-        // Cell provenance (computed vs hand-entered) is per cell and signalled by
-        // the value's own styling, so headers carry no affordance for it.
+        // Cell provenance (computed vs hand-entered) is per cell and shown by the
+        // value's styling, so headers carry no indicator for it.
         const headerRow = document.createElement('tr');
         headerRow.className = 'db-header-row';
         const monthTh = document.createElement('th');
@@ -432,12 +432,11 @@
 
     /**
      * Build one body cell: an editable <input>. The input carries the currency
-     * symbol as a prefix once content is present (e.g. "$1,234"); see
-     * currency.js for the editing model. On the Cash Flow page a cell whose
-     * value is computed from transactions gets the .cell-computed treatment
-     * (accent-info italics) from applyCellPresentation — an empty cell is
-     * simply blank, so the accent colour is the only signal that a computation
-     * is present.
+     * symbol as a prefix once content is present (e.g. "$1,234"); see currency.js
+     * for the editing model. On the Cash Flow page a cell whose value is computed
+     * from transactions gets the .cell-computed treatment (accent-info italics)
+     * from applyCellPresentation — an empty cell is blank, so the accent colour is
+     * the only indicator that a computed value is present.
      */
     function _buildDataCell(month, col) {
         const td = document.createElement('td');
@@ -490,8 +489,7 @@
     }
 
     // The save fetches carry `keepalive: true` (see makeYearTableApi) so the
-    // browser holds them open long enough to reach the server even as the
-    // page unloads.
+    // browser keeps them open long enough to complete as the page unloads.
     window.addEventListener('pagehide', flushAllPendingCellSaves);
 
     // ─── Cell provenance presentation (Cash Flow) ───────────────────────────────
@@ -513,19 +511,19 @@
     /**
      * Re-render a settled cell at full precision: "$1,240" becomes "$1,240.00".
      *
-     * A statement column is read down its decimal point, so every amount in it
-     * has to break at the same place — one whole-dollar cell without cents
-     * shifts its digits a character right and the eye loses the column.
-     * Server-loaded values already arrive through formatCurrency and carry the
-     * cents; a value the user TYPES does not, because applyCurrencyFormat
-     * deliberately echoes back exactly what was typed (padding mid-keystroke
-     * would fight the caret). So the padding lands here instead, once the cell
-     * is settled — on blur, and on the re-present after a save.
+     * A statement column is read down its decimal point, so every amount must
+     * break at the same character position — one whole-dollar cell without cents
+     * shifts its digits one character right and breaks the alignment.
+     * Backend-loaded values already pass through formatCurrency and carry the
+     * cents; a typed value does not, because applyCurrencyFormat echoes back
+     * exactly what was typed (padding mid-keystroke would move the caret). So the
+     * padding is applied here instead, once the cell is settled — on blur, and on
+     * the re-render after a save.
      *
-     * No-op on an empty cell (the placeholder has to show through) and on
-     * anything that doesn't parse, which is the user's text to keep, not ours
-     * to rewrite. Provenance pages get the same padding from
-     * applyCellPresentation, which rebuilds the value from the layers.
+     * No-op on an empty cell (the placeholder must show through) and on anything
+     * that does not parse, which is left as typed. Provenance pages get the same
+     * padding from applyCellPresentation, which rebuilds the value from the
+     * layers.
      */
     function normaliseCellValue(input) {
         if (input.value === '') return;
@@ -534,8 +532,8 @@
         input.value = formatCurrency(val, false, { editable: true });
     }
 
-    // Shown once ever, the first time the user overrides a computed cell —
-    // teaches both halves of the model at the exact moment it changes.
+    // Shown once, the first time a computed cell is overridden, describing both
+    // halves of the model at the point the change happens.
     const OVERRIDE_HINT_KEY = 'cf-override-hint-shown';
     function maybeShowOverrideHint(ctx, year, month, col) {
         if (cellLayerValue(ctx.computed, year, month, col) === undefined) return;
@@ -614,22 +612,22 @@
      *   - input:    live comma formatting + debounced save + (if includeTotals) totals refresh
      *   - keydown:  spreadsheet-style arrow-key navigation (Enter == ArrowDown)
      *
-     * Multi-cell selection (drag / Shift+arrow → copy / paste / delete) is layered
-     * on by cellselect.js once the table is built — see the enableCellSelection
-     * call below.
+     * Multi-cell selection (drag / Shift+arrow → copy / paste / delete) is added
+     * by cellselect.js once the table is built — see the enableCellSelection call
+     * below.
      *
-     * Saves are debounced so we don't fire one API call per keystroke. Deletes
-     * are issued when a value is cleared so blank cells aren't persisted as 0.
+     * Saves are debounced to avoid one API call per keystroke. Deletes are issued
+     * when a value is cleared, so blank cells are not stored as 0.
      */
     function initYearTable(outerEl, yearEntries, ctx) {
         const table       = outerEl.querySelector('.db-table');
         const currentYear = parseInt(outerEl.dataset.year);
 
-        // Saves are debounced per input via the module-level _pendingCellSaves
-        // map (see "Cell-save scheduler" above) — one API call per
-        // SAVE_DEBOUNCE_MS of typing instead of one per keystroke. The map
-        // doubles as the registry that blur and pagehide flush against, so
-        // moving focus or navigating away never drops an in-progress edit.
+        // Saves are debounced per input via the module-level _pendingCellSaves map
+        // (see "Cell-save scheduler" above) — one API call per SAVE_DEBOUNCE_MS of
+        // typing instead of one per keystroke. The map is also the registry that
+        // blur and pagehide flush, so moving focus or navigating away does not drop
+        // an in-progress edit.
 
         // Re-apply a cell's provenance presentation (value/styling/tooltip/↺),
         // or — on pages without the layers, i.e. the Balance Sheet — just pad
@@ -707,11 +705,11 @@
         outerEl.querySelectorAll('input[data-month][data-col]').forEach(input => {
             const month = input.dataset.month;
             const col   = input.dataset.col;
-            // Pre-fill with the symbol-prefixed display value so the cell
-            // matches what the user would see after typing. {editable} keeps the
-            // cents even when "hide cents" is on — they'd otherwise be truncated
-            // on the next save. Provenance pages route through present(), which
-            // also applies the computed styling/tooltips/↺.
+            // Pre-fill with the symbol-prefixed display value so the cell matches
+            // the format produced by typing. {editable} keeps the cents even when
+            // "hide cents" is on, which would otherwise truncate them on the next
+            // save. Provenance pages route through present(), which also applies
+            // the computed styling, tooltips and ↺.
             if (ctx.computed) {
                 present(input, month, col);
             } else {
@@ -720,9 +718,9 @@
             }
 
             input.addEventListener('input', () => {
-                // The user is typing: whatever the cell held, it now reads as
-                // theirs — the computed styling drops immediately, the save
-                // (debounced below) records the override.
+                // On typing, the cell becomes a user value: the computed styling is
+                // removed immediately and the save (debounced below) records the
+                // override.
                 input.classList.remove('cell-computed', 'cell-flash');
                 input.title = '';
                 applyCurrencyFormat(input);
@@ -730,13 +728,12 @@
                 if (ctx.includeTotals) updateYearTotals(outerEl, ctx);
             });
 
-            // Leaving the cell commits any pending edit immediately. Users expect
-            // tab/click-away to mean "I'm done with this cell" — waiting out a
-            // debounce window first feels like the app is hesitating. The flush's
-            // fireSaveFor re-presents the cell (focus has already moved on); when
-            // nothing was pending (no edit, or the debounce already fired while
-            // the cell was still focused) present here instead, so a cleared cell
-            // fades its computed value back in on the way out.
+            // Leaving the cell commits any pending edit immediately, rather than
+            // waiting out the debounce window after tab or click-away. The flush's
+            // fireSaveFor re-renders the cell (focus has already moved); when
+            // nothing was pending (no edit, or the debounce already fired while the
+            // cell was focused) present() runs here instead, so a cleared cell
+            // fades its computed value back in on blur.
             input.addEventListener('blur', () => {
                 if (_pendingCellSaves.has(input)) {
                     flushSave(input);
@@ -782,11 +779,11 @@
         });
 
         // ── Spreadsheet-style multi-cell selection (drag / Shift+arrow → copy,
-        //    paste, delete). Owned by cellselect.js, which writes cells by
+        //    paste, delete). Implemented in cellselect.js, which writes cells by
         //    dispatching synthetic `input` events that re-run the per-input save
-        //    handlers wired just above — so paste/delete persist through the same
-        //    path as typing. Guarded so Credit Cards (loads tables.js but never
-        //    builds a year table, and doesn't ship cellselect.js) is unaffected.
+        //    handlers wired above, so paste and delete persist through the same
+        //    path as typing. Guarded so Credit Cards (which loads tables.js but
+        //    builds no year table and does not load cellselect.js) is unaffected.
         if (window.enableCellSelection) {
             enableCellSelection(table, { cellSelector: 'td.data-cell' });
         }
@@ -795,12 +792,12 @@
     }
 
     /**
-     * Recompute the per-column totals shown in the table footer. Called after
-     * any cell edit, paste, or column add. Empty columns render blank so the
-     * cell isn't a confusing "$0".
+     * Recompute the per-column totals shown in the table footer. Called after any
+     * cell edit, paste, or column add. Empty columns render blank rather than
+     * "$0".
      *
-     * The cell holds just a .total-value span; formatCurrency() handles the
-     * symbol prefix (with the user's chosen currency) and comma formatting.
+     * The cell holds one .total-value span; formatCurrency() applies the symbol
+     * prefix (with the user's chosen currency) and comma formatting.
      */
     function updateYearTotals(outerEl, ctx) {
         ctx.columns.forEach(col => {
@@ -829,12 +826,12 @@
 
     /**
      * Open (or close, if already open) the "Manage Columns" modal — the Balance
-     * Sheet's column editor. It deliberately wears the SAME design as the Cash
-     * Flow tab's "Manage Categories" modal: the shell and every control reuse
-     * the .cat-* styles (categories.css + the shared modal primitives in
-     * style.css §7), so the two Statements managers look identical and the
-     * modal styles live in one place. Only the data layer differs — rows here
-     * are ctx.columns, driven through the /columns endpoints.
+     * Sheet's column editor. It uses the SAME design as the Cash Flow tab's
+     * "Manage Categories" modal: the shell and every control reuse the .cat-*
+     * styles (categories.css + the shared modal primitives in style.css §7), so
+     * the two Statements managers render identically and the modal styles live in
+     * one place. Only the data layer differs — rows here are ctx.columns, driven
+     * through the /columns endpoints.
      *
      * Layout: a search field above one collapsible card per column type
      * ("Cash Accounts" … "Debt Accounts"). The cards are an accordion — all
@@ -861,9 +858,9 @@
         const existing = document.querySelector('.col-manager-overlay');
         if (existing) { existing.remove(); return; }
 
-        // What one column is called in the modal's copy — "column" for a
-        // generic dataset; the Balance Sheet passes "account" (opts.itemNoun)
-        // so every string here talks about accounts.
+        // What one column is called in the modal's copy — "column" for a generic
+        // dataset; the Balance Sheet passes "account" (opts.itemNoun) so every
+        // string here reads "account".
         const noun    = ctx.itemNoun;
         const nounCap = noun.charAt(0).toUpperCase() + noun.slice(1);
 
@@ -875,9 +872,9 @@
 
         const overlay = document.createElement('div');
         // .cat-manager-overlay carries the shared visual treatment;
-        // .col-manager-overlay is purely the query hook for the open/close
-        // toggle above (and keeps this overlay distinct from the categories
-        // editor's own, which statements.js queries the same way).
+        // .col-manager-overlay is only the query hook for the open/close toggle
+        // above, and keeps this overlay distinct from the categories editor's,
+        // which statements.js queries the same way.
         overlay.className = 'confirm-overlay cat-manager-overlay col-manager-overlay';
         document.body.appendChild(overlay);
         overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
@@ -946,8 +943,8 @@
 
         const buildManager = () => {
             // ── One row per column: grip handle + rename input + quiet × ───────
-            // Only the grip is draggable; the row itself stays a normal flow
-            // element so the rename input and × button keep their pointer events.
+            // Only the grip is draggable; the row stays a normal flow element so
+            // the rename input and × button keep their pointer events.
             const renderRow = (col) => `
                 <div class="cat-row" data-key="${escapeHtml(col.key)}">
                     <span class="cat-grip" draggable="true" aria-label="Drag ${escapeHtml(col.label)} to reorder">${_GRIP}</span>
@@ -1027,8 +1024,8 @@
 
             // ── Card headers — accordion expand/collapse: opening a card
             // collapses the others. A live search forces matching cards open
-            // (applyFilter wins), so the stored state only takes effect once
-            // the query is cleared. ────────────────────────────────────────────
+            // (applyFilter takes precedence), so the stored state applies again
+            // only once the query is cleared. ─────────────────────────────────
             overlay.querySelectorAll('.cat-group-head').forEach(head => {
                 head.addEventListener('click', () => {
                     const type     = head.closest('.cat-group').dataset.type;
@@ -1110,15 +1107,16 @@
                 const row = grip.closest('.cat-row');
                 grip.addEventListener('dragstart', e => {
                     // A filtered list shows a partial order — reordering it would
-                    // commit positions the user can't see. Clear the search first.
+                    // write positions for rows that are not visible. Clear the
+                    // search first.
                     if (query.trim()) { e.preventDefault(); return; }
                     draggingRow = row;
                     e.dataTransfer.effectAllowed = 'move';
                     e.dataTransfer.setData('text/plain', row.dataset.key); // Firefox needs payload
                     e.dataTransfer.setDragImage(row, 12, 12);
-                    // Defer the dimming + drag mode so the drag image isn't the
-                    // faded row. `dragging` on the editor root hides the empty-
-                    // card placeholders (CSS) so the accent line is the only cue.
+                    // Defer the dimming and drag mode so the drag image is not the
+                    // faded row. `dragging` on the editor root hides the empty-card
+                    // placeholders (CSS) so the accent line is the only indicator.
                     requestAnimationFrame(() => {
                         row.classList.add('cat-dragging');
                         root.classList.add('dragging');
@@ -1150,8 +1148,8 @@
             // hovers it (the accordion never has two cards open at once, so a
             // cross-type move would otherwise have no drop target), then place
             // the accent line at the insertion point. Spring-opening is view-
-            // only — dragend reconciles the accordion. The indicator has
-            // pointer-events:none so it never steals this dragover.
+            // only — dragend restores the accordion state. The indicator has
+            // pointer-events:none so it does not intercept this dragover.
             root.addEventListener('dragover', e => {
                 if (!draggingRow) return;
                 const group = e.target.closest?.('.cat-group');
@@ -1172,8 +1170,8 @@
             });
             root.addEventListener('drop', e => { if (draggingRow) e.preventDefault(); });
 
-            // ── Delete column. If the column has saved data the backend refuses
-            // and we re-confirm with confirmColumnDelete before forcing. ───────
+            // ── Delete column. If the column has saved data the backend refuses,
+            // and confirmColumnDelete re-confirms before forcing. ─────────────
             overlay.querySelectorAll('.cat-delete').forEach(btn => {
                 btn.addEventListener('click', async () => {
                     const key    = btn.closest('.cat-row').dataset.key;
@@ -1181,9 +1179,9 @@
                     const result = await ctx.api.deleteColumn(key);
                     if (!result.ok) {
                         // 'has_data' is the expected refusal — re-confirm and
-                        // force. Anything else is a real failure: report it and
-                        // keep the column, rather than dropping it locally while
-                        // the backend still has it.
+                        // force. Anything else is a failure: report it and keep the
+                        // column, rather than removing it locally while the backend
+                        // still holds it.
                         if (result.error === 'has_data') {
                             confirmColumnDelete(col.label, async () => {
                                 const forced = await ctx.api.deleteColumn(key, true);
@@ -1228,9 +1226,8 @@
     // ─── Bootstrap ──────────────────────────────────────────────────────────────
 
     /**
-     * Wire up a full year-table page from a single config object. Each page's
-     * own JS file is now just a one-shot call to this function with the page's
-     * specific shape.
+     * Wire up a full year-table page from a single config object. Each page's JS
+     * file is a single call to this function with that page's config.
      *
      * opts:
      *   apiPrefix           string  — API mount point (e.g. '/api/balance')
@@ -1249,19 +1246,20 @@
      *   containerSelector     string? — where tables render (default
      *                                   '.db-tables-container'). The Statements
      *                                   page runs TWO controllers side by side, so
-     *                                   each needs its own container + buttons.
+     *                                   each needs a separate container and
+     *                                   buttons.
      *   addYearBtnSelector    string? — the "Add New Year" button (default
      *                                   '.db-actions .button-primary'); pass null
      *                                   when the page wires add-year itself via
      *                                   the handle's addYear
      *   manageColsBtnSelector string? — the "Manage Columns" button (default
      *                                   '.db-actions .button-secondary'); pass
-     *                                   null when the page opens the manager
-     *                                   itself via the handle's manageColumns
-     *                                   (Statements puts it in the ⋮ menu)
+     *                                   null when the page opens the manager via
+     *                                   the handle's manageColumns (Statements
+     *                                   puts it in the ⋮ menu)
      *
-     * Returns a small handle the page controller can drive year-level operations
-     * through (the Statements ⋮ menu acts on a year across BOTH datasets):
+     * Returns a handle the page controller uses for year-level operations (the
+     * Statements ⋮ menu acts on a year across BOTH datasets):
      *   api           — the makeYearTableApi wrapper for this dataset
      *   reload        — re-fetch /data and re-render every table
      *   hasYear       — whether this dataset currently has the given year
@@ -1303,8 +1301,8 @@
             ctx.container = document.querySelector(opts.containerSelector || '.db-tables-container');
             await reloadYearTables(ctx);
 
-            // "Add New Year" button — opens the year-prompt modal; on confirm
-            // creates the year in this dataset. Pages that own the button
+            // "Add New Year" button — opens the year-prompt modal; on confirm it
+            // creates the year in this dataset. Pages that wire the button
             // themselves (Statements adds the year to BOTH datasets) pass
             // addYearBtnSelector: null and call the handle's addYear instead.
             if (opts.addYearBtnSelector !== null) {
@@ -1317,12 +1315,12 @@
                 });
             }
 
-            // "Manage Columns" button — opens the (toggleable) column manager.
+            // "Manage Columns" button — opens the toggleable column manager.
             // Skipped when the page opts out (Cash Flow manages categories in
-            // Settings) or owns the entry point itself (manageColsBtnSelector:
-            // null + the handle's manageColumns). querySelector returns null
-            // when the button isn't in the template, so the guard covers that
-            // case without any explicit flag.
+            // Settings) or wires the entry point itself (manageColsBtnSelector:
+            // null + the handle's manageColumns). querySelector returns null when
+            // the button is not in the template, so the guard covers that case
+            // without an explicit flag.
             if (opts.manageColsBtnSelector !== null) {
                 const manageBtn = document.querySelector(opts.manageColsBtnSelector || '.db-actions .button-secondary');
                 if (manageBtn && !ctx.hideColumnManager) {
@@ -1331,8 +1329,8 @@
             }
         };
 
-        // Script tags live at the end of <body>, so the DOM is already parsed
-        // when this runs. No DOMContentLoaded wait needed.
+        // Script tags are at the end of <body>, so the DOM is already parsed when
+        // this runs; no DOMContentLoaded wait is needed.
         init();
 
         return {

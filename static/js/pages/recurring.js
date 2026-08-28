@@ -14,15 +14,14 @@
   // services/predictions.js).
   //
   // The page starts EMPTY, however much recurring history the ledger holds:
-  // detection is a guess, so it doesn't get to fill the calendar by itself.
+  // detection is heuristic, so it does not populate the calendar on its own.
   // The user runs it from the ⋮ menu ("Find recurring schedules"), ticks the
   // patterns they recognize in the picker (openDetectDialog → GET
-  // /api/recurring/candidates, POST /api/recurring/adopt), and those start
-  // appearing on the grid. Schedules can also be added by hand from the + a
-  // day cell reveals on hover — which is what makes the due date a thing the
-  // user points at rather than a field they fill in — and removed from the
-  // card's trash can, one at a time or all at once (⋮ → "Clear all recurring
-  // schedules"). See "Detect" and "Add / remove".
+  // /api/recurring/candidates, POST /api/recurring/adopt), and those appear on
+  // the grid. Schedules can also be added by hand from the + a day cell reveals
+  // on hover, so the due date is the cell pointed at rather than a field to fill
+  // in, and removed from the card's trash can, one at a time or all at once
+  // (⋮ → "Clear all recurring schedules"). See "Detect" and "Add / remove".
   //
   // Globals (loaded before this script): apiFetch (api.js), escapeHtml
   // (escape.js), formatCurrency/applyCurrencyFormat/stripCurrencyValue
@@ -44,16 +43,15 @@
   // stretch one row of the grid), but nothing may become unreachable: the
   // calendar is now the only way to get at a schedule.
   const MAX_CHIPS_PER_DAY = 3;
-  // Grace period before a card closes when the pointer leaves the chip —
-  // enough to cross the gap into the card itself, which is how the pencil and
-  // trash can are reachable without clicking first.
+  // Grace period before a card closes when the pointer leaves the chip — long
+  // enough to cross the gap into the card, so the pencil and trash can are
+  // reachable without clicking first.
   const CLOSE_DELAY_MS = 180;
 
-  // Inlined so the card's actions don't depend on an icon font / external
-  // sprite. pencil/check/cross/trash are the same drawings (and the same
-  // 20-box, 1.5-stroke language) the Transactions ledger uses for its row
-  // actions, since those are the same verbs; `plus` is the day cell's own
-  // add affordance, drawn to match.
+  // Inlined so the card's actions do not depend on an icon font or external
+  // sprite. pencil/check/cross/trash are the same drawings (and the same 20-box,
+  // 1.5-stroke style) the Transactions ledger uses for its row actions, since the
+  // actions are the same; `plus` is the day cell's add button, drawn to match.
   const ICONS = {
     pencil: '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M14.5 3.5l2 2-9.5 9.5-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
     check:  '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 10.5l3.5 3.5L15 6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -75,9 +73,9 @@
     return `${year}-${String(mo).padStart(2, '0')}`;
   }
 
-  // Mirror of services/predictions.js's normaliseDesc — used client-side only
-  // to warn the Add-schedule dialog when a name won't key off any letters
-  // (the backend is the actual source of truth and re-derives this itself).
+  // Mirror of services/predictions.js's normaliseDesc — used client-side only to
+  // warn the Add-schedule dialog when a name produces no letters in the key. The
+  // backend is authoritative and re-derives this on save.
   function normaliseDesc(desc) {
     return String(desc || '').toLowerCase().replace(/\d+/g, '').replace(/[^a-z]+/g, ' ').trim();
   }
@@ -113,11 +111,10 @@
    *  This is the schedule's home on the page — a <button> so it is focusable
    *  and Enter/Space-activatable without re-implementing either.
    *
-   *  The avatar is the same deterministic colour+initials circle the ledger
-   *  and the card use (avatar.js), so a merchant looks identical everywhere —
-   *  and only that: direction is carried by the chip's own tint (the
-   *  rec-occ-<direction> class, recurring.css), not by anything drawn on the
-   *  circle. */
+   *  The avatar is the same deterministic colour+initials circle the ledger and
+   *  the card use (avatar.js), so a merchant renders identically everywhere.
+   *  Direction is shown by the chip's tint (the rec-occ-<direction> class,
+   *  recurring.css), not by the circle. */
   function chipHtml(occ) {
     const label = occLabel(occ);
     const active = activeOcc && activeOcc.key === occ.key;
@@ -168,11 +165,9 @@
         + (expanded && c.occs.length > MAX_CHIPS_PER_DAY
           ? `<button type="button" class="rec-day-more" data-expand="${c.iso}">Show less</button>`
           : '');
-      // Add-here button, revealed by hovering the cell (recurring.css). Adding
-      // by hand is an act about a DATE — "I get charged $12 on the 3rd" — so
-      // it belongs on the day itself, where the answer to "which date" is
-      // already the cell the pointer is in, rather than in a menu that then
-      // has to ask.
+      // Add-here button, revealed by hovering the cell (recurring.css). Adding by
+      // hand is anchored to a DATE, so the control is on the day cell and the due
+      // date is the cell the pointer is in, rather than a field in a menu.
       const add = `<button type="button" class="rec-day-add" data-add="${c.iso}"
         title="Add a recurring schedule due ${escapeHtml(fmtShortDate(c.iso))}"
         aria-label="Add a recurring schedule due ${escapeHtml(fmtShortDate(c.iso))}">${ICONS.plus}</button>`;
@@ -187,9 +182,9 @@
       <div class="rec-cal-grid">${cellHtml}</div>`;
   }
 
-  /** The empty state sits above the grid rather than replacing it — the month
-   *  is still worth seeing — and its CTA is the whole point here: nothing
-   *  arrives on the calendar until the user asks for detection. */
+  /** The empty state sits above the grid rather than replacing it, so the month
+   *  stays visible, and its CTA runs detection: nothing appears on the calendar
+   *  until detection is run. */
   function renderEmpty() {
     const host = document.getElementById('rec-empty');
     if (!host) return;
@@ -263,20 +258,20 @@
     return `<span class="rec-type-pill rec-type-${direction}" title="${escapeHtml(s.category)}">${escapeHtml(s.category)}</span>`;
   }
 
-  /** The card's merchant identity — avatar + name — as a link into the ledger,
+   /** The card's merchant — avatar + name — as a link into the ledger,
    *  pre-filtered to this schedule's transactions. A chip on the calendar is a
-   *  prediction with no visible evidence behind it; this is the "why is this
-   *  here?" answer, and it lands on the rows detection actually grouped (the
-   *  backend hands over a search term drawn from their descriptions, not from
-   *  the schedule's label — which may be a user override that matches nothing).
+   *  projection with no visible source rows; this link opens them, and it lands
+   *  on the rows detection grouped (the backend supplies a search term derived
+   *  from their descriptions, not from the schedule's label, which may be a user
+   *  override that matches nothing).
    *
-   *  It lives on the card rather than on the chip because a chip is itself a
-   *  <button>: an <a> nested in one is invalid, and a second click target
-   *  inside it would fight the click that pins the card. The card is already
-   *  where this schedule's actions live, and it's one hover away.
+   *  It is on the card rather than the chip because a chip is a <button>: an <a>
+   *  nested in one is invalid, and a second click target inside it would compete
+   *  with the click that pins the card. The card already holds this schedule's
+   *  actions and is one hover away.
    *
-   *  A hand-added schedule has nothing behind it (search is null), so it stays
-   *  plain text — a link to an empty table answers nothing. */
+   *  A hand-added schedule has no backing rows (search is null), so it renders as
+   *  plain text; a link would open an empty table. */
   function merchantHtml(label, s) {
     const inner = `${merchantAvatarHtml(label)}<span class="rec-pop-name">${escapeHtml(label)}</span>`;
     if (!s.search) return `<span class="rec-pop-merchant" title="${escapeHtml(label)}">${inner}</span>`;
@@ -354,9 +349,8 @@
     pop.style.left = `${Math.round(left)}px`;
   }
 
-  /** Draw (or redraw) the card for whatever is active, anchored to its chip.
-   *  Closes itself if the occurrence went away — deleted, or the month moved
-   *  on under it. */
+  /** Draw (or redraw) the card for the active occurrence, anchored to its chip.
+   *  Closes if that occurrence is gone — deleted, or the month changed. */
   function renderCard() {
     const pop = popEl();
     const occ = occFor(activeOcc);
@@ -441,9 +435,9 @@
     renderCard();
   }
 
-  /** Read the card's inputs, flagging (rather than silently correcting)
-   *  anything the backend would reject — a blank name or a non-positive
-   *  amount — so ✓ never quietly writes something the user didn't type. */
+  /** Read the card's inputs, marking (rather than auto-correcting) anything the
+   *  backend would reject — a blank name or a non-positive amount — so ✓ never
+   *  writes a value the user did not enter. */
   function readEditCard() {
     const pop = popEl();
     const nameInput = pop.querySelector('.rec-input-name');
@@ -498,12 +492,11 @@
   }
 
   // ─── Detect ──────────────────────────────────────────────────────────────
-  // Detection runs only when asked. The picker lists what the backend found
-  // and hasn't been adopted yet (GET /api/recurring/candidates) — every box
-  // ticked to start, since the common answer is "yes, all of these" — and
-  // adopting the ticked ones (POST /api/recurring/adopt) is what puts them on
-  // the calendar. Nothing is written by opening the dialog, so cancelling
-  // leaves the database exactly as it was.
+  // Detection runs only on request. The picker lists what the backend found that
+  // is not yet adopted (GET /api/recurring/candidates), with every box ticked
+  // initially, and adopting the ticked ones (POST /api/recurring/adopt) puts them
+  // on the calendar. Opening the dialog writes nothing, so cancelling leaves the
+  // database unchanged.
 
   function candidateRowHtml(s, i) {
     const label = s.display_name || s.description;
@@ -647,11 +640,11 @@
     });
   }
 
-  /** ⋮ → "Clear all recurring schedules": the card's trash can applied to
-   *  every schedule at once, under exactly the same rule — detected ones are
-   *  un-adopted (back in the picker, corrections intact), hand-added ones are
-   *  dropped. So what this clears is the CALENDAR, and the wording says so
-   *  rather than implying the history behind it is going anywhere. */
+  /** ⋮ → "Clear all recurring schedules": the card's trash can applied to every
+   *  schedule at once, under the same rule — detected ones are un-adopted (back
+   *  in the picker, corrections kept), hand-added ones are deleted. This clears
+   *  the CALENDAR only; the transactions behind it are untouched, and the wording
+   *  reflects that. */
   function confirmClearAll() {
     closeCard();
     const n = data.series.length;
@@ -683,17 +676,15 @@
     });
   }
 
-  /** Form dialog for a schedule with no transactions behind it yet — e.g.
-   *  "I know I'll be charged $12/mo starting next month." Every field is
-   *  required (unlike editing an existing schedule, where each field is
-   *  independently optional): a manual schedule with a gap in any of them
-   *  can't project anything, so the dialog only submits once all five are
-   *  filled in validly.
+  /** Form dialog for a schedule with no backing transactions — a charge the user
+   *  expects but has not been billed for yet. Every field is required (unlike
+   *  editing an existing schedule, where each field is independently optional):
+   *  a manual schedule missing any of them cannot be projected, so the dialog
+   *  submits only once all five are valid.
    *
-   *  Opened from a day cell's +, so `iso` is that day: the due date arrives
-   *  already answered and the user starts on the name. It stays an editable
-   *  field rather than a fixed caption — the cell says which date they meant,
-   *  not that they can't have changed their mind about it. */
+   *  Opened from a day cell's +, so `iso` is that day: the due date is pre-filled
+   *  and the cursor starts on the name. It stays an editable field rather than a
+   *  fixed caption so the date can still be changed. */
   function openAddDialog(iso) {
     closeCard();
     const overlay = document.createElement('div');
@@ -846,13 +837,13 @@
       UI.openMenu(e.currentTarget, items);
     });
 
-    // Whole-page actions only: adding by hand is a property of a day now, so
-    // it lives on the day cells (see .rec-day-add).
+    // Whole-page actions only: adding by hand is tied to a date, so that control
+    // is on the day cells (see .rec-day-add).
     //
-    // Clear-all is offered only when there is something to clear. UI.openMenu
-    // has no disabled state, and an item that opens a confirm dialog in order
-    // to do nothing is worse than one that isn't there — the empty state
-    // already says the page is blank.
+    // Clear-all is listed only when there is something to clear. UI.openMenu has
+    // no disabled state, and an item that opens a confirm dialog and then does
+    // nothing is worse than omitting it — the empty state already indicates the
+    // page is blank.
     document.getElementById('rec-kebab-btn').addEventListener('click', (e) => {
       const items = [{ label: 'Find recurring schedules', action: openDetectDialog }];
       if (data.series.length) {
@@ -874,15 +865,14 @@
     });
     calendar.addEventListener('mouseout', (e) => {
       if (!e.target.closest('.rec-occ')) return;
-      // Moving between two chips fires mouseout before the next mouseover —
-      // the delayed close lets that mouseover cancel it, so the card doesn't
-      // flicker as the pointer crosses a day cell.
+      // Moving between two chips fires mouseout before the next mouseover — the
+      // delayed close lets that mouseover cancel it, so the card does not flicker
+      // as the pointer crosses a day cell.
       scheduleClose();
     });
-    // Tabbing to a chip previews it exactly as hovering does. Deliberately not
-    // pinned: focus also lands on a chip the instant it is clicked, and a
-    // pre-pinned card would make that click read as the second (dismissing)
-    // one of a toggle.
+    // Tabbing to a chip previews it the same way hovering does, and does NOT pin
+    // it: focus also lands on a chip when it is clicked, and a pre-pinned card
+    // would make that click act as the dismissing half of a toggle.
     calendar.addEventListener('focusin', (e) => {
       const chip = e.target.closest('.rec-occ');
       if (!chip || editingKey) return;
@@ -922,10 +912,10 @@
       else if (action === 'cancel') cancelEdit();
       else if (action === 'delete') confirmRemoveSchedule(key);
     });
-    // Enter commits the open card, so an edit can be finished from the
-    // keyboard without hunting for the ✓ — the dialogs elsewhere in the app
-    // behave the same way. Escape is handled once, at the document level
-    // below, so it can't both cancel the edit and close the card.
+    // Enter commits the open card, so an edit can be finished from the keyboard
+    // without reaching for the ✓, matching the dialogs elsewhere in the app.
+    // Escape is handled once, at the document level below, so it cannot both
+    // cancel the edit and close the card.
     pop.addEventListener('keydown', (e) => {
       if (editingKey && e.key === 'Enter') { e.preventDefault(); commitEdit(editingKey); }
     });
@@ -940,20 +930,20 @@
       if (e.target.closest('[data-empty-action="detect"]')) openDetectDialog();
     });
 
-    // A pinned card is dismissed the way every other transient surface in the
-    // app is: Escape, or a click anywhere that isn't it.
+    // A pinned card is dismissed like every other transient surface in the app:
+    // Escape, or a click outside it.
     //
-    // Capture phase, deliberately: the card's own buttons re-render it, which
-    // detaches the very node that was clicked. By the time a bubbling listener
-    // ran, e.target would be orphaned and closest() would find no #rec-pop
-    // ancestor — so pressing the pencil would read as an outside click and
-    // close the card instead of opening the editor.
+    // Capture phase: the card's buttons re-render it, which detaches the node that
+    // was clicked. By the time a bubbling listener ran, e.target would be detached
+    // and closest() would find no #rec-pop ancestor, so pressing the pencil would
+    // register as an outside click and close the card instead of opening the
+    // editor.
     document.addEventListener('click', (e) => {
       if (!pinned || e.target.closest('#rec-pop, .rec-occ, .confirm-overlay')) return;
       closeCard();
     }, true);
     // Escape steps back one level at a time: out of an edit first, out of the
-    // card second. A dialog on top owns its own Escape.
+    // card second. A dialog on top handles its own Escape.
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape' || document.querySelector('.confirm-overlay')) return;
       if (editingKey) cancelEdit();

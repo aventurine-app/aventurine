@@ -5,8 +5,8 @@
 // produces the 11 standard routes for one such feature. Currently used by
 // Balance Sheet only, exactly like the Python factory.
 //
-// Table names come from our own config (never user input), so they are safe
-// to interpolate into the SQL strings.
+// Table names come from this module's config, never from user input, so they
+// are safe to interpolate into the SQL strings.
 
 const { bad, cleanLabel, parseEntry, validateYear, monthNumber, monthName } = require('../validate');
 

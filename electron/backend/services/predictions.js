@@ -5,8 +5,8 @@
 // rows; only .date (ISO string) / .description / .amount are touched. DB access
 // stays in the handler.
 
-// (name, nominal gap in days, per-gap tolerance in days) — tolerances tight
-// enough that the windows never overlap.
+// (name, nominal gap in days, per-gap tolerance in days) — tolerances are tight
+// enough that the windows do not overlap.
 const CYCLES = [
   ['weekly', 7, 2],
   ['biweekly', 14, 3],
@@ -18,20 +18,20 @@ const CYCLES = [
 // Cycles that step by calendar month rather than a fixed day count.
 const CYCLE_MONTHS = { monthly: 1, quarterly: 3, yearly: 12 };
 
-// {cycle name -> nominal gap in days}, derived from CYCLES — the single
-// source of truth a cadence override (Recurring page) re-derives next_date
-// from, without duplicating the day counts above.
+// {cycle name -> nominal gap in days}, derived from CYCLES. A cadence override
+// (Recurring page) re-derives next_date from this, so the day counts above are
+// not duplicated.
 const CYCLE_DAYS = Object.fromEntries(CYCLES.map(([name, days]) => [name, days]));
 
 const MIN_OCCURRENCES = 3; // charges needed before a pattern is trusted
 const MIN_REGULARITY = 0.7; // fraction of gaps that must sit within tolerance
 
-// Grace period (days past the projected next charge) before detectRecurringSeries
-// gives up on a series and drops it as "probably cancelled". Deliberately much
-// looser than a cycle's own gap tolerance: a short month, a late-posting charge,
-// or simply not having imported the latest statement yet shouldn't erase months
-// of otherwise-perfect history from the calendar. detectRecurringExpenses stays
-// on the tighter per-cycle tolerance (oracle-pinned, must not change).
+// Grace period (days past the projected next charge) before
+// detectRecurringSeries drops a series as cancelled. Much looser than a cycle's
+// own gap tolerance: a short month, a late-posting charge, or an un-imported
+// latest statement would otherwise remove months of regular history from the
+// calendar. detectRecurringExpenses keeps the tighter per-cycle tolerance
+// (oracle-pinned, must not change).
 const LAPSED_GRACE_DAYS = 90;
 
 /** Canonical grouping key for a merchant string (mirror of _normalise_desc):
@@ -56,9 +56,9 @@ function fromUTC(ms) {
 
 const DAY_MS = 86400000;
 
-/** Today as a LOCAL-timezone ISO date — mirror of Python's date.today() (the
- *  default `today` for detection; using UTC would shift a day for users west
- *  of Greenwich in the evening). */
+/** Today as a LOCAL-timezone ISO date — mirror of Python's date.today(). This
+ *  is the default `today` for detection; UTC would shift the date by a day for
+ *  users west of Greenwich in the evening. */
 function localTodayIso() {
   const d = new Date();
   const p = (n) => String(n).padStart(2, '0');
@@ -93,7 +93,7 @@ function median(values) {
   return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }
 
-/** Match the median gap to a known cycle; null when nothing fits. */
+/** Match the median gap to a known cycle; null when no cycle window matches. */
 function classifyCycle(gaps) {
   const mid = median(gaps);
   for (const [name, days, tol] of CYCLES) {
@@ -103,7 +103,7 @@ function classifyCycle(gaps) {
 }
 
 // Python-equivalent round(x, 2) — the one exact implementation lives in
-// validate.js (BigInt-exact, oracle-verified); never duplicate it.
+// validate.js (BigInt-exact, oracle-verified); do not duplicate it.
 const { round2 } = require('../validate');
 
 /**
@@ -150,7 +150,7 @@ function detectRecurringExpenses(transactions, { today = null, limit = 5 } = {})
     const last = dates[dates.length - 1];
     const nextDue = name in CYCLE_MONTHS ? addMonths(last, CYCLE_MONTHS[name]) : addDays(last, days);
 
-    // Overdue beyond tolerance => probably cancelled — drop it.
+    // Overdue beyond tolerance => treated as cancelled; dropped.
     if (daysBetween(nextDue, todayIso) > tol) continue;
 
     // Predicted amount: median of the latest few charges.
@@ -173,7 +173,7 @@ function detectRecurringExpenses(transactions, { today = null, limit = 5 } = {})
     });
   }
 
-  // Soonest first; confidence breaks date ties.
+  // Soonest first; ties on date are ordered by confidence.
   results.sort((a, b) =>
     a.next_date < b.next_date ? -1 : a.next_date > b.next_date ? 1 : b.confidence - a.confidence
   );
@@ -188,8 +188,8 @@ function detectRecurringExpenses(transactions, { today = null, limit = 5 } = {})
  * Unlike detectRecurringExpenses this returns EVERY qualifying series (no
  * `limit`) and keeps each series' full occurrence history — `dates`, one entry
  * per real charge date with that day's actual (split-merged) amount — instead
- * of collapsing it to a last-date/count pair. Built for a calendar view that
- * needs to place real dots on real past days, not just predict the next one.
+ * of collapsing it to a last-date/count pair. The calendar view uses those
+ * dates to mark past charge days, not only the next projected one.
  * `today` is an ISO string (defaults to the current date). Returns
  * [{key, description, amount, cycle, next_date, due_in_days, last_date, dates,
  * occurrences, confidence}], sorted soonest-due first.
@@ -227,7 +227,7 @@ function detectRecurringSeries(transactions, { today = null } = {}) {
     const last = dates[dates.length - 1];
     const nextDue = name in CYCLE_MONTHS ? addMonths(last, CYCLE_MONTHS[name]) : addDays(last, days);
 
-    // Overdue beyond the lapsed grace period => probably cancelled — drop it.
+    // Overdue beyond the lapsed grace period => treated as cancelled; dropped.
     if (daysBetween(nextDue, todayIso) > LAPSED_GRACE_DAYS) continue;
 
     const amount = round2(median(dates.slice(-3).map((d) => byDate.get(d))));

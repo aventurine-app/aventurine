@@ -6,7 +6,7 @@
 // Data-source rule (per cell): every (year, month, category) cell of an active
 // year is COMPUTED from transactions by default; a stored Entry OVERRIDES that
 // one cell. There is no sync mode or per-category switch — typing in a cell
-// claims it, deleting the entry releases it back to the computed value.
+// stores an override, deleting the entry restores the computed value.
 
 const { bad, parseEntry, validateYear, VALID_MONTHS, monthNumber, monthName } = require('../validate');
 
@@ -168,8 +168,8 @@ function yearDuplicate(ctx, { params, body }) {
   }
   db.transaction(() => {
     db.prepare('INSERT INTO active_years (year) VALUES (?)').run(target);
-    // Copy the manual overrides; computed cells recompute from the target
-    // year's own transactions.
+    // Copy the manual overrides; computed cells are recomputed from the target
+    // year's transactions.
     db.prepare(
       `INSERT INTO entries (year, month, category, value)
        SELECT ?, month, category, value FROM entries WHERE year = ?`

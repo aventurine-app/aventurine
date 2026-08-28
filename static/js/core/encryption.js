@@ -7,19 +7,20 @@
 //   encrypt — plaintext DB gains a password.
 //   change  — re-encrypt an encrypted DB under a new password.
 //   decrypt — remove encryption from an encrypted DB.
-// The backend (conn.rekey) does the keying with a file-backup rollback; this is
-// just the form. On success we reload so every status reader (auto-lock arming,
-// the Security status line) re-reads cleanly — same pattern as a DB switch.
+// The backend (conn.rekey) performs the keying with a file-backup rollback; this
+// file is only the form. On success the page reloads so every status reader
+// (auto-lock arming, the Security status line) re-reads the new state — the same
+// pattern as a DB switch.
 
 (function () {
-    // Modal markup lives in the page HTML; this IIFE no-ops (and exposes no
-    // securityActions) on any page that doesn't render it. Only
+    // Modal markup lives in the page HTML; this IIFE does nothing (and exposes no
+    // securityActions) on any page that does not render it. Only
     // static/js/shell/settings.js calls window.securityActions.showEncryption().
     const overlay = document.querySelector('[data-modal="encryption"]');
     if (!overlay) return;
 
-    // Grab every interactive element up front by data-attribute (not id/class),
-    // so this script only binds to the encryption modal's own markup.
+    // Select every interactive element up front by data-attribute (not id or
+    // class), so this script binds only to the encryption modal's markup.
     const q = (sel) => overlay.querySelector(sel);
     const statusEl  = q('[data-enc-status]');
     const actionsEl = q('[data-enc-actions]');
@@ -35,19 +36,19 @@
     const cancelBtn = q('[data-enc-cancel]');
     const closeBtn  = q('[data-enc-close]');
 
-    // encrypted is the live DB state fetched in open(); it — not a form
-    // field — is what decides whether "encrypt" is even a choice, since an
-    // already-encrypted DB can only "change" or "decrypt". busy guards
-    // against double-submit while the request is in flight.
+    // `encrypted` is the live DB state fetched in open(); it, not a form field,
+    // determines whether "encrypt" is offered, since an already-encrypted DB can
+    // only "change" or "decrypt". `busy` blocks a double submit while the request
+    // is in flight.
     let encrypted = false;
     let busy = false;
 
     function setError(msg) { errorEl.textContent = msg || ''; errorEl.hidden = !msg; }
 
-    // Resolves which of the three backend actions (encrypt/change/decrypt)
-    // the current form state maps to. Forced to 'encrypt' when the DB isn't
-    // encrypted, regardless of radio state, since those radios are hidden
-    // in that case (see actionsEl.hidden in render()).
+    // Resolves which of the three backend actions (encrypt/change/decrypt) the
+    // current form state maps to. Forced to 'encrypt' when the DB is not
+    // encrypted, regardless of radio state, since those radios are hidden in that
+    // case (see actionsEl.hidden in render()).
     function chosenAction() {
         if (!encrypted) return 'encrypt';
         const checked = overlay.querySelector('.enc-action-radio:checked');
@@ -100,10 +101,10 @@
     function close() { if (!busy) overlay.hidden = true; }
 
     // Validates the relevant fields for the chosen action, then POSTs to
-    // /api/db/encryption (handled by electron/backend/handlers/database.js,
-    // which calls conn.rekey with a file-backup/rollback — see this file's
-    // header comment). A password mismatch is only checked client-side;
-    // the server is the source of truth for "is currentPassword correct".
+    // /api/db/encryption (handled by electron/backend/handlers/database.js, which
+    // calls conn.rekey with a file-backup rollback — see this file's header
+    // comment). A password mismatch is checked client-side only; the backend
+    // decides whether currentPassword is correct.
     async function submit() {
         if (busy) return;
         const action = chosenAction();
@@ -128,11 +129,11 @@
             });
             const data = await res.json().catch(() => ({}));
             if (data.ok) {
-                // Full reload on success (not just closing the modal) — see
-                // this file's header comment: every other status reader
-                // (auto-lock arming, the Security status line in Settings)
-                // needs to re-read the now-changed encryption state, and a
-                // reload is the simplest way to guarantee that.
+                // Full reload on success, not just closing the modal — see this
+                // file's header comment: every other status reader (auto-lock
+                // arming, the Security status line in Settings) has to re-read the
+                // changed encryption state, and a reload is the simplest way to
+                // do that.
                 try { sessionStorage.clear(); } catch { /* disabled — ignore */ }
                 window.location.reload();
                 return;

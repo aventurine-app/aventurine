@@ -56,12 +56,12 @@
         return theme;
     }
 
-    // Swapping the theme is a token swap on <html>, so everything painted by CSS
-    // retones on the spot. The only stale things are the charts, which bake
-    // --chart-*/--accent-primary into SVG attributes at draw time; 'themechange'
-    // (the shape 'currencychange' already uses) tells them to repaint from the
-    // state they already hold. This used to reload the page instead, which
-    // closed the Settings modal the user was still standing in.
+    // Switching the theme swaps tokens on <html>, so everything painted by CSS
+    // updates immediately. Only the charts go stale, since they write
+    // --chart-*/--accent-primary into SVG attributes at draw time; the
+    // 'themechange' event (the same shape as 'currencychange') makes them repaint
+    // from the state they hold. This used to reload the page instead, which
+    // closed the open Settings modal.
     function applyTheme(theme) {
         const effective = resolveTheme(theme);
         if (effective) {
@@ -97,17 +97,17 @@
 
 
     // ── Graph palette ─────────────────────────────────────────────────────────
-    // The second appearance axis: the theme above picks the page, this picks what
-    // the charts are painted with, and the two compose (see themes.css). '' is
-    // the accent-derived ramp — the default, and the reason it stores an empty
-    // string rather than the word 'accent': absent attribute = the --chart-*
-    // definitions in style.css, with no override block to keep in step.
+    // The second appearance axis: the theme above sets the page colours, this
+    // sets the chart colours, and the two combine (see themes.css). '' is the
+    // accent-derived ramp — the default, and the reason it stores an empty string
+    // rather than the word 'accent': an absent attribute uses the --chart-*
+    // definitions in style.css, with no override block to keep in sync.
     //
-    // Swapping it is the same token swap the theme does, so it reuses the same
-    // 'themechange' event to tell the already-drawn charts to repaint from the
-    // state they hold. The charts don't care WHICH of the two axes moved — they
-    // re-read their colours off <html> either way — so a second event would be a
-    // second name for one thing, and every listener would have to bind both.
+    // Switching it is the same token swap the theme does, so it reuses the same
+    // 'themechange' event to make the drawn charts repaint from the state they
+    // hold. The charts re-read their colours off <html> for either axis, so a
+    // second event name would duplicate this one and every listener would have
+    // to bind both.
     function applyGraphTheme(palette) {
         if (palette) {
             document.documentElement.dataset.graphTheme = palette;
@@ -197,10 +197,11 @@
 
     // ── Zoom (Electron only) ───────────────────────────────────────────────────
     // The control drives the shared zoom API in zoom.js. NOTE: zoom.js loads
-    // AFTER this file (see scripts.html order), so window.aventurineZoom doesn't exist
-    // yet while settings.js executes — wiring it now would no-op. Defer to
-    // DOMContentLoaded, by which point every body script (incl. zoom.js) has run.
-    // The row stays hidden in a plain browser where window.aventurineZoom is absent.
+    // AFTER this file (see scripts.html order), so window.aventurineZoom does not
+    // exist while settings.js executes and wiring it here would do nothing. Defer
+    // to DOMContentLoaded, by which point every body script (including zoom.js)
+    // has run. The row stays hidden in a plain browser, where
+    // window.aventurineZoom is absent.
 
     function wireZoom() {
         if (!window.aventurineZoom) return;
@@ -263,18 +264,19 @@
 
 
     // ── Security: auto-lock + database encryption ──────────────────────────────
-    // Auto-lock is localStorage-backed (default on, 5 min); autolock.js watches
-    // for the 'autolockchange' event to re-arm. The encryption row just opens the
-    // dedicated modal (encryption.js) and reflects the live encrypted/plain state.
+    // Auto-lock is localStorage-backed (default on, 5 min); autolock.js listens
+    // for the 'autolockchange' event to re-arm. The encryption row opens the
+    // dedicated modal (encryption.js) and shows the current encrypted/plain
+    // state.
     //
-    // Encryption is listed FIRST and the two auto-lock rows hang off it: locking
-    // means "ask for the password again", so on a plaintext DB there is no
-    // password to ask for and the timer would fire on nothing. Both rows are
-    // therefore dimmed until the DB is actually encrypted, rather than being
-    // settings that silently do nothing. The stored preference is left untouched
-    // while dimmed, so encrypting a DB restores whatever the user last chose.
-    // Encrypt/decrypt reloads the page (see core/encryption.js), so this state is
-    // read once at load and never has to be re-fetched.
+    // Encryption is listed FIRST and the two auto-lock rows depend on it: locking
+    // re-prompts for the password, so on a plaintext DB there is no password to
+    // prompt for and the timer would have no effect. Both rows are therefore
+    // dimmed until the DB is encrypted, rather than being controls with no
+    // effect. The stored preference is not changed while dimmed, so encrypting a
+    // DB restores the last selected value. Encrypt/decrypt reloads the page (see
+    // core/encryption.js), so this state is read once at load and never
+    // re-fetched.
 
     function setAutolockLabel(slider) {
         const label = slider.closest('.settings-threshold-control')
@@ -282,10 +284,9 @@
         if (label) label.textContent = slider.value + ' min';
     }
 
-    // Pending until /api/db/status answers. Starts false so the controls never
+    // Pending until /api/db/status responds. Starts false so the controls do not
     // flash as usable on a plaintext DB; a failed status fetch falls back to
-    // true, since a state we cannot read is no reason to lock the user out of
-    // their own settings.
+    // true, so an unreadable state does not disable the settings.
     let dbEncrypted = false;
 
     // Two independent conditions: the timer row needs encryption AND the

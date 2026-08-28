@@ -21,26 +21,25 @@
   const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
 
-  // The two sides are coloured on DIFFERENT principles, which is what tells
-  // inflow from outflow at a glance:
+  // The two sides use DIFFERENT colour schemes, which is what separates inflow
+  // from outflow visually:
   //
-  //   income (left)   — six shades of ONE colour (--chart-inflow-*). It's a
-  //       handful of sources, usually one dominant one, so they don't each need
-  //       an identity; keeping the whole inflow in one colour, leading into a
-  //       hub of that same colour (--chart-net), reads as one stream arriving.
-  //       Which colour depends on the graph palette: the UI accent under the
-  //       accent ramp, green under Colorful (themes.css).
-  //   expenses (right)— the merchant spectrum (--cat-*), a hue per category, the
-  //       same eight colours the Spending report and the ledger's avatars use.
-  //       This side is where a dozen bands fan out and each one is a thing the
-  //       user recognises; on the old greyed-accent ramp they sorted by
-  //       lightness and read as one undifferentiated flow, with no rung the eye
-  //       could carry back to a label.
+  //   income (left)   — six shades of ONE colour (--chart-inflow-*). There are
+  //       few sources, usually one dominant one, so they do not need separate
+  //       hues; one colour leading into a hub of the same colour (--chart-net)
+  //       renders as a single stream. Which colour depends on the graph palette:
+  //       the UI accent under the accent ramp, green under Colorful
+  //       (themes.css).
+  //   expenses (right)— the merchant spectrum (--cat-*), one hue per category,
+  //       the same eight colours the Spending report and the ledger's avatars
+  //       use. This side has a dozen bands, each a named category; on the
+  //       previous greyed-accent ramp they sorted by lightness and were hard to
+  //       match back to a label.
   //
-  // The hub takes the inflow colour too — it isn't a category, and staying out
-  // of the spectrum is what says so. Colours are read from the tokens at render
-  // time so an accent/theme/palette swap retones the diagram; the arrays below
-  // are first-paint fallbacks mirroring the light theme.
+  // The hub uses the inflow colour, since it is not a category and stays out of
+  // the category spectrum. Colours are read from the tokens at render time so an
+  // accent, theme or palette change re-colours the diagram; the arrays below are
+  // first-paint fallbacks matching the light theme.
   const NET_FALLBACK = '#497e74';
   const INCOME_FALLBACK = ['#497e74', '#79b2a7', '#365e56', '#25413b', '#5b9f92', '#9bc5bd'];
   const CAT_FALLBACK = [
@@ -158,8 +157,8 @@
     // Read fresh so an accent/theme swap retones the diagram.
     const { net: NET_COLOR, income: INCOME_PALETTE, expense: EXPENSE_PALETTE } = readSankeyPalettes();
 
-    // Tall enough that every category label on the busier side gets its own
-    // LABEL_GAP of vertical room (so the spread pass below never has to overlap).
+    // Tall enough that every category label on the busier side gets LABEL_GAP of
+    // vertical room, so the spread pass below never overlaps labels.
     const labelRoom = Math.max(income.length, expense.length) * LABEL_GAP + PAD.t + PAD.b + 12;
     const H = Math.max(Math.round(W * CHART_RATIO), labelRoom, 260);
     const availH = H - PAD.t - PAD.b;
@@ -184,7 +183,7 @@
     const centerTop = Math.max((H - centerH) / 2, CENTER_LABEL_GAP + 22);
 
     // Lay out a stacked side column, vertically centred. Returns nodes with y/h
-    // and a colour drawn from the side's own palette, in payload order.
+    // and a colour from that side's palette, in payload order.
     const layoutSide = (items, x, palette) => {
       const colH = items.reduce((a, c) => a + Math.max(c.total * scale, MIN_BAND), 0) + gaps(items.length);
       let y = (H - colH) / 2;
@@ -199,11 +198,11 @@
     const incomeNodes = layoutSide(income, incomeX, INCOME_PALETTE);
     const expenseNodes = layoutSide(expense, expenseX, EXPENSE_PALETTE);
 
-    // Nodes + labels. A tiny category sits on a near-zero-height node, so
-    // centring its label on the node would stack it onto its neighbour. Decouple
-    // the labels from the bands: push them apart to at least LABEL_GAP within the
-    // chart bounds, then draw a thin leader back to each node. The bands/nodes
-    // themselves stay exactly value-proportional.
+    // Nodes + labels. A small category sits on a near-zero-height node, so
+    // centring its label on the node would overlap its neighbour. The labels are
+    // positioned independently of the bands: pushed apart to at least LABEL_GAP
+    // within the chart bounds, with a thin leader line back to each node. The
+    // bands and nodes stay exactly value-proportional.
     const spreadLabels = (sideNodes) => {
       const top = PAD.t + 10;
       const bottom = H - PAD.b - 12;

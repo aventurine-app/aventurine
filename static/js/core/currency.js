@@ -12,9 +12,9 @@
 //   - The user's chosen symbol lives in localStorage under 'currency_symbol'.
 //   - Default is '$' on first run.
 //   - Changes from the Settings page write through setCurrencySymbol(),
-//     which dispatches a 'currencychange' window event for any open page
-//     to react to (e.g. re-render the visible tables). Pages that don't
-//     listen will pick up the new symbol on their next normal render.
+//     which dispatches a 'currencychange' window event that open pages can
+//     handle (e.g. re-render the visible tables). Pages with no listener use
+//     the new symbol on their next render.
 //
 // Editing model in cells:
 //   - The currency symbol is part of the input's value, e.g. '$1,234'.
@@ -156,8 +156,8 @@
     function setCurrencySymbol(raw) {
         const symbol  = sanitizeCurrencySymbol(raw) || '$';
         CURRENCY_SYMBOL = symbol;
-        // Keep the global mirror in sync — other files read CURRENCY_SYMBOL
-        // through window (see the exports at the bottom of this file).
+        // Keep the global copy in sync — other files read CURRENCY_SYMBOL from
+        // window (see the exports at the bottom of this file).
         window.CURRENCY_SYMBOL = symbol;
         localStorage.setItem('currency_symbol', symbol);
         window.dispatchEvent(new CustomEvent('currencychange', { detail: { symbol } }));
@@ -225,12 +225,12 @@
      * The algorithm is the same as applyCommaFormat: count digits to the left
      * of the caret before reformatting, then walk the rebuilt string until we
      * pass that many digits on the same side of the decimal point. The only
-     * twist is that we skip over the leading symbol when looking for the caret
-     * landing spot, so backspacing through the value can't get stuck on the
+     * difference is that the leading symbol is skipped when finding the caret
+     * landing spot, so backspacing through the value does not stop on the
      * symbol prefix.
      *
-     * Pass {allowEmpty: true} (the default) to let an empty input stay empty
-     * — that's what we want for placeholder display.
+     * Pass {allowEmpty: true} (the default) to leave an empty input empty, so
+     * the placeholder shows.
      */
     function applyCurrencyFormat(input) {
         const { group, decimal } = NUMBER_FORMAT;
@@ -248,8 +248,8 @@
         }
 
         // Empty cell → keep empty so the placeholder shows. This also covers
-        // the "user backspaced through the symbol with nothing else there"
-        // case: we don't want a lonely symbol to remain in the input.
+        // backspacing through the value with only the symbol left, which would
+        // otherwise leave a lone symbol in the input.
         if (cleaned === '' || cleaned === '.') {
             input.value = '';
             return;
@@ -296,36 +296,35 @@
     /**
      * Build the tick formatter for ONE chart axis, from the WHOLE tick set.
      *
-     * Formatting each tick independently is what made axes repeat themselves:
-     * every renderer abbreviated thousands with `(n / 1000).toFixed(0) + 'K'`,
-     * but the nice-tick step is 2/5/10 × a power of ten, so a step of 500 or 200
-     * is routine — and at those steps whole-thousand labels collapse. A range of
+     * Formatting each tick independently produced repeated labels: every
+     * renderer abbreviated thousands with `(n / 1000).toFixed(0) + 'K'`, but the
+     * nice-tick step is 2/5/10 × a power of ten, so a step of 500 or 200 is
+     * common, and at those steps whole-thousand labels collapse. A range of
      * 9,000–9,400 (step 200) rendered as "$9K, $9K, $9K"; 1,200–2,100 (step 500)
-     * as "$1K, $2K, $2K, $3K". Distinct gridlines MUST carry distinct labels, or
-     * the axis is unreadable exactly where the data is interesting.
+     * as "$1K, $2K, $2K, $3K". Distinct gridlines must carry distinct labels.
      *
-     * Two rules fix it, and both need the full set to apply:
-     *   1. ONE scale for the whole axis, picked from the largest tick — so an
-     *      axis never mixes "$800" with "$1K". The scale is only taken when the
-     *      step is big enough to survive it (≥ 0.1 of the divisor), so a tiny
-     *      range on a large balance drops back to plain numbers instead of
+     * Two rules fix it, and both need the full tick set:
+     *   1. ONE scale for the whole axis, picked from the largest tick, so an
+     *      axis never mixes "$800" with "$1K". The scale is applied only when
+     *      the step is large enough for it (≥ 0.1 of the divisor), so a small
+     *      range on a large balance falls back to plain numbers instead of
      *      needing three decimals to stay distinct.
-     *   2. The FEWEST decimals that still tell every tick apart (0, then 1, then
-     *      2) — so the common case stays "$8K, $9K" and only a fine step pays
-     *      for "$9.0K, $9.2K, $9.4K".
+     *   2. The FEWEST decimals that keep every tick distinct (0, then 1, then
+     *      2), so the common case stays "$8K, $9K" and only a fine step needs
+     *      "$9.0K, $9.2K, $9.4K".
      *
-     * Zero is always plain "0": "$0.0K" is noise on the one label that needs
-     * none. Returns (n) => string.
+     * Zero is always plain "0": "$0.0K" adds nothing on that label. Returns
+     * (n) => string.
      */
     function axisFormatter(ticks) {
         const list = Array.isArray(ticks) && ticks.length ? ticks : [0];
         const nonZero = list.map(Math.abs).filter((v) => v > 0);
         const smallest = nonZero.length ? Math.min(...nonZero) : 0;
 
-        /** One tick, at a given scale and precision. Honours the user's
+        /** One tick, at a given scale and precision. Applies the user's
          *  group/decimal separators and symbol position, which the per-chart
-         *  copies of this never did — every axis in the app hard-coded a
-         *  leading symbol and no grouping. */
+         *  copies of this did not — every axis in the app hard-coded a leading
+         *  symbol and no grouping. */
         const fmt = (n, div, suffix, decimals) => {
             const body = (() => {
                 if (n === 0) return '0';
@@ -335,31 +334,31 @@
             })();
             const withSymbol = SYMBOL_POSITION === 'suffix'
                 ? body + CURRENCY_SYMBOL : CURRENCY_SYMBOL + body;
-            // Plain leading minus: an axis label is too tight for the
-            // parenthesised negative style, and the sign must stay scannable.
+            // Plain leading minus: an axis label has too little room for the
+            // parenthesised negative style, and the sign must stay legible.
             return n < 0 ? '-' + withSymbol : withSymbol;
         };
 
-        // Scales worth trying, largest first — but only where every non-zero
-        // tick survives it, so an axis never abbreviates to less than one unit
-        // ("$0.5K" for 500, when "$500" was available and clearer).
+        // Candidate scales, largest first, and only where every non-zero tick is
+        // at least one unit at that scale, so an axis never abbreviates below one
+        // unit ("$0.5K" for 500, where "$500" is shorter).
         const scales = [];
         if (smallest >= 1e6) scales.push([1e6, 'M']);
         if (smallest >= 1e3) scales.push([1e3, 'K']);
         scales.push([1, '']);
 
-        // First combination that gives every tick its own label, preferring the
-        // largest scale and the fewest decimals. Dropping a scale is part of the
-        // search: at 8,000–8,004 no number of sensible decimals separates the
-        // ticks in thousands, but plain numbers do it immediately.
+        // First combination that gives every tick a distinct label, preferring
+        // the largest scale and the fewest decimals. Dropping a scale is part of
+        // the search: at 8,000–8,004 no reasonable number of decimals separates
+        // the ticks in thousands, but plain numbers do.
         for (const [div, suffix] of scales) {
             for (let decimals = 0; decimals <= 2; decimals++) {
                 const f = (n) => fmt(n, div, suffix, decimals);
                 if (new Set(list.map(f)).size === list.length) return f;
             }
         }
-        // Only reachable if the tick list itself repeats a value — nothing to
-        // separate, so use the most precise plain form.
+        // Only reachable when the tick list repeats a value, so no formatting
+        // can separate them; use the most precise plain form.
         return (n) => fmt(n, 1, '', 2);
     }
 

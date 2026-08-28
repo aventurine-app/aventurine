@@ -41,9 +41,9 @@ app.whenReady().then(() => {
     check('db status 200 + unlocked', status.status === 200 && status.body.locked === false);
 
     const data = dispatch(conn, 'GET', '/api/data', null);
-    // One I&E column per seeded category — derived from the seed itself so a
-    // taxonomy change (e.g. the 2026-07 expansion from 11 to 18 categories)
-    // can't strand this check on a stale hardcoded count.
+    // One I&E column per seeded category — read from the seed, so a taxonomy
+    // change (e.g. the 2026-07 expansion from 11 to 18 categories) does not leave
+    // this check on a stale hardcoded count.
     check('I&E data has seeded columns',
       data.status === 200 && data.body.columns.length === DEFAULT_CATEGORIES.length);
 

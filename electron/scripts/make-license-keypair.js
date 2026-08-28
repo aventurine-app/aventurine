@@ -1,26 +1,25 @@
 'use strict';
 
-// Generate the Ed25519 pair that signs unlock keys. Run ONCE, on a machine you
-// trust, and treat the private half as the crown jewels: anyone holding it can
-// mint licenses for your product forever.
+// Generate the Ed25519 pair that signs unlock keys. Run ONCE, on a trusted
+// machine. Anyone holding the private half can mint licenses for this product
+// indefinitely.
 //
 //   node scripts/make-license-keypair.js [--out <dir>]
 //
-// The private key is written to a 0600 FILE and never printed. That is
-// deliberate: anything on stdout ends up in scrollback, in a terminal log, and
-// in whatever tooling you were running at the time. Pipe the file where it
-// needs to go instead:
+// The private key is written to a 0600 FILE and never printed, because anything
+// on stdout ends up in scrollback, terminal logs, and any tooling running at the
+// time. Pipe the file to its destination instead:
 //
 //   wrangler secret put SIGNING_KEY_PKCS8 < <dir>/aventurine-signing.pkcs8
 //
 // Then back the file up offline (a password manager is fine) and delete it from
-// disk. Losing it is survivable — generate a new pair, add its public half at
-// the NEXT slot in PUBLIC_KEYS, and issue under that slot, so every key already
-// sold keeps verifying. Leaking it is not: you would have to rotate and reissue.
+// disk. Losing it is recoverable: generate a new pair, add its public half at the
+// NEXT slot in PUBLIC_KEYS, and issue under that slot, so every key already sold
+// still verifies. Leaking it is not recoverable; it requires rotating and
+// reissuing.
 //
-// The script refuses to overwrite an existing key file. Clobbering a signing
-// key that is already in production would silently invalidate every license
-// ever issued under it.
+// The script refuses to overwrite an existing key file. Overwriting a signing key
+// already in production would invalidate every license issued under it.
 
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -52,7 +51,7 @@ fs.writeFileSync(privatePath, pkcs8, { mode: 0o600 });
 try {
   fs.chmodSync(privatePath, 0o600);
 } catch {
-  // best-effort; Windows ACLs may refuse
+  // best-effort; may fail on Windows ACLs
 }
 
 console.log(`

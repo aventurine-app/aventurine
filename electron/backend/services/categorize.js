@@ -1,22 +1,22 @@
 'use strict';
 
-// On-device cold-start categorization — the bundled-knowledge layer of the
-// import moat. Where matchRules.js categorizes from what THIS user has taught
-// the app, this module categorizes a description with no prior history at all.
-// It has three tiers, tried in order of decreasing precision:
+// On-device cold-start categorization — the bundled-data layer. matchRules.js
+// categorizes from this user's prior assignments; this module categorizes a
+// description with no prior history at all. Three tiers, run in order of
+// decreasing precision:
 //   1. merchant lexicon  — named brands, substring match  (merchantCategories)
 //   2. keyword rules      — generic descriptive terms       (merchantCategories)
 //   3. classifier         — statistical fallback for unseen  (classifier.js)
-//      merchants the first two miss; abstains unless confident.
+//      merchants the first two miss; returns null unless confident.
 //
-// It is pure logic + one read-only category lookup; no network, ever (the
-// whole point — categorization stays on the user's machine). Blend order at the
-// call site is: learned MatchRules first (they personalise and win), then this.
+// Pure logic plus one read-only category lookup; no network call, so
+// categorization stays on the user's machine. Order at the call site: learned
+// MatchRules first, then this module.
 //
-// Trust rule (see merchantCategories.js): only auto-apply above a confidence
-// bar and only within the row's flow direction, so a built-in guess never
-// silently flips an inflow into an outflow (or vice versa) or miscategorizes a
-// refund. Within the outflow family a guess may refine the KIND — imported
+// Application rule (see merchantCategories.js): auto-apply only above a
+// confidence bar and only within the row's flow direction, so a built-in match
+// cannot flip an inflow into an outflow (or vice versa) or miscategorize a
+// refund. Within the outflow family a match may change the KIND — imported
 // debits arrive as 'expense' by sign, and a debit to a named brokerage is a
 // transfer (a contribution), not spending.
 
@@ -30,15 +30,15 @@ const MERCHANT_CONFIDENCE = 0.95;
 const KEYWORD_CONFIDENCE = 0.82;
 const AUTO_APPLY_CONFIDENCE = 0.8;
 
-// Longest needle first so a specific merchant ("uber eats") wins over a prefix
-// of it ("uber"); computed once at load.
+// Longest needle first so a specific merchant ("uber eats") matches before a
+// prefix of it ("uber"); computed once at load.
 const MERCHANTS_BY_LEN = [...MERCHANTS].sort((a, b) => b[0].length - a[0].length);
 
 /** Tiers 1-2 only (merchant lexicon, then keyword rules) — the deterministic,
- *  substring-matched layer. Exposed separately from categorize() so the
- *  trainer can ask "what does the lexicon alone leave blank?" without going
- *  through tier 3, whose answer depends on whatever classifier model happens
- *  to be on disk at the time (stale/circular for calibration purposes). */
+ *  substring-matched layer. Exposed separately from categorize() so the trainer
+ *  can measure what the lexicon alone leaves blank without running tier 3,
+ *  whose output depends on whichever classifier model is on disk at the time
+ *  (stale or circular for calibration purposes). */
 function lexiconCategorize(description) {
   const cleaned = normaliseMerchant(description);
   if (!cleaned) return null;
@@ -62,9 +62,9 @@ function lexiconCategorize(description) {
 function categorize(description) {
   const hit = lexiconCategorize(description);
   if (hit) return hit;
-  // Tier 3: statistical fallback for merchants the lexicon doesn't name. Returns
-  // null (abstain) unless it clears its own calibrated margin gate, so it only
-  // ever fills in blanks the precision-first tiers left — never overrides them.
+  // Tier 3: statistical fallback for merchants the lexicon does not name.
+  // Returns null unless it clears its own calibrated margin gate, and runs only
+  // on rows the precision-first tiers left blank, so it never overrides them.
   return classify(description);
 }
 
@@ -72,22 +72,22 @@ function categorize(description) {
  * Auto-categorize still-uncategorized tx-like objects in place from the
  * built-in lexicon; returns the count categorized. Mirrors
  * matchRules.applyAutoMatch's shape (gating, in-place mutation, batch DB read)
- * and is meant to run AFTER it, so learned per-user rules always take priority.
+ * and runs AFTER it, so learned per-user rules take priority.
  *
  * Guards: same on/off setting as learned matching; only categories that still
  * exist in this DB; only confident matches; and only within the row's flow
- * direction — a guess never turns an inflow into an outflow or vice versa.
- * Within outflows it MAY refine the kind: imported debits arrive as 'expense'
- * (sign only), so a transfer category applying to one is a refinement (a
- * Robinhood debit is a contribution to a brokerage — a transfer, not a spend),
- * not a flip. Inflows are never refined: a deposit from a brokerage is a
+ * direction — a match never turns an inflow into an outflow or vice versa.
+ * Within outflows it MAY change the kind: imported debits arrive as 'expense'
+ * (sign only), so a transfer category applying to one narrows it (a Robinhood
+ * debit is a contribution to a brokerage — a transfer, not a spend) rather than
+ * flipping it. Inflows are never changed: a deposit from a brokerage is a
  * withdrawal, not income, so it stays blank.
  */
 function applyBuiltinCategorize(db, transactions) {
   if (!autoMatchEnabled(db)) return 0;
 
-  // key -> {id, cat_type} for the keys this DB actually has (respects a user
-  // who renamed/deleted defaults: a missing key is simply skipped).
+  // key -> {id, cat_type} for the keys this DB actually has, so defaults the
+  // user renamed or deleted are skipped rather than failing.
   const catByKey = new Map(
     db.prepare('SELECT id, "key" AS key, cat_type FROM categories').all().map((c) => [c.key, c])
   );
@@ -99,7 +99,7 @@ function applyBuiltinCategorize(db, transactions) {
     if (!hit || hit.confidence < AUTO_APPLY_CONFIDENCE) continue;
     const cat = catByKey.get(hit.categoryKey);
     if (!cat) continue;
-    // Direction guard: a guess may refine an outflow's kind (expense →
+    // Direction guard: a match may change an outflow's kind (expense →
     // transfer) but never cross the inflow/outflow line.
     const refinesOutflow =
       t.tx_type === 'expense' && cat.cat_type === 'transfer';
@@ -112,17 +112,17 @@ function applyBuiltinCategorize(db, transactions) {
 }
 
 // ── Clean display names ───────────────────────────────────────────────────────
-// The ledger shows a curated merchant name (display_name) for rows the
-// MERCHANT tier recognizes — dictionary lookup only, never a string generated
-// from the description, so a name can't be mangled, only absent. Keyword and
-// classifier hits get no name: they infer a *kind* of business, not an
-// identity. Same longest-needle-first scan as tier 1, so the name always
-// agrees with what the categorizer saw.
+// The ledger shows a curated merchant name (display_name) for rows the MERCHANT
+// tier matches — dictionary lookup only, never a string generated from the
+// description, so a name can be absent but never mangled. Keyword and
+// classifier hits get no name: they identify a *kind* of business, not a
+// specific one. Same longest-needle-first scan as tier 1, so the name always
+// comes from the same needle the categorizer matched.
 
-/** Canonical merchant name for a raw bank description, or null when the
- *  merchant lexicon doesn't recognize it. Generic needles that categorize but
- *  must not rename (null in DISPLAY_OVERRIDES) are skipped in favour of a
- *  shorter named needle ("PAVILIONS SUPERMARKET" → "Pavilions"). Pure. */
+/** Canonical merchant name for a raw bank description, or null when no merchant
+ *  needle matches. Generic needles that categorize but must not rename (null in
+ *  DISPLAY_OVERRIDES) are skipped in favour of a shorter named needle
+ *  ("PAVILIONS SUPERMARKET" → "Pavilions"). Pure. */
 function merchantDisplayName(description) {
   const cleaned = normaliseMerchant(description);
   if (!cleaned) return null;
@@ -138,10 +138,10 @@ function merchantDisplayName(description) {
 /**
  * Fill in display_name on tx-like objects in place; returns the count named.
  * Runs after the categorize passes in importRows and mirrors their shape
- * (same on/off gate, in-place mutation). Independent of which tier — or
- * whether any — categorized the row: the merchant's identity is true even
- * when a learned rule got the category first or a guard held it back. A name
- * identical to the description is skipped (nothing to reveal).
+ * (same on/off gate, in-place mutation). Independent of which tier — or whether
+ * any — categorized the row: the lexicon name applies even when a learned rule
+ * set the category first or a guard blocked the built-in match. A name
+ * identical to the description is skipped (nothing extra to show).
  */
 function applyDisplayNames(db, transactions) {
   if (!autoMatchEnabled(db)) return 0;

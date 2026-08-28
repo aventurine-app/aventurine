@@ -1,15 +1,14 @@
 'use strict';
 
-// Fetch + park the Windows (win32-x64) prebuilt binary for
+// Fetch and stage the Windows (win32-x64) prebuilt binary for
 // better-sqlite3-multiple-ciphers at the Electron ABI, so an electron-builder
-// `--win` cross-build from this Linux host ships a binary that actually loads
-// on Windows.
+// `--win` cross-build from this Linux host ships a binary that loads on Windows.
 //
-// This is the cross-platform companion to setup-native-abis.js (which parks
-// the host-Node and Electron *linux* binaries for `npm test` / `npm start`).
-// It is NOT a postinstall step — it only matters when packaging for Windows,
-// so `npm run dist:win` runs it on demand. Like its sibling, it leans on the
-// `bindings` ABI-keyed probe path: at runtime on Windows the package looks for
+// The cross-platform counterpart to setup-native-abis.js (which stages the
+// host-Node and Electron *linux* binaries for `npm test` / `npm start`). NOT a
+// postinstall step — it applies only when packaging for Windows, so
+// `npm run dist:win` runs it on demand. It uses the same `bindings` ABI-keyed
+// probe path: at runtime on Windows the package looks for
 // lib/binding/node-v{ABI}-win32-x64/better_sqlite3.node.
 
 const { execFileSync } = require('child_process');
@@ -39,7 +38,7 @@ fs.mkdirSync(dest, { recursive: true });
 fs.copyFileSync(BUILT, path.join(dest, 'better_sqlite3.node'));
 console.log(`[win-abi] parked Electron ABI ${electronAbi} (win32-x64) -> ${path.relative(PKG_DIR, dest)}`);
 
-// Remove the ABI-ambiguous shared location so each runtime falls through to
-// its own ABI directory (the linux binaries are already parked).
+// Remove the ABI-ambiguous shared location so each runtime falls through to its
+// matching ABI directory (the linux binaries are already staged).
 fs.rmSync(path.join(PKG_DIR, 'build'), { recursive: true, force: true });
 console.log('[win-abi] removed build/ (ABI-ambiguous shared path)');

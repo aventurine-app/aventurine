@@ -6,25 +6,23 @@
 // A projected slope only means something next to the slope it was estimated
 // from, so the two are drawn together and told apart by weight — solid over a
 // filled area for the past, dashed and lighter for the future, with a marked
-// divider between them. All computation is server-side (GET /api/forecast);
-// this file renders the two halves and owns the planned-items CRUD.
+// divider between them. All computation is server-side (GET /api/forecast); this
+// file renders the two halves and handles the planned-items CRUD.
 //
-// The report answers one question, so it opens by answering it in a sentence —
-// "if the next 3 months look like your recent history, Checking lands near
-// $4,120 on Nov 4" — and then draws the shape. That sentence is normally the
-// ONLY text above the chart. The stat grid that used to sit here (typical
-// monthly net / projected end / lowest point, each with its own info bubble)
-// made the reader assemble the sentence themselves out of three numbers; the
-// provenance footnote and the "hover the line to…" instruction that briefly
-// replaced it were just more words in the same place. What is left renders
-// conditionally and only when it changes how the number should be read: running
-// out of money, the scope fallback, and a stale starting balance. A merely
-// tighter week is not one of them — it is a level the line already draws, and
-// calling it out spent a sentence on something that was never a warning (the
-// dot that thickened at that week went with it). The transfers switch used to
-// write a line here too; it is a labelled checkbox in the header now, and a
-// control that states its own state does not also need prose restating it.
-// Method notes live in the card title's one tooltip.
+// The report states its result in one sentence — "if the next 3 months look like
+// your recent history, Checking lands near $4,120 on Nov 4" — and then draws the
+// shape. That sentence is normally the ONLY text above the chart. The stat grid
+// that used to sit here (typical monthly net / projected end / lowest point,
+// each with an info bubble) required the reader to combine three numbers into
+// that sentence; the provenance footnote and the "hover the line to…"
+// instruction that briefly replaced it added text in the same place. What
+// remains renders conditionally and only when it changes how the number should
+// be read: running out of money, the scope fallback, and a stale starting
+// balance. A tighter week is not one of them — it is a level the line already
+// draws, and the thickened dot that marked it was removed too. The transfers
+// switch also used to add a line here; it is a labelled checkbox in the header
+// now, which already shows its state. Method notes are in the card title's
+// tooltip.
 //
 // PLANNED ITEMS live ON the line. Each is a pin at its date, hovering (or
 // clicking, which pins the card) opens a floating card carrying label, amount,
@@ -64,8 +62,8 @@
   const state = {
     months: 3,
     account: null,          // selected Balance-Sheet account key; null = server default
-    // Money moved between your own accounts is not spending, so the default is
-    // to leave it out — and the header checkbox says so without being opened.
+    // Money moved between the user's own accounts is not spending, so it is
+    // excluded by default; the header checkbox shows that state.
     includeTransfers: false,
     data: null,             // last /api/forecast payload
     activeId: null,         // planned item whose card is open, or null
@@ -173,8 +171,8 @@
     if (!accounts.length) return;
     e.stopPropagation();
     UI.openMenu(e.currentTarget, accounts.map((a) => ({
-      // The balance rides in the MENU, where there is room for it, rather than
-      // in the button — the sentence below already says what it starts from.
+      // The balance is shown in the MENU, where there is room, rather than in the
+      // button — the sentence below already states the starting balance.
       label: a.balance != null ? `${a.label} — ${formatCurrency(a.balance, true)}` : `${a.label} — no balance yet`,
       selected: a.key === state.data.start_account,
       action: () => {
@@ -216,9 +214,9 @@
 
     let html = '';
 
-    // ── Lead: the answer, in a sentence. The conditional is the honest frame —
-    // this is a projection of the recent past, not a prediction — and it is
-    // also where the two knobs the reader just used are echoed back.
+    // ── Lead: the result, in one sentence. The conditional phrasing states that
+    // this is a projection of recent history, and it repeats back the two
+    // controls the reader just used.
     const money = (n, extra = '') => strong(fmtMoney(n), `fc-lead-money${extra ? ' ' + extra : ''}`);
     if (months > 0) {
       html += `<p class="fc-lead">If the next ${strong(horizon)} look like your recent history,
@@ -226,16 +224,15 @@
         ${money(summary.endBalance, summary.endBalance < 0 ? 'fc-neg' : '')}
         on ${strong(fmtShortDate(summary.endDate))}.</p>`;
     } else {
-      // Nothing to average from: the line is whatever the user pinned to it,
-      // and saying "typical month" of no months would be a fiction.
+      // No complete months to average: the line shows only the pinned planned
+      // items, so no "typical month" figure is stated.
       html += `<p class="fc-lead">Not enough complete months yet to estimate a typical month —
         this line shows ${escapeHtml(accountName)} carrying
         ${money(d.start_balance)} forward with only your planned items applied.</p>`;
     }
 
-    // ── Risk line, only when there is a risk. Running out of money is the one
-    // dip worth a sentence: a merely tighter week is a level the line already
-    // draws, and naming it spent a line on something that was never a warning.
+    // ── Risk line, only when the balance goes below zero. A tighter week is a
+    // level the line already draws, so it gets no sentence.
     if (summary.belowZero) {
       html += `<p class="fc-risk fc-risk-alarm">Runs out of money the week of
         ${escapeHtml(summary.lowest.label)}, down to
@@ -243,19 +240,19 @@
     }
 
     // ── Caveats ONLY. There is no standing provenance line and no "hover the
-    // line to…" instruction: in the ordinary case the sentence above is the
-    // whole of the text here, and the method lives in the title's tooltip. What
-    // survives is what would make the number wrong to read at face value, so
-    // anything showing up below is worth the room it takes.
+    // line to…" instruction: in the normal case the sentence above is all the
+    // text here, and the method is in the title's tooltip. What remains is what
+    // would make the number misleading at face value.
     if (d.scope === 'ledger' && account) {
-      // The projection fell back to every transaction because this account owns
-      // none — worth saying, since the reader picked an account by name.
+      // The projection fell back to every transaction because no rows are
+      // assigned to this account, which is worth stating since the reader picked
+      // that account by name.
       html += '<p class="fc-note">Based on every transaction — none are assigned to this account yet.</p>';
     }
 
     // The Balance Sheet is month-granular, so a start balance can be months old
-    // while the line starts today. Say so — and say where to fix it — rather
-    // than presenting a stale figure as "your balance".
+    // while the line starts today. This states the date and where to update it,
+    // rather than presenting a stale figure as the current balance.
     const staleNote = startBalanceNote(d, account);
     if (staleNote) html += `<p class="fc-note fc-note-warn">${staleNote}</p>`;
 
@@ -293,12 +290,12 @@
   let chartObserver = null;
 
   function readAccent() {
-    // The forecast line is a neutral projection, so it follows the chart palette
-    // and retones with a palette swap — not the green/red reserved for
-    // gain/loss. --chart-1 rather than --accent-primary: it IS the accent under
-    // the default graph palette (style.css) and the first colourful stop under
-    // the other one (themes.css), so this line moves with the rest of the app's
-    // charts instead of staying accent-coloured on its own.
+    // The forecast line is a neutral projection, so it uses the chart palette and
+    // changes with a palette swap, rather than the green/red reserved for
+    // gain/loss. --chart-1 rather than --accent-primary: it resolves to the accent
+    // under the default graph palette (style.css) and to the first colourful stop
+    // under the other one (themes.css), so this line changes with the rest of the
+    // app's charts.
     const v = getComputedStyle(document.documentElement).getPropertyValue('--chart-1').trim();
     return v || '#8fb088';
   }
@@ -338,11 +335,11 @@
    *  one cubic segment per gap. Kept as data rather than only as path text so the
    *  drawn line and a pin's height are read off the SAME geometry — see curveYAt.
    *
-   *  Control points are CLAMPED into their own segment's y-range, exactly as
-   *  widgets/chart.js:smoothPath clamps its. An unclamped tangent lets a
-   *  segment dip below both of its endpoints, and on a BALANCE line that draws
-   *  the account going negative in a week where it never does — contradicting
-   *  summary.belowZero, which is computed from the real values and is what the
+   *  Control points are CLAMPED to their segment's y-range, the same as
+   *  widgets/chart.js:smoothPath. An unclamped tangent lets a segment dip below
+   *  both of its endpoints, and on a BALANCE line that draws the account going
+   *  negative in a week where it does not — contradicting summary.belowZero,
+   *  which is computed from the real values and is what the
    *  card's one sentence reports. The clamp lives here rather than in
    *  smoothPath so curveYAt evaluates the same curve the user is looking at. */
   const clampSeg = (v, a, b) => Math.min(Math.max(v, Math.min(a, b)), Math.max(a, b));
@@ -384,9 +381,9 @@
    *  Reading the y off the week's balance instead (the week a date falls in) put
    *  a pin a whole week's net away from the line: the chart plots each week at
    *  its weekEnd and curves between those points, so mid-week the line is still
-   *  travelling — and the bigger the planned expense, the further its own pin
-   *  floated off the drop it caused. Straight-line interpolation would close most
-   *  of that but not the smoothing's bulge, so the bezier is solved instead:
+   *  changing — and the larger the planned expense, the further the pin sat from
+   *  the drop it caused. Straight-line interpolation would close most of that but
+   *  not the smoothing's curve, so the bezier is solved instead:
    *  x(t) is monotonic within a segment (points step forward in date and the
    *  control offsets are a sixth of a neighbour gap), so bisect for the t whose
    *  x matches and read that t's y. 24 halvings is well under a pixel. */
@@ -407,13 +404,12 @@
   /**
    * Two halves meeting at today, which sits dead centre: real weekly balances on
    * the left, the projection on the right. The split is what makes the
-   * projection readable — a slope only means something next to the slope it came
-   * from — and it is drawn, not just labelled: the past is a solid line over a
-   * filled area, the future is dashed and lighter over a fainter one, with a
-   * marked divider between them. Dashing rather than a second hue is deliberate:
-   * the app carries "prediction, not record" as one step back in emphasis (see
-   * .rec-occ-projected on the Recurring calendar), and red/green are spoken for
-   * by gain/loss everywhere else.
+   * projection readable — a slope is only meaningful next to the slope it came
+   * from — and the split is drawn, not just labelled: the past is a solid line
+   * over a filled area, the future is dashed and lighter over a fainter one, with
+   * a marked divider between them. Dashing rather than a second hue: the app uses
+   * reduced emphasis for projections elsewhere (see .rec-occ-projected on the
+   * Recurring calendar), and red/green are used for gain/loss.
    */
   function buildChartSVG(W, animate) {
     const d = state.data;
@@ -552,8 +548,8 @@
 
   // ─── Planned pins (HTML overlay above the SVG) ───────────────────────────
   // Drawn as DOM rather than SVG nodes so they are ordinary focusable buttons
-  // with the app's own hover/focus treatment, exactly like the Recurring
-  // calendar's chips.
+  // with the app's standard hover and focus styles, like the Recurring calendar's
+  // chips.
 
   function renderPins() {
     const host = document.getElementById('forecast-overlay');
@@ -584,10 +580,10 @@
     }).join('');
 
     // The add-here guide: a vertical rule at the date under the pointer, capped
-    // by one pill carrying the + and the date it would use. Hidden until the
-    // plot is hovered (see .fc-guide in forecast.css) so the chart is not
-    // permanently wearing a control. The date rides IN the pill rather than
-    // sitting under the axis, where it landed on top of the tick labels.
+    // by one pill carrying the + and the date it would use. Hidden until the plot
+    // is hovered (see .fc-guide in forecast.css) so the control is not always
+    // visible. The date is inside the pill rather than under the axis, where it
+    // overlapped the tick labels.
     host.insertAdjacentHTML('beforeend', `<div class="fc-guide" id="fc-guide" hidden>
       <div class="fc-guide-line"></div>
       <button type="button" class="fc-guide-add" id="fc-guide-add"
@@ -815,9 +811,8 @@
     renderCard();
   }
 
-  /** Read the card's inputs, flagging (rather than silently correcting)
-   *  anything the backend would reject, so ✓ never quietly writes something the
-   *  user didn't type. */
+  /** Read the card's inputs, marking (rather than auto-correcting) anything the
+   *  backend would reject, so ✓ never writes a value the user did not enter. */
   function readEditCard() {
     const pop = popEl();
     const labelInput = pop.querySelector('.fc-input-label');
@@ -908,10 +903,9 @@
     });
   }
 
-  /** Add dialog, opened from the guide's + so the date arrives already answered
-   *  — the same trade the Recurring page's day-cell + makes. It stays an
-   *  editable field: the pointer said which date they meant, not that they
-   *  can't have changed their mind. */
+  /** Add dialog, opened from the guide's +, so the date is pre-filled from the
+   *  pointer position — the same pattern as the Recurring page's day-cell +. It
+   *  stays an editable field so the date can still be changed. */
   function openAddDialog(iso) {
     closeCard();
     const overlay = document.createElement('div');
@@ -1046,10 +1040,10 @@
     });
   }
 
-  /** The transfers switch. It lives in the header as a labelled checkbox rather
-   *  than behind the ⋮ because it changes what every figure on the card means,
-   *  and a control that answers that has to be readable without being opened.
-   *  Checked = leave transfers out, which is the default. */
+  /** The transfers switch. It is in the header as a labelled checkbox rather than
+   *  behind the ⋮ because it changes every figure on the card, so its state has
+   *  to be visible without opening a menu. Checked = exclude transfers, the
+   *  default. */
   function wireTransfersToggle() {
     const cb = document.getElementById('forecast-ignore-transfers');
     if (!cb) return;
@@ -1152,11 +1146,11 @@
       if (e.target.classList.contains('fc-input')) e.target.classList.remove('invalid');
     });
 
-    // A pinned card is dismissed the way every other transient surface is:
-    // Escape, or a click that isn't it. Capture phase, deliberately — the
-    // card's own buttons re-render it, detaching the node that was clicked, so
-    // a bubbling listener would see an orphan and read the pencil as an
-    // outside click. (Same reasoning as recurring.js.)
+    // A pinned card is dismissed like every other transient surface: Escape, or a
+    // click outside it. Capture phase — the card's buttons re-render it,
+    // detaching the node that was clicked, so a bubbling listener would see a
+    // detached node and treat the pencil as an outside click. (Same reasoning as
+    // recurring.js.)
     document.addEventListener('click', (e) => {
       if (!state.pinned || e.target.closest('#fc-pop, .fc-pin, .confirm-overlay')) return;
       closeCard();

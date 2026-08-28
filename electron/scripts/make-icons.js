@@ -4,10 +4,10 @@
 // Regenerates the packaging icons in electron/build/ from the one source of
 // truth: static/icons/logo/logo.svg (the same mark the title bar renders).
 //
-// Run this after ANY logo change, then commit the results — electron-builder
+// Run this after ANY logo change, then commit the results: electron-builder
 // reads build/icon.png (linux: AppImage/rpm/deb) and build/icon.ico (win: exe +
-// NSIS installer), and nothing else derives them at build time. Skipping it is
-// how packages end up shipping a stale logo.
+// NSIS installer), and nothing else derives them at build time. Skipping it
+// leaves packages shipping a stale logo.
 //
 //   node scripts/make-icons.js        # from electron/
 //
@@ -25,8 +25,8 @@ const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const SRC_SVG = path.join(REPO_ROOT, 'static', 'icons', 'logo', 'logo.svg');
 const BUILD_DIR = path.join(REPO_ROOT, 'electron', 'build');
 
-// electron-builder wants >=512 for the Linux icon (it downscales the set
-// itself); the .ico carries the classic shell sizes up to 256.
+// electron-builder requires >=512 for the Linux icon and downscales the rest
+// itself; the .ico carries the standard shell sizes up to 256.
 const PNG_SIZE = 512;
 const ICO_SIZES = [16, 24, 32, 48, 64, 128, 256];
 
@@ -37,8 +37,8 @@ function sourceHash() {
 }
 
 // Overridable so the renderer can be pointed at a wrapper (e.g. the
-// flatpak-spawn dance this repo needs when the host and sandbox disagree on
-// which tools are installed).
+// flatpak-spawn wrapper this repo needs when the host and sandbox have different
+// tools installed).
 const RSVG = process.env.RSVG_CONVERT || 'rsvg-convert';
 
 function render(size, outPath) {

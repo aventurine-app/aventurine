@@ -3,7 +3,7 @@
 // Port of tests/test_year_table.py (Balance Sheet via the year-table factory)
 // plus the cross-cutting non-finite-value rejections from tests/test_security.py
 // that still apply in the IPC world. (The host/origin/CSP middleware tests are
-// retired with the HTTP server itself — there is no socket any more.)
+// retired along with the HTTP server; there is no socket any more.)
 
 const test = require('node:test');
 const assert = require('node:assert');
@@ -31,9 +31,9 @@ test('balance: GET /data returns seed', (t) => {
   const data = getData(c);
   assert.ok('years' in data && 'entries' in data && 'columns' in data);
   assert.ok(data.years.length >= 1);
-  // A fresh DB has NO visible accounts: the starter accounts are seeded hidden
-  // so the Balance Sheet starts as the user's own accounts, not five generic
-  // columns they never chose. They arrive by adoption (see the hidden tests).
+  // A fresh DB has NO visible accounts: the starter accounts are seeded hidden,
+  // so the Balance Sheet starts empty rather than with five generic columns. They
+  // become visible through adoption (see the hidden tests).
   assert.deepStrictEqual(data.columns, []);
   assert.deepStrictEqual(data.entries, {});
 });
@@ -114,7 +114,7 @@ test('balance: column add / rename / move / delete-with-data', (t) => {
   const labels = getData(c).columns.map((x) => x.label);
   assert.ok(labels.includes('After') && !labels.includes('New Col'));
 
-  // delete refuses while data exists, force wipes
+  // delete is refused while data exists; force deletes anyway
   const year = getData(c).years[0];
   c.post(`${PREFIX}/entry`, { year, month: 'January', category: col.key, value: 5.0 });
   r = c.del(`${PREFIX}/columns/${col.key}`);
@@ -245,8 +245,8 @@ test('hidden: importing into a starter account adopts it', (t) => {
 
 test('hidden: an abandoned import adopts nothing', (t) => {
   const c = makeClient(t);
-  // No rows → nothing committed → the account stays unadopted. This is what
-  // makes "pick an account, then change your mind" leave no trace.
+  // No rows → nothing committed → the account stays unadopted, so picking an
+  // account and then cancelling leaves no visible change.
   const r = c.post('/api/transactions/import', { account_key: 'savings', rows: [] });
   assert.equal(r.status, 400);
   assert.deepStrictEqual(c.get(`${PREFIX}/columns`).body, []);
@@ -276,9 +276,9 @@ test('hidden: unadopted accounts stay out of reorder and move', (t) => {
   const a = addColumn(c, 'A', 'cash');
   const b = addColumn(c, 'B', 'cash');
 
-  // The UI can only see the visible columns, so an order listing exactly those
-  // must be accepted — the starter accounts must not count toward "every
-  // column" — and the hidden rows must not collide with the new positions.
+  // The UI lists only the visible columns, so an order containing exactly those
+  // must be accepted (the starter accounts must not count toward "every column"),
+  // and the hidden rows must not collide with the new positions.
   const order = [{ key: b.key, type: 'cash' }, { key: a.key, type: 'cash' }];
   assert.equal(c.post(`${PREFIX}/columns/reorder`, { order }).status, 200);
   assert.deepStrictEqual(getData(c).columns.map((x) => x.key), [b.key, a.key]);
@@ -331,8 +331,8 @@ test('transaction rejects non-finite amount', (t) => {
 test('dispatch turns a malformed %-escape in a path param into a clean 400', (t) => {
   const c = makeClient(t);
   // A lone '%' is not a valid percent-encoding; decodeURIComponent throws a
-  // URIError on it. dispatch must catch that and answer 400 rather than let
-  // the exception escape and reject the IPC promise (unhandled in the renderer).
+  // URIError on it. dispatch must catch that and return 400 rather than let the
+  // exception escape and reject the IPC promise (unhandled in the renderer).
   const r = c.del(`${PREFIX}/columns/%`);
   assert.equal(r.status, 400, JSON.stringify(r.body));
   assert.equal(r.body.ok, false);

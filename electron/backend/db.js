@@ -5,8 +5,8 @@
 //
 // Encryption uses SQLCipher via better-sqlite3-multiple-ciphers. The
 // `cipher=sqlcipher` + `legacy=4` pragmas pin SQLCipher 4 defaults; this is the
-// app's on-disk encryption format and must stay stable for existing encrypted
-// DBs to keep opening (see MIGRATION.md).
+// app's on-disk encryption format and must stay stable so existing encrypted
+// DBs still open (see MIGRATION.md).
 
 const Database = require('better-sqlite3-multiple-ciphers');
 
@@ -24,9 +24,9 @@ function sqlQuote(s) {
 function connect(path, key = null) {
   const db = new Database(path);
   if (key != null) {
-    // Reject a NUL byte: it truncates the C-string SQLCipher receives, turning
+    // Reject a NUL byte: it truncates the C string SQLCipher receives, turning
     // a wrong passphrase into a *different* wrong key (mirrors the Python
-    // guard). Every other character, spaces included, is a valid passphrase.
+    // guard). Every other character, spaces included, is allowed.
     if (typeof key !== 'string' || key.indexOf('\u0000') !== -1) {
       db.close();
       throw new Error('invalid database passphrase');

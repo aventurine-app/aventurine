@@ -44,9 +44,9 @@
       state.enabled = next;
     }
     state.seenKeys = new Set(keys);
-    // Categorical, not the accent ramp: every line here IS a category, and the
-    // chip dots make hue the legend, so the categories need to be as far apart
-    // in colour as they are in meaning (see chart.js).
+    // Categorical, not the accent ramp: every line here is a category, and the
+    // chip dots use hue as the legend, so the colours need maximum separation
+    // (see chart.js).
     state.colors = FinanceChart.colorMap(keys, 'categorical');
 
     render();

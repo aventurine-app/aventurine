@@ -11,8 +11,8 @@
 // invisible until a paying customer cannot activate. Mint a key with the worker
 // and run it through here before shipping either side.
 //
-// At SUPPORT time it answers "my key doesn't work" with a reason instead of a
-// guess, without asking the customer for anything but the key.
+// For support, it reports why a key fails to verify, requiring nothing from the
+// customer but the key itself.
 
 const { verify, appMajor, PUBLIC_KEYS } = require('../backend/license');
 

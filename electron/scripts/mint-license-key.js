@@ -1,16 +1,15 @@
 'use strict';
 
-// Mint an unlock key locally — for development and for support ("I can't reach
-// the site, can you send me my key?"). Production keys come from the activation
-// worker, which verifies the purchase with Gumroad first; this script trusts
-// whatever you type, so it is only as careful as you are.
+// Mint an unlock key locally, for development and for support requests.
+// Production keys come from the activation worker, which verifies the purchase
+// with Gumroad first; this script performs no verification on its inputs.
 //
 //   node scripts/mint-license-key.js --private <base64-pkcs8> \
 //        --email buyer@example.com --license GUMROAD-KEY [--slot 0] [--entitlement 1]
 //
-// With no --private it generates a THROWAWAY pair and prints both halves, which
-// is the fast way to see a real key end to end before the worker exists: paste
-// the printed public key into PUBLIC_KEYS and the unlock key into the app.
+// With no --private it generates a THROWAWAY pair and prints both halves, for
+// testing a key end to end before the worker exists: paste the printed public
+// key into PUBLIC_KEYS and the unlock key into the app.
 
 const crypto = require('node:crypto');
 const { encode, licenseIdFor, appMajor } = require('../backend/license');

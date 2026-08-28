@@ -79,8 +79,8 @@ function update(ctx, { params, body }) {
       if (locked && data.cat_type !== cat.cat_type) bad('category is locked', 409);
       if (data.cat_type !== cat.cat_type) {
         cat.cat_type = data.cat_type;
-        // Direction is owned by the category — re-type the transactions that
-        // reference it so the stored copy never goes stale.
+        // Direction comes from the category — re-type the transactions that
+        // reference it so the stored copy stays current.
         db.prepare('UPDATE transactions SET tx_type = ? WHERE category_id = ?').run(
           cat.cat_type,
           cat.id
@@ -142,9 +142,11 @@ function remove(ctx, { params }) {
   }
 
   db.transaction(() => {
-    // Learned rules pointing at this category can never resurrect a deleted id.
+    // Delete the learned rules pointing at this category, so none references a
+    // deleted id.
     db.prepare('DELETE FROM match_rules WHERE category_id = ?').run(cat.id);
-    // Credit cards merely reference the category for stats — unlink, don't block.
+    // Credit cards reference the category only for stats — unlink rather than
+    // block the delete.
     db.prepare('UPDATE credit_cards SET category_id = NULL WHERE category_id = ?').run(cat.id);
     // Drop this category's budget envelope (keyed by its stable key).
     db.prepare('DELETE FROM budget_amounts WHERE category = ?').run(cat.key);

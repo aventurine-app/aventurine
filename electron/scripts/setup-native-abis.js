@@ -14,10 +14,10 @@
 // regenerates build/Release gets re-sorted automatically.
 //
 // NOTE: Electron is pinned to a major with upstream prebuilds (see
-// package.json); when no prebuild exists for a new Electron ABI the fetch
-// fails loudly here. Unblock by bumping the dep once upstream publishes, or
-// installing a C toolchain (make/gcc) so prebuild-install's fallback can
-// compile from source. Packaged releases always compile in CI regardless.
+// package.json); when no prebuild exists for a new Electron ABI the fetch fails
+// here with an error. Fix by bumping the dep once upstream publishes, or by
+// installing a C toolchain (make/gcc) so prebuild-install's fallback can compile
+// from source. Packaged releases compile in CI regardless.
 
 const { execFileSync } = require('child_process');
 const fs = require('fs');
@@ -51,6 +51,6 @@ fetchPrebuild(['--runtime=electron', `--target=${electronVersion}`, '--force']);
 park(electronAbi);
 
 // Remove the ambiguous shared location so each runtime falls through to its
-// own ABI directory.
+// matching ABI directory.
 fs.rmSync(path.join(PKG_DIR, 'build'), { recursive: true, force: true });
 console.log('[native-abis] removed build/ (ABI-ambiguous shared path)');

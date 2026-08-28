@@ -1,18 +1,18 @@
 'use strict';
 
 // ─── chart.js ────────────────────────────────────────────────────────────────
-// Shared hand-rolled multi-series SVG chart, exposed as window.FinanceChart.
-// It's a faithful copy of the renderer the Dashboard uses (dashboard.js), lifted
-// into a reusable module so other pages (Spending Trends, and later others) get
-// the identical frame, smoothing, nice-tick axis, entrance animation, and
-// responsive redraw — without a per-page copy. Dashboard/forecast keep their own code
-// for now; they can migrate here later.
+// Shared hand-rolled multi-series SVG chart, exposed as window.FinanceChart. A
+// copy of the renderer the Dashboard uses (dashboard.js), moved into a reusable
+// module so other pages (Spending Trends, and others later) get the same frame,
+// smoothing, nice-tick axis, entrance animation and responsive redraw without a
+// per-page copy. Dashboard and forecast still have their own copies and can
+// migrate here later.
 //
 // Two forms share the frame: render() draws smoothed lines (one measure over
-// time), renderStacked() draws stacked columns (a part-to-whole broken out over
+// time), renderStacked() draws stacked columns (a part-to-whole breakdown over
 // time, for Reports → Investing). They share niceTicks, the axis, the padding,
-// the label stride and the responsive mount, because the alternative was a
-// second copy of all of that in a widget file of its own.
+// the label stride and the responsive mount, which would otherwise be duplicated
+// in a second widget file.
 //
 // Series shape:  [{ label, color, points: [{ year, monthIdx, value }] }]
 // Slots:         [{ year, monthIdx }]  — the x-axis columns to plot across.
@@ -81,14 +81,13 @@
   function smoothPath(pts) {
     const f = (n) => Math.round(n * 100) / 100;
     if (pts.length < 3) return pts.map((p, i) => `${i ? 'L' : 'M'} ${f(p.x)} ${f(p.y)}`).join(' ');
-    // Catmull-Rom tangents let a segment OVERSHOOT the two points it connects:
-    // a run of equal values followed by a rise bows the curve past the flat
-    // part first. On a chart whose axis is fitted to the data that reads as
-    // swoopiness; on a zero-based one (Reports → Investing) it draws the line
-    // BELOW zero between two months of zero, which states something that cannot
-    // happen. Clamping each control point into its own segment's y-range costs
-    // a little of the swell at a peak and buys a curve that never claims a
-    // value neither of its endpoints has.
+    // Catmull-Rom tangents let a segment OVERSHOOT the two points it connects: a
+    // run of equal values followed by a rise bows the curve past the flat part
+    // first. On a chart whose axis is fitted to the data that shows as extra
+    // curvature; on a zero-based one (Reports → Investing) it draws the line
+    // BELOW zero between two months of zero. Clamping each control point to its
+    // segment's y-range reduces the curvature at a peak slightly and keeps the
+    // curve within its endpoints' range.
     const clamp = (v, a, b) => Math.min(Math.max(v, Math.min(a, b)), Math.max(a, b));
     let d = `M ${f(pts[0].x)} ${f(pts[0].y)}`;
     for (let i = 0; i < pts.length - 1; i++) {
@@ -214,10 +213,10 @@
 
   // ─── Stacked columns ───────────────────────────────────────────────────────
   // One column per slot, split into a segment per series, growing from a zero
-  // baseline. Written for Reports → Investing, where the question is "how much,
-  // and to whom" over the same months.
+  // baseline. Written for Reports → Investing, which shows amounts per merchant
+  // over the same months.
   //
-  // Geometry notes, all of them deliberate:
+  // Geometry notes:
   //   - Columns sit at BAND CENTRES (PL + (i + 0.5) * band), not at the line
   //     form's endpoints-on-the-axis scale. A bar drawn at x = PL has half its
   //     width outside the plot; a band is the only layout where the first and
@@ -339,10 +338,10 @@
       buildStackedSVG({ series, slots, W, animate }));
   }
 
-  /** Draw into a container and keep it responsive: re-render on resize, with
-   *  the first paint animating and resizes not. `build(W)` returns the SVG for
-   *  a given pixel width. Shared by both chart forms — a second copy of this
-   *  was the main cost of putting stacked bars in a widget file of their own. */
+  /** Draw into a container and keep it responsive: re-render on resize, with the
+   *  first paint animating and resizes not. `build(W)` returns the SVG for a
+   *  given pixel width. Shared by both chart forms, which is the main reason
+   *  stacked bars live in this file rather than a separate one. */
   function mount(containerId, hasData, build) {
     const el = document.getElementById(containerId);
     if (!el) return;
@@ -390,7 +389,7 @@
   }
 
   /** Map<key, colour>, assigned in order. `palette` is 'accent' (default) or
-   *  'categorical' — see the palette block at the top of this file. */
+   *  'categorical'; see the palette block at the top of this file. */
   function colorMap(keys, palette) {
     const colors = readPalette(palette);
     return new Map(keys.map((k, i) => [k, colors[i % colors.length]]));

@@ -3,20 +3,19 @@
 // ─── License verification ───────────────────────────────────────────────────
 //
 // Offline activation. The app ships a PUBLIC key and can therefore only CHECK
-// unlock keys, never mint one — that asymmetry is the whole design. A symmetric
-// scheme (hash or HMAC of the license + email) would have to put the recipe in
-// this file, and since the source is published that recipe IS a keygen: anyone
-// could pick their own email, compute a matching key, and unlock. With a
-// signature the private half lives only in the activation worker, so a key is
-// evidence that OUR server verified this purchase with Gumroad.
+// unlock keys, never generate one — that asymmetry is the design. A symmetric
+// scheme (hash or HMAC of the license + email) would put the recipe in this
+// file, and since the source is published that recipe would be a keygen: anyone
+// could supply their own email, compute a matching key, and unlock. With a
+// signature the private half exists only in the activation worker, so a valid
+// key proves that server verified the purchase with Gumroad.
 //
-// That is also what makes the email watermark bite. The address is inside the
-// signed payload, so it cannot be swapped for a throwaway without breaking the
-// signature: sharing a key means sharing the address that bought it.
+// That is also what makes the email watermark effective. The address is inside
+// the signed payload, so it cannot be replaced with a throwaway without breaking
+// the signature: sharing a key means sharing the address that bought it.
 //
 // The app makes no network call, here or anywhere. Activation happens in the
-// user's browser, on a site they chose to visit; this module only ever reads
-// bytes the user pasted in.
+// user's browser; this module only reads bytes the user pasted in.
 //
 // KEY FORMAT (v1) — Crockford base32 over:
 //
@@ -30,15 +29,15 @@
 //   --------- everything above is signed ---------
 //   last 64      Ed25519 signature
 //
-// `entitlement` is the upgrade lever: a key issued today says "covers 1.x", so
-// when 2.0 ships everyone returns to the activation page for a fresh key, and
-// THAT request re-verifies against Gumroad live. It is how a refunded or
-// charged-back purchase eventually stops working without the app ever needing
-// a revocation list or a clock.
+// `entitlement` is the upgrade lever: a key issued today covers 1.x, so when
+// 2.0 ships every install returns to the activation page for a fresh key, and
+// THAT request re-verifies against Gumroad live. That is how a refunded or
+// charged-back purchase eventually stops working, with no revocation list and
+// no clock in the app.
 //
 // The slot nibble is the rotation lever: if the signing key is ever exposed,
-// issue under slot 1 and append its public half to PUBLIC_KEYS. Old keys keep
-// verifying, so nobody is stranded by the rotation itself.
+// issue under slot 1 and append its public half to PUBLIC_KEYS. Old keys still
+// verify, so rotation does not invalidate existing licenses.
 
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -50,13 +49,14 @@ const SIG_BYTES = 64;
 const EPOCH_MS = Date.UTC(2020, 0, 1);
 const DAY_MS = 86400000;
 
-// Trusted signing keys, by slot. Each is the RAW 32-byte Ed25519 public key,
+// Accepted signing keys, by slot. Each is the RAW 32-byte Ed25519 public key,
 // base64. Generate a pair with `node scripts/make-license-keypair.js`; the
-// private half belongs in the activation worker's secrets and NOWHERE else.
+// private half goes in the activation worker's secrets and nowhere else.
 //
 // Slot 0 is a placeholder until the production pair is generated — no key
-// verifies against it, so the app is simply unlicensed rather than wrongly
-// unlocked. Tests push their own slot on and pop it off (see license.test.js).
+// verifies against it, so the app stays unlicensed rather than unlocking
+// incorrectly. Tests push their own slot on and pop it off (see
+// license.test.js).
 const PUBLIC_KEYS = [
   // slot 0 — production. Private half lives only in the activation worker's
   // secrets (SIGNING_KEY_PKCS8) and an offline backup.
@@ -90,10 +90,10 @@ function b32encode(buf) {
   return out;
 }
 
-/** Decode, tolerating the whitespace and dashes people add when they format a
- *  key for readability. Any OTHER stray character is an error rather than a
- *  silent skip, so a mangled paste reports itself instead of failing later as
- *  an inscrutable bad signature. */
+/** Decode, allowing the whitespace and dashes added when a key is formatted for
+ *  readability. Any OTHER unexpected character is an error rather than being
+ *  skipped, so a mangled paste is reported as such instead of failing later as
+ *  a bad signature. */
 function b32decode(str) {
   const bytes = [];
   let value = 0;
@@ -115,8 +115,8 @@ function b32decode(str) {
 // ─── Verification ───────────────────────────────────────────────────────────
 
 // An Ed25519 SPKI DER is a fixed 12-byte preamble followed by the raw 32-byte
-// key, so we can store the short raw form in source and rebuild what
-// createPublicKey wants on the fly.
+// key, so the short raw form is stored in source and the DER form is rebuilt
+// for createPublicKey at call time.
 const SPKI_PREFIX = Buffer.from('302a300506032b6570032100', 'hex');
 
 function publicKeyForSlot(slot) {
@@ -172,8 +172,8 @@ function verify(keyString, { major = appMajor() } = {}) {
     email: body.subarray(HEADER_BYTES).toString('utf8'),
   };
 
-  // Checked AFTER the signature so the caller can tell the user WHICH license
-  // is too old, rather than lumping an upgrade prompt in with a forgery.
+  // Checked AFTER the signature so the caller can report WHICH license is too
+  // old, rather than returning the same error for an invalid key.
   if (license.entitlement < major) {
     return { ok: false, reason: 'entitlement', license };
   }
@@ -181,7 +181,7 @@ function verify(keyString, { major = appMajor() } = {}) {
 }
 
 /** Encode a payload. Exported for the minting scripts and the format fixture;
- *  the app itself never calls this — it has no private key to sign with. */
+ *  the app never calls this, since it ships no private key. */
 function encode({ slot = 0, licenseId, issued, entitlement, flags = 0, email }, sign) {
   const emailBuf = Buffer.from(email, 'utf8');
   if (emailBuf.length < 1 || emailBuf.length > 255) throw new Error('email length out of range');
@@ -204,10 +204,9 @@ function licenseIdFor(gumroadKey) {
 
 // ─── Stored license ─────────────────────────────────────────────────────────
 //
-// Deliberately NOT in AVENTURINE_DATA_DIR: that directory travels with the
-// user's database (pointer file, backups), and a license must not ride along
-// when someone copies their finances to another machine. It lives beside the
-// app profile instead.
+// NOT in AVENTURINE_DATA_DIR: that directory travels with the user's database
+// (pointer file, backups), and a license must not be copied along with it to
+// another machine. It is stored beside the app profile instead.
 
 function configDir() {
   const d = process.env.AVENTURINE_CONFIG_DIR;
@@ -238,7 +237,7 @@ function writeStoredKey(key) {
   try {
     fs.chmodSync(p, 0o600);
   } catch {
-    // best-effort; Windows ACLs / odd filesystems may refuse
+    // best-effort; may fail on Windows ACLs or unusual filesystems
   }
 }
 
@@ -260,11 +259,11 @@ function status() {
   return { state: 'licensed', license: res.license };
 }
 
-/** The gate's question, kept separate from status() because it is asked on
- *  every mutating request. Deliberately NOT cached: an Ed25519 verify plus a
- *  200-byte read is tens of microseconds, the app makes a handful of writes per
- *  interaction, and a cache would be one more thing that can go stale (or be
- *  poked) between an activation and the next request. */
+/** The gate's check, kept separate from status() because it runs on every
+ *  mutating request. NOT cached: an Ed25519 verify plus a 200-byte read takes
+ *  tens of microseconds, the app makes a handful of writes per interaction, and
+ *  a cache could go stale or be modified between an activation and the next
+ *  request. */
 function isLicensed() {
   return status().state === 'licensed';
 }

@@ -1,49 +1,48 @@
 'use strict';
 
 // ─── onboarding.js ────────────────────────────────────────────────────────────
-// First-run setup, launched from the Dashboard's hero CTA on a database
-// that holds nothing the user put there (GET /api/onboarding decides that from
-// data, not a flag — see handlers/onboarding.js).
+// First-run setup, launched from the Dashboard's hero CTA on a database with no
+// user data (GET /api/onboarding computes that from data, not a flag — see
+// handlers/onboarding.js).
 //
-// The shape of this flow is a deliberate inversion of the usual finance-app
-// setup wizard. Those ask the user to design a data model — name your accounts,
-// build your category list — at the exact moment they know least about what they
-// want, which is why setup is the biggest churn driver in the category. Here the
-// user answers ONE question and hands over one file; everything else is derived
-// and then shown back to them for confirmation:
+// This flow is the inverse of the usual finance-app setup wizard. Those require
+// the user to define a data model — name your accounts, build your category list
+// — before they have used the app. Here the user answers ONE question and
+// supplies one file; everything else is derived from it and shown back for
+// confirmation:
 //
 //   1. "Which account is this coming from?"  — pre-named starter accounts
 //      (seeded hidden; see seed.js DEFAULT_BALANCE_COLUMNS) plus "Something
-//      else". Naming an account is pure user identity, so it is the one thing
-//      that must be asked and the one thing never inferred from the file: a
-//      bank's name in a filename says nothing about which bucket the user meant,
-//      and someone who changes banks mid-year still has one logical "Checking".
+//      else". Account names are user-specific, so this is the one thing asked and
+//      the one thing never inferred from the file: a bank's name in a filename
+//      does not identify which account the user means, and someone who changes
+//      banks mid-year still has one logical "Checking".
 //   2. The file goes through the ordinary import (widgets/txfileimport.js) —
 //      same parser, same mapping step, same row preview. Committing it is what
 //      ADOPTS the account, so backing out here leaves nothing behind.
-//   3. "Here's what we found. Does this look right?" — the import digest, with
-//      the user's own merchants in their own categories.
+//   3. "Here's what we found. Does this look right?" — the import summary, with
+//      the user's merchants in their categories.
 //   4. Offer the next account, or finish.
 //
-// The category taxonomy is deliberately NOT part of this. It ships as a canonical
-// set the on-device categorizer targets, so asking the user to invent one would
-// leave the lexicon and classifier with nowhere to land — the cold-start
-// categorization that makes the first import feel like anything would drop to
-// zero. Personalization there is subtractive (unused categories stay out of the
-// way) and happens by using the app, not by answering questions up front.
+// The category taxonomy is NOT part of this. It ships as a fixed set the
+// on-device categorizer targets, so a user-invented taxonomy would leave the
+// lexicon and classifier with no matching keys and drop cold-start
+// categorization to zero. Personalization there is subtractive (unused
+// categories are ignored) and happens through use rather than up-front
+// questions.
 //
-// Skipping is always available and always leads to a fully working app: the
-// ordinary Dashboard with its own empty-state CTAs into each surface.
+// Skipping is always available and leads to a fully working app: the ordinary
+// Dashboard with its per-card empty-state CTAs into each page.
 
 (function () {
     const Onboarding = (() => {
 
         const esc = escapeHtml;
 
-        // The account question itself — tiles, the "Something else" fields, and the
+        // The account question — tiles, the "Something else" fields, and the
         // create-on-resolve behaviour — comes from TxFileImport, so first-run and an
-        // ordinary import ask it in exactly the same words and the same shape. This
-        // file owns only the surrounding first-run chrome.
+        // ordinary import use identical wording and layout. This file provides only
+        // the surrounding first-run chrome.
         async function fetchAccounts() {
             try {
                 const r = await apiFetch('/api/balance/columns?include_hidden=true');
@@ -68,9 +67,9 @@
         }
 
         // ── Modal shell ───────────────────────────────────────────────────────────
-        // Its own shell rather than txfileimport's: this one is never busy-gated,
-        // and it must survive the import modals opening on top of it (the flow
-        // returns here afterwards).
+        // A separate shell from txfileimport's: this one is never busy-gated, and
+        // it must stay mounted while the import modals open on top of it, since the
+        // flow returns here afterwards.
         function buildModal() {
             const overlay = document.createElement('div');
             overlay.className = 'onb-overlay';
@@ -87,15 +86,14 @@
         }
 
         // ── Step 1: which account? ────────────────────────────────────────────────
-        // Radio tiles, nothing pre-selected. An unselected list is honest about
-        // not knowing; a pre-selected "Checking" would get accepted by accident,
-        // and landing a card statement in Checking is exactly the confidently
-        // wrong answer that costs trust.
+        // Radio tiles, nothing pre-selected. A pre-selected "Checking" would be
+        // accepted by clicking through, and importing a card statement into
+        // Checking is a wrong result that has to be undone manually.
         //
-        // The only way to skip is the × in the corner (matching the import
-        // modals' own close button) — first-run has no "enter things myself"
-        // link, so skipping must stay reachable some other way, per PRODUCT.md's
-        // "skipping is always available" guarantee.
+        // The only way to skip is the × in the corner (matching the import modals'
+        // close button) — first-run has no "enter things myself" link, so skipping
+        // must stay reachable some other way, per PRODUCT.md's "skipping is always
+        // available" guarantee.
         function renderPicker(dialog, { accounts, imported, onChosen, onSkip, onDone }) {
             const again = imported.length > 0;
 
@@ -165,12 +163,12 @@
                     onSkip: () => finish({ skipped: true }),
                     onDone: () => finish(),
                     onChosen: (account) => {
-                        // Hand off to the ordinary import, with the account
-                        // settled so the preview states it instead of re-asking.
-                        // The import's own Step 4 ("Success!") offers the same
+                        // Hand off to the ordinary import with the account already
+                        // resolved, so the preview displays it instead of asking
+                        // again. The import's Step 4 ("Success!") offers the same
                         // two choices onboarding needs next: add another account
-                        // (back to the picker, with this one added to the
-                        // imported chips) or finish up.
+                        // (back to the picker, with this one added to the imported
+                        // chips) or finish.
                         modal.hide();
                         TxFileImport.run({
                             account,

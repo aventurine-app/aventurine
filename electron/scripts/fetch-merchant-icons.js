@@ -11,8 +11,8 @@
 // as ordinary bundled assets (static/ goes into the package via
 // electron-builder's extraResources), so the "local-first & offline, no
 // required network calls" guardrail in .claude/PRODUCT.md still holds at
-// runtime. Nothing regenerates these during a build — same deal as the
-// packaging icons in build/ (see make-icons.js).
+// runtime. Nothing regenerates these during a build, the same as the packaging
+// icons in build/ (see make-icons.js).
 //
 //   node scripts/fetch-merchant-icons.js              # resolve + download
 //   node scripts/fetch-merchant-icons.js --manifest   # re-audit + rewrite the
@@ -24,25 +24,25 @@
 //                                                     #   against the current gates
 //   …plus --limit N and -v/--verbose (per-URL reasons for every rejection).
 //
-// A plain re-run is incremental and safe: it skips brands that already have an
-// icon and brands cached as having no domain, so it retries exactly the ones
-// that had a domain but no usable favicon. Requires ImageMagick (`magick`) on
-// PATH, and curl (see curlFetch for why not Node's fetch).
+// A plain re-run is incremental: it skips brands that already have an icon and
+// brands cached as having no domain, so it retries only the ones that had a
+// domain but no usable favicon. Requires ImageMagick (`magick`) on PATH, and
+// curl (see curlFetch for why not Node's fetch).
 //
 // ── How a brand gets an icon ────────────────────────────────────────────────
 // 1. DOMAIN. From data/merchant-domain-overrides.json when the brand is listed
-//    there (a `null` value means "we looked, there is no usable site — stop
-//    asking"), otherwise guessed from the display name (traderjoes.com,
+//    there (a `null` value marks a brand with no usable site, so it is not
+//    retried), otherwise derived from the display name (traderjoes.com,
 //    trader-joes.com, …) and VERIFIED: the candidate site's <title> /
-//    og:site_name / application-name must contain the brand name. The gate is
-//    what keeps a domain squatter's parking page from becoming "Trader Joe's".
+//    og:site_name / application-name must contain the brand name. That check is
+//    what prevents a domain squatter's parking page becoming "Trader Joe's".
 //    Results land in data/merchant-domains.json, which is committed so a re-run
 //    is cheap and reviewable.
 // 2. ICON. The verified page's <link rel="…icon…"> tags, best-first (biggest
 //    declared size wins, apple-touch-icon is a good fallback because it is
 //    usually a clean 180px square), then the conventional paths (/favicon.ico
-//    and friends) — which are worth trying even when the homepage itself was
-//    refused, since bot walls guard HTML and rarely the icon.
+//    and similar), which are tried even when the homepage itself was refused,
+//    since bot walls usually block HTML but not the icon.
 // 3. NORMALIZE. ImageMagick to a 48×48 PNG8 — ~1.5KB each instead of ~6KB, and
 //    48px covers the largest place an avatar is drawn (28px) at 2× device
 //    pixels. SVG favicons are skipped: rendering one needs librsvg, which is
@@ -56,18 +56,17 @@
 //    left behind by a domain that has since been retracted. See
 //    pruneGenericIcons.
 //
-// Precision-first, like the lexicon itself: every step abstains rather than
-// guess. A brand with no verified domain, no readable icon, a favicon that
-// fails to convert, or art that turns out to be generic simply gets no entry,
-// and merchantAvatarHtml falls back to the initials circle it has always drawn.
-// Expect roughly half the lexicon to end up with an icon; that is the design
-// working, not a shortfall.
+// Precision-first, like the lexicon: every step skips rather than accept an
+// uncertain match. A brand with no verified domain, no readable icon, a favicon
+// that fails to convert, or art that turns out to be generic gets no entry, and
+// merchantAvatarHtml falls back to the initials circle. Roughly half the lexicon
+// ends up with an icon, which is the expected result.
 //
 // ── Coverage is machine- and network-dependent ──────────────────────────────
 // Big US retail sites (Home Depot, CVS, McDonald's, Planet Fitness) sit behind
-// Akamai/Cloudflare bot walls that answer 403 to everything from some networks
-// and regions, icon paths included. Re-running from elsewhere may pick them up;
-// nothing here can, and they degrade to initials like any other miss.
+// Akamai/Cloudflare bot walls that return 403 to everything from some networks
+// and regions, icon paths included. Re-running from elsewhere may resolve them;
+// nothing here can, and they fall back to initials like any other miss.
 
 const fs = require('fs');
 const path = require('path');
@@ -89,7 +88,7 @@ const ICON_DIR = path.join(REPO_ROOT, 'static', 'merchant-icons');
 const MANIFEST_FILE = path.join(REPO_ROOT, 'static', 'js', 'core', 'merchant-icons.js');
 
 // Sites reject or fingerprint an obviously scripted client; a plain desktop UA
-// gets the same HTML a human would see, which is all we want to read.
+// returns the same HTML a browser would receive, which is what this reads.
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 const PAGE_TIMEOUT = 10000;
 const ICON_TIMEOUT = 10000;
@@ -160,8 +159,8 @@ function collectBrands() {
 }
 
 // ── Domain candidates ───────────────────────────────────────────────────────
-// Cheap guesses in decreasing likelihood. Every one is gated by verifyPage(),
-// so a wrong guess costs a request, not a wrong logo.
+// Candidate domains in decreasing likelihood. Every one is gated by
+// verifyPage(), so a wrong candidate costs a request, not a wrong logo.
 const GENERIC_TAIL = new Set([
     'market', 'markets', 'store', 'stores', 'company', 'co', 'inc',
     'restaurant', 'restaurants', 'shop', 'group', 'brands',
@@ -190,15 +189,15 @@ function domainCandidates(display) {
     // conjunction entirely — try both.
     const noAnd = words.filter((w) => w !== 'and');
     if (noAnd.join('') !== words.join('')) push(noAnd);
-    // NB: no "the<brand>.com" variant. It looks harmless (thefreshmarket.com
-    // really is The Fresh Market) and it is not: on a trial run it resolved
-    // Best Buy to thebestbuy.com and Marriott to themarriott.com, both of
-    // which mention the brand often enough to pass the title check while being
-    // nobody's official site. Prefixed guesses go in the overrides file, where
-    // a human has looked at them.
-    // Trailing generics are frequently absent from the domain ("Sprouts
-    // Farmers Market" → sprouts.com). Peeling them is only safe because the
-    // title check still has to see the full brand name.
+    // NB: no "the<brand>.com" variant. It appears safe (thefreshmarket.com is
+    // The Fresh Market) but is not: on a trial run it resolved Best Buy to
+    // thebestbuy.com and Marriott to themarriott.com, both of which mention the
+    // brand often enough to pass the title check while not being the official
+    // site. Prefixed candidates go in the overrides file, which is reviewed by
+    // hand.
+    // Trailing generics are frequently absent from the domain ("Sprouts Farmers
+    // Market" → sprouts.com). Removing them is safe only because the title check
+    // still requires the full brand name.
     const trimmed = words.slice();
     while (trimmed.length > 1 && GENERIC_TAIL.has(trimmed[trimmed.length - 1])) {
         trimmed.pop();
@@ -208,10 +207,10 @@ function domainCandidates(display) {
 }
 
 // ── HTTP (curl, not fetch) ──────────────────────────────────────────────────
-// Node's built-in fetch is refused by a good share of large retail sites:
-// undici's TLS/ALPN fingerprint doesn't look like a browser, so Akamai and
-// Cloudflare either hang it or answer a challenge page. Measured on this
-// lexicon, curl with browser headers gets through where fetch times out
+// Node's built-in fetch is refused by many large retail sites: undici's TLS/ALPN
+// fingerprint does not match a browser's, so Akamai and Cloudflare either hang
+// it or return a challenge page. Measured on this lexicon, curl with browser
+// headers succeeds where fetch times out
 // (doordash.com, exxon.com among others), and it costs a process instead of a
 // dependency. `--http1.1` is retried on curl 92 (HTTP/2 INTERNAL_ERROR), which
 // a few CDNs return to clients they dislike.
@@ -261,10 +260,10 @@ async function getPage(url) {
     return { finalUrl: res.finalUrl, html: res.buf.subarray(0, HEAD_BYTES).toString('utf8') };
 }
 
-// Magic bytes for the raster formats ImageMagick will take from us. Checking
-// them is not paranoia: a bot-protected host answers /favicon.ico with a 200
-// HTML challenge page often enough that trusting the status code alone would
-// hand ImageMagick a pile of markup.
+// Magic bytes for the raster formats ImageMagick accepts. The check is needed
+// because a bot-protected host often returns /favicon.ico as a 200 HTML
+// challenge page, so trusting the status code alone would pass markup to
+// ImageMagick.
 function imageKind(buf) {
     if (buf.length < 12) return null;
     if (buf[0] === 0x89 && buf.toString('latin1', 1, 4) === 'PNG') return 'png';
@@ -287,11 +286,11 @@ async function getImage(url) {
 }
 
 // ── Verification ────────────────────────────────────────────────────────────
-// The whole precision story rests here. A candidate domain is only accepted if
-// the page NAMES the brand in one of the three places a site states its own
-// identity. Comparing on the slug (alphanumerics only) makes the check immune
-// to the punctuation and casing differences between "Trader Joe's" the lexicon
-// entry and "Trader Joe's" the page title.
+// This is the main precision gate. A candidate domain is accepted only if the
+// page contains the brand name in one of the three places a site declares its
+// identity. Comparing on the slug (alphanumerics only) makes the check immune to
+// punctuation and casing differences between "Trader Joe's" as a lexicon entry
+// and as a page title.
 function pageIdentity(html) {
     const head = html.slice(0, HEAD_BYTES);
     const parts = [];
@@ -312,22 +311,22 @@ function pageIdentity(html) {
 
 // Two ways a candidate can pass, in descending confidence:
 //
-//   'verified' — the page names the brand. The strong case, and the only one
-//                available to a guessed variant (hyphenated, tail-trimmed).
-//   'exact'    — the page states NO identity at all (a client-rendered shell
-//                whose <title> is filled in by JavaScript we don't run —
-//                nordstrom.com is one) AND the candidate is the brand's exact
-//                name as a .com. Restricting the weaker rule to title-less
-//                pages is what keeps it safe: a squatter's parking page has a
-//                title, so it is rejected outright rather than falling through
-//                to the name match. A page that names a DIFFERENT brand is
-//                always a reject.
-// Domain parking defeats the name check on its own, because a parking page
-// ADVERTISES the name it is squatting: ajisenramen.com redirects to
-// HugeDomains, whose title reads "AjisenRamen.com is for sale", which contains
-// the brand and sails through. The icon that follows is the broker's, and it
-// lands on a dozen unrelated merchants at once (pruneGenericIcons found exactly
-// this cluster). So parking is rejected before the name is even considered —
+//   'verified' — the page contains the brand name. The strong case, and the only
+//                one available to a derived variant (hyphenated, tail-trimmed).
+//   'exact'    — the page declares NO identity at all (a client-rendered shell
+//                whose <title> is filled in by JavaScript this script does not
+//                run — nordstrom.com is one) AND the candidate is the brand's
+//                exact name as a .com. Restricting the weaker rule to
+//                title-less pages is what keeps it safe: a squatter's parking
+//                page has a title, so it is rejected rather than falling
+//                through to the name match. A page containing a DIFFERENT
+//                brand name is always rejected.
+// Domain parking defeats the name check, because a parking page contains the
+// name it is squatting: ajisenramen.com redirects to HugeDomains, whose title
+// reads "AjisenRamen.com is for sale", which contains the brand and passes. The
+// icon that follows is the broker's, and it lands on a dozen unrelated merchants
+// at once (pruneGenericIcons found this cluster). So parking is rejected before
+// the name is checked —
 // by where the redirect landed, and by the sales pitch in the title.
 const PARKING_HOSTS = [
     'hugedomains.com', 'sedo.com', 'sedoparking.com', 'dan.com', 'afternic.com',
@@ -376,8 +375,8 @@ function iconCandidates(html, finalUrl) {
         const sizes = (tag.match(/sizes\s*=\s*["']([^"']+)["']/i) || [])[1] || '';
         const px = Math.max(0, ...sizes.split(/\s+/).map((s) => parseInt(s, 10) || 0));
         const apple = /apple-touch/i.test(rel);
-        // An undeclared size is usually a 16-32px favicon; an apple-touch-icon
-        // is usually 180px even when it says nothing. Score accordingly.
+        // An undeclared size is usually a 16-32px favicon; an apple-touch-icon is
+        // usually 180px even with no declared size. Scored accordingly.
         const score = px || (apple ? 180 : 24);
         found.push({ url, score });
     }
@@ -407,10 +406,10 @@ async function largestFrame(file) {
 }
 
 async function normalizeIcon(buf, outFile) {
-    // The extension is load-bearing, not cosmetic: ImageMagick sniffs PNG from
-    // its header but refuses a headerless-looking .ico with "no decode
-    // delegate", and .ico is the single most common favicon format. imageKind()
-    // already identified the bytes — spell it out for magick.
+    // The extension is required, not cosmetic: ImageMagick detects PNG from its
+    // header but refuses a headerless-looking .ico with "no decode delegate", and
+    // .ico is the most common favicon format. imageKind() has already identified
+    // the bytes, so the extension is set explicitly for magick.
     const kind = imageKind(buf);
     if (!kind) throw new Error('not a raster image');
     const tmp = path.join(os.tmpdir(), `avicon-${process.pid}-${Math.random().toString(36).slice(2)}.${kind}`);
@@ -432,14 +431,13 @@ async function normalizeIcon(buf, outFile) {
         if (!fs.existsSync(outFile) || fs.statSync(outFile).size === 0) {
             throw new Error('magick produced nothing');
         }
-        // A favicon that is (nearly) all transparency converts fine and ships a
-        // blank grey disc — strictly worse than the initials it replaced, since
-        // it says nothing while looking like it should. Two brands' "favicons"
-        // in the lexicon are exactly this.
+        // A favicon that is almost entirely transparent converts successfully and
+        // produces a blank grey disc, which carries less information than the
+        // initials it replaces. Two brands' favicons in the lexicon are this.
         const ink = await inkCoverage(outFile);
         if (ink < 0.02) throw new Error(`blank icon (${(ink * 100).toFixed(1)}% ink)`);
-        // Generic art we have already caught wearing another brand's name (see
-        // pruneGenericIcons) must not come back on the next run.
+        // Generic art already identified under another brand's name (see
+        // pruneGenericIcons) must not be re-added on the next run.
         if (GENERIC_HASHES.has(hashFile(outFile))) throw new Error('known generic icon');
     } finally {
         fs.rmSync(tmp, { force: true });
@@ -475,11 +473,10 @@ async function fetchHomepage(domain) {
 }
 
 async function resolveDomain(brand, overrides) {
-    // A hand-picked domain is trusted — that is what curating one means — so no
-    // title check runs against it. This is also the escape hatch for the brands
-    // whose homepage we can never read: Home Depot and CVS answer this machine
-    // with an Akamai "Access Denied" page, and an override plus the blind icon
-    // paths below is the only way they ever get an icon.
+    // A hand-curated domain is accepted without a title check. This is also the
+    // path for brands whose homepage cannot be read: Home Depot and CVS return an
+    // Akamai "Access Denied" page here, and an override plus the blind icon paths
+    // below is the only way they get an icon.
     if (Object.prototype.hasOwnProperty.call(overrides, brand.display)) {
         const domain = overrides[brand.display];
         if (!domain) return { domain: null, why: 'override:none' };
@@ -504,11 +501,11 @@ async function resolveDomain(brand, overrides) {
     return { domain: null, why: 'unresolved' };
 }
 
-// Conventional icon paths, tried when the page's own <link> tags are
-// unavailable or all failed. Worth doing even for a homepage we could not read
-// at all: bot protection guards the HTML, while the icon usually sits on a CDN
-// that answers anyone (this is how Trader Joe's and GEICO get an icon despite
-// both homepages returning 403).
+// Conventional icon paths, tried when the page's <link> tags are unavailable or
+// all failed. Also tried for a homepage that could not be read at all: bot
+// protection blocks the HTML while the icon usually sits on a CDN that serves
+// any client, which is how Trader Joe's and GEICO get an icon despite both
+// homepages returning 403.
 const BLIND_ICON_PATHS = [
     '/favicon.ico',
     '/apple-touch-icon.png',
@@ -520,10 +517,10 @@ const BLIND_ICON_PATHS = [
 async function downloadIcon(brand, domain, page) {
     const outFile = path.join(ICON_DIR, `${brand.slug}.png`);
     const urls = page ? iconCandidates(page.html, page.finalUrl) : [];
-    // With no readable page we have to guess the origin, and BOTH forms are
-    // worth a try: a bare-host override like `shop.lululemon.com` has no www.
-    // form at all, so guessing only `www.` + domain resolves to nothing and
-    // the brand is lost to a DNS failure rather than to a bot wall.
+    // With no readable page the origin is derived from the domain, and BOTH forms
+    // are tried: a bare-host override like `shop.lululemon.com` has no www. form,
+    // so trying only `www.` + domain resolves to nothing and the brand fails on
+    // DNS rather than on a bot wall.
     const origins = page ? [page.finalUrl] : [`https://www.${domain}/`, `https://${domain}/`];
     for (const origin of origins) {
         for (const p of BLIND_ICON_PATHS) {
@@ -551,13 +548,13 @@ async function downloadIcon(brand, domain, page) {
 }
 
 // ── Generic-icon pruning ────────────────────────────────────────────────────
-// The failure this catches: a site serves a DEFAULT favicon rather than its
-// own — the stock WordPress mark, a hosting panel's house glyph, a registrar's
-// parking-page art — and it lands under a real merchant's name. Every gate
-// upstream passed; the domain is right and the file is a valid icon. It just
-// isn't the brand's.
+// The failure this catches: a site serves a DEFAULT favicon rather than its own
+// — the stock WordPress mark, a hosting panel's house glyph, a registrar's
+// parking-page art — and it is stored under a real merchant's name. Every gate
+// upstream passed; the domain is correct and the file is a valid icon, but the
+// art is not the brand's.
 //
-// The tell is that the same bytes show up under several unrelated merchants.
+// The signal is that the same bytes appear under several unrelated merchants.
 // So: group the icons by content hash, and drop any group whose members come
 // from THREE OR MORE DIFFERENT DOMAINS. The domain count is what makes this
 // safe — a corporate family legitimately shares one mark (Courtyard,
@@ -625,22 +622,21 @@ async function pruneGenericIcons(resolved) {
 }
 
 // ── Full-bleed detection ────────────────────────────────────────────────────
-// Favicons come in two shapes and they want opposite treatment in a round
-// avatar:
+// Favicons come in two shapes, which need opposite treatment in a round avatar:
 //
-//   glyph      — a mark on transparency (Apple's apple, Chevron's chevron).
-//                Wants to sit INSET on a neutral disc, or it has no ground to
-//                stand on and vanishes against a dark theme.
+//   glyph      — a mark on transparency (Apple's apple, Chevron's chevron). Sits
+//                INSET on a neutral disc; without a background it disappears
+//                against a dark theme.
 //   full-bleed — the brand's colour tile, mark included (Netflix's red square,
-//                Burger King's, Amazon's). Wants to FILL the circle and be
-//                clipped round, because it already is the disc. Inset on a grey
-//                pill it reads as a tiny square stamp instead of an avatar.
+//                Burger King's, Amazon's). FILLS the circle and is clipped
+//                round, since it is already a filled square. Inset on a grey
+//                pill it renders as a small square stamp instead of an avatar.
 //
-// Which one it is has to be decided here, not in CSS: the browser can't ask an
-// <img> whether its corners are transparent. Reading the four corners of the
-// NORMALIZED file is the whole test — and it is why `-extent` pads with
-// transparency rather than a colour, so a non-square wordmark keeps see-through
-// corners and stays correctly classified as a glyph.
+// This has to be decided here, not in CSS: the browser cannot read an <img>'s
+// corner transparency. Reading the four corners of the NORMALIZED file is the
+// whole test, and it is why `-extent` pads with transparency rather than a
+// colour, so a non-square wordmark keeps transparent corners and is classified
+// as a glyph.
 async function isFullBleed(file) {
     try {
         const { stdout } = await execFileAsync('magick', [
@@ -668,9 +664,9 @@ async function writeManifest(brands) {
     for (const brand of brands) {
         if (!have.has(brand.slug)) continue;
         for (const alias of brand.aliases) {
-            // First brand to claim an alias keeps it. A collision means two
+            // The first brand to claim an alias keeps it. A collision means two
             // display names share a needle spelling, which the lexicon lint
-            // would already flag; abstaining is the safe half either way.
+            // already flags; skipping the second is the safe result.
             if (!(alias in map)) map[alias] = brand.slug;
         }
     }
@@ -691,16 +687,15 @@ async function writeManifest(brands) {
  *
  * MERCHANT_ICONS maps a merchant slug (see merchantIconSlug in avatar.js —
  * lowercase, alphanumerics only) to the basename of a bundled brand icon in
- * static/merchant-icons/. Several slugs can share one icon: every lexicon
- * needle that names a brand ("wendys", "wendy's") is an alias for that brand's
- * display-name slug, so a hand-typed label matches the same file an imported
- * row does.
+ * static/merchant-icons/. Several slugs can share one icon: every lexicon needle
+ * for a brand ("wendys", "wendy's") is an alias for that brand's display-name
+ * slug, so a hand-typed label matches the same file an imported row does.
  *
  * MERCHANT_ICONS_BLEED lists the icons whose artwork reaches all four corners —
  * a brand-colour tile rather than a mark on transparency. Those fill the avatar
- * circle and get clipped round; the rest sit inset on a neutral disc so a dark
- * monogram has something to stand on. Measured from the pixels at build time,
- * because CSS cannot ask an image whether its corners are transparent.
+ * circle and are clipped round; the rest sit inset on a neutral disc so a dark
+ * monogram has a background. Measured from the pixels at build time, since CSS
+ * cannot read an image's corner transparency.
  *
  * ${have.size} icons (${bleed.length} full-bleed), ${keys.length} slugs. */
 
@@ -788,9 +783,9 @@ async function main() {
         await mapLimit(suspects, CONCURRENCY, async (slug) => {
             const domain = cached[slug];
             const page = await fetchHomepage(domain);
-            // Unreachable is not disproof — bot walls answer 403 to everything
-            // and those domains are usually right. Only a page we CAN read and
-            // that fails the gates loses its cache entry.
+            // Unreachable does not mean wrong — bot walls return 403 to everything
+            // and those domains are usually correct. Only a page that CAN be read
+            // and fails the gates loses its cache entry.
             if (!page) return;
             if (verifyPage(page.html, slug, domain, page.finalUrl)) return;
             cached[slug] = null;

@@ -14,14 +14,14 @@
 //            the mode falls back to the whole-path field the others use.
 //   saveas — choose a destination path; the active database is copied there
 //            (encryption + key preserved) and that copy becomes the working
-//            file. No password prompt: it inherits the current DB's.
-//   open   — choose an existing file; if the server reports it's encrypted,
+//            file. No password prompt: it reuses the current DB's.
+//   open   — choose an existing file; if the backend reports it is encrypted,
 //            the password field is revealed and the request retried.
-//   unlock — the app restarted while an encrypted DB was active. The path
-//            is known (server keeps it in active-db.json); only the
-//            password is needed. Not dismissable — every data API answers
-//            423 until unlocked — but "Open a different database…" offers
-//            the way out if the password is lost.
+//   unlock — the app restarted while an encrypted DB was active. The path is
+//            known (the backend keeps it in active-db.json); only the password
+//            is needed. Not dismissable — every data API returns 423 until
+//            unlocked — but "Open a different database…" is available if the
+//            password is lost.
 //
 // Under Electron, Browse… / Change… open native save/open dialogs
 // (window.electronFile from preload.js). In a plain browser — which cannot
@@ -115,9 +115,9 @@
         locPath.textContent = newPath() || (newDir + browserSep);
     }
 
-    /** Adopt a whole path (from a dialog) back into folder + name. The '.db'
-     *  we add back is hidden; any other extension the user deliberately chose
-     *  stays visible, and fileNameFor keeps it. */
+    /** Split a whole path (from a dialog) back into folder + name. The '.db'
+     *  suffix added back is hidden; any other extension the user typed stays
+     *  visible, and fileNameFor keeps it. */
     function adoptNewPath(p) {
         newDir = dirName(p) || newDir;
         const base = baseName(p);
@@ -156,7 +156,7 @@
             setHint(named()
                 ? 'Name your new database. It is stored on this computer, nowhere else.'
                 : 'Choose where to store the new database file.');
-            // A starting point, not an answer: selected, so typing replaces it.
+            // A default name, pre-selected so typing replaces it.
             nameInput.value = 'Finances';
             renderLocation();
         } else if (mode === 'saveas') {
@@ -184,10 +184,9 @@
             nameInput.select();
         } else {
             (pathRow.hidden ? passInput : pathInput).focus();
-            // No proposed folder yet — the status call is late or failed and
-            // this modal opened in its path-field fallback. Ask again, and if
-            // an answer arrives before the user has typed anything, reopen as
-            // the name flow they should have got.
+            // No proposed folder yet — the status call is slow or failed and this
+            // modal opened in its path-field fallback. Retry, and if a response
+            // arrives before anything is typed, reopen in the name flow.
             if (mode === 'new') {
                 fetchStatus().then(() => {
                     if (!modal.hidden && mode === 'new' && !named() &&
@@ -266,9 +265,9 @@
             setError('');
             browserSep = data.sep;
             renderBrowser(data);
-            // In the write modes the folder on screen IS the answer as they
-            // browse: the name flow takes just the folder (the name field owns
-            // the file name), save-as keeps its whole path in step.
+            // In the write modes the folder shown is the selected destination
+            // while browsing: the name flow takes only the folder (the name field
+            // supplies the file name), save-as keeps its whole path in sync.
             if (data.path === 'drives') return;
             if (named()) {
                 newDir = data.path;
@@ -434,10 +433,10 @@
     let _encryptionAvailable = true;
     let _defaultDir = '';
 
-    /** Read the server's view of the active database: whether it's locked,
-     *  whether encryption is available, and the folder to propose for a new
-     *  one. Called on every page load, and again if a New Database modal opens
-     *  before the answer arrived. */
+    /** Read the backend's state for the active database: whether it is locked,
+     *  whether encryption is available, and the folder to propose for a new one.
+     *  Called on every page load, and again if a New Database modal opens before
+     *  the response arrives. */
     function fetchStatus() {
         return apiFetch('/api/db/status')
             .then(r => r.json())
@@ -458,9 +457,9 @@
         showUnlock: (path) => showModal('unlock', { path }),
     };
 
-    // On every page load, ask the server whether the active DB is locked
-    // (encrypted DB restored from the previous session, key not yet given).
+    // On every page load, read whether the active DB is locked (an encrypted DB
+    // restored from the previous session with no key supplied yet).
     fetchStatus()
         .then(s => { if (s.locked) showModal('unlock', { path: s.path }); })
-        .catch(() => { /* server unreachable — nothing to do */ });
+        .catch(() => { /* backend unreachable — nothing to do */ });
 }());

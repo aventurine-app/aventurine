@@ -4,35 +4,34 @@
 // Cash Flow (Income & Expenses) activity into income / expense totals, plus the
 // latest Balance-Sheet debt snapshot, then hands the per-year totals to
 // services/reportCard.js for the year-over-year changes, ratios, and goal
-// outcomes. Transfer categories are graded by nothing — money moved to savings
+// outcomes. Transfer categories are graded by no goal — money moved to savings
 // or a brokerage is excluded from the income/spend surfaces — but their total is
-// still reported, because "what share of income did I put away" is a metric the
-// Metrics report exists to answer.
+// still reported, because the share of income put away is one of the metrics on
+// this report.
 //
 // "Relevant years" are the years on the Cash Flow statement (the `active_years`
-// table) — so every year the user tracks gets a card, even one with no activity
-// yet, not just years that happen to have transactions. Each year's figures are
-// the exact same numbers the Cash Flow page shows: per cell, the transaction-
-// derived sum unless a stored Entry overrides it (see incomeExpenses.dataGet).
+// table), so every year the user tracks gets a card, including one with no
+// activity yet, not only years with transactions. Each year's figures are the
+// same numbers the Cash Flow page shows: per cell, the transaction-derived sum
+// unless a stored Entry overrides it (see incomeExpenses.dataGet).
 
 const { computedCells, manualCells, blendCells } = require('./incomeExpenses');
 const { buildReportCards } = require('../services/reportCard');
 
-// cat_type → which headline bucket a category feeds. Transfers get their OWN
+// cat_type → which headline bucket a category feeds. Transfers get their own
 // bucket rather than being dropped: they stay out of income and spend (the two
-// headline figures and every goal), but the total is what answers "what share of
-// income did I move into savings" — which is precisely the money the income and
-// spend surfaces refuse to count.
+// headline figures and every goal), but their total is what the savings-rate
+// metric divides by income — money the income and spend figures exclude.
 const BUCKET_BY_CAT_TYPE = {
   income: 'income',
   expense: 'expenses',
   transfer: 'transfers',
 };
 
-// The seeded transfer category meaning "moved into a brokerage" (seed.js).
-// Renaming it in the UI keeps the key, so the invested share survives a rename;
-// a user who invents their own brokerage category instead is still counted by
-// the savings rate (all transfers), just not by this one.
+// The seeded transfer category for money moved into a brokerage (seed.js).
+// Renaming it in the UI keeps the key, so the invested share survives a rename.
+// A user-created brokerage category is counted by the savings rate (all
+// transfers) but not by this one.
 const INVESTING_KEY = 'investing';
 
 /**
@@ -148,7 +147,7 @@ function reportCardGet(ctx) {
     debt: debt.has(year) ? debt.get(year) : null,
   }));
 
-  // Newest year first — most users care about the year they're in.
+  // Newest year first.
   const years = buildReportCards(rows).sort((a, b) => b.year - a.year);
   return { ok: true, years };
 }

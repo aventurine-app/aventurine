@@ -11,10 +11,10 @@
 // API
 // ───
 //   Store.ensure(name)        → Promise<data>
-//       Returns the dataset for `name`. If it's already in memory, resolves
-//       synchronously-ish from cache. If a sessionStorage cache exists,
-//       returns it immediately and revalidates in the background (subscribers
-//       are notified when fresh data lands). Otherwise fetches first.
+//       Returns the dataset for `name`. If it is already in memory, resolves
+//       from cache. If a sessionStorage cache exists, returns it immediately and
+//       revalidates in the background (subscribers are notified when fresh data
+//       arrives). Otherwise fetches first.
 //
 //   Store.mutate(name, fn)
 //       Apply `fn(data)` to the live dataset in place; persist + notify.
@@ -23,9 +23,9 @@
 //
 //   Store.invalidate(name)    → Promise<void>
 //       Drop the cached dataset (memory + sessionStorage). The refetch is
-//       deferred to the next ensure(), so the caller isn't blocked on a
-//       network round-trip it doesn't need. Use after multi-row changes
-//       (column add, year duplicate) where mirroring in JS would be fragile.
+//       deferred to the next ensure(), so the caller is not blocked on a
+//       round-trip it does not need. Use after multi-row changes (column add,
+//       year duplicate) where mirroring in JS would be error-prone.
 //       Tracker pages (tables.js makeYearTableApi) call this after every
 //       write so aggregator pages always pull fresh data on their next read.
 //
@@ -103,7 +103,8 @@
         function ensure(name) {
             // Object.hasOwn, not `in`: `in` walks the prototype chain, so a name
             // like "constructor" or "toString" would pass the allowlist and then
-            // reach state[name] / DATASETS[name]. hasOwn checks own keys only.
+            // reach state[name] / DATASETS[name]. hasOwn checks own properties
+            // only.
             if (!Object.hasOwn(DATASETS, name)) {
                 return Promise.reject(new Error(`Store: unknown dataset "${name}"`));
             }

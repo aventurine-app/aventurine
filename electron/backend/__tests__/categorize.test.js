@@ -5,12 +5,11 @@
 // accuracy run over a labeled corpus of messy bank descriptions
 // (fixtures/categorize-corpus.json).
 //
-// The corpus is a CURATED dev set, not a guarantee of real-world accuracy; it
-// is a regression fence so the two properties we actually care about can't
-// silently rot:
-//   • PRECISION — when it does categorize, it must be right (trust rule:
-//     a confident wrong category is worse than a blank one).
-//   • COVERAGE  — it categorizes the merchants it claims to know.
+// The corpus is a CURATED dev set, not a measure of real-world accuracy; it is a
+// regression fence for the two properties that matter:
+//   • PRECISION — when it categorizes, the category must be correct (a wrong
+//     category is worse than a blank one).
+//   • COVERAGE  — it categorizes the merchants the lexicon lists.
 
 const test = require('node:test');
 const assert = require('node:assert');
@@ -74,12 +73,12 @@ test('corpus: precision is perfect, coverage clears 90%, breadth across categori
     else if (got !== null) wrong++; // categorized, but to the wrong bucket
   }
 
-  // Precision: never miscategorize on this set (wrong bucket OR a guess on a
-  // should-be-blank row both count against trust).
+  // Precision: no miscategorization on this set. A wrong bucket and a category on
+  // a should-be-blank row both count as failures.
   assert.equal(wrong, 0, 'no rows categorized to the wrong bucket');
   assert.equal(falsePositives, 0, 'no rows guessed that should stay uncategorized');
 
-  // Coverage of the merchants the lexicon claims to know.
+  // Coverage of the merchants the lexicon lists.
   const coverage = covered / categorizable;
   assert.ok(coverage >= 0.9, `coverage ${(coverage * 100).toFixed(1)}% should be >= 90%`);
 

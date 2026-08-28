@@ -87,7 +87,7 @@ test('new category lands at the end of its own type block, not the global end', 
   const types = cats.map((x) => x.cat_type);
   const runs = types.filter((tp, i) => i === 0 || tp !== types[i - 1]);
   assert.deepEqual(runs, ['income', 'expense', 'transfer']);
-  // Each new category is the last row of its own block.
+  // Each new category is the last row of its type block.
   for (const [tp, id] of Object.entries(ids)) {
     const ofType = cats.filter((x) => x.cat_type === tp);
     assert.equal(ofType[ofType.length - 1].id, id);
@@ -97,7 +97,7 @@ test('new category lands at the end of its own type block, not the global end', 
     cats.map((x) => x.position).sort((a, b) => a - b),
     cats.map((_, i) => i)
   );
-  // The Cash Flow columns payload sees the same order.
+  // The Cash Flow columns payload uses the same order.
   assert.deepEqual(
     c.get('/api/data').body.columns.map((x) => x.key),
     cats.map((x) => x.key)
@@ -348,8 +348,8 @@ test('similar: threshold param — absent/garbage is exact, lower is fuzzy, clam
 test('similar: include_categorized widens the pool; exclude_ids drops the edited rows', (t) => {
   const c = makeClient(t);
   const cat = makeCategory(c, 'Match Gym');
-  // Uncategorized row first — categorizing `a` records a learned rule that
-  // would otherwise auto-categorize `b` at creation.
+  // Uncategorized row first: categorizing `a` records a rule that would
+  // otherwise auto-categorize `b` at creation.
   const b = createTx(c, 'monthly gym membership');
   const a = createTx(c, 'monthly gym membership', { catId: cat });
   const needle = encodeURIComponent('monthly gym membership');
@@ -389,7 +389,7 @@ test('categorize-similar: overwrite recategorizes already-categorized rows', (t)
 test('auto-match catches near-identical descriptions at the fixed 0.92 bar', (t) => {
   const c = makeClient(t);
   const cat = makeCategory(c, 'Match Music');
-  // Synthetic merchant the built-in lexicon doesn't know, so this isolates the
+  // Synthetic merchant absent from the built-in lexicon, so this isolates the
   // LEARNED fuzzy-match behavior from cold-start categorization.
   createTx(c, 'Zentrix Premium', { catId: cat });
 
@@ -436,8 +436,8 @@ test('category delete drops its rules', (t) => {
 test('DELETE /api/transactions wipes the whole ledger but nothing else', (t) => {
   const c = makeClient(t);
   const cat = makeCategory(c, 'Match Persist');
-  // A learned rule (created by categorizing) must survive the wipe: deleting all
-  // transactions clears only the ledger, not categories or match rules.
+  // A learned rule (created by categorizing) must survive the delete: removing
+  // all transactions clears only the ledger, not categories or match rules.
   const tx = createTx(c, 'Persist Merchant', { catId: cat });
   c.del(`/api/transactions/${tx.id}`); // leaves the rule behind
   createTx(c, 'One');
@@ -452,8 +452,8 @@ test('DELETE /api/transactions wipes the whole ledger but nothing else', (t) => 
 
   // Ledger empty…
   assert.equal(c.get('/api/transactions').body.transactions.length, 0);
-  // …but the category and its learned rule are untouched: an import of the
-  // remembered description still auto-categorizes.
+  // …but the category and its learned rule are unchanged: an import of the same
+  // description still auto-categorizes.
   assert.ok(getCategories(c).some((x) => x.id === cat));
   assert.equal(importRows(c, ['Persist Merchant']).auto_categorized, 1);
 });
@@ -521,8 +521,8 @@ test('built-in categorization respects the direction guard and the on/off settin
   assert.equal(result.auto_categorized, 0);
   assert.equal(txByDesc(c, 'SHELL OIL REFUND')[0].category_id, null);
 
-  // Within the outflow family the guard permits refining the KIND: an imported
-  // debit (sign says 'expense') to a named brokerage is a transfer (a
+  // Within the outflow family the guard allows changing the KIND: an imported
+  // debit (sign gives 'expense') to a named brokerage is a transfer (a
   // contribution), and the row's tx_type follows the category.
   const investingId = getCategories(c).find((x) => x.key === 'investing').id;
   result = importRows(c, ['ROBINHOOD FUNDS 4412']);
@@ -808,8 +808,8 @@ test('data: cells compute from transactions with zero configuration', (t) => {
   const food = categoryByKey(c, 'food');
   addTx(c, '2026-01-05', 100, { catId: food.id });
   addTx(c, '2026-01-20', 50, { catId: food.id });
-  // Uncategorized expense — a distinct description so the rules learned from
-  // the categorized rows above don't auto-match it.
+  // Uncategorized expense — a distinct description so the rules recorded from
+  // the categorized rows above do not auto-match it.
   assert.equal(
     c.post('/api/transactions', {
       date: '2026-02-02', description: 'zzqx delta', amount: 40, tx_type: 'expense',
@@ -932,7 +932,8 @@ test('import: never disturbs manual overrides in an existing year', (t) => {
     rows: [{ date: '2026-02-02', description: 'zzqx gamma', tx_type: 'expense', amount: 3, category_id: food.id }],
   });
   assert.equal(r.status, 200);
-  // The override still wins its cell; the import's row is in the computed shadow.
+  // The override still applies to its cell; the import's row appears in the
+  // computed layer.
   const d = getData(c);
   assert.equal(d.entries['2026'].February.food, 500);
   assert.equal(d.computed['2026'].February.food, 3);
@@ -1036,17 +1037,16 @@ test('editing with an account that names no account is rejected', (t) => {
 });
 
 // ── The import digest: "here's what we found" ────────────────────────────────
-// The import response carries a summary of what just landed, so the results
-// moment can show the user their own merchants sorted into their own categories
-// instead of a bare row count.
+// The import response carries a summary of what was inserted, so the results
+// screen can show merchants grouped by category instead of a bare row count.
 
 test('import returns a digest: period, totals by direction, and categories hit', (t) => {
   const c = makeClient(t);
   const r = c.post('/api/transactions/import', {
     account_key: 'checking',
     rows: [
-      // Two lexicon-recognized merchants in one category, one in another, plus a
-      // deliberately unreadable row the categorizer abstains on.
+      // Two lexicon-matched merchants in one category, one in another, plus an
+      // unreadable row the categorizer leaves blank.
       { date: '2026-03-04', description: 'STARBUCKS #1234', tx_type: 'expense', amount: 6.5 },
       { date: '2026-03-06', description: 'TRADER JOES 55', tx_type: 'expense', amount: 43.5 },
       { date: '2026-03-02', description: 'SHELL OIL 4411', tx_type: 'expense', amount: 40 },
@@ -1071,7 +1071,7 @@ test('import returns a digest: period, totals by direction, and categories hit',
   assert.equal(f.categories[0].key, 'food', 'largest category first');
   assert.ok(f.categories.some((x) => x.key === 'automobile'));
 
-  // The row the categorizer abstained on is counted, never guessed at.
+  // The row the categorizer left blank is counted, not assigned a category.
   assert.equal(f.uncategorized, 1);
   assert.equal(
     f.categories.reduce((n, x) => n + x.count, 0) + f.uncategorized,
@@ -1112,8 +1112,8 @@ test('onboarding: a fresh DB is fresh; any user data ends that for good', (t) =>
 test('onboarding: an adopted account alone ends freshness', (t) => {
   const c = makeClient(t);
   c.adopt('checking');
-  // No transactions and no cells — but the user has been here and made a
-  // choice, so first-run setup must not reintroduce itself.
+  // No transactions and no cells, but an account was adopted, so first-run setup
+  // must not appear again.
   assert.equal(c.get('/api/onboarding').body.fresh, false);
 });
 

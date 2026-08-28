@@ -189,8 +189,8 @@
 
 .acct-custom .acct-custom-name { flex: 1; min-width: 0; }
 
-/* Negative side margins cancel .onb-dialog's own padding so the rule spans the
-   full modal width edge-to-edge, like every other modal's footer rule
+/* Negative side margins cancel .onb-dialog's padding so the rule spans the full
+   modal width edge-to-edge, like every other modal's footer rule
    (the import modals' footer is a sibling of the padded body, not a child of
    it; this dialog has no such split, so the bleed is done with margins instead). */
 .onb-foot {

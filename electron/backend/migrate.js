@@ -57,7 +57,7 @@ const MIGRATIONS = [
   // v5 — Categories gain flex_type (fixed cost / flexible cost / goal). ADD
   // COLUMN is not idempotent, so guard on the column already existing (a
   // re-bootstrap, or a fresh DB whose baseline already carries it). New rows
-  // default to 'flex'; we seed the existing rows to mirror the fresh-DB intent —
+  // default to 'flex'; existing rows are set to match a fresh DB —
   // savings/investing categories are goals, the standard fixed bills are fixed.
   [5, (db) => {
     const hasCol = db.pragma('table_info(categories)').some((c) => c.name === 'flex_type');
@@ -105,11 +105,11 @@ const MIGRATIONS = [
       db.exec('ALTER TABLE categories DROP COLUMN flex_type');
     }
   }],
-  // v8 — Transactions gain display_name: the import-derived clean merchant
-  // name the ledger shows in place of the raw bank description (NULL = show
-  // the description itself). Existing rows stay NULL — there is no way to
-  // tell an imported row from a hand-entered one after the fact, and a wrong
-  // "clean" name on a manual entry costs more than a messy one on an import.
+  // v8 — Transactions gain display_name: the import-derived clean merchant name
+  // the ledger shows in place of the raw bank description (NULL = show the
+  // description). Existing rows stay NULL — an imported row cannot be
+  // distinguished from a hand-entered one after the fact, and a wrong clean name
+  // on a manual entry is worse than a raw description on an import.
   [8, (db) => {
     const hasCol = db.pragma('table_info(transactions)').some((c) => c.name === 'display_name');
     if (!hasCol) {
@@ -160,12 +160,12 @@ const MIGRATIONS = [
   // v11 — Retire the 'savings' and 'investing' directions: categories and
   // transactions now carry only 'income', 'expense', or 'transfer'. Money moved
   // to savings/brokerage accounts is a transfer (excluded from income/spend
-  // surfaces), not a spend kind of its own. Existing savings/investing rows are
-  // CONVERTED to transfer in place. A CHECK constraint can't be altered, so each
-  // table is rebuilt from its baseline shape (foreign_keys is OFF at the
+  // surfaces), not a separate spend kind. Existing savings/investing rows are
+  // CONVERTED to transfer in place. A CHECK constraint cannot be altered, so
+  // each table is rebuilt from its baseline shape (foreign_keys is OFF at the
   // connection level — referential rules live in the handlers — so dropping a
   // referenced table is safe). The …_new guards make a re-run after a partial
-  // failure harmless; the whole climb runs once per DB via user_version.
+  // failure safe; the whole climb runs once per DB via user_version.
   [11, (db) => {
     // Drop every view that reads the two tables first: ALTER TABLE … RENAME
     // reparses all views to fix up references, and it would trip over a view
@@ -231,11 +231,10 @@ const MIGRATIONS = [
     db.exec(DDL.find((s) => s.includes('CREATE VIEW v_budget')));
   }],
 
-  // v12 — balance_columns.hidden: the starter-account flag onboarding needs. A
-  // fresh DB now seeds its default accounts hidden (seed.js) so the Balance
-  // Sheet starts as the user's own accounts rather than five generic columns.
-  // Existing databases default to 0: every account someone already has stays
-  // visible, because they adopted it by opening the app before this existed.
+  // v12 — balance_columns.hidden: the starter-account flag onboarding uses. A
+  // fresh DB seeds its default accounts hidden (seed.js) so the Balance Sheet
+  // starts empty rather than with five generic columns. Existing databases
+  // default to 0, so every account already present stays visible.
   // ADD COLUMN is not idempotent, so guard on the column already existing (same
   // shape as v8/v10).
   [12, (db) => {
@@ -246,10 +245,10 @@ const MIGRATIONS = [
       );
     }
   }],
-  // v13 — recurring_overrides: user edits (name/direction/cadence/amount) to
-  // a recurring schedule on the Recurring page, plus manual (undetected)
-  // schedules and hidden (removed) ones — see schema.js baseline. New table,
-  // so a plain CREATE TABLE IF NOT EXISTS is idempotent on its own.
+  // v13 — recurring_overrides: user edits (name/direction/cadence/amount) to a
+  // recurring schedule on the Recurring page, plus manual (undetected) schedules
+  // and hidden (removed) ones — see schema.js baseline. New table, so a plain
+  // CREATE TABLE IF NOT EXISTS is idempotent.
   [13, (db) => {
     db.exec(`CREATE TABLE IF NOT EXISTS recurring_overrides (
        "key" VARCHAR(200) NOT NULL,
@@ -263,14 +262,13 @@ const MIGRATIONS = [
        PRIMARY KEY ("key")
      )`);
   }],
-  // v14 — the Recurring page no longer surfaces detections on its own: a
-  // schedule is shown only once the user adopts it from the detection dialog
-  // (see schema.js). That inverts what `removed` meant, so it is replaced by
-  // `adopted` rather than kept alongside it — a detected-but-unadopted series
-  // is simply a candidate again, and there is nothing left for a tombstone
-  // flag to say. Existing rows carry over as adopted = NOT removed: everything
-  // the user had visible on the page stays visible, everything they had hidden
-  // goes back to being an unticked candidate.
+  // v14 — the Recurring page no longer lists detections automatically: a
+  // schedule appears only once the user adopts it from the detection dialog
+  // (see schema.js). That inverts the meaning of `removed`, so it is replaced by
+  // `adopted` rather than kept alongside it — a detected-but-unadopted series is
+  // a candidate again, leaving no use for a tombstone flag. Existing rows are
+  // migrated as adopted = NOT removed: rows previously visible on the page stay
+  // visible, rows previously hidden become unticked candidates.
   //
   // Table rebuild (same shape as v11) since SQLite can't drop a CHECKed column
   // in place; guarded on the column already existing so a re-run is a no-op.

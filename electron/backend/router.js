@@ -4,9 +4,9 @@
 // requests ({method, path, body}) so the frontend's fetch() call sites port
 // 1:1; this module is the (much smaller) stand-in for Flask's URL map.
 //
-// Patterns use Flask's own syntax — '/api/transactions/<int:tx_id>' — so the
-// route table in routes.js reads identically to the Python blueprints it
-// replaces, greppable side by side during review.
+// Patterns use Flask's syntax — '/api/transactions/<int:tx_id>' — so the route
+// table in routes.js matches the Python blueprints it replaced and the two
+// grep side by side.
 //
 // Dispatch contract (what api.js's fetch-mimic relies on):
 //   dispatch(ctx, method, url, body) -> { status, body }
@@ -65,34 +65,34 @@ function compile(pattern) {
 // everything built on top of the ledger is what the key buys.
 //
 // This replaced a total lockout, which itself replaced a read-only gate. The
-// lockout was correct about one thing the read-only version got wrong: a gate
-// has to be explainable in one sentence, and "writes are refused" never was.
-// The sentence here is "your transactions are free, the insights are paid",
-// which is short enough to print on the locked screen itself.
+// lockout fixed one problem with the read-only version: a gate has to be
+// stateable in one sentence, and "writes are refused" was not. The sentence
+// here is "your transactions are free, the insights are paid", which is short
+// enough to print on the locked screen.
 //
-// What makes it worth the retry is the upgrade path. A demo build shipped
-// separately would need its own release, its own packaging gate, and a second
-// download at the moment of purchase, and a database created by it could
-// outrun the paid build's schema. One binary has none of that: the ledger the
-// user built while deciding is the ledger they keep, and activation is a paste
-// rather than a re-install.
+// The upgrade path is what makes this shape worth it. A separately shipped demo
+// build would need its own release, its own packaging gate, and a second
+// download at the moment of purchase, and a database it created could exceed
+// the paid build's schema version. One binary avoids all of that: the ledger
+// built before purchase is kept, and activation is a paste rather than a
+// re-install.
 //
-// The list below is an ALLOW list, so a new route is locked until someone
-// deliberately frees it. That is the right default for a paid app: forgetting
-// to lock a feature costs revenue silently, while forgetting to free one shows
-// up the first time anybody uses it.
+// The list below is an ALLOW list, so a new route is locked until it is
+// explicitly freed. That is the safer default for a paid app: a feature left
+// locked by mistake shows up the first time anyone uses it, while a feature
+// left free by mistake does not.
 //
 // What is free, and why:
-//   /api/license      activation could otherwise never happen
+//   /api/license      activation would otherwise be impossible
 //   /api/db/          a ledger needs a database to live in, including an
-//                     encrypted one; refusing this would make the free tier
-//                     unable to store anything
+//                     encrypted one; blocking this would leave the free tier
+//                     with nowhere to store data
 //   /api/onboarding   first-run setup, which is how the ledger gets started
 //   /api/app-settings theme, currency, auto-match. Preferences are not a
-//                     feature, and an app that cannot be made legible is not
-//                     a fair look at the paid one
+//                     feature, and a free tier that cannot be configured is
+//                     not a representative sample of the paid one
 //   /api/transactions the free tier IS this: list, edit, import, export
-//   /api/categories   a ledger you cannot categorise is not a ledger
+//   /api/categories   a ledger without categories is not a ledger
 //   /api/balance/columns  Balance Sheet columns double as accounts, and import
 //                     needs to pick one. The MONEY on the Balance Sheet lives
 //                     at /api/balance/data and /api/balance/entry, which are
@@ -100,20 +100,20 @@ function compile(pattern) {
 //   /api/data, /api/balance/data  the Dashboard's Month to Month section reads
 //                     both. See the caveat below
 //
-// CAVEAT, deliberately accepted for now: those last two also feed the
-// Dashboard's Year to Year section and the Statements grids, so the backend
-// cannot tell a free reader from a paid one there. Year to Year is therefore
-// HIDDEN in the renderer rather than locked, and the renderer ships as loose
-// editable files, so that one section is a display choice and not a boundary.
-// The fix, if it is ever wanted, is to trim both payloads to the current year
-// while unlicensed; it was left out because it is the one place where
-// licensing would shape a response body instead of blocking an address.
+// CAVEAT, accepted for now: those last two also feed the Dashboard's Year to
+// Year section and the Statements grids, so the backend cannot distinguish a
+// free reader from a paid one there. Year to Year is therefore HIDDEN in the
+// renderer rather than locked, and the renderer ships as loose editable files,
+// so that one section is a display choice and not a boundary. The fix, if it is
+// ever wanted, is to trim both payloads to the current year while unlicensed;
+// it was left out because it is the one place where licensing would change a
+// response body instead of blocking an address.
 //
 // The gate lives HERE, in one place, rather than in the handlers: no feature
-// module knows licensing exists, exactly as with _check_db_lock. It is also
-// why defeating it means editing and rebuilding the app rather than flipping
-// something in the renderer, which is all any offline scheme can honestly
-// claim.
+// module references licensing, the same arrangement as _check_db_lock. It also
+// means bypassing it requires editing and rebuilding the app rather than
+// changing something in the renderer, which is the limit of any offline
+// scheme.
 const FREE_PREFIXES = [
   '/api/license',
   '/api/db/',
@@ -145,21 +145,21 @@ function buildRouter(routes) {
     const path = qIdx === -1 ? url : url.slice(0, qIdx);
     const query = Object.fromEntries(new URLSearchParams(qIdx === -1 ? '' : url.slice(qIdx + 1)));
 
-    // Checked BEFORE the lock, which is the reverse of the read-only era. Back
-    // then a locked encrypted DB reported 423 first because the passphrase was
-    // the action the user could actually take next; now it isn't — an
-    // unactivated install cannot open, unlock or read anything, so the license
-    // is the only next action there is and reporting the lock would send the
-    // user off to type a passphrase into a screen they cannot reach.
+    // Checked BEFORE the lock, the reverse of the read-only era. Then, a locked
+    // encrypted DB reported 423 first because supplying the passphrase was the
+    // next available action. Now it is not: an unactivated install cannot open,
+    // unlock or read anything, so activation is the only next action, and
+    // reporting the lock would prompt for a passphrase on a screen the user
+    // cannot reach.
     if (path.startsWith('/api/') && isLicenseGated(path) && !isLicensed()) {
       return { status: 402, body: { ok: false, error: 'license_required' } };
     }
 
     // _check_db_lock, relocated: while the active DB is encrypted and no
-    // passphrase has been supplied, every data API answers 423; /api/db/*
-    // stays reachable so status/unlock/open/create work, and /api/license does
-    // too — activation is a property of the INSTALL, not of any one database,
-    // so it has to answer before (and without) an unlock.
+    // passphrase has been supplied, every data API returns 423; /api/db/* stays
+    // reachable so status/unlock/open/create work, and /api/license does too —
+    // activation applies to the INSTALL, not to any one database, so it must
+    // respond before and without an unlock.
     if (
       ctx.state.locked &&
       path.startsWith('/api/') &&
@@ -177,10 +177,10 @@ function buildRouter(routes) {
         const params = {};
         r.names.forEach((name, i) => {
           // SECURITY/ROBUSTNESS: decodeURIComponent throws URIError on a
-          // malformed %-escape (e.g. a lone '%'). Decoding INSIDE the try
-          // turns a bad path param into a clean 400 here; left outside, the
-          // URIError would escape dispatch, reject the 'api:request' IPC
-          // promise, and surface as an unhandled rejection in the renderer.
+          // malformed %-escape (e.g. a lone '%'). Decoding INSIDE the try turns
+          // a bad path param into a 400 here; outside it, the URIError would
+          // escape dispatch, reject the 'api:request' IPC promise, and appear as
+          // an unhandled rejection in the renderer.
           params[name] =
             r.types[i] === 'int' ? parseInt(m[i + 1], 10) : decodeURIComponent(m[i + 1]);
         });

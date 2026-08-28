@@ -12,9 +12,9 @@ const SPEND_WINDOW_MONTHS = 12;
  * (1-12) — numerically sortable in chronological order, mirroring Python's
  * (year, month) tuple keys.
  *
- * Months with zero/negative totals are skipped rather than averaged in (a
- * month with no data usually means "not tracked yet"). Returns 0 when no
- * month has spend.
+ * Months with zero or negative totals are skipped rather than averaged in,
+ * since a month with no data is usually one that was never tracked. Returns 0
+ * when no month has spend.
  */
 function recentMonthlyAverage(monthTotals, window = SPEND_WINDOW_MONTHS) {
   const active = [...monthTotals.entries()]

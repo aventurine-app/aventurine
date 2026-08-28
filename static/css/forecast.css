@@ -581,7 +581,8 @@
 
 .fc-pop[hidden] { display: none; }
 
-/* Pinned by a click: it now survives the pointer leaving, so it says so. */
+/* Pinned by a click: it stays open when the pointer leaves, marked by the accent
+   border. */
 .fc-pop-pinned { border-color: var(--accent-primary); }
 
 /* label · date · amount, then the actions — one flat line, no field nested
@@ -642,10 +643,10 @@
     gap: 8px;
 }
 
-/* The type dropdown takes the leftover, but never below its own label: a flex
-   item with `min-width: 0` and a zero basis will happily shrink to just its
-   caret if the row is even slightly over budget. Everything else is sized to
-   its content and the row is budgeted to fit inside the card's width. */
+/* The type dropdown takes the remaining width, but never narrower than its
+   label: a flex item with `min-width: 0` and a zero basis shrinks to just its
+   caret when the row is over budget. Everything else is sized to its content and
+   the row is sized to fit inside the card's width. */
 .fc-pop-edit-fields .fc-select { flex: 1 1 auto; min-width: 96px; }
 .fc-pop-edit-fields .fc-input-date { flex: 0 0 132px; }
 .fc-pop-edit-fields .fc-input-amount { flex: 0 0 90px; }

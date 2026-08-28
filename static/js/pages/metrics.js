@@ -18,15 +18,15 @@
 // every one of them restated a number already on the card: four ARE ratio tiles
 // (expenses vs 70% of income, debt vs 25%, saving vs 20%, investing vs its
 // 15–20% band) and two ARE the year-over-year pills on Income and Expenses. So
-// each goal is now drawn where its number already lives — a target notch and a
-// badge on the tile, the pill's own colour on the trends — which grades the
-// same six goals without printing any of them twice.
+// each goal is drawn where its number already appears — a target notch and a
+// badge on the tile, and the pill colour on the trends — which grades the same
+// six goals without printing any of them twice.
 //
-// GRADING IS THREE-LEVEL, not pass/fail: hit or beaten (green), slightly off
+// GRADING IS THREE-LEVEL, not pass/fail: hit or exceeded (green), slightly off
 // (amber), off (red). The levels come from the backend's `status`; this file
-// never decides one. That is also why the meter fill is no longer one flat hue
-// — the verdict is the thing worth seeing from across the card, and an 18px
-// badge is too small to be the only place it is said.
+// does not compute them. That is also why the meter fill is not one flat hue:
+// the grade should be visible at a glance, and an 18px badge is too small to be
+// the only indicator.
 //
 // All computation is server-side (GET /api/report-card, newest year first);
 // this script picks a year out of the response and formats it. The picker
@@ -96,10 +96,10 @@
   // ─── Sparkline ─────────────────────────────────────────────────────────────
 
   /**
-   * One figure's value across every tracked year, with the selected year's
-   * point marked. Scaled to the series' own min..max (it is a shape, not a
-   * measurement — the figure beside it is the measurement), and skipped below
-   * two points because a single point has no trend to draw.
+   * One figure's value across every tracked year, with the selected year's point
+   * marked. Scaled to the series' min..max, since it shows shape rather than
+   * magnitude (the figure beside it gives the magnitude), and skipped below two
+   * points, where there is no trend to draw.
    *
    * aria-hidden: the pill underneath already states the change in words and
    * every plotted value is one year-pick away, so this adds emphasis, not
@@ -183,13 +183,12 @@
   /**
    * The year's income, split into where it went. Full width is whichever is
    * larger — what came in, or what went out and away — so a year that spent
-   * more than it earned fills the bar and gets a notch showing where income
-   * ran out, instead of a segment quietly rescaling to hide the overshoot.
+   * more than it earned fills the bar and gets a notch showing where income ran
+   * out, rather than rescaling a segment so the overshoot is not visible.
    *
-   * Drawn only when there was income: "where the year's income went" is not a
-   * question a year with none can answer, and every percentage below is a share
-   * OF income. The bar itself is aria-hidden — the legend under it is the same
-   * split in text, so nothing here is reachable only by looking.
+   * Drawn only when there was income, since every percentage below is a share OF
+   * income and is undefined at zero. The bar is aria-hidden — the legend under it
+   * states the same split in text, so nothing here is visual-only.
    */
   function composition(y) {
     const income = y.income || 0;
@@ -231,9 +230,8 @@
   }
 
   // status → badge glyph. 'met' a check, 'near' an attention mark, 'miss' a
-  // cross; 'na' gets no badge at all (the value already reads N/A, so a neutral
-  // dash beside it says nothing twice). Each is paired with its colour, never
-  // carried by the colour alone.
+  // cross; 'na' gets no badge, since the value already reads N/A. Each glyph is
+  // paired with its colour, so the status is never conveyed by colour alone.
   const GOAL_WORD = { met: 'met', near: 'close', miss: 'missed' };
   const GOAL_ICON = { met: '✓', near: '!', miss: '✕' };
 
@@ -242,19 +240,18 @@
    * track, and — where the ratio backs a goal — a notch at the goal's target
    * plus a ✓/✕ badge.
    *
-   * A GRADED tile's fill takes the goal's colour — green hit or beaten, amber
-   * slightly off, red off — because the verdict is what the card is read for
-   * and an 18px badge is too small to be the only place it is said. An ungraded
-   * ratio keeps the neutral accent: there is no verdict, so there is no colour
-   * to give it. Colour is never alone — every graded tile carries the badge
-   * glyph too. Ratios above 100% clamp the fill (a meter has an end); the value
-   * text keeps saying the real number.
+   * A GRADED tile's fill uses the goal's colour — green hit or exceeded, amber
+   * slightly off, red off — because the grade is the main thing read from the
+   * card and an 18px badge is too small to be the only indicator. An ungraded
+   * ratio keeps the neutral accent, since it has no grade. Colour is never the
+   * only indicator: every graded tile also carries the badge glyph. Ratios above
+   * 100% clamp the fill; the value text still shows the real number.
    *
-   * The tick lane under the track is reserved on every tile, targets or not, so
-   * a row of tiles keeps one baseline. `sub` (the biggest expense category's
-   * name) rides on the value's own line rather than a line of its own, for the
-   * same reason: only one tile has one, and a whole extra line pushed that
-   * tile's meter out of step with the two beside it.
+   * The tick lane under the track is reserved on every tile, with or without a
+   * target, so a row of tiles shares one baseline. `sub` (the biggest expense
+   * category's name) sits on the value's line rather than a separate line, for
+   * the same reason: only one tile has one, and an extra line would misalign that
+   * tile's meter with the two beside it.
    */
   function metric(label, ratio, tip, opts) {
     const o = opts || {};
@@ -400,9 +397,9 @@
     const res = await apiFetch('/api/report-card');
     if (!res.ok) return;
     const data = await res.json();
-    // The endpoint already sorts newest-first; the picker and the default
-    // selection both lean on that order. The sparklines want the other one, so
-    // the ascending copy is taken once here rather than per figure per render.
+    // The endpoint sorts newest-first, which the picker and the default selection
+    // both rely on. The sparklines need ascending order, so that copy is made once
+    // here rather than per figure per render.
     state.years = data.years || [];
     state.asc = [...state.years].sort((a, b) => a.year - b.year);
     if (state.year === null || !state.years.some((row) => row.year === state.year)) {

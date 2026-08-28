@@ -32,12 +32,11 @@
     </div>
 
     
-    <!-- Activation screen. An unactivated install answers nothing but
-         /api/license (electron/backend/router.js), so this is not an overlay on
-         top of a working app - it is the only screen there is until a key is
-         pasted. It covers everything below the title bar; the bar itself stays
-         so the window can still be dragged, minimised and closed, and its menus
-         are suppressed by CSS while the gate is up.
+    <!-- Activation screen. Raised over the app by shell/license.js, either on
+         request (the sidebar's Unlock button, a click on a link into a paid
+         page) or when a paid route returns 402. It covers everything below the
+         title bar; the bar stays so the window can still be dragged, minimised
+         and closed, and its menus are suppressed by CSS while the gate is up.
 
          Shown pre-paint from a localStorage hint set by theme-init.js, so a
          fresh install does not flash the app it cannot use and an activated one
@@ -158,11 +157,11 @@
             <div class="settings-row-label">
                 <div class="settings-row-name">Graphs</div>
             </div>
-            <!-- Each swatch carries its OWN data-graph-theme, which puts it in that
-                 palette's token context (themes.css) exactly like the surface
-                 swatches above do with data-theme — so the preview shows the real
-                 colors of the palette it offers, in the current surface theme, and
-                 keeps showing them when the other palette is the live one. -->
+            <!-- Each swatch carries its own data-graph-theme, which puts it in
+                 that palette's token context (themes.css), the same way the
+                 surface swatches above use data-theme. The preview therefore shows
+                 the actual colours of the palette it offers, in the current
+                 surface theme, whichever palette is active. -->
             <div class="settings-theme-options">
                 <button class="settings-graph-btn" data-graph-theme="">
                     <div class="settings-graph-swatch" data-graph-theme=""></div>
@@ -193,7 +192,7 @@
         <div class="settings-row">
             <div class="settings-row-label">
                 <div class="settings-row-name">Merchant Icons</div>
-                <div class="settings-row-desc">Shows a merchant's logo next to its name in the transactions list and the recurring calendar, for the merchants Aventurine recognizes. Turn this off to show colored initials for every merchant instead. The logos are bundled with the app; nothing is ever downloaded.</div>
+                <div class="settings-row-desc">Shows a merchant's logo next to its name in the transactions list and the recurring calendar, for the merchants Aventurine recognizes.</div>
             </div>
             <div class="settings-match-toggle">
                 <label class="settings-match-option">
@@ -307,7 +306,7 @@
         <div class="settings-row">
             <div class="settings-row-label">
                 <div class="settings-row-name">Hide Cents</div>
-                <div class="settings-row-desc">Rounds displayed amounts to whole units for a cleaner view. Your stored values keep their cents — editing a cell still shows them.</div>
+                <div class="settings-row-desc">Rounds displayed amounts to whole units for a cleaner view. Cent values are still stored.</div>
             </div>
             <div class="settings-match-toggle">
                 <label class="settings-match-option">
@@ -438,7 +437,7 @@
         <div class="settings-row">
             <div class="settings-row-label">
                 <div class="settings-row-name">Version</div>
-                <div class="settings-row-desc">The version of Aventurine currently installed.</div>
+                
             </div>
             <div class="about-version" data-about-version>—</div>
         </div>
@@ -471,7 +470,7 @@
         <div class="settings-row">
             <div class="settings-row-label">
                 <div class="settings-row-name">Deactivate This Copy</div>
-                <div class="settings-row-desc">Returns Aventurine to the activation screen. Your key keeps working, so you can paste it back at any time. Your financial data is not touched.</div>
+                <div class="settings-row-desc">Returns Aventurine to the activation screen. Your key keeps working, so you can paste it back at any time. </div>
             </div>
             <button class="db-btn db-btn-danger" type="button" data-license-remove>Deactivate</button>
         </div>
@@ -483,14 +482,6 @@
 
 
     <!-- Deactivate confirmation (About → License → Deactivate).
-
-         No type-the-phrase gate like Delete All Transactions has: that one is
-         irreversible, this one is not. Deactivating touches no data and burns
-         no key - the same key pastes straight back in - so the risk being
-         guarded against is a misclick, and a Cancel/confirm pair is the honest
-         size of that risk. What the modal owes the user is the part that IS
-         disruptive: the app goes back to the activation screen, which is a
-         bigger consequence than the button's own label suggests.
 
          Placed AFTER the About modal deliberately: both are
          .settings-modal-overlay at the same z-index, so DOM order is what puts
@@ -504,9 +495,7 @@
             <div class="settings-modal-body">
                 <div class="settings-row-desc">
                     Aventurine will return to the <strong>activation screen</strong>
-                    and stay there until a key is pasted back in. Nothing else
-                    changes: your unlock key keeps working, and your database,
-                    settings and financial data are not touched.
+                    and stay there until a key is pasted back in.
                 </div>
                 <div class="enc-error" data-license-remove-error hidden></div>
             </div>

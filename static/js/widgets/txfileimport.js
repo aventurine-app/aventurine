@@ -6,16 +6,16 @@
 // normalisation, column detection, dup fingerprints) lives in txparse.js
 // (window.TxParse, loaded before this file), which is pure and covered by
 // the fixture-corpus regression suite in electron/backend/__tests__/
-// txParse.test.js. This file owns everything with a DOM or network
-// dependency: the file picker, the mapping/preview modals, the dup-hash
+// txParse.test.js. This file holds everything with a DOM or network
+// dependency: the file picker, the mapping and preview modals, the dup-hash
 // fetch, and the commit POST.
 //
 // Flow:
 //   1. Account      — "which account is this import for?", asked ONCE, up front,
-//                     pre-filled from the account used last. Everything after
-//                     this point knows the answer, so nothing asks again — not
-//                     the preview, and not the month-end balances in the file,
-//                     which follow the same account unasked
+//                     pre-filled from the account used last. Every later step
+//                     reads that value, so the question is not repeated — not by
+//                     the preview, and not by the month-end balances in the file,
+//                     which use the same account
 //   2. File picker  — format identified by magic bytes + content sniffing,
 //                     so a misnamed file (OFX saved as .txt) still imports
 //   3. Parse        — TxParse.parseFile → uniform {headers, rows, fixed}
@@ -28,18 +28,18 @@
 //   7. Results      — "here's what we found": the digest of what landed where
 //   8. Reload       — fire 'transactions:reload' so the ledger refreshes
 //
-// First-run onboarding (widgets/onboarding.js) runs this same machinery, asking
-// step 1 as part of its own opening screen and taking over step 7.
+// First-run onboarding (widgets/onboarding.js) runs the same code, asking step 1
+// as part of its opening screen and replacing step 7.
 //
-// Steps 2 and 5 can block for a second-plus on large files, so each wait
-// shows an indeterminate progress bar (export's progress styles). The rule
-// for those bars: whatever the wait is, it should be spent watching the bar
-// — up before the pause is felt, still up when it ends (see showBusyModal).
+// Steps 2 and 5 can block for over a second on large files, so each wait shows
+// an indeterminate progress bar (export's progress styles). Those bars are
+// raised before the pause becomes noticeable and stay up until it ends (see
+// showBusyModal).
 //
-// All parsing is client-side. The server only receives clean row objects.
-// On import the server auto-categorizes confident rows on-device (learned
-// per-user rules first, then the built-in merchant lexicon); the count comes
-// back as `auto_categorized`. Anything left blank the user categorises inline.
+// All parsing is client-side. The backend receives only clean row objects. On
+// import the backend auto-categorizes confident rows on-device (learned per-user
+// rules first, then the built-in merchant lexicon); the count comes back as
+// `auto_categorized`. Rows left blank are categorized by the user inline.
 
 (function () {
     const TxFileImport = (() => {
@@ -108,11 +108,11 @@
             }
         }
 
-        // The accounts this import can land in. `include_hidden` is what makes
-        // the pre-named starter accounts ("Checking", "Credit Card") offerable
-        // before the user has adopted any — they are choices here and nowhere
-        // else, and the one that receives the import becomes real (the server
-        // adopts it; see services/accounts.js).
+        // The accounts this import can land in. `include_hidden` is what makes the
+        // pre-named starter accounts ("Checking", "Credit Card") selectable before
+        // any have been adopted — they appear here and nowhere else, and the one
+        // that receives the import becomes visible (the backend adopts it; see
+        // services/accounts.js).
         async function fetchBalanceColumns() {
             try {
                 const r = await apiFetch('/api/balance/columns?include_hidden=true');
@@ -146,17 +146,17 @@
             return data.column; // { key, label, type }
         }
 
-        // The account used by the last import, which is what pre-fills the account
-        // question next time. It is the only account memory kept, and deliberately
-        // so: the question is now asked BEFORE the file dialog, so nothing about the
-        // file — its header shape, its name, an embedded account number — is known
-        // yet, and none of it would be evidence anyway. An account is a bucket the
-        // USER defines; someone who changes banks mid-year still has one logical
-        // "Checking", so recent behaviour predicts their answer and the file cannot.
+        // The account used by the last import, which pre-fills the account question
+        // next time. It is the only account state stored: the question is asked
+        // BEFORE the file dialog, so nothing about the file — its header shape, its
+        // name, an embedded account number — is available yet, and none of it would
+        // identify the account reliably. An account is a bucket the USER defines;
+        // someone who changes banks mid-year still has one logical "Checking", so
+        // the last choice is a better predictor than the file.
         //
-        // For the routine case (importing the same account each month) this makes
-        // the step a single Continue. When it's wrong, the choice is one click, and
-        // it's a visible question rather than a silent assumption.
+        // For the common case (importing the same account each month) this reduces
+        // the step to one Continue. When it is wrong, changing it is one click, and
+        // it is a visible question rather than an assumption.
         const LAST_ACCT_KEY = 'balance-import-last-account';
         function lastUsedAccount() {
             try {
@@ -196,7 +196,7 @@
             overlay.append(dialog);
             document.body.append(overlay);
 
-            // Same closable guard as txexport.js's buildModal: the dialog can't
+            // Same closable guard as txexport.js's buildModal: the dialog cannot
             // be dismissed while a parse or the commit POST is in flight.
             let closable = true;
             const close = () => { if (closable) overlay.remove(); };
@@ -214,7 +214,7 @@
 
         // ── Busy states ───────────────────────────────────────────────────────────
         // The import flow's waits (file parse, the single commit POST) have no
-        // row-level progress to report, so they show the export modal's progress
+        // row-level progress to report, so they use the export modal's progress
         // styles with an indeterminate fill instead of a percentage.
         function progressBar(label) {
             const el = document.createElement('div');
@@ -230,19 +230,19 @@
         // invisible for BUSY_REVEAL_MS, then fades in. Work that finishes inside
         // the hold never showed a modal at all, so nothing flashes.
         const BUSY_REVEAL_MS = 90;
-        // Once the bar IS on screen it stays this long. A loader that blinks out
-        // mid-wait is worse than none: it reads as a glitch, and the wait it was
-        // meant to cover ends up spent looking at a frozen screen instead.
+        // Once the bar is on screen it stays this long. A loader that disappears
+        // mid-wait leaves the rest of the wait on an unchanged screen with no
+        // indication that work is still running.
         const BUSY_MIN_VISIBLE_MS = 320;
 
         const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
         // Standalone busy modal for the parse / preview-prep waits.
         //
-        // `instant` skips the anti-flash hold, for a wait that starts from a
-        // modal that just closed (Map Columns → "Preparing your import…"): with
-        // the hold, those ~90ms show the bare page where a dialog had been,
-        // which is the very flash the hold exists to prevent. Opened from NO
+        // `instant` skips the anti-flash hold, for a wait that starts as another
+        // modal closes (Map Columns → "Preparing your import…"): with the hold,
+        // those ~90ms show the bare page where the dialog was, which is the flash
+        // the hold is meant to prevent. Opened from NO
         // modal (the file picker), the hold is right.
         function showBusyModal(label, { instant = false } = {}) {
             const modal = buildModal('Import Transactions');
@@ -252,11 +252,11 @@
             modal.body.append(progressBar(label));
 
             const revealAt = performance.now() + (instant ? 0 : BUSY_REVEAL_MS);
-            // Async: callers `await` it, so a bar that has been seen serves out
-            // its minimum before the flow moves on. Awaiting costs no extra
-            // blank frame — the caller's continuation runs as a microtask, so
-            // whatever it does next (building the preview table, which is the
-            // other half of the wait) still happens under the painted bar.
+            // Async: callers `await` it, so a bar that has been shown completes its
+            // minimum duration before the flow continues. Awaiting adds no blank
+            // frame — the caller's continuation runs as a microtask, so its next
+            // work (building the preview table, the other half of the wait) still
+            // happens while the bar is painted.
             return {
                 async close() {
                     const now = performance.now();
@@ -278,20 +278,19 @@
         function showMappingModal(headers, rows, detected, onContinue) {
             const { body, dialog, close } = buildModal('Map Columns');
 
-            // Live selection state, seeded from detectColumns' guesses and
-            // harvested from the selects before every re-render, so redirecting
-            // one field to a different column never loses another.
+            // Live selection state, initialised from detectColumns and re-read from
+            // the selects before every re-render, so changing one field's column
+            // does not reset another.
             const current = { ...detected };
             // Split mode: money out / money in as two separate columns
             // (Debit/Credit, Withdrawal/Deposit) instead of one signed Amount
             // — direction then comes from the column, not the sign (banks list
             // positive magnitudes in both). This is a FACT about the file, not a
-            // preference, so it's detected once from the headers (detectColumns,
-            // now with a data-shape fallback for anonymous headers too — see
-            // txparse.js findSplitPair) and never toggled by hand: asking the
-            // user to declare something the file already shows would be a
-            // needless question. If a specific column guess is wrong, its own
-            // dropdown still repoints it — only the overall SHAPE is fixed.
+            // preference, so it is detected once from the headers (detectColumns,
+            // with a data-shape fallback for anonymous headers — see
+            // txparse.js findSplitPair) and is not user-toggleable: the file
+            // already determines it. If a specific column guess is wrong, its
+            // dropdown can still be changed — only the overall SHAPE is fixed.
             const split = detected.debit !== null && detected.credit !== null;
 
             const CURRENCY = (typeof CURRENCY_SYMBOL !== 'undefined') ? CURRENCY_SYMBOL : '$';
@@ -315,18 +314,17 @@
             `;
             }
 
-            // A live preview of the first 3 rows, run through the SAME mapping the
-            // user is currently choosing — so they see their own dates/amounts
-            // land in the right fields before committing to Map Columns, rather
-            // than a raw dump of file columns that doesn't reflect the mapping at
-            // all. Re-run from render() on every selection change; falls back to
-            // "select columns to preview" until the required fields are chosen.
+            // A live preview of the first 3 rows, run through the SAME mapping
+            // currently selected, so the dates and amounts appear in their mapped
+            // fields before Map Columns is confirmed, rather than as a raw dump of
+            // file columns that ignores the mapping. Re-run from render() on every
+            // selection change; shows "select columns to preview" until the required
+            // fields are chosen.
             //
-            // Split mode shows Debit and Credit as their OWN columns (the raw
-            // cell text, formatted as currency when it parses) instead of
-            // collapsing them into one blended Amount — the whole point of the
-            // preview here is letting the user SEE that "Money out" and "Money
-            // in" each pulled from the column they meant.
+            // Split mode shows Debit and Credit as separate columns (the raw cell
+            // text, formatted as currency when it parses) instead of combining them
+            // into one Amount, so it is visible that "Money out" and "Money in"
+            // each read from the intended column.
             function livePreviewHtml() {
                 const sampleRaw = rows.slice(0, 3);
 
@@ -441,16 +439,15 @@
             });
 
             function render() {
-                // A required select has no "— skip —" option, so once it's on
-                // screen the browser ALWAYS shows some column picked — if none is
-                // marked `selected` (current[field] still null), it silently
-                // defaults to the first one. Left alone, that leaves `current`
-                // saying "unset" while the dropdown visibly shows a column, and
-                // the live preview (which trusts `current`) disagrees with what's
-                // on screen. Sync before building anything so the select, the
-                // preview, and `current` never diverge — this also means a bad
-                // guess shows up immediately in the preview instead of hiding
-                // until Continue silently harvests it.
+                // A required select has no "— skip —" option, so once rendered the
+                // browser always displays some column as picked — if none is marked
+                // `selected` (current[field] still null), it defaults to the first
+                // one. Left as is, `current` holds null while the dropdown shows a
+                // column, and the live preview (which reads `current`) does not
+                // match the screen. Sync before building anything so the select,
+                // the preview and `current` stay consistent — this also makes a
+                // wrong detection visible in the preview instead of only taking
+                // effect at Continue.
                 if (current.date        == null) current.date = 0;
                 if (current.description == null) current.description = 0;
                 if (!split && current.amount == null) current.amount = 0;
@@ -489,16 +486,16 @@
         // first, independent of Balance Sheet position (which groups by col_type). A
         // card export is the messiest, most commonly imported statement there is.
         //
-        // `kind` matches the key of the seeded starter row this takes over for the
+        // `kind` matches the key of the seeded starter row this replaces for the
         // first account of its kind (seed.js DEFAULT_BALANCE_COLUMNS); `type` is the
-        // col_type a fresh column gets otherwise. These labels/hints are STATIC and
-        // never read from the database, so a starter row renamed to the user's own
-        // name ("Chase Checking") doesn't turn this list of kinds into a list of
-        // their accounts. Between them the six kinds cover all four col_types, so
-        // there is no need to make the user pick a type by hand.
+        // col_type a new column gets otherwise. These labels and hints are STATIC
+        // and never read from the database, so a starter row renamed ("Chase
+        // Checking") does not turn this list of kinds into a list of existing
+        // accounts. The six kinds cover all four col_types, so the user never picks
+        // a type directly.
         //
-        // The placeholders teach the point of the question — that these are THEIR
-        // names for THEIR accounts — with generic examples rather than real brands.
+        // The placeholders show that these are the user's own account names, using
+        // generic examples rather than real brands.
         const ACCOUNT_KINDS = [
             { kind: 'checking',    label: 'Checking',    type: 'cash',       group: 'Cash',       hint: 'Everyday spending account',      placeholder: 'e.g. Joint Checking' },
             { kind: 'credit_card', label: 'Credit Card', type: 'debt',       group: 'Debt',       hint: 'A card you pay off',             placeholder: 'e.g. Everyday Card' },
@@ -509,31 +506,28 @@
         ];
 
         // ── The account question ──────────────────────────────────────────────────
-        // Asked ONCE, up front, and never again: every import is tagged with the
-        // account it came from (that association scopes dedup, powers per-account
-        // spend, and tells a month-end balance in the file which column it belongs
-        // to). Because the answer is settled before any rows are on screen, nothing
-        // downstream has to ask a second time.
+        // Asked ONCE, up front: every import is tagged with the account it came
+        // from, which scopes dedup, drives per-account spend, and assigns a
+        // month-end balance in the file to a column. Because the value is set before
+        // any rows are shown, no later step asks again.
         //
-        // Shared by first-run onboarding and ordinary imports, so the question looks
-        // and behaves identically in both. Two sections:
+        // Shared by first-run onboarding and ordinary imports, so the question is
+        // identical in both. Two sections:
         //
-        //   Your accounts  — the accounts the user already has, under THEIR OWN
-        //                    names. Absent entirely until there is one.
-        //   Add a new one  — the KINDS of account (below), each of which the user
-        //                    names on the spot.
+        //   Your accounts  — the accounts that already exist, under the names the
+        //                    user gave them. Omitted entirely until there is one.
+        //   Add a new one  — the KINDS of account (below), each named by the user
+        //                    at creation.
         //
-        // Naming is part of creating, never skipped: an account is the one piece of
-        // this app that is pure user identity, and a ledger of "Checking" and
-        // "Savings" is the generic, someone-else's-spreadsheet feeling this whole
-        // flow exists to avoid. "Chase Checking" and "Amex Gold" are what the user
-        // actually calls them, and only they can say it.
+        // Naming is part of creating and is never skipped: account names are
+        // user-specific, and a ledger of "Checking" and "Savings" is the generic
+        // result this flow avoids. "Chase Checking" and "Amex Gold" are names only
+        // the user can supply.
         //
-        // `preselect` is the caller's best guess from the user's own HISTORY (never
-        // from the file — an account is a bucket the user defines, and a bank's name
-        // says nothing about which bucket they meant). It only ever preselects an
-        // EXISTING account; a new one always needs the name typed, so it can never
-        // be created by an accidental click-through.
+        // `preselect` comes from the user's import HISTORY, never from the file — an
+        // account is a bucket the user defines, and a bank's name does not identify
+        // it. It only preselects an EXISTING account; a new one requires a typed
+        // name, so it cannot be created by clicking through.
         function accountChoicesHtml(accounts, { name = 'acct-choice', preselect = null } = {}) {
             const adopted = accounts.filter(a => !a.hidden);
 
@@ -564,17 +558,17 @@
                 </div>`;
         }
 
-        // Wire the markup above. `onValidityChange(ok)` fires whenever the answer
-        // becomes usable or stops being usable, so the caller can enable/disable its
-        // own primary button — a new account is not usable until it has a name.
+        // Wire the markup above. `onValidityChange(ok)` fires whenever the
+        // selection becomes valid or invalid, so the caller can enable or disable
+        // its primary button — a new account is invalid until it has a name.
         //
-        // resolve() yields { key, label }. For a new account it prefers to take over
-        // the matching unadopted STARTER row (renaming it to what the user typed):
-        // that keeps the stable seeded key for the common "first account of this
-        // kind" case and stops unused starter rows accumulating. A second account of
-        // the same kind — two checking accounts is perfectly normal — gets a fresh
-        // column. Either way the row only becomes VISIBLE when the import lands in
-        // it (the server adopts it), so backing out here still leaves nothing behind.
+        // resolve() yields { key, label }. For a new account it first tries to reuse
+        // the matching unadopted STARTER row, renaming it to the typed name: that
+        // keeps the stable seeded key for the common "first account of this kind"
+        // case and avoids leaving unused starter rows. A second account of the same
+        // kind (two checking accounts) gets a new column. Either way the row becomes
+        // VISIBLE only when the import lands in it (the backend adopts it), so
+        // backing out here leaves nothing behind.
         function wireAccountChoices(root, accounts, { onValidityChange = () => {} } = {}) {
             const custom = root.querySelector('.acct-custom');
             const nameInput = root.querySelector('.acct-custom-name');
@@ -628,11 +622,10 @@
         // Step 0 of an ordinary import: settle the account before opening the file
         // dialog. Resolves to { key, label }, or null if the user backs out.
         //
-        // The default comes from the user's own history — the account this file
-        // shape went to last, else the one they used last, else their only account.
-        // For the routine monthly statement that makes this step a single Continue;
-        // for a first import, or a shape that has never been seen, it is a real
-        // question with no pre-filled answer.
+        // The default comes from import history — the account this file shape went
+        // to last, else the account used last, else the only existing account. For a
+        // routine monthly statement that reduces this step to one Continue; for a
+        // first import, or an unseen file shape, no value is pre-filled.
         async function askAccount() {
             const accounts = await fetchBalanceColumns();
             const adopted = accounts.filter(a => !a.hidden);
@@ -648,9 +641,6 @@
                 const finish = (value) => { if (!done) { done = true; modal.close(); resolveStep(value); } };
 
                 modal.body.innerHTML = `
-                    <p class="tx-import-hint">Which account is this import for? Transactions are filed
-                        under the account they came from, so Aventurine can tell your accounts apart
-                        and keep your Balance Sheet in step.</p>
                     ${accountChoicesHtml(accounts, { name: 'tx-import-account', preselect })}
                 `;
 
@@ -685,12 +675,11 @@
 
         // ── The uncategorized callout ─────────────────────────────────────────────
         // The gray callout on the combined "Here Is Your Import" screen — the only
-        // place the categorizer's work is visible. Abstention is the designed
-        // behaviour (a wrong guess costs more trust than a blank one), so this
-        // states it plainly rather than hiding it: `found` comes from a dry-run
-        // categorization pass (see dryRunImport above), run BEFORE the user
-        // commits, so the count is accurate and costs nothing to show even if
-        // they back out.
+        // place the categorizer's result is shown. Leaving a row blank is the
+        // intended behaviour when confidence is low, so this states the count
+        // rather than omitting it: `found` comes from a dry-run categorization pass
+        // (see dryRunImport above), run BEFORE the commit, so the count is accurate
+        // and costs nothing if the user backs out.
         function uncategorizedNoteHtml(found) {
             if (!found || !found.uncategorized) return '';
             const n = found.uncategorized;
@@ -703,16 +692,16 @@
         }
 
         // ── Step 2: "Here Is Your Import" ─────────────────────────────────────────
-        // The combined preview + results moment: the table the old "Review
+        // The combined preview and results screen: the table the old "Review
         // Import" step showed, plus the uncategorized callout the old post-commit
         // "Here's what we found" showed — computed here via a dry run (see
-        // dryRunImport above) so it's accurate BEFORE anything is written. Exactly
-        // two actions: "Go Back" re-opens Map Columns with the same selections
-        // and nothing committed; "Looks Right" is the only thing that commits.
+        // dryRunImport above) so it is accurate BEFORE anything is written. Two
+        // actions: "Go Back" re-opens Map Columns with the same selections and
+        // commits nothing; "Looks Right" performs the commit.
         //
-        // `opts.account` — { key, label }, always set: every path settles the
-        // account before the file dialog opens (askAccount, or onboarding's own
-        // picker). A successful commit hands off to Step 4 (showSuccessModal).
+        // `opts.account` — { key, label }, always set: every path resolves the
+        // account before the file dialog opens (askAccount, or onboarding's
+        // picker). A successful commit continues to Step 4 (showSuccessModal).
         function showImportModal(parsed, errors, dupeSet, balanceReadings, dryRun, opts, goBack) {
             const { body, close, setClosable } = buildModal('Here Is Your Import');
 
@@ -832,17 +821,16 @@
 
                 rememberAccount(account.key);
 
-                // Month-end balances the file carried go to the same account,
-                // unasked. Once the account is settled there is nothing left to
-                // decide — "should this balance go in Checking?" has one answer —
-                // and the readings land as ordinary, hand-editable Balance Sheet
-                // cells, so the user can change or clear any of them afterwards.
+                // Month-end balances from the file go to the same account, with
+                // no second prompt: the account is already chosen, and the
+                // readings are written as ordinary, hand-editable Balance Sheet
+                // cells that can be changed or cleared afterwards.
                 const balances = balanceReadings.map(b => ({
                     account_key: account.key, date: b.date, value: b.value, source: b.source,
                 }));
 
                 // Swap the table for an indeterminate bar while the commit POST
-                // writes to the database — the wait reads as work, not a hang.
+                // writes to the database, so the wait shows visible progress.
                 const tableView = [...body.children];
                 body.replaceChildren(progressBar(`Importing ${toSend.length} transaction${toSend.length !== 1 ? 's' : ''}…`));
                 footer.style.display = 'none';
@@ -866,12 +854,12 @@
                         }
                     }
                     window.dispatchEvent(new Event('transactions:reload'));
-                    // "Does this look right?" was already answered by "Looks
-                    // Right" above, so Step 4 is deliberately just confirmation
-                    // and the two places to go next.
+                    // The preview was already confirmed by "Looks Right" above,
+                    // so Step 4 is only a confirmation plus the two next
+                    // actions.
                     showSuccessModal(opts, result);
                 } catch (err) {
-                    // Put the preview back so the user can retry or deselect rows.
+                    // Restore the preview so the user can retry or deselect rows.
                     body.replaceChildren(...tableView);
                     footer.style.display = '';
                     if (staticNote) staticNote.style.display = '';
@@ -882,20 +870,20 @@
         }
 
         // ── Step 4: success ───────────────────────────────────────────────────────
-        // The commit already happened — Step 3's "Looks Right" was the only thing
-        // that could still go wrong, and it didn't. Deliberately minimal: no
-        // digest, no bars (those already had their moment in "Here Is Your
-        // Import"), just confirmation and exactly two places to go next.
+        // The commit has already succeeded — Step 3's "Looks Right" was the last
+        // step that could fail. Minimal by design: no summary, no bars (those are
+        // shown in "Here Is Your Import"), only a confirmation and two next
+        // actions.
         //
         // `opts.onUploadMore()` / `opts.onFinish()` let a caller (onboarding)
-        // own what "more" and "done" mean in its own flow; the defaults below
-        // (restart the import, or just close) cover the ordinary import — an
-        // import launched from Transactions ends on Transactions, with the rows
-        // it just added already reloaded behind the modal.
+        // define what "more" and "done" do in its flow; the defaults below
+        // (restart the import, or close) cover the ordinary import — an import
+        // launched from Transactions ends on Transactions, with the new rows
+        // already reloaded behind the modal.
         function showSuccessModal(opts, result) {
-            // "Success!" lives in the standard header slot (styled large, no
-            // rule beneath it), not the body — the body carries only the
-            // one-line confirmation.
+            // "Success!" goes in the standard header slot (styled large, no rule
+            // beneath it), not the body — the body holds only the one-line
+            // confirmation.
             const { body, dialog, close } = buildModal('Success!');
             dialog.classList.add('tx-import-dialog--success');
             body.innerHTML = `<p class="tx-import-success-sub">Your transactions have been added.</p>`;
@@ -911,9 +899,9 @@
             footer.querySelector('.tx-import-more-btn').addEventListener('click', () => {
                 close();
                 if (opts.onUploadMore) opts.onUploadMore(result);
-                // No account carried over: a second file may well be for a
-                // different account, so this re-asks (pre-filled from the one
-                // just used, via the same last-used memory as any other import).
+                // No account carried over: a second file may be for a different
+                // account, so the question is repeated, pre-filled from the one
+                // just used via the same last-used value as any other import.
                 else run({ onCancel: opts.onCancel, onFinish: opts.onFinish });
             });
             footer.querySelector('.tx-import-finish-btn').addEventListener('click', () => {
@@ -923,19 +911,19 @@
         }
 
         // ── Entry point ───────────────────────────────────────────────────────────
-        // The account question comes FIRST, before the file dialog — one question,
-        // asked once, never repeated later in the flow.
+        // The account question comes FIRST, before the file dialog — asked once,
+        // and not repeated later in the flow.
         //
-        // opts.account     — { key, label }: already settled by the caller
-        //                    (onboarding asks it as part of its own first step),
-        //                    so this skips straight to the file dialog.
+        // opts.account     — { key, label }: already resolved by the caller
+        //                    (onboarding asks it in its first step), so this goes
+        //                    straight to the file dialog.
         // opts.onUploadMore — Step 4's "Start Another" button; receives the
-        //                    server's result object. Default: restart the
-        //                    import flow (re-ask the account, then a new file).
-        // opts.onFinish    — Step 4's "Finish" button; receives the result
-        //                    object. Default: nothing beyond closing the modal.
+        //                    backend's result object. Default: restart the import
+        //                    flow (re-ask the account, then a new file).
+        // opts.onFinish    — Step 4's "Finish" button; receives the result object.
+        //                    Default: close the modal and nothing else.
         // opts.onCancel    — called if the user backs out at the account step or
-        //                    the file dialog, so a wizard can stay on its own step.
+        //                    the file dialog, so a wizard can stay on its step.
         async function run(opts = {}) {
             if (!opts.account) {
                 const account = await askAccount();
@@ -949,15 +937,15 @@
         function pickFile(opts) {
             const input   = document.createElement('input');
             input.type    = 'file';
-            // Every format the dispatcher understands; sniffing still rescues
-            // files whose extension doesn't match their content.
+            // Every format the dispatcher parses; content sniffing still handles
+            // files whose extension does not match their content.
             input.accept  = '.csv,.tsv,.txt,.ofx,.qfx,.qif,.json,.xlsx,text/csv,application/json';
             input.style.display = 'none';
             document.body.append(input);
 
-            // A cancelled file picker fires no 'change', so the cancel signal
-            // rides on the window regaining focus with nothing chosen. Wizards
-            // need it to know the user backed out rather than left them hanging.
+            // A cancelled file picker fires no 'change', so cancellation is
+            // detected by the window regaining focus with no file chosen. Wizards
+            // use this to distinguish a cancel from a pending dialog.
             const bail = (msg) => {
                 if (msg) UI.toast(msg, { type: 'error' });
                 if (opts.onCancel) opts.onCancel();
@@ -999,13 +987,12 @@
                 }
 
                 // Map Columns is shown for EVERY file — every format, every
-                // detection outcome. What lands in which field is the user's
-                // call to confirm or change; silently assuming a whole mapping
-                // is the one thing an import must never do. Known-schema
-                // formats (OFX/QIF) arrive pre-mapped, since the parser itself
-                // defined those columns, so the step is a confirmation rather
-                // than a puzzle — and their rows start at 1, not 2, having
-                // never had a header row to skip.
+                // detection outcome. The user confirms or changes which column
+                // feeds which field; the mapping is never applied without being
+                // shown. Known-schema formats (OFX/QIF) arrive pre-mapped, since
+                // the parser defines those columns, so the step is a confirmation.
+                // Their rows also start at 1, not 2, since they have no header row
+                // to skip.
                 const detected = table.fixed
                     ? { date: 0, description: 1, amount: 2, debit: null, credit: null, notes: 3, balance: null }
                     : detectColumns(table.headers, table.rows);
@@ -1030,8 +1017,8 @@
         // preview together before opening the combined screen.
         async function proceed(table, mapping, firstRowNum, opts, goBack) {
             // Row validation + the dup-hash/dry-run fetches scale with file size.
-            // Map Columns closed a beat ago, so this bar takes over the screen
-            // immediately rather than holding invisible (see showBusyModal).
+            // Map Columns has just closed, so this bar appears immediately rather
+            // than waiting out the anti-flash hold (see showBusyModal).
             const busy = showBusyModal('Preparing your import…', { instant: true });
             await nextPaint();
 
@@ -1068,8 +1055,8 @@
             showImportModal(parsed, errors, dupeSet, balanceReadings, dryRun, opts, goBack);
         }
 
-        // Shared with the onboarding flow: it asks the account question with the
-        // same markup and wiring so both read identically.
+        // Shared with the onboarding flow, which asks the account question with the
+        // same markup and wiring so both render identically.
         return { run, accountChoicesHtml, wireAccountChoices };
     })();
 

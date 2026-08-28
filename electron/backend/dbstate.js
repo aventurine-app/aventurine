@@ -6,11 +6,11 @@
 // DB reopens on restart; an encrypted database therefore starts LOCKED until
 // the passphrase is supplied again.
 //
-// AVENTURINE_DB_PATH (the test suite) bypasses the pointer file entirely and
-// is never persisted, so tests can't clobber a real pointer.
+// AVENTURINE_DB_PATH (the test suite) bypasses the pointer file entirely and is
+// never persisted, so tests cannot overwrite a real pointer.
 //
-// Factory, not singleton: each createDbState() owns its state, so tests can
-// build isolated instances exactly like create_app() did for Flask.
+// Factory, not singleton: each createDbState() holds its own state, so tests can
+// build isolated instances the way create_app() did for Flask.
 
 const fs = require('fs');
 const os = require('os');
@@ -32,9 +32,10 @@ function dataDir() {
   return fallback;
 }
 
-/** The user's Documents folder. The Electron shell passes its own (localized,
- *  XDG-aware) answer in AVENTURINE_DOCUMENTS_DIR; off the shell we guess, and
- *  fall back to the home directory when there is no Documents folder. */
+/** The user's Documents folder. The Electron shell passes the resolved
+ *  (localized, XDG-aware) path in AVENTURINE_DOCUMENTS_DIR; outside the shell
+ *  this checks the usual location and falls back to the home directory when
+ *  there is no Documents folder. */
 function documentsDir() {
   const given = process.env.AVENTURINE_DOCUMENTS_DIR;
   if (given) return path.resolve(given);
@@ -52,13 +53,12 @@ function documentsDir() {
  * a location (name it and press Create) instead of making the user browse for
  * one every time.
  *
- * It is the folder the active database already lives in — someone keeping
- * their finances in ~/Vault wants the next one there too — EXCEPT when that
- * folder is the app's own profile dir, which is private plumbing the user
- * should never be asked to file their data in. A never-moved default database
- * therefore falls through to <Documents>/Aventurine. Nothing is created here:
- * proposing a location must not touch the disk (the create route mkdir's the
- * parent when a file is actually written).
+ * It is the folder the active database already lives in, so a database kept in
+ * ~/Vault proposes ~/Vault for the next one — EXCEPT when that folder is the
+ * app's own profile dir, which is internal and not a place to store user files.
+ * A never-moved default database therefore falls through to
+ * <Documents>/Aventurine. Nothing is created here: proposing a location does not
+ * touch the disk (the create route mkdirs the parent when a file is written).
  */
 function defaultDbDir(activePath) {
   if (typeof activePath === 'string' && activePath) {
@@ -117,11 +117,11 @@ function createDbState() {
     const tmp = pointerFile() + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify({ path: state.path, encrypted: state.encrypted }));
     fs.renameSync(tmp, pointerFile());
-    // Owner-only: the pointer reveals where the user's financial DB lives.
+    // Owner-only: the pointer records the path of the user's financial DB.
     try {
       fs.chmodSync(pointerFile(), 0o600);
     } catch {
-      // best-effort; Windows ACLs / odd filesystems may refuse
+      // best-effort; may fail on Windows ACLs or unusual filesystems
     }
   }
 

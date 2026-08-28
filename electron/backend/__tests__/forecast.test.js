@@ -83,13 +83,13 @@ test('forecast: recurring rent + paycheck are placed on the weeks they recur', (
   assert.equal(r.summary.monthsUsed, 5);
 });
 
-// ── horizon and history window are independent knobs ─────────────────────────
+// ── horizon and history window are independent inputs ────────────────────────
 
 test('forecast: the horizon does not change the estimated slope', () => {
-  // Spending stepped down three months ago. Back when the trailing window WAS
-  // the horizon, asking for a longer view silently re-estimated the burn rate
-  // from the older, higher months — 3 months projected ~1000/mo, 6 months
-  // ~3000/mo, off the same ledger. All three horizons must now agree.
+  // Spending stepped down three months ago. When the trailing window WAS the
+  // horizon, selecting a longer view re-estimated the burn rate from the older,
+  // higher months — 3 months projected ~1000/mo, 6 months ~3000/mo, from the same
+  // ledger. All three horizons must now match.
   const expense = [
     exp('2025-12-10', 5000, 'Old habit A'), exp('2026-01-10', 5000, 'Old habit B'),
     exp('2026-02-10', 5000, 'Old habit C'), exp('2026-03-10', 1000, 'New habit A'),
@@ -166,17 +166,16 @@ test('historySeries: walks the ledger backward from the starting balance', () =>
     ['2026-05-18', 5000], // refund landed
     ['2026-05-25', 5000],
   ]);
-  // The 35-day span reaches Apr 27, but the ledger starts May 4 — see below.
+  // The 35-day span reaches Apr 27, but the ledger starts May 4; see below.
   assert.equal(h[0].weekEnd, '2026-05-04');
 });
 
 test('historySeries: stops at the first transaction, never invents a flat past', () => {
   // The balance before the ledger's first row IS arithmetically derivable (no
-  // flows to undo, so it is just today's balance walked back). It is still not
-  // DRAWN: a flat line stretching left of the first transaction asserts the
-  // account sat at that figure, when all we actually know is that we have no
-  // rows for the period — which for this app usually means "not imported yet",
-  // not "nothing happened". Same reasoning as windowAverages' activeMonths.
+  // flows to undo, so it equals today's balance walked back). It is still not
+  // DRAWN: a flat line left of the first transaction would show the account at
+  // that figure for a period with no data, which usually means un-imported rather
+  // than inactive. Same reasoning as windowAverages' activeMonths.
   const expense = [exp('2026-05-20', 100, 'Coffee run')];
   const h = historySeries({
     endBalance: 900, income: [], expense, spanDays: 90, today: '2026-06-01',
@@ -369,8 +368,8 @@ test('forecast API: the projection follows the CHOSEN account, not the whole led
   c.post('/api/balance/entry', { year, month: 'January', category: 'checking', value: 5000 });
   c.post('/api/balance/entry', { year, month: 'January', category: 'savings', value: 50000 });
 
-  // Three months of heavy spending out of SAVINGS, and a trickle out of
-  // CHECKING — so each account owns rows and neither can claim the fallback.
+  // Three months of heavy spending out of SAVINGS, and a small amount out of
+  // CHECKING, so each account has rows and neither triggers the fallback.
   const today = localTodayIso();
   const spend = (back, amount, account) => {
     const r = c.post('/api/transactions', {
@@ -388,8 +387,8 @@ test('forecast API: the projection follows the CHOSEN account, not the whole led
   assert.equal(sav.body.scope, 'account');
   assert.equal(sav.body.summary.avgExpense, 2000);
 
-  // Checking sees only its own 100/mo. It used to inherit the full 2100 —
-  // being projected into the red off money spent from another account.
+  // Checking uses only its own 100/mo. It previously used the full 2100, which
+  // projected it below zero from money spent out of another account.
   const chk = c.get('/api/forecast?account=checking');
   assert.equal(chk.body.scope, 'account');
   assert.equal(chk.body.summary.avgExpense, 100);
@@ -591,12 +590,13 @@ test('migration v6: per-month targets collapse to one recurring amount (most rec
        PRIMARY KEY (year, month))`);
     const ins = db.prepare('INSERT INTO budget_targets (year, month, category, amount) VALUES (?, ?, ?, ?)');
     // groceries budgeted across three months of 2026 — November (month 11) is the
-    // most recent and must win. This also pins the CAST: as TEXT the string '11'
-    // sorts BEFORE '3', so a lexical comparison would wrongly pick March (400).
+    // most recent and must be selected. This also pins the CAST: as TEXT the
+    // string '11' sorts BEFORE '3', so a lexical comparison would select March
+    // (400).
     ins.run(2026, 3, 'groceries', 400);
     ins.run(2026, 11, 'groceries', 525);
     ins.run(2026, 5, 'groceries', 480);
-    // rent budgeted in two years — the later year wins.
+    // rent budgeted in two years — the later year is selected.
     ins.run(2026, 12, 'rent', 1500);
     ins.run(2027, 1, 'rent', 1600);
     db.prepare('INSERT INTO budget_income (year, month, amount) VALUES (?, ?, ?)').run(2026, 3, 4200);

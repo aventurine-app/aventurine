@@ -13,10 +13,10 @@
 //
 //   • Mouse: click a cell to select it; click-drag, or Shift+click, to select
 //     a rectangle of cells.
-//   • Keyboard: from one focused cell, hold Shift + arrow keys to grow/shrink
+//   • Keyboard: from one focused cell, hold Shift + arrow keys to grow or shrink
 //     the selection rectangle. Plain arrow keys keep their existing per-cell
-//     navigation (owned by the page) — we just collapse the selection to
-//     wherever focus lands.
+//     navigation, which the page implements; this module collapses the selection
+//     to wherever focus lands.
 //   • Copy  (Ctrl/Cmd+C): the selected rectangle is written to the clipboard
 //     as TSV (tabs between columns, newlines between rows) — pasteable into
 //     Excel/Sheets or back into the app.
@@ -24,30 +24,30 @@
 //     selection's top-left, spilling down/right, clamped to the table edges.
 //   • Delete/Backspace: every editable cell in the selection is cleared.
 //
-// DESIGN: this module is a pure UI/clipboard layer. It never calls an API. To
+// DESIGN: this module is a UI and clipboard layer only. It makes no API call. To
 // write or clear a cell it sets the cell <input>'s value and dispatches a
-// synthetic `input` event, which re-triggers the page's own per-input handler
-// (debounced save / delete / totals refresh in tables.js, computed-field +
-// footer refresh in portfolio.js). All persistence, rounding, and sync rules
-// therefore stay in exactly one place — the page that owns the cell.
+// synthetic `input` event, which re-runs the page's per-input handler (debounced
+// save / delete / totals refresh in tables.js, computed-field + footer refresh in
+// portfolio.js). All persistence, rounding, and sync rules therefore live in one
+// place: the page that renders the cell.
 //
-// The grid is derived from the live DOM on every interaction (rows = tbody
-// <tr>, columns = position among the configured cell selector). That keeps it
-// correct even when a page adds/removes rows without a full re-render (e.g.
-// Portfolio's "Add Asset"), and rectangular because every row in these tables
-// has the same column count.
+// The grid is derived from the live DOM on every interaction (rows = tbody <tr>,
+// columns = position among the configured cell selector). That stays correct when
+// a page adds or removes rows without a full re-render (e.g. Portfolio's "Add
+// Asset"), and stays rectangular because every row in these tables has the same
+// column count.
 
 // ─── Shared drag state ───────────────────────────────────────────────────────
-// Only one drag can be in flight at a time across the whole app, so the active
-// drag target lives at module scope with single document-level mousemove +
-// mouseup listeners that drive/end it. This avoids each table instance leaking
-// its own document listeners (instances are rebuilt on every table re-render).
+// Only one drag can be in flight at a time across the app, so the active drag
+// target is held at module scope with single document-level mousemove and mouseup
+// listeners that drive and end it. This avoids each table instance leaking
+// document listeners, since instances are rebuilt on every table re-render.
 //
 // Drag extension is tracked via document `mousemove` + elementFromPoint rather
-// than the table's own `mouseover`: each cell is filled by an <input>, and once
-// a press lands in an input the browser does implicit pointer capture for text
-// selection, so `mouseover` never fires on the neighbouring cells. Hit-testing
-// the point ourselves sidesteps that capture entirely.
+// than the table's `mouseover`: each cell contains an <input>, and once a press
+// lands in an input the browser applies implicit pointer capture for text
+// selection, so `mouseover` never fires on neighbouring cells. Hit-testing the
+// point directly avoids that capture.
 
 (function () {
     let _dragInst = null;
@@ -99,8 +99,8 @@
             const i = findInput(td);
             if (!i) return;
             i.value = str;
-            // Re-run the page's own input handler (save / format / totals). This is
-            // the seam that keeps all persistence logic on the owning page.
+            // Re-run the page's input handler (save / format / totals). This is the
+            // seam that keeps all persistence logic on the page.
             i.dispatchEvent(new Event('input', { bubbles: true }));
         });
         const clearValue = config.clearValue || ((td) => writeValue(td, ''));
@@ -180,10 +180,10 @@
                 }
             }
 
-            // The active cell always gets the accent box. For a range it's the
-            // anchor inside the fill; for a single cell it's the full four-sided
-            // outline on its own — so clicking one cell shows the same green box,
-            // with no fill and the caret preserved so it stays immediately editable.
+            // The active cell always gets the accent box. For a range that is the
+            // anchor inside the fill; for a single cell it is the full four-sided
+            // outline, so clicking one cell shows the same green box with no fill
+            // and the caret preserved, leaving it editable.
             const activeTd = grid[anchor.r]?.[anchor.c];
             if (activeTd) {
                 activeTd.classList.add('cell-active');
@@ -202,9 +202,9 @@
         };
 
         // ── Mouse: click / drag / shift-click ────────────────────────────────────
-        // `dragMoved` flips true on the first mousemove of a press, marking the
-        // gesture as a range-drag (vs. a plain click that just focuses a cell for
-        // editing). While dragging we also suppress focus-collapse — see focusin.
+        // `dragMoved` is set true on the first mousemove of a press, marking the
+        // gesture as a range-drag rather than a click that focuses a cell for
+        // editing. While dragging, focus-collapse is suppressed — see focusin.
         let dragMoved = false;
 
         tableEl.addEventListener('mousedown', (e) => {
@@ -233,8 +233,8 @@
         });
 
         // Driven by the document-level mousemove (see top of file). `x`/`y` are
-        // viewport coordinates; we hit-test the cell under the pointer so the drag
-        // extends even while the pressed input holds pointer capture.
+        // viewport coordinates; the cell under the pointer is hit-tested so the
+        // drag extends even while the pressed input holds pointer capture.
         const onDragMove = (x, y) => {
             const el = document.elementFromPoint(x, y);
             const td = el?.closest?.(cellSelector);
@@ -262,10 +262,10 @@
         };
 
         // ── Plain navigation / clicks collapse the selection ─────────────────────
-        // The page keeps its own plain-arrow navigation (it calls input.focus() on
-        // the target cell). We react to wherever focus lands and collapse the
-        // selection to that single cell. Shift+arrow never moves focus (we keep the
-        // anchor input focused), so it doesn't trip this.
+        // The page implements plain-arrow navigation by calling input.focus() on
+        // the target cell. This handler collapses the selection to whichever cell
+        // receives focus. Shift+arrow never moves focus (the anchor input stays
+        // focused), so it does not trigger this.
         tableEl.addEventListener('focusin', (e) => {
             // Mid-drag the anchor input keeps focus; ignore stray focus churn so a
             // range-drag isn't collapsed back to a single cell.
@@ -301,8 +301,8 @@
                     anchor = { ...pos };
                     focus  = { ...pos };
                 }
-                // Stop the page's own per-input arrow-nav (tables.js / portfolio.js)
-                // from also handling this keypress — it doesn't check shiftKey, so
+                // Stop the page's per-input arrow-nav (tables.js / portfolio.js)
+                // from also handling this keypress — it does not check shiftKey, so
                 // without this it would move focus and collapse the selection.
                 e.stopPropagation();
                 const [dr, dc] = _ARROWS[e.key];
@@ -416,8 +416,8 @@
         return inst;
     }
 
-    // Expose globally; tables.js calls it through a `window.enableCellSelection`
-    // guard so pages that load tables.js but aren't grids (Credit Cards) are
-    // unaffected even if this script isn't present.
+    // Exposed globally; tables.js calls it behind a `window.enableCellSelection`
+    // guard, so pages that load tables.js but have no grid (Credit Cards) work
+    // even when this script is absent.
     window.enableCellSelection = enableCellSelection;
 }());

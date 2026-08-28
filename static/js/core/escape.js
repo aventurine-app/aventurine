@@ -8,9 +8,9 @@
 // the backstop, not the defence). It escapes quotes as well as angle
 // brackets, so it is safe inside an attribute value too, not only in text.
 //
-// Previously five files each carried their own copy (tables.js, dashboard.js,
-// transactions.js, txfileimport.js, settingsCategories.js); they now all
-// alias this global.
+// Five files previously each carried a copy (tables.js, dashboard.js,
+// transactions.js, txfileimport.js, settingsCategories.js); they now all alias
+// this global.
 
 (function () {
     function escapeHtml(str) {

@@ -16,6 +16,6 @@
 
 // (The Transactions link used to carry an uncategorized-count pill, refreshed
 // here on every page load and by the Transactions page after each edit. It was
-// removed — the count lives on the Transactions page itself, where it can be
-// acted on — and with it the GET /api/transactions/uncategorized-count route it
-// was the only caller of.)
+// removed — the count is shown on the Transactions page instead — along with
+// the GET /api/transactions/uncategorized-count route it was the only caller
+// of.)

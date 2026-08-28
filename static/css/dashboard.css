@@ -158,9 +158,9 @@
     .dashboard-grid { grid-template-columns: 1fr; }
 }
 
-/* Sections need more air between them than a section leaves between its own
-   heading and its cards, or the page reads as six loose cards rather than two
-   groups. This rides on top of .dashboard-page's 16px gap. */
+/* Sections need more space between them than between a section's heading and its
+   cards, or the page reads as six separate cards rather than two groups. This is
+   added on top of .dashboard-page's 16px gap. */
 .dashboard-section + .dashboard-section { margin-top: 16px; }
 
 
@@ -264,9 +264,9 @@
    it grow to the full height and strand the notice at its top. */
 .accounts-body:has(.empty-state) .accounts-legend { flex: 0 0 auto; }
 
-/* .empty-state's own generous padding is chart-sized air. Inside a card it is
-   already vertically centred, so the padding only fights the centring on short
-   cards — the block supplies its own gap between heading and CTA. */
+/* .empty-state's default padding is sized for a chart area. Inside a card it is
+   already vertically centred, so that padding only offsets the centring on short
+   cards; the block supplies its own gap between heading and CTA. */
 .dashboard-card .empty-state { padding: var(--space-16) var(--space-8); }
 
 /* ─── 5. Net Worth card ──────────────────────────────────────────────────── */
@@ -602,9 +602,9 @@
 
 /* ─── 11. Month to Month section (cash-flow + spending bar charts) ──────── */
 
-/* The year + month pickers sit on the section's heading row (see §1) — they're
-   the shared .stepper component (ui.css); Statements' year stepper uses the
-   same one. A bare year never needs the wide month-name label slot, same as
+/* The year + month pickers sit on the section's heading row (see §1) and use the
+   shared .stepper component (ui.css); Statements' year stepper uses the same one.
+   A bare year does not need the wide month-name label slot, same as
    .stmt-year-stepper. */
 #dashboard-year-picker {
     --stepper-label-min: 56px;

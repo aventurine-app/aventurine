@@ -1,17 +1,15 @@
 'use strict';
 
-// Onboarding state — the one question the Dashboard asks before deciding
-// whether to lead with first-run setup: does this database hold anything the
-// user put there?
+// Onboarding state — whether the Dashboard leads with first-run setup: does
+// this database hold any user data?
 //
-// "Fresh" is answered from DATA, not from a flag: a database is fresh while it
+// "Fresh" is computed from DATA, not from a flag: a database is fresh while it
 // holds no transactions, no Balance Sheet or Cash Flow cells, no portfolio
-// holdings, and no adopted accounts. That means the first-run experience cannot
-// strand a user who has real data (it never shows), and cannot be permanently
-// lost by a mis-set flag (it comes back until they either use the app or say no
-// thanks). The single stored bit is the user's explicit "skip"
-// (app_settings.onboarding_dismissed), which suppresses the invitation without
-// touching anything else.
+// holdings, and no adopted accounts. So the first-run experience never appears
+// for a user who has real data, and a mis-set flag cannot hide it permanently
+// (it reappears until the user adds data or skips it). The one stored bit is
+// the explicit skip (app_settings.onboarding_dismissed), which hides the
+// invitation and changes nothing else.
 
 const TOUCHED_BY_USER = [
   'SELECT 1 FROM transactions LIMIT 1',

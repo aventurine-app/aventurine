@@ -37,10 +37,10 @@
     text-align: left;
 }
 
-/* The portfolio's cells contain inputs that manage their own internal
-   padding (.p-input, .p-text-input, .p-ticker-input below), so we strip
-   the default --col-first-pad reset from tables.css to give the inputs
-   full control of their horizontal spacing. */
+/* The portfolio's cells contain inputs that set their own internal padding
+   (.p-input, .p-text-input, .p-ticker-input below), so the default
+   --col-first-pad reset from tables.css is removed, leaving horizontal spacing
+   to the inputs. */
 .portfolio-table td {
     padding: 0;
 }

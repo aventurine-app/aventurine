@@ -54,8 +54,8 @@
     position: relative;
 }
 
-/* The year cards are display:flex, which beats the UA's
-   [hidden] { display: none } — restate it at author level. */
+/* The year cards are display:flex, which overrides the UA's
+   [hidden] { display: none }, so it is restated at author level. */
 .db-outer[hidden] { display: none; }
 
 /* Shown when the selected year has no table in this tab (or no years exist). */

@@ -4,15 +4,15 @@
 // recurringSeries.test.js; this file covers the handler: direction resolution
 // (categorized rows derive tx_type from Category.cat_type, same rule every
 // other list endpoint follows), transfer exclusion, month-scoped occurrences
-// (actual vs. projected), and the month query-param contract. `today` isn't
-// injectable through the API (the handler always uses the real local date, same
-// as /api/predictions/upcoming already does), so dates are built relative to
-// "now" rather than hardcoded.
+// (actual vs. projected), and the month query-param contract. `today` is not
+// injectable through the API (the handler always uses the real local date, as
+// /api/predictions/upcoming does), so dates are built relative to "now" rather
+// than hardcoded.
 //
-// Detection never populates the page by itself, so almost every test here
-// inserts history and then calls adoptAll() — the two-call equivalent of the
-// user running "Find recurring schedules" and ticking every box. The adoption
-// gate itself is covered in its own section at the bottom.
+// Detection does not populate the page on its own, so almost every test here
+// inserts history and then calls adoptAll(), the two-call equivalent of running
+// "Find recurring schedules" and ticking every box. The adoption gate is covered
+// in its own section at the bottom.
 
 const test = require('node:test');
 const assert = require('node:assert');
@@ -369,8 +369,8 @@ test('recurring remove: deleting a detected series un-adopts it, and it stays go
   assert.equal(del.status, 200);
   assert.deepStrictEqual(c.get('/api/recurring').body.series, [], 'off the page immediately');
 
-  // Still gone after another transaction keeps the pattern alive: detection
-  // re-finding it is not re-adoption.
+  // Still absent after another transaction extends the pattern: detection finding
+  // it again does not re-adopt it.
   insertTx(c, { date: daysAgoIso(0), amount: 15.49, description: 'NETFLIX.COM', category_id: food });
   assert.deepStrictEqual(c.get('/api/recurring').body.series, [], 'still gone — adoption is a standing flag, not one-shot');
 
@@ -519,7 +519,8 @@ test('recurring category: the majority category wins when a series is split', (t
   const c = makeClient(t);
   const food = catId(c, 'food');
   const entertainment = catId(c, 'entertainment');
-  // Three of four say Entertainment — one stray Food row must not win.
+  // Three of four rows are Entertainment; one Food row must not decide the
+  // category.
   insertTx(c, { date: daysAgoIso(95), amount: 15.49, description: 'NETFLIX.COM', category_id: food });
   for (const date of [daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
     insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: entertainment });
@@ -559,12 +560,11 @@ test('recurring category: candidates carry it too, for the picker', (t) => {
 });
 
 // ─── Search term (the card's merchant link) ───────────────────────────────────
-// `search` is what the card's merchant link types into the ledger's Name
-// filter. The contract it has to keep is RECALL: the term must be a substring
-// of every transaction in the series, or clicking through to "see why this
-// showed up" shows fewer charges than the calendar just drew. The ledger's
-// filter is a case-insensitive substring match on description/display_name
-// (txRowMatchesFilters), so that is what these assert.
+// `search` is what the card's merchant link puts in the ledger's Name filter.
+// The required property is RECALL: the term must be a substring of every
+// transaction in the series, or the linked ledger view shows fewer charges than
+// the calendar drew. The ledger's filter is a case-insensitive substring match on
+// description/display_name (txRowMatchesFilters), which is what these assert.
 
 /** Every description sharing `key`'s grouping, as the ledger stores them. */
 function descriptionsFor(c) {

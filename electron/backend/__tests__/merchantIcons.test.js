@@ -4,17 +4,17 @@
 // + the generated static/js/core/merchant-icons.js), which are produced by
 // scripts/fetch-merchant-icons.js from the merchant lexicon.
 //
-// Three things can rot here, all of them silently — a wrong avatar is not a
-// crash, it is a logo next to the wrong shop:
-//   1. The manifest and the files disagree (icons pruned, manifest stale), so
+// Three things can break here without producing an error — a wrong avatar is not
+// a crash, it is the wrong logo beside a merchant:
+//   1. The manifest and the files do not match (icons pruned, manifest stale), so
 //      the ledger renders broken images.
-//   2. The manifest holds a slug no merchant can produce — dead weight that
-//      reads as coverage, the same trap lexiconLint.test.js fences for
+//   2. The manifest holds a slug no merchant can produce — an unreachable entry
+//      counted as coverage, the same case lexiconLint.test.js checks for
 //      DISPLAY_OVERRIDES.
-//   3. The two slug functions drift apart. The renderer cannot require() the
-//      lexicon (nodeIntegration is off), so avatar.js:merchantIconSlug and
-//      fetch-merchant-icons.js:slugify are two hand-kept copies of one rule.
-//      If they disagree, EVERY icon silently stops matching.
+//   3. The two slug functions diverge. The renderer cannot require() the lexicon
+//      (nodeIntegration is off), so avatar.js:merchantIconSlug and
+//      fetch-merchant-icons.js:slugify are two hand-maintained copies of one
+//      rule. If they differ, EVERY icon stops matching, with no error.
 
 const test = require('node:test');
 const assert = require('node:assert');
@@ -143,11 +143,11 @@ test('icons are small, square PNGs', () => {
 test('no needle alias is claimed by two different brands', () => {
   const map = loadManifest();
   // Two display names that slug alike are the same brand written two ways
-  // ("ButcherBox" / "Butcher Box") — that is what slugging is for, and the
-  // generator merges them. The collision that DOES bite is an alias: every
-  // needle contributes its own slug pointing at its brand's icon, so if one
-  // needle spelling is reachable from two brands, the manifest silently keeps
-  // whichever it saw first and the other brand's rows wear a stranger's logo.
+  // ("ButcherBox" / "Butcher Box"); slugging is meant to merge those, and the
+  // generator does. The harmful collision is an alias: every needle contributes a
+  // slug pointing at its brand's icon, so if one needle spelling is reachable
+  // from two brands, the manifest keeps whichever was processed first and the
+  // other brand's rows render the wrong logo.
   const claims = new Map(); // alias slug -> Set(brand slug)
   for (const [needle] of MERCHANTS) {
     const display = merchantDisplayFor(needle);

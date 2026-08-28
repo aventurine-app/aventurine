@@ -44,7 +44,8 @@ test('autoMatchCategory: fuzzy pass only when enabled, and only when unambiguous
     { pattern: 'netflix subscription', category_id: 7 },
     { pattern: 'netflix subscriptionx', category_id: 7 },
   ];
-  // close to both rules, both agree -> 7 with fuzzy on, null with fuzzy off
+  // close to both rules, both pointing at 7 -> 7 with fuzzy on, null with fuzzy
+  // off
   assert.equal(autoMatchCategory('netflix subscription', rules, false), 7); // exact hit
   assert.equal(autoMatchCategory('netflix subscriptionnn', rules, true), 7);
   assert.equal(autoMatchCategory('netflix subscriptionnn', rules, false), null);
@@ -53,6 +54,6 @@ test('autoMatchCategory: fuzzy pass only when enabled, and only when unambiguous
     { pattern: 'coffee shop downtown', category_id: 5 },
     { pattern: 'coffee shop downtoxn', category_id: 9 },
   ];
-  // both clear the 0.92 bar but disagree -> null
+  // both clear the 0.92 threshold but point at different categories -> null
   assert.equal(autoMatchCategory('coffee shop downtown!', conflict, true), null);
 });

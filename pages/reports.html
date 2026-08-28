@@ -96,12 +96,10 @@
         </div>
     </div>
 
-    <!-- Top Merchants. The card above answers "what did I spend it on"
-         (categories, month by month); this one answers "who did I spend it
-         with" (merchants, totalled), so it reads as the same ledger turned a
-         quarter turn rather than a second trend line. Its window picker is its
-         own — a report's controls live in its header, never hoisted into the
-         tab bar (see the note at the top of this file). Controller:
+    <!-- Top Merchants. The card above breaks spending down by category, month by
+         month; this one breaks the same ledger down by merchant, totalled. Its
+         window picker is its own — a report's controls live in its header, not in
+         the tab bar (see the note at the top of this file). Controller:
          static/js/pages/topmerchants.js. -->
     <div class="trends-card">
         <div class="dashboard-card-header">
@@ -208,11 +206,11 @@
                 aria-label="Projects one account's balance forward, week by week. Each week combines your typical spending and income (averaged over recent complete months). Hover the line to pin a one-off payment or receipt to a date; hover a point for that week's balance."
                 data-tip="Projects one account's balance forward, week by week. Each week combines your typical spending and income (averaged over recent complete months). Hover the line to pin a one-off payment or receipt to a date; hover a point for that week's balance.">i</span></span>
             <div class="forecast-controls">
-                <!-- A checkbox, not a third picker: this is one yes/no answer
-                     and its state has to be readable at a glance, because it
-                     changes what every number on the card means. Checked (the
-                     default) is the reading most people want — moving your own
-                     money between your own accounts is not spending. -->
+                <!-- A checkbox, not a third picker: this is a single boolean and
+                     its state has to be visible without opening a menu, because it
+                     changes every number on the card. Checked (the default)
+                     excludes transfers, since money moved between the user's own
+                     accounts is not spending. -->
                 <label class="fc-toggle" for="forecast-ignore-transfers"
                     title="Leave money moved between your own accounts out of the projection">
                     <input type="checkbox" id="forecast-ignore-transfers" checked>
@@ -242,8 +240,8 @@
             </div>
         </div>
 
-        <!-- The answer in a sentence, then a warning only when the line runs
-             out of money, then provenance. Built by forecast.js. -->
+        <!-- The result in a sentence, then a warning only when the balance goes
+             below zero, then the caveat notes. Built by forecast.js. -->
         <div class="forecast-summary" id="forecast-summary"></div>
 
         <!-- The plot and its pointer overlay (the add-here guide) share this

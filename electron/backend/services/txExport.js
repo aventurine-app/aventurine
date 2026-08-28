@@ -1,19 +1,19 @@
 'use strict';
 
 // Transaction export serialisers — CSV, OFX/QFX (SGML v1), and QIF. Pure
-// functions, no DB handle: the handler feeds rows that already carry the
+// functions, no DB handle: the handler passes rows that already carry the
 // derived direction (COALESCE(category.cat_type, tx_type)) and the category
 // name, and writes the returned strings to disk.
 //
 // Every format is split into header / body / footer so the export route can
-// stream chunk by chunk: the header is written with the first chunk, each
-// chunk appends its rows, and the footer lands with the last one. `meta`
-// (date range, net balance, "now") is only consulted by the OFX family.
+// stream chunk by chunk: the header is written with the first chunk, each chunk
+// appends its rows, and the footer is written with the last one. `meta` (date
+// range, net balance, "now") is read only by the OFX family.
 //
-// Amounts are stored as positive magnitudes with tx_type carrying the
-// direction (see services/transactions.js); export files use the signed
-// convention every importer expects — income positive, everything else
-// negative — which is also exactly how txfileimport.js reads them back in.
+// Amounts are stored as positive magnitudes with tx_type carrying the direction
+// (see services/transactions.js); export files use the signed convention that
+// importers require — income positive, everything else negative — which is also
+// how txfileimport.js reads them back in.
 
 const EXPORT_FORMATS = ['csv', 'ofx', 'qfx', 'qif'];
 
@@ -28,8 +28,8 @@ function signedAmount(t) {
 // ISO 'YYYY-MM-DD' → OFX compact 'YYYYMMDD'.
 const compactDate = (iso) => String(iso || '').replace(/-/g, '');
 
-// Local date-time as 'YYYYMMDDHHMMSS' — OFX timestamps, like the rest of the
-// app's notion of "today" (services/predictions.js), are local time.
+// Local date-time as 'YYYYMMDDHHMMSS' — OFX timestamps use local time, like
+// every other "today" in the app (services/predictions.js).
 function compactDateTime(d) {
   const p = (n, w = 2) => String(n).padStart(w, '0');
   return (
@@ -66,8 +66,8 @@ const csv = {
 const qif = {
   header: () => '!Type:Bank' + CRLF,
   // One record per transaction: D date · T signed amount · P payee ·
-  // L category · M memo, terminated by '^'. Quicken's native date dialect
-  // is US MM/DD/YYYY.
+  // L category · M memo, terminated by '^'. Quicken's date format is US
+  // MM/DD/YYYY.
   row: (t) => {
     const [y, m, d] = String(t.date || '').split('-');
     const lines = [`D${m}/${d}/${y}`, `T${signedAmount(t)}`, `P${t.description || ''}`];
@@ -79,16 +79,16 @@ const qif = {
   footer: () => '',
 };
 
-// OFX 1.x SGML — the dialect banks actually emit (unclosed value tags), and
-// the one both Quicken and our own importer understand. QFX is the same
-// stream plus Intuit's <INTU.BID> tag in the signon block; 3000 is the
-// generic placeholder ID commonly used for non-bank exports.
+// OFX 1.x SGML — the dialect banks emit (unclosed value tags), and the one both
+// Quicken and this app's importer parse. QFX is the same stream plus Intuit's
+// <INTU.BID> tag in the signon block; 3000 is the generic placeholder ID
+// commonly used for non-bank exports.
 function ofxVariant(intuBid) {
   return {
     header: (meta) => {
       const now = compactDateTime(meta.now);
       // An empty ledger still produces a well-formed file: the transaction
-      // list's range collapses to "now".
+      // list's date range collapses to "now".
       const start = compactDate(meta.firstDate) || now.slice(0, 8);
       const end = compactDate(meta.lastDate) || now.slice(0, 8);
       return [
@@ -140,7 +140,7 @@ function ofxVariant(intuBid) {
         `<TRNTYPE>${t.tx_type === 'income' ? 'CREDIT' : 'DEBIT'}`,
         `<DTPOSTED>${compactDate(t.date)}`,
         `<TRNAMT>${signedAmount(t)}`,
-        // FITID must be unique within the account; the row id is exactly that.
+        // FITID must be unique within the account; the row id already is.
         `<FITID>FL-${t.id}`,
         `<NAME>${escapeXml(t.description)}`,
       ];

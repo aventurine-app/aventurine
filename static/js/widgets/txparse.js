@@ -4,9 +4,9 @@
 // The PURE parsing core of transaction import — extracted from
 // txfileimport.js so it can be regression-tested under `node --test`
 // (electron/backend/__tests__/txParse.test.js runs it against a fixture
-// corpus of messy bank exports). txfileimport.js owns everything with a DOM
-// or network dependency (modals, dup-hash fetch, commit); this file must
-// stay free of both so the tests exercise exactly what production runs.
+// corpus of messy bank exports). txfileimport.js holds everything with a DOM or
+// network dependency (modals, dup-hash fetch, commit); this file must stay free
+// of both so the tests exercise exactly what production runs.
 //
 // Dual-environment: in the browser it attaches window.TxParse (loaded by
 // pages/transactions.html before txfileimport.js); under Node it exports the
@@ -17,13 +17,13 @@
 // Supported formats (see parseFile, the dispatcher):
 //   • Delimited text — CSV / TSV / semicolon / pipe (delimiter auto-detected)
 //   • Excel .xlsx    — parsed natively (zip + DecompressionStream); no library,
-//                      because the CSP forbids remote scripts and the project
-//                      has no build step to vendor one
+//                      since the CSP forbids remote scripts and the project has
+//                      no build step to vendor one
 //   • OFX / QFX      — Open Financial Exchange, both SGML and XML flavours
 //   • QIF            — Quicken Interchange Format
 //   • JSON           — an array of flat objects (or the first such array found)
-// Legacy binary .xls, PDF, and unrecognised binaries are rejected with a
-// message telling the user what to export instead.
+// Legacy binary .xls, PDF, and unrecognised binaries are rejected with a message
+// naming the formats to export instead.
 
 (function () {
 
@@ -33,12 +33,11 @@
     // replacement characters into descriptions.
     //
     // The Windows-1252 fallback is a hand-rolled table rather than
-    // `new TextDecoder('windows-1252')`: that call's output for bytes
-    // 0x80-0x9F (smart quotes, dashes, €, …) has been observed to differ
-    // across Node/ICU builds — same input, different decoded characters on
-    // different machines. A fixed table decodes identically everywhere this
-    // code runs, which matters because this exact path is what turns a real
-    // user's "ANSI" bank CSV into transaction descriptions.
+    // `new TextDecoder('windows-1252')`: that call's output for bytes 0x80-0x9F
+    // (smart quotes, dashes, €, …) differs across Node/ICU builds — same input,
+    // different decoded characters on different machines. A fixed table decodes
+    // identically everywhere this code runs, and this path is what converts an
+    // "ANSI" bank CSV into transaction descriptions.
     const CP1252_C1 = [
         0x20AC, 0x0081, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021,
         0x02C6, 0x2030, 0x0160, 0x2039, 0x0152, 0x008D, 0x017D, 0x008F,
@@ -119,8 +118,9 @@
     }
 
     // Pick the delimiter that splits the sample lines most consistently.
-    // Quote-aware so a comma inside "Acme, Inc." doesn't vote for comma in a
-    // semicolon-delimited file. Comma wins ties (the most common dialect).
+    // Quote-aware, so a comma inside "Acme, Inc." is not counted in a
+    // semicolon-delimited file. Comma is used for ties (the most common
+    // dialect).
     function detectDelimiter(text) {
         const lines = [];
         for (const ln of text.split(/\r?\n/)) {
@@ -179,8 +179,8 @@
 
         // Closing balance: <LEDGERBAL> carries the account's book balance
         // (<BALAMT>) as of <DTASOF>. It feeds the Balance Sheet, not the ledger,
-        // so it rides alongside the rows rather than in them. AVAILBAL (funds
-        // available now, minus holds) is deliberately ignored — it isn't the
+        // so it is returned alongside the rows rather than in them. AVAILBAL
+        // (funds available now, minus holds) is ignored, since it is not the
         // month-end book balance. LEDGERBAL is an aggregate tag, closed in both
         // OFX flavours; fall back to an open-ended slice if a writer omitted it.
         let ledgerBalance = null;
@@ -396,8 +396,8 @@
     }
 
     // ── Format dispatch ──────────────────────────────────────────────────────
-    // Magic bytes identify binary containers (extensions lie); text formats
-    // are sniffed by content with the extension as a tie-breaker.
+    // Magic bytes identify binary containers, since extensions can be wrong; text
+    // formats are sniffed by content with the extension as a tie-breaker.
     async function parseFile(name, buf) {
         const bytes = new Uint8Array(buf);
         const at = (i, b) => bytes[i] === b;
@@ -445,18 +445,17 @@
     const RX_DEBIT  = /debit|withdrawal|money\s*out|paid\s*out/i;
     const RX_CREDIT = /credit|deposit|money\s*in|paid\s*in/i;
     // Running/ledger balance column ("Balance", "Running Balance", "Ledger
-    // Balance"). "Available Balance" is excluded — it's the spendable figure
-    // (minus holds), not the month-end book balance the Balance Sheet wants.
+    // Balance"). "Available Balance" is excluded: it is the spendable figure
+    // (minus holds), not the month-end book balance the Balance Sheet uses.
     const RX_BALANCE = /balance/i;
 
-    // A genuine Debit/Credit pair never carries a real (non-zero) value on
-    // BOTH sides of the same row — that's the shape applyMapping itself
-    // already assumes (a same-row non-zero on both sides is refused as
-    // ambiguous; a zero on one side is filler). Used to recognise a split
-    // pair from data shape alone, for files whose headers give no clue.
-    // Ties break toward the earlier pair, which is usually Debit-before-
-    // Credit column order; if it guesses the sides backwards, either can
-    // still be repointed with its own dropdown — no toggle needed for that.
+    // A genuine Debit/Credit pair never carries a non-zero value on BOTH sides of
+    // the same row, which is the shape applyMapping assumes (a same-row non-zero
+    // on both sides is rejected as ambiguous; a zero on one side is filler). Used
+    // to identify a split pair from data shape alone, for files whose headers do
+    // not indicate it. Ties resolve toward the earlier pair, which is usually
+    // Debit-before-Credit column order; if the sides are detected backwards,
+    // either can be repointed with its dropdown, so no toggle is needed.
     function findSplitPair(rows, candidates) {
         const isFilled = (raw) => {
             const s = String(raw ?? '').trim();
@@ -494,7 +493,7 @@
             if (d.debit       === null && isDebit)           d.debit       = i;
             if (d.credit      === null && isCredit)          d.credit      = i;
             // A balance column is numeric but is NOT the transaction amount;
-            // claim it first so the amount rules and the numeric fallback below
+            // assign it first so the amount rules and the numeric fallback below
             // both skip it.
             if (d.balance     === null && isBalance)         d.balance     = i;
             if (d.amount === null && RX_AMOUNT.test(h) && !isDebit && !isCredit && !isBalance) d.amount = i;
@@ -528,11 +527,10 @@
                 });
             }
 
-            // A genuine but unlabeled Debit/Credit pair, tried BEFORE the
-            // single-column amount fallback below — otherwise that fallback
-            // would grab whichever side it reaches first and silently drop
-            // every row where that side happens to be blank (the other,
-            // equally real, column never gets mapped to anything).
+            // A real but unlabeled Debit/Credit pair, checked BEFORE the
+            // single-column amount fallback below; otherwise that fallback takes
+            // whichever side comes first and drops every row where that side is
+            // blank, leaving the other column unmapped.
             if (d.amount === null && d.debit === null && d.credit === null) {
                 const numericCols = [];
                 headers.forEach((h, i) => {
@@ -659,9 +657,9 @@
     // accountant parentheses ("(12.34)" → -12.34) and European decimal commas
     // ("1.234,56" → 1234.56 — stripping the comma as grouping would corrupt
     // the amount 100×). `style` is the file-level convention from
-    // detectDecimalStyle; without it the value's own shape decides (both
-    // separators → the last one is the decimal; a lone comma with 1-2
-    // trailing digits is a decimal comma; anything else reads as US).
+    // detectDecimalStyle; without it the value's format decides (both separators
+    // → the last one is the decimal; a lone comma with 1-2 trailing digits is a
+    // decimal comma; anything else is parsed as US).
     // Returns float or NaN.
     function parseAmount(s, style = null) {
         if (s === null || s === undefined) return NaN;
@@ -746,11 +744,11 @@
                     return;
                 }
                 if (deb && cre && deb.value !== 0 && cre.value !== 0) {
-                    // Direction would be a guess — refuse rather than pick.
+                    // Direction is ambiguous — reject the row rather than pick one.
                     errors.push({ row: rowNum, reason: 'both debit and credit have values' });
                     return;
                 }
-                // The non-zero side wins; a lone zero cell still carries its
+                // The non-zero side is used; a lone zero cell still takes its
                 // column's direction (a zero in the other column is filler).
                 const side = (deb && deb.value !== 0) ? 'debit'
                            : (cre && cre.value !== 0) ? 'credit'
@@ -798,13 +796,13 @@
 
     // ── Reduce parsed rows + an OFX ledger balance → month-end readings ───────
     // A balance is a point in time, but the Balance Sheet holds ONE figure per
-    // month. For each calendar month we keep the balance of the latest-dated
-    // reading in that month (ties broken by file order — the later row wins,
+    // month. For each calendar month this keeps the balance of the latest-dated
+    // reading in that month (ties resolved by file order — the later row is used,
     // since bank exports list a day's transactions in posting order). An OFX
-    // <LEDGERBAL> is folded in as one more reading (authoritative, so it wins a
-    // same-date tie). The account it belongs to is chosen in the UI and attached
-    // at commit time, so this stays pure. Returns [{ date, value, source }],
-    // oldest month first.
+    // <LEDGERBAL> is included as one more reading and takes precedence in a
+    // same-date tie. The account is chosen in the UI and attached at commit time,
+    // so this function stays pure. Returns [{ date, value, source }], oldest month
+    // first.
     function deriveBalances(parsedRows, ledgerBalance = null) {
         const readings = [];
         parsedRows.forEach((r, i) => {
@@ -813,7 +811,7 @@
             }
         });
         if (ledgerBalance && ledgerBalance.date && Number.isFinite(ledgerBalance.value)) {
-            // order: Infinity → the ledger balance wins any same-date tie.
+            // order: Infinity → the ledger balance takes any same-date tie.
             readings.push({ date: ledgerBalance.date, value: ledgerBalance.value, source: 'ofx', order: Infinity });
         }
 

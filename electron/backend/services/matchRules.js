@@ -7,7 +7,7 @@
 // difflib.SequenceMatcher.ratio(), so `sequenceRatio` below is a faithful
 // port of that exact algorithm (Ratcliff/Obershelp with autojunk, isjunk=None).
 // Its numeric output is verified equal to Python's across a fixture oracle in
-// __tests__/matchRules.test.js — do not "simplify" it without re-checking parity.
+// __tests__/matchRules.test.js — do not simplify it without re-checking parity.
 
 const AUTO_FUZZY_THRESHOLD = 0.92;
 
@@ -22,7 +22,7 @@ const FUZZY_THRESHOLD_MAX = 1.0;
 
 /** Build b2j (element -> sorted index list), applying difflib's autojunk:
  *  for b of length >= 200, elements occurring more than n/100+1 times are
- *  dropped so they can't seed matches (isjunk is always None in our usage). */
+ *  dropped so they cannot seed matches (isjunk is always None here). */
 function buildB2J(b) {
   const n = b.length;
   const b2j = new Map();
@@ -59,7 +59,7 @@ function findLongestMatch(a, b, b2j, alo, ahi, blo, bhi) {
     j2len = newj2len;
   }
   // isjunk=None -> no junk elements, so only the non-junk boundary extension
-  // runs (the junk-aware passes in CPython are no-ops here).
+  // runs; the junk-aware passes in CPython are no-ops here.
   while (besti > alo && bestj > blo && a[besti - 1] === b[bestj - 1]) {
     besti--; bestj--; bestsize++;
   }
@@ -107,7 +107,8 @@ function autoMatchEnabled(db) {
   return getSetting(db, 'tx_auto_match', 'on') !== 'off';
 }
 
-/** Upsert the rule for a description after a user assignment (last decision wins). */
+/** Upsert the rule for a description after a user assignment (the most recent
+ *  assignment replaces any earlier one). */
 function recordMatch(db, description, categoryId) {
   const pattern = normalise(description);
   if (!pattern) return;
@@ -119,7 +120,7 @@ function recordMatch(db, description, categoryId) {
   }
 }
 
-/** Drop the rule for a description (user explicitly un-categorized the row). */
+/** Delete the rule for a description, after the user un-categorized the row. */
 function forgetMatch(db, description) {
   const pattern = normalise(description);
   if (pattern) db.prepare('DELETE FROM match_rules WHERE pattern = ?').run(pattern);
@@ -141,8 +142,8 @@ function autoMatchCategory(description, rules, fuzzy) {
   return fuzzyMatchCategory(pattern, rules);
 }
 
-/** Fuzzy half of the rule match: every rule clearing the bar must name one
- *  category, else the match is ambiguous and nothing is applied. */
+/** Fuzzy half of the rule match: every rule over the threshold must point at
+ *  the same category, otherwise the match is ambiguous and nothing is applied. */
 function fuzzyMatchCategory(pattern, rules) {
   const candidates = new Set();
   for (const r of rules) {
@@ -168,7 +169,7 @@ function applyAutoMatch(db, transactions) {
   );
   // Exact matches resolve via one Map instead of a per-row scan of every rule
   // (patterns are unique — recordMatch upserts by pattern); only rows with no
-  // exact hit pay for the fuzzy scan at the fixed AUTO_FUZZY_THRESHOLD bar.
+  // exact hit run the fuzzy scan at the fixed AUTO_FUZZY_THRESHOLD.
   const byPattern = new Map(rules.map((r) => [r.pattern, r.category_id]));
 
   let n = 0;

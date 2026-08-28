@@ -25,23 +25,23 @@ contextBridge.exposeInMainWorld('electronWindow', {
     platform:       process.platform,
 });
 
-// Native save/open dialogs for the New / Open Database modal. Each returns
-// a Promise resolving to an absolute path string, or null when cancelled —
-// no filesystem access is exposed to the page beyond picking a path.
+// Native save/open dialogs for the New / Open Database modal. Each returns a
+// Promise resolving to an absolute path string, or null when cancelled; no
+// filesystem access is exposed to the page beyond picking a path.
 contextBridge.exposeInMainWorld('electronFile', {
     // `suggested` (optional) is where the save dialog opens — the destination
     // the modal is already showing, so "Change…" starts from it.
     chooseNewDbPath:      (suggested) => ipcRenderer.invoke('db-choose-new-path', suggested),
     chooseExistingDbPath: () => ipcRenderer.invoke('db-choose-existing-path'),
-    // Save dialog for Export Transactions; format selects the file filter
-    // and suggested name. Same contract: a path string, or null on cancel.
+    // Save dialog for Export Transactions; format selects the file filter and
+    // suggested name. Same contract: a path string, or null on cancel.
     chooseExportPath:     (format) => ipcRenderer.invoke('export-choose-path', format),
 });
 
-// Hand a URL to the OS browser. The only outbound door in the app, and main.js
-// checks it against an allowlist of our own hosts before opening anything — the
-// renderer cannot choose an arbitrary destination. Used by the License panel to
-// reach the activation page; the app itself still makes no network request.
+// Pass a URL to the OS browser. The only outbound path in the app, and main.js
+// checks it against a host allowlist before opening anything, so the renderer
+// cannot supply an arbitrary destination. Used by the License panel to open the
+// activation page; the app itself makes no network request.
 contextBridge.exposeInMainWorld('electronShell', {
     openExternal: (url) => ipcRenderer.invoke('open-external', url),
 });

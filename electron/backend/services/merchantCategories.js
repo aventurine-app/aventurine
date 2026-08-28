@@ -1,41 +1,42 @@
 'use strict';
 
-// Built-in, on-device knowledge for cold-start auto-categorization (used by
-// services/categorize.js). This is the bundled "lexicon" half of the import
-// moat: it lets a brand-new user's *first* import be categorized before any
-// per-user MatchRules exist. It ships in the binary — no network, no telemetry.
+// Built-in, on-device data for cold-start auto-categorization (used by
+// services/categorize.js). This is the bundled "lexicon" tier: it categorizes a
+// new user's *first* import before any per-user MatchRules exist. It ships in
+// the binary — no network, no telemetry.
 //
 // Mapped categories use the stable default category keys from seed.js
-// (food, automobile, utilities, …). categorize.js resolves a key
-// to this DB's category row at runtime and skips any key the user deleted, so a
-// customised taxonomy never breaks.
+// (food, automobile, utilities, …). categorize.js resolves a key to this DB's
+// category row at runtime and skips any key the user deleted, so a customised
+// taxonomy still works.
 //
-// Design rule: PRECISION OVER RECALL. A confident wrong category costs more
-// user trust than leaving a row blank (the user fixes blanks in one click, and
-// that fix trains a MatchRule). Two concrete consequences:
+// Design rule: PRECISION OVER RECALL. A wrong category is more costly than a
+// blank row (the user fills a blank in one click, and that fix creates a
+// MatchRule). Two concrete consequences:
 //   1. When a token has two common meanings, omit it (no bare "gas"/"rent"/
 //      "store"/"market"/"bar").
-//   2. Needles are matched as SUBSTRINGS, so a short needle can hide inside an
+//   2. Needles are matched as SUBSTRINGS, so a short needle can occur inside an
 //      unrelated word ("macy" in "pharmacy", "gap" in "singapore", "ross" in
-//      "red cross"). Such needles are deliberately excluded or qualified
-//      ("macys", "boost mobile"); the eval corpus's abstention cases guard this.
+//      "red cross"). Such needles are excluded or qualified ("macys", "boost
+//      mobile"); the eval corpus's abstention cases cover this.
 // categorize.js matches the LONGEST needle first, so a specific entry
-// ("boost mobile", "uber eats") wins over a shorter prefix ("mobil", —).
+// ("boost mobile", "uber eats") matches before a shorter prefix ("mobil", —).
 
 // ── Noise stripping ───────────────────────────────────────────────────────────
-// Bank descriptions bury the merchant in transport noise: payment-network
+// Bank descriptions surround the merchant with transport noise: payment-network
 // prefixes, POS/ACH markers, store numbers, card masks, phone numbers, city/
 // state tails. These patterns are removed (in order) before matching so
 // "SQ *BLUE BOTTLE COFFEE 866-123 CA" reduces to "blue bottle coffee".
 const NOISE_PATTERNS = [
-  // Payment-processor / aggregator prefixes (the "<proc> *<merchant>" idiom).
-  // NB: no amzn/amazon here — Amazon is a real merchant we want to KEEP, not a
-  // third-party passthrough. Stripping "AMZN *2X4" as a prefix blanked Amazon's
-  // own retail rows; it now falls through to the '*'→space rule and matches the
-  // 'amzn' needle. (Amazon Pay passthrough is rare and still lands in shopping.)
+  // Payment-processor / aggregator prefixes (the "<proc> *<merchant>" form).
+  // NB: no amzn/amazon here — Amazon is a merchant to KEEP, not a third-party
+  // passthrough. Stripping "AMZN *2X4" as a prefix left Amazon's own retail rows
+  // blank; they now fall through to the '*'→space rule and match the 'amzn'
+  // needle. (Amazon Pay passthrough is rare and still lands in shopping.)
   /\b(sq|tst|sp|pp|paypal|google|goog|apl|apple|toast|clover|venmo|cash app|zelle)\s*\*+\s*/gi,
-  // Transaction-type markers banks staple onto the front.
-  // NB: no bare "mobile" here — it would eat carrier names (T-Mobile, Boost Mobile).
+  // Transaction-type markers banks prepend to the description.
+  // NB: no bare "mobile" here — it would strip carrier names (T-Mobile, Boost
+  // Mobile).
   /\b(pos|ach|web|recur(?:ring)?|autopay|auto pay|electronic|online|debit card purchase|debit card|credit card|checkcard|check card|chkcard|visa dda pur|visa|mastercard|purchase authorized on|purchase|payment|pmt|withdrawal|ext trnsfr)\b/gi,
   // Card masks, then any remaining stray asterisks (an un-prefixed "uber *eats"
   // or "amzn*2x4" → spaces) so the merchant token is contiguous for matching.
@@ -97,8 +98,8 @@ const MERCHANTS = [
   ['shake shack', 'food'], ['whataburger', 'food'], ['culvers', 'food'],
   ["culver's", 'food'], ['raising cane', 'food'], ['panda express', 'food'],
   // Full brand form only. An abbreviated "NOODLES & CO" loses its trailing " co"
-  // to the state-abbreviation strip and can't match this needle; the 'noodle'
-  // keyword catches that form (without the clean display name).
+  // to the state-abbreviation strip and cannot match this needle; the 'noodle'
+  // keyword matches that form (without the clean display name).
   ['noodles & company', 'food'],
   ['qdoba', 'food'], ['olive garden', 'food'],
   ['applebee', 'food'], ['chilis', 'food'], ["chili's", 'food'],
@@ -122,8 +123,8 @@ const MERCHANTS = [
   ["ruth's chris", 'food'], ['texas de brazil', 'food'], ['benihana', 'food'],
   ['yard house', 'food'], ['cheddars', 'food'], ['bahama breeze', 'food'],
   ['maggiano', 'food'], ['famous dave', 'food'],
-  // Qualified forms below — bare 'dickey'/'rubio'/'wetzel'/'captain d' are all
-  // surnames or substrings of one (see lexicon-hazards.json).
+  // Qualified forms below — bare 'dickey'/'rubio'/'wetzel'/'captain d' are each
+  // a surname or a substring of one (see lexicon-hazards.json).
   ['dickey barbecue', 'food'], ["dickey's barbecue", 'food'], ['dickeys bbq', 'food'],
   ['hooters', 'food'], ['twin peaks restaurant', 'food'],
   ['church chicken', 'food'], ["church's chicken", 'food'], ['pollo tropical', 'food'],
@@ -141,9 +142,9 @@ const MERCHANTS = [
   ['boba guys', 'food'], ['gong cha', 'food'], ['kung fu tea', 'food'],
 
   // ── Auto & Transport — fuel, rideshare, parts, service ──
-  // 'shell' bare hides in "shelly"/"seashell" (see lexicon-hazards.json), so
-  // only qualified station forms; 'exxon' alone covers "exxonmobil" ('mobil'
-  // bare would eat "mobile deposit").
+  // Bare 'shell' occurs inside "shelly"/"seashell" (see lexicon-hazards.json),
+  // so only qualified station forms are listed; 'exxon' alone covers
+  // "exxonmobil" (bare 'mobil' would match "mobile deposit").
   ['shell oil', 'automobile'], ['shell service', 'automobile'], ['shell gas', 'automobile'],
   ['chevron', 'automobile'], ['exxon', 'automobile'],
   ['texaco', 'automobile'], ['valero', 'automobile'], ['marathon petro', 'automobile'],
@@ -222,7 +223,8 @@ const MERCHANTS = [
   // Tickets / live events.
   ['seatgeek', 'entertainment'], ['vivid seats', 'entertainment'], ['eventbrite', 'entertainment'],
   ['gametime', 'entertainment'],
-  // Movie theaters (alamo drafthouse beats the 'alamo rent' car needle).
+  // Movie theaters ('alamo drafthouse' is longer than the 'alamo rent' car
+  // needle, so it matches first).
   ['alamo drafthouse', 'entertainment'], ['harkins theatres', 'entertainment'], ['marcus theatres', 'entertainment'],
   ['cinepolis', 'entertainment'], ['studio movie grill', 'entertainment'], ['landmark theatres', 'entertainment'],
   // Attractions / family fun / venues.
@@ -280,7 +282,7 @@ const MERCHANTS = [
   ['peco energy', 'utilities'], ['pseg', 'utilities'], ['national grid', 'utilities'],
   ['con edison', 'utilities'], ['coned', 'utilities'], ['socal edison', 'utilities'],
   ['austin energy', 'utilities'],
-  // More wireless carriers / MVNOs (qualified where bare is a word:
+  // More wireless carriers / MVNOs (qualified where the bare form is a word:
   // visible, ting→"meeting", straight talk).
   ['mint mobile', 'utilities'], ['visible wireless', 'utilities'], ['straight talk', 'utilities'],
   ['tracfone', 'utilities'], ['simple mobile', 'utilities'], ['xfinity mobile', 'utilities'],
@@ -419,7 +421,7 @@ const MERCHANTS = [
   // Trusted-traveler / airport programs.
   ['global entry', 'travel'], ['tsa precheck', 'travel'],
   // 'hospitality' (hotel/restaurant groups) contains the 'hospital' health
-  // keyword; as a merchant it's matched first, so it wins and lands in travel.
+  // keyword; the merchant tier runs first, so it lands in travel.
   ['hospitality', 'travel'],
 
   // ── Insurance — carriers (a dedicated bucket makes the "insurance" keyword safe) ──
@@ -440,8 +442,8 @@ const MERCHANTS = [
   // ── Investing — brokerages, retirement, robo-advisors, crypto exchanges ──
   // Direction-guarded in categorize.js: applies only to OUTFLOW rows (a debit
   // to a brokerage is a contribution/buy → investing). An inflow from one is a
-  // withdrawal, not income, so it deliberately stays blank.
-  // Deliberate omissions (two common meanings): bare 'sofi' (hides in "sofia";
+  // withdrawal, not income, so it stays blank.
+  // Omitted (two common meanings): bare 'sofi' (occurs in "sofia";
   // SoFi is also a lender/bank), bare 'merrill' ("merrillville"), bare
   // 'kraken' (Seattle Kraken), bare 'gemini' (Google Gemini), bare
   // 'empower'/'principal' (generic words), 'e trade' ("singapore trade co"),
@@ -470,7 +472,7 @@ const MERCHANTS = [
   // ── International & emerging merchants ─────────────────────────────────────
   // Non-US and up-and-coming brands across major markets (EU/UK, Canada, China,
   // LatAm, India, SEA, ANZ). Same precision-first bar: one obvious category, and
-  // every needle vetted against the hazard corpus so it can't hide in an
+  // every needle checked against the hazard corpus so it cannot occur inside an
   // unrelated word (bare 'esso'→"espresso", 'rewe'→"brewery", 'aral'→
   // "paralegal", 'mango'→the fruit, 'bolt'/'otto'/'coop' → common words, are all
   // deliberately excluded).
@@ -563,10 +565,10 @@ const MERCHANTS = [
   ['humana', 'insurance'], ['aetna', 'insurance'],
 
   // ── The long tail: lesser-known chains + elevated/luxury brands ─────────────
-  // Same precision-first bar as everything above, and the reason so many entries
-  // here carry a qualifier: a smaller brand's name is far likelier to double as a
-  // surname, a city, or an English word than a household name's is. Deliberate
-  // omissions (all vetted and rejected): bare 'zales' ("gonzales"), 'belk'
+  // Same precision-first bar as everything above. So many entries here carry a
+  // qualifier because a smaller brand's name is more likely to also be a
+  // surname, a city, or an English word than a household name is. Omitted (all
+  // checked and rejected): bare 'zales' ("gonzales"), 'belk'
   // ("belknap"), 'le labo' ("mobiLE LABOratory"), 'reiss' ("card reissue fee"),
   // 'razer' ("frazer"), 'anker' ("banker"), 'bose' (a common surname), 'smud'
   // ("smudge"), 'philo' ("philosophy"), 'nobu' ("nobuko"), 'mastro'
@@ -599,8 +601,8 @@ const MERCHANTS = [
   ['binny beverage', 'food'], ['abc fine wine', 'food'], ['wine.com', 'food'],
   ['drizly', 'food'], ['naked wines', 'food'], ['firstleaf', 'food'],
   ['liquor barn', 'food'],
-  // Food — fine dining / elevated chains (the keyword tier would call most of
-  // these 'food' anyway; naming them is what earns the clean display name).
+  // Food — fine dining / elevated chains (the keyword tier would categorize
+  // most of these as 'food' anyway; listing them here adds the display name).
   ['del frisco', 'food'], ['capital grille', 'food'], ['mortons the steakhouse', 'food'],
   ["morton's the steakhouse", 'food'], ['flemings prime', 'food'], ["fleming's prime", 'food'],
   ["eddie v's", 'food'], ['seasons 52', 'food'], ['bonefish grill', 'food'],
@@ -862,7 +864,7 @@ const MERCHANTS = [
   ['kobo', 'entertainment'],
 
   // Health — pharmacy banners, DTC telehealth, boutique fitness, wearables,
-  // labs, hospital systems, urgent care
+  // labs, hospital systems, urgent care.
   ['health mart', 'health'], ['good neighbor pharmacy', 'health'], ['medicine shoppe', 'health'],
   ['thrifty white', 'health'], ['amazon pharmacy', 'health'], ['capsule pharmacy', 'health'],
   ['blink health', 'health'], ['cost plus drugs', 'health'], ['pillpack', 'health'],
@@ -946,9 +948,9 @@ const MERCHANTS = [
   ['ferragamo', 'shopping'], ['zegna', 'shopping'], ['brunello cucinelli', 'shopping'],
   ['loro piana', 'shopping'], ['thom browne', 'shopping'], ['acne studios', 'shopping'],
   ['ganni', 'shopping'], ['maison margiela', 'shopping'], ['comme des garcons', 'shopping'],
-  // Shopping — jewelry & watches. 'tiffany & co.' keeps the period on purpose:
-  // a trailing " co" is stripped as a state code (CO), so the bare form can
-  // never survive the normalizer.
+  // Shopping — jewelry & watches. 'tiffany & co.' keeps the period: a trailing
+  // " co" is stripped as a state code (CO), so the bare form does not survive
+  // the normalizer.
   ['tiffany & co.', 'shopping'], ['cartier', 'shopping'], ['van cleef', 'shopping'],
   ['bvlgari', 'shopping'], ['bulgari', 'shopping'], ['harry winston', 'shopping'],
   ['rolex', 'shopping'], ['audemars piguet', 'shopping'], ['patek philippe', 'shopping'],
@@ -1093,8 +1095,8 @@ const MERCHANTS = [
   ['holafly', 'travel'],
 
   // Insurance — health plans, dental/vision carriers, regional P&C, life, pet.
-  // Most would land in 'insurance' via the keyword anyway; naming them is what
-  // gets the carrier's own name into the ledger.
+  // Most would land in 'insurance' via the keyword anyway; listing them here
+  // puts the carrier name in the ledger.
   ['delta dental', 'insurance'], ['vsp vision', 'insurance'], ['blue cross', 'insurance'],
   ['blue shield', 'insurance'], ['anthem blue', 'insurance'], ['unitedhealthcare', 'insurance'],
   ['united healthcare', 'insurance'], ['molina healthcare', 'insurance'],
@@ -1129,10 +1131,11 @@ const MERCHANTS = [
   ['fisher investments', 'investing'], ['facet wealth', 'investing'], ['goldman sachs', 'investing'],
 
   // ── Apostrophe-stripped twins ───────────────────────────────────────────────
-  // Plenty of exporters drop the apostrophe ("IMOS PIZZA #12", "CHUYS 0421"), so
-  // a possessive brand needs both spellings or half its rows miss. Each twin
-  // carries the same display name as its apostrophe form (see DISPLAY_OVERRIDES)
-  // — the ledger should read "Imo's Pizza" either way. Deliberately NOT twinned:
+  // Many exporters drop the apostrophe ("IMOS PIZZA #12", "CHUYS 0421"), so a
+  // possessive brand needs both spellings or half its rows do not match. Each
+  // twin carries the same display name as its apostrophe form (see
+  // DISPLAY_OVERRIDES), so the ledger reads "Imo's Pizza" either way. NOT
+  // twinned:
   // 'harveys' (Harveys Lake Tahoe is a casino), 'levis' (Lévis, Quebec),
   // 'habibs' (a surname) — the possessive form stays the only way in.
   ['ruths chris', 'food'], ['dickeys barbecue', 'food'], ['churchs chicken', 'food'],
@@ -1162,11 +1165,11 @@ const MERCHANTS = [
   ['powells books', 'shopping'], ['farmers dog', 'shopping'],
 
   // ── Creator-founded & internet-viral brands ─────────────────────────────────
-  // Brands that reach a statement through a feed rather than a storefront:
-  // creator-owned labels (Prime, Feastables, Chamberlain, Unwell, Happy Dad),
-  // the DTC beverage/snack wave, and the TikTok-era beauty shelf. These are
-  // exactly the rows the classifier can't describe — an invented word ("Byoma",
-  // "Olaplex", "Cariuma") carries no morphology to infer a kind from — so the
+  // Brands sold through social feeds rather than storefronts: creator-owned
+  // labels (Prime, Feastables, Chamberlain, Unwell, Happy Dad), DTC
+  // beverage/snack brands, and recent direct-to-consumer beauty brands. The
+  // classifier cannot categorize these — an invented word ("Byoma", "Olaplex",
+  // "Cariuma") has no morphology to infer a kind from — so the
   // lexicon is the only tier that will ever name or categorize them.
   // Rejected on the usual substring grounds: 'canva' (hides in "canvas"),
   // 'g fuel' (hides in "…ING FUEL", a heating-oil naming convention — the
@@ -1193,8 +1196,8 @@ const MERCHANTS = [
   ['cookunity', 'food'], ['daily harvest', 'food'], ['sakara life', 'food'],
   ['purple carrot', 'food'], ['marley spoon', 'food'], ['dinnerly', 'food'],
   ['snake river farms', 'food'],
-  // Coffee & tea subscriptions (these beat the 'coffee' keyword to the row, so
-  // the ledger gets a brand name instead of a bare "food" guess).
+  // Coffee & tea subscriptions (the merchant tier runs before the 'coffee'
+  // keyword, so the ledger gets a brand name instead of a bare "food" match).
   ['black rifle coffee', 'food'], ['trade coffee', 'food'], ['atlas coffee club', 'food'],
   ['bulletproof coffee', 'food'], ['adagio teas', 'food'], ['harney & sons', 'food'],
   ["david's tea", 'food'], ['davidstea', 'food'], ['art of tea', 'food'],
@@ -1275,7 +1278,7 @@ const MERCHANTS = [
   ['hyperice', 'health'], ['concept2', 'health'], ['classpass', 'health'],
   ['alo moves', 'health'], ['mindbody', 'health'], ['function health', 'health'],
   // Creator platforms & digital media (tips, memberships, courses). 'buy me a
-  // coffee' is listed here on purpose: without it the 'coffee' keyword files a
+  // coffee' is listed here because without it the 'coffee' keyword files a
   // creator tip under food.
   ['gumroad', 'entertainment'], ['ko-fi', 'entertainment'], ['buy me a coffee', 'entertainment'],
   ['capcut', 'entertainment'], ['epidemic sound', 'entertainment'], ['domestika', 'entertainment'],
@@ -1289,7 +1292,7 @@ const MERCHANTS = [
   // ── Income — payroll / deposits (direction-guarded in categorize.js) ──
   ['adp payroll', 'income'], ['gusto pay', 'income'], ['payroll', 'income'],
   ['direct deposit', 'income'],
-  // More payroll processors (what an employee sees on a paycheck deposit).
+  // More payroll processors (the names that appear on a paycheck deposit).
   ['paychex', 'income'], ['paycom', 'income'], ['paylocity', 'income'],
   ['trinet', 'income'], ['justworks', 'income'], ['intuit payroll', 'income'],
   ['ceridian', 'income'], ['adp wage', 'income'],
@@ -1301,10 +1304,10 @@ const MERCHANTS = [
 ];
 
 // ── Keyword rules ─────────────────────────────────────────────────────────────
-// [normalized-substring, category-key]. Generic descriptive terms (a notch less
-// certain than a named brand). Checked only after the merchant lexicon misses,
-// in array order (first match wins). Still high-precision: no bare
-// "gas"/"store"/"market"/"bar"/"taco"/"tire"/"deli" — each hides inside an
+// [normalized-substring, category-key]. Generic descriptive terms, less certain
+// than a named brand. Checked only after the merchant lexicon finds nothing, in
+// array order (first match applies). Still high-precision: no bare
+// "gas"/"store"/"market"/"bar"/"taco"/"tire"/"deli" — each occurs inside an
 // unrelated word or spans categories.
 const KEYWORDS = [
   // Food — restaurant/cafe terms
@@ -1342,7 +1345,7 @@ const KEYWORDS = [
   ['medical', 'health'], ['wellness', 'health'], ['urgent care', 'health'],
   ['optometry', 'health'], ['optical', 'health'], ['chiropractic', 'health'],
   ['orthodontic', 'health'], ['drugstore', 'health'], ['drug store', 'health'],
-  // Specialties: what a practice is named after when it isn't named "clinic".
+  // Specialties: what a practice is named after when it is not named "clinic".
   // No bare 'salon'/'spa'/'barber' — personal-care rows are hazard cases.
   ['dermatology', 'health'], ['orthopedic', 'health'], ['pediatric', 'health'],
   ['radiology', 'health'], ['podiatry', 'health'], ['acupuncture', 'health'],
@@ -1394,13 +1397,13 @@ const KEYWORDS = [
 ];
 
 // ── Display names ─────────────────────────────────────────────────────────────
-// The ledger shows a clean merchant name for rows the MERCHANT lexicon
-// recognizes (keyword rules describe a *kind* of business, not an identity, so
-// they never name anything). The name for a needle is DISPLAY_OVERRIDES[needle]
-// when present — including an explicit null for generic needles that must never
-// rename a row — otherwise autoDisplayName(needle). Names are curated data, held
-// to the same precision-first bar as categories: a wrong or ugly name costs
-// more trust than the raw bank string.
+// The ledger shows a clean merchant name for rows the MERCHANT lexicon matches
+// (keyword rules identify a *kind* of business, not a specific one, so they
+// never set a name). The name for a needle is DISPLAY_OVERRIDES[needle] when
+// present — including an explicit null for generic needles that must not rename
+// a row — otherwise autoDisplayName(needle). Names are curated data, held to the
+// same precision-first bar as categories: a wrong or malformed name is worse
+// than the raw bank string.
 
 /** Default display casing for a needle: capitalize each word (and after a
  *  hyphen); short vowel-less tokens read as initialisms (kfc→KFC, tj→TJ, but
@@ -2585,8 +2588,8 @@ const DISPLAY_OVERRIDES = {
   oofos: 'OOFOS',
 
   // Niche & enthusiast retail — mostly compound wordmarks the auto-caser
-  // flattens (zZounds, McMaster-Carr, PCBWay) and shop names carrying a
-  // category tail the brand itself drops.
+  // flattens (zZounds, McMaster-Carr, PCBWay) and shop names carrying a category
+  // tail that the brand's own name omits.
   tcgplayer: 'TCGplayer',
   'troll and toad': 'Troll and Toad',
   coolstuffinc: 'CoolStuffInc',

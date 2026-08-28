@@ -53,10 +53,10 @@
        items (.nav li a) so those three surfaces read the same. */
     border-radius: 8px;
     background: var(--surface1);
-    /* Claims the height left under the header + chips, then hands that height to
-       the flex column inside (table + footer). It is NOT a scroller any more —
-       overflow:hidden is only here to clip the bands to the rounded corners.
-       min-height:0 lets the flex child shrink so the body can scroll. */
+    /* Takes the height left under the header + chips and passes it to the flex
+       column inside (table + footer). It is NOT a scroller — overflow:hidden is
+       here only to clip the bands to the rounded corners. min-height:0 lets the
+       flex child shrink so the body can scroll. */
     flex: 1;
     min-height: 0;
     display: flex;
@@ -93,11 +93,11 @@
     min-height: 0;
 }
 
-/* <tbody> owns BOTH bars. overflow-y stays `scroll` rather than `auto` so the
-   gutter is reserved whether or not the rows overflow, and <thead> reserves the
-   same gutter by the same mechanism — identical content-box narrowing is what
-   keeps the two bands' columns aligned to the pixel regardless of the platform's
-   scrollbar width. The header never scrolls horizontally on its own (hidden, not
+/* <tbody> holds BOTH scrollbars. overflow-y stays `scroll` rather than `auto` so
+   the gutter is reserved whether or not the rows overflow, and <thead> reserves
+   the same gutter the same way — identical content-box narrowing keeps the two
+   bands' columns aligned to the pixel regardless of the platform's scrollbar
+   width. The header never scrolls horizontally by itself (hidden, not
    auto): txSyncHeaderScroll drives its scrollLeft from the body's. */
 .tx-table > thead {
     overflow-y: scroll;
@@ -109,11 +109,11 @@
     overflow-x: auto;
 }
 
-/* Re-promote each row to its own fixed-layout table so every band sizes its
-   columns from the same .tx-col-* widths; collapse drops the default 2px
-   inter-cell spacing that would otherwise creep in once the rows are tables.
-   width:100% fills the band, min-width (§2) is the design floor that makes the
-   row overflow it — the rows are what scroll sideways, not the table. */
+/* Each row becomes its own fixed-layout table so every band sizes its columns
+   from the same .tx-col-* widths; collapse removes the default 2px inter-cell
+   spacing that would otherwise apply once the rows are tables. width:100% fills
+   the band, and min-width (§2) is the floor that makes the row overflow it, so
+   the rows scroll sideways rather than the table. */
 .tx-table > thead > tr,
 .tx-table > tbody > tr {
     display: table;
@@ -465,7 +465,7 @@
     gap: 6px;
 }
 
-/* Same eyebrow voice as the table headers, one size quieter. */
+/* Same eyebrow style as the table headers, one size smaller. */
 .tx-pop-label {
     color: var(--text-tertiary);
     font-family: var(--font-menu);
@@ -642,7 +642,7 @@
    in tables.css (grouped there); this header only adds left alignment and a
    bottom-border divider on top of it. */
 /* The header is a fixed band above the scrolling body (see .tx-table), so the
-   eyebrow cells just need their left alignment; the divider lives on <thead>. */
+   eyebrow cells only need left alignment; the divider is on <thead>. */
 .tx-header-row th {
     text-align: left;
     /* Cells default to content-box, which would add padding/border on top of
@@ -655,9 +655,9 @@
     text-align: right;
 }
 
-/* Column widths — date/account/category/amount size to their own rendered
-   content: txSyncColumnWidths() (transactions.js) measures the header +
-   every mounted row after each render and writes the max back as --tx-w-*,
+/* Column widths — date/account/category/amount are sized to their rendered
+   content: txSyncColumnWidths() (transactions.js) measures the header and every
+   mounted row after each render and writes the max back as --tx-w-*,
    shared by the header/body bands via this custom property (the px
    fallbacks below are only what shows before that first measurement runs).
    Account can hold much longer text (account names up to 50 chars) than is
@@ -672,10 +672,10 @@
    so table-layout: fixed hands it whatever the others don't claim — it's
    the flex column now, with a 120px floor. */
 /* nowrap belongs on the column itself, not only on the measuring pass: the
-   measured width is what makes the date fit, and a single fractional pixel of
-   drift (a stale measurement, a font swapping in after render) is enough to
-   break "Aug 20, 2026" across two lines and shove the row's height around. A
-   date is one short atomic string, so there is never a good place to break it. */
+   measured width is what makes the date fit, and a fraction of a pixel of drift
+   (a stale measurement, a font swapping in after render) is enough to break
+   "Aug 20, 2026" across two lines and change the row's height. A date is one
+   short string with no acceptable break point. */
 .tx-col-date        { width: var(--tx-w-date, 140px); white-space: nowrap; }
 /* Merchant avatar — fixed, not content-fit: it's a decorative circle, not
    text, so there's nothing for it to conform to. Its width is subtracted
@@ -762,10 +762,10 @@
 
 .tx-row td {
     height: var(--tx-row-height);
-    /* Matches the row's own hover transition above: the selected-row fill is
-       painted on the CELLS (it has to sit over the row's frost), so without
-       this the select/deselect step is the one background change on this table
-       that snaps. */
+    /* Matches the row hover transition above: the selected-row fill is painted on
+       the CELLS (it has to sit over the row's frost), so without this the
+       select/deselect change would be the only background change on this table
+       without a transition. */
     transition: background-color 0.15s ease;
     padding-top: 0;
     padding-bottom: 0;
@@ -999,9 +999,9 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     color: var(--text-tertiary);
 }
 
-/* Category owns direction, so the en-masse control row's Type select locks the
-   moment a category is picked. Muted, not faded out: the value it shows is still
-   the honest answer, it just isn't the user's to set from there.
+/* Direction comes from the category, so the en-masse control row's Type select
+   locks once a category is picked. Muted rather than faded out: the value it
+   shows is still correct, it is just not editable there.
    background-COLOR, not the shorthand: .tx-select draws its caret as a
    background-image, and resetting that leaves the locked field the only control
    in the row without an arrow. Text stays at --text-secondary because
@@ -1169,8 +1169,8 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 
 
 /* ─── 6. Empty-state ─────────────────────────────────────────────────────── */
-/* Holds a centered .empty-state (built by UI.emptyState) — the block owns its
-   own padding, so the cell just clears the default row padding. */
+/* Holds a centered .empty-state (built by UI.emptyState); the block sets its own
+   padding, so the cell clears the default row padding. */
 .tx-empty-row td {
     text-align: center;
     padding: 0;
@@ -1205,13 +1205,13 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     overflow: hidden;
 }
 
-/* Busy variant — the parse/preview-prep wait states. The overlay holds
-   invisible for ~90ms then fades in, so work that finishes inside one
-   perceptual "instant" never flashes a modal, while anything slower than that
-   is already under a bar by the time it reads as a wait. Opacity animates on
-   the compositor, so the reveal still plays while synchronous parse work
-   blocks the renderer. Timings mirror BUSY_REVEAL_MS in txfileimport.js;
-   the class is absent entirely when that file asks for an instant reveal. */
+/* Busy variant — the parse/preview-prep wait states. The overlay stays invisible
+   for ~90ms then fades in, so work finishing inside that window never flashes a
+   modal, while anything slower is already under a bar before the delay is
+   noticeable. Opacity animates on the compositor, so the reveal still runs while
+   synchronous parse work blocks the renderer. Timings mirror BUSY_REVEAL_MS in
+   txfileimport.js; the class is omitted entirely when that file requests an
+   instant reveal. */
 .tx-import-overlay--busy {
     animation: tx-busy-reveal 0.2s ease both;
 }
@@ -1499,8 +1499,8 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     border-top: var(--border-width) solid var(--dialog-stroke);
     flex-shrink: 0;
 }
-/* .tx-found-note's own margin-top assumes it follows other content in a
-   scrolling body; here it's the bar's only child, so that gap is redundant. */
+/* .tx-found-note's margin-top assumes it follows other content in a scrolling
+   body; here it is the bar's only child, so that gap is unnecessary. */
 .tx-import-balance-bar .tx-found-note { margin-top: 0; }
 
 
@@ -1572,8 +1572,8 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     overflow: hidden;
 }
 
-/* Each category the detector matched is its own labelled section, stacked in
-   the dialog body. The header doubles as a per-category select-all. */
+/* Each matched category is a labelled section, stacked in the dialog body. The
+   header also acts as a per-category select-all. */
 .tx-similar-group + .tx-similar-group { margin-top: 16px; }
 
 .tx-similar-group-head {
@@ -1771,10 +1771,10 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     transition: width 0.2s ease;
 }
 
-/* Indeterminate variant — the import flow's wait states (file parse, the
-   single commit POST) have no row counts to report, so a fixed-width fill
-   sweeps the track instead. transform runs on the compositor, so the sweep
-   keeps moving even while parse work blocks the renderer. */
+/* Indeterminate variant — the import flow's wait states (file parse, the single
+   commit POST) have no row counts, so a fixed-width fill sweeps the track
+   instead. transform runs on the compositor, so the sweep continues while parse
+   work blocks the renderer. */
 .tx-export-progress-fill--indeterminate {
     width: 40%;
     animation: tx-progress-sweep 1.2s ease-in-out infinite;
@@ -1810,7 +1810,8 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     word-break: break-all;
 }
 
-/* Close is disabled mid-write (the chunk loop owns the .part file). */
+/* Close is disabled mid-write, while the chunk loop is appending to the .part
+   file. */
 .tx-import-close:disabled {
     opacity: 0.35;
     cursor: not-allowed;
@@ -1945,8 +1946,8 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     table-layout: fixed;
 }
 
-/* The body's own top padding would leave a strip for rows to show through
-   above the sticky control row, so the sticky block carries that spacing. */
+/* The body's top padding would leave a strip where rows show through above the
+   sticky control row, so the sticky block carries that spacing instead. */
 .tx-bulk-body { padding-top: 0; }
 
 /* Sticky so the row doing the editing never scrolls away from the rows it
@@ -1976,15 +1977,15 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     border-radius: 8px;
 }
 
-/* Only the vertical inset differs: the preview rows carry their own row padding
-   and would otherwise sit in a panel twice as tall as its contents. */
+/* Only the vertical inset differs: the preview rows already have row padding and
+   would otherwise sit in a panel twice as tall as its contents. */
 .tx-bulk-preview-panel {
     padding-top: 4px;
     padding-bottom: 4px;
 }
 
-/* No fill of its own any more — .tx-bulk-panel above is the surface, and it
-   holds the headers too, so the row and its captions are one block. */
+/* No fill of its own — .tx-bulk-panel above is the surface and holds the headers
+   too, so the row and its captions render as one block. */
 .tx-bulk-apply-row td {
     padding: 2px 8px 0;
 }
@@ -2100,12 +2101,12 @@ html[data-theme="dark"] .tx-bulk-none { opacity: 0.78; }
     font-weight: var(--weight-semibold);
 }
 
-/* The Category cell holds a pill, which paints its own fill and text and would
-   otherwise ignore the rule above — leaving the one changed value that looks
-   like a tag reading as unchanged. It takes the accent in the pill's own tinted
-   idiom (15% fill + solid text, the same recipe as the direction variants) and
-   the semibold the other changed cells wear. Specificity is what beats
-   .tx-category-empty, so a row set back to Uncategorized marks as changed too. */
+/* The Category cell holds a pill, which sets its own fill and text colour and
+   would otherwise override the rule above, leaving a changed category rendered as
+   unchanged. It uses the accent in the pill's tinted style (15% fill + solid
+   text, the same as the direction variants) and the semibold weight of the other
+   changed cells. The higher specificity is what overrides .tx-category-empty, so
+   a row set back to Uncategorized is also marked as changed. */
 .tx-bulk-row td.is-replaced .tx-category-pill {
     background: color-mix(in srgb, var(--accent-primary) 15%, transparent);
     color: var(--accent-primary);
@@ -2137,7 +2138,7 @@ html[data-theme="dark"] .tx-bulk-none { opacity: 0.78; }
 
 .tx-cascade-toggle input { flex-shrink: 0; }
 
-/* display:flex would otherwise beat the [hidden] UA rule on later steps. */
+/* display:flex would otherwise override the [hidden] UA rule on later steps. */
 .tx-cascade-toggle[hidden] { display: none; }
 
 /* ── Wizard step 2: match-strength slider + live results. ── */
@@ -2216,8 +2217,8 @@ html[data-theme="dark"] .tx-bulk-none { opacity: 0.78; }
     font-variant-numeric: tabular-nums;
 }
 
-/* What the two ends of the track mean, said where the user is already
-   looking — the paragraph that used to say it in prose is gone. */
+/* Labels for the two ends of the track, placed beside it; the paragraph that
+   previously explained this in prose was removed. */
 .tx-match-end {
     color: var(--text-tertiary);
     font-family: var(--font-menu);

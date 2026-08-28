@@ -17,11 +17,11 @@ const license = require('../license');
 
 /** Give the client an ACTIVATED install, signed by a throwaway pair.
  *
- *  Without this every mutating test would meet the 402 read-only gate, so this
- *  is what keeps the suite testing features rather than licensing. Tests that
- *  care about the gate (or about the unlicensed state) pass { licensed: false }
- *  and drive it themselves. Both the key slot and the config dir are restored
- *  afterwards, so nothing leaks between files. */
+ *  Without this every mutating test would hit the 402 gate, so this keeps the
+ *  suite testing features rather than licensing. Tests covering the gate (or the
+ *  unlicensed state) pass { licensed: false } and set it up themselves. Both the
+ *  key slot and the config dir are restored afterwards, so no state carries
+ *  between files. */
 function installTestLicense(t, dir) {
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
   const prevKey = license.PUBLIC_KEYS[0];
@@ -33,8 +33,8 @@ function installTestLicense(t, dir) {
       {
         licenseId: '00'.repeat(8),
         issued: '2026-01-01',
-        // Every major version, so bumping the app's version never quietly
-        // turns the whole suite red on an entitlement check.
+        // Every major version, so bumping the app's version does not fail the
+        // whole suite on an entitlement check.
         entitlement: 255,
         email: 'tests@example.com',
       },
@@ -72,8 +72,8 @@ function makeClient(t, { licensed = true } = {}) {
     put: (u, b) => call('PUT', u, b),
     del: (u, b) => call('DELETE', u, b),
     // Make one of the seeded starter accounts visible, as an import would (see
-    // services/accounts) — for the tests that need an account to exist without
-    // also wanting the transactions an import would bring with it.
+    // services/accounts), for tests that need an account to exist without the
+    // transactions an import would insert.
     adopt: (key) => adoptAccount(conn.db(), key),
   };
 }

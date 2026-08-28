@@ -7,17 +7,17 @@ const VALID_CAT_TYPES = ['income', 'expense', 'transfer'];
 // The two seeded "Uncategorized" buckets — their `key` is hardcoded elsewhere
 // (NULL_SYNC_KEYS in handlers/incomeExpenses.js, reportCard.js, creditCards.js,
 // trends.js) to bucket NULL-category transactions, so renaming, retyping, or
-// deleting them would silently break those aggregations. Write guards in
-// handlers/categories.js block API drift; seed.js heals any pre-existing drift
-// on every DB open, so the stored row is always canonical and no read path
-// needs to special-case the name.
+// deleting them breaks those aggregations with no error. Write guards in
+// handlers/categories.js block API drift; seed.js repairs any pre-existing
+// drift on every DB open, so the stored row is always canonical and no read
+// path needs to special-case the name.
 const SYSTEM_CATEGORY_KEYS = new Set(['uncat_income', 'uncat_expense']);
 
-/** Position where a new category should land: the end of its own type's block,
+/** Position where a new category is inserted: the end of its own type's block,
  *  falling back through earlier types so same-type categories stay contiguous
  *  (mirror of insertPos in yearTable.js). Cash Flow columns and the ledger
- *  dropdown render in flat position order — a global MAX+1 append would park a
- *  new income category past Investing, where it looks like it never arrived.
+ *  dropdown render in flat position order — a global MAX+1 append would place a
+ *  new income category after Investing, far from the other income categories.
  *  Callers must open the slot first: UPDATE position = position + 1 WHERE
  *  position >= the returned value. */
 function insertPos(db, catType) {

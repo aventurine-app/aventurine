@@ -7,9 +7,10 @@
 //
 // For each candidate it reports the hazards the lint fence
 // (backend/__tests__/lexiconLint.test.js) would catch, plus soft signals the
-// fence can't check mechanically (substring overlap with existing needles —
-// fine when categories agree, a judgment call when they don't, since MERCHANTS
-// resolves by longest-needle-first and KEYWORDS by array order).
+// fence cannot check mechanically (substring overlap with existing needles,
+// which is fine when the categories match and needs review when they do not,
+// since MERCHANTS resolves by longest-needle-first and KEYWORDS by array
+// order).
 
 const path = require('path');
 const fs = require('fs');

@@ -16,19 +16,20 @@
 //                                             the page wires the click.
 //              add `primary: true` for the accent treatment, `icon: '<key>'`
 //              for a leading glyph. Navigation CTAs carry no glyph: a "+" in
-//              front of "Add balances" promises an inline add, while the
-//              button only moves you to the page that has one.
+//              front of "Add balances" implies an inline add, but the button
+//              navigates to the page that has one.
 //       compact: tighter padding for small/aside cards.
 //
 //   UI.skRows(n) / UI.skChart(h)
 //       Skeleton markup builders (strings) — a list-shaped placeholder and a
 //       block-shaped one. The line/block primitives they compose stay private:
-//       nothing outside this file drew its own skeleton, and exporting them
-//       invited two files to invent two different placeholder rhythms.
+//       no other file draws a skeleton, and exporting them would allow two
+//       files to define different placeholder rhythms.
 //
 //   UI.skeletonGuard(showFn, delay=160) → cancel()
-//       Show a skeleton only if the load outlasts `delay`, so fast (warm)
-//       loads never flash one. Call the returned cancel() once data lands.
+//       Show a skeleton only if the load takes longer than `delay`, so fast
+//       (warm) loads do not flash one. Call the returned cancel() when data
+//       arrives.
 //
 //   UI.openMenu(anchorBtn, items)
 //       Dropdown menu anchored to a button (the ⋮ table menus, the stepper
@@ -38,25 +39,25 @@
 //   UI.wirePicker(btnId, menuId, onPick?) → { close } | null
 //       The app's one dropdown-picker shape, shared by every report header's
 //       range / year control (Spending, Top Merchants, Saved & Invested,
-//       Forecast, Metrics, Cash Flow). Six copies of this had drifted apart —
-//       one had lost its "element missing" guard, two had lost the
+//       Forecast, Metrics, Cash Flow). Six copies of this had diverged — one
+//       was missing its "element missing" guard, two were missing the
 //       btn.disabled check that stops an empty picker from opening. onPick is
-//       DELEGATED off the menu, so the year pickers whose menus are rebuilt
-//       per load no longer re-bind a listener to each option on every rebuild.
-//       Callers read their own data-* attribute off the button they are handed
-//       and do their own validation — the helper owns open/close, nothing else.
+//       DELEGATED off the menu, so the year pickers whose menus are rebuilt per
+//       load no longer re-bind a listener to each option on every rebuild.
+//       Callers read their own data-* attribute off the button passed to them
+//       and validate it themselves; this helper handles only open and close.
 //
 //   UI.lockPickerWidth(btn, captions)
-//       Pin a picker button (.stepper-label) to the width of the widest
-//       caption it can ever show, and pass that width to the menu below it as
-//       a floor. Used by the month steppers, whose caption length otherwise
-//       changes with the month.
+//       Pin a picker button (.stepper-label) to the width of the widest caption
+//       it can show, and pass that width to the menu below it as a minimum.
+//       Used by the month steppers, whose caption length otherwise changes with
+//       the month.
 //
 //   UI.toast(message, { type = 'info', duration = 5000 })
 //       Small transient notice, bottom-center. type: 'info' | 'error'.
-//       One toast at a time: a repeat call replaces the text and restarts
-//       the timer, so a burst of identical failures (e.g. server gone while
-//       the user edits several cells) coalesces instead of stacking.
+//       One toast at a time: a repeat call replaces the text and restarts the
+//       timer, so a burst of identical failures (e.g. the backend unreachable
+//       while several cells are edited) shows once instead of stacking.
 //       Click dismisses early. Styling: .ui-toast in ui.css.
 //
 // SECURITY: title/desc/label run through escapeHtml (global, from escape.js).
@@ -65,8 +66,8 @@
 (function () {
     const UI = (() => {
 
-        // 24×24 stroke icons in the sidebar's visual language (1.5 stroke,
-        // currentColor, round joins) so empties feel native to the app.
+        // 24×24 stroke icons matching the sidebar's style (1.5 stroke,
+        // currentColor, round joins).
         const ICONS = {
             info:     '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.5"/><path d="M12 11.5v4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="8" r="1" fill="currentColor"/></svg>',
             chart:    '<svg viewBox="0 0 24 24" fill="none"><path d="M4 4v15a1 1 0 0 0 1 1h15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.5 14l3.5-4 3 2.5L20 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -130,7 +131,7 @@
         // ── Dropdown menu ──────────────────────────────────────────────────────
         // Anchored to `anchorBtn`: absolute-positioned into its parent, which is
         // forced to position: relative only when otherwise unpositioned (an
-        // inline `relative` on a sticky/absolute parent would clobber it — see
+        // inline `relative` on a sticky/absolute parent would override it — see
         // .p-forehead-btns in tables.css). Closes on outside click. `selected`
         // marks the current choice in picker-style menus (stepper month/year).
         function openMenu(anchorBtn, items) {
@@ -173,11 +174,11 @@
         // can ever show and pin the button to the widest one, so the control is
         // a fixed block whatever month is on it.
         //
-        // Measured with a hidden clone of the button itself — same classes, same
-        // parent — rather than a font string: text-transform, letter-spacing,
-        // tabular numerals and the padding that clears the caret all land in the
-        // number that way. Re-measured once document.fonts resolves, since the
-        // app's @font-face files land after first paint and the fallback face
+        // Measured with a hidden clone of the button — same classes, same parent
+        // — rather than from a font string, so text-transform, letter-spacing,
+        // tabular numerals and the padding around the caret are all included.
+        // Re-measured once document.fonts resolves, since the app's @font-face
+        // files load after first paint and the fallback face
         // measures narrower. The lock is CSS pixels, which Chromium's zoom
         // scales with everything else, so Ctrl +/- needs no re-measure.
         function lockPickerWidth(btn, captions) {
@@ -200,14 +201,14 @@
                 if (!widest) return;   // stepper not laid out (hidden tab) — leave it alone
                 const width = Math.ceil(widest) + 'px';
                 btn.style.width = width;
-                // The menu opens into the stepper, so hand the same figure down
-                // as its floor (.stepper .p-table-dropdown in ui.css): the list
-                // is never narrower than the button it hangs off, and it stops
-                // depending on which months the window happens to hold. A
-                // .stepper-picker slot wins over the stepper when there is one,
-                // because a stepper holding two pickers (the Dashboard's year +
-                // month) would otherwise have the second call overwrite the
-                // first and widen the year menu to a month name's width.
+                // The menu opens inside the stepper, so pass the same figure
+                // down as its minimum (.stepper .p-table-dropdown in ui.css): the
+                // list is never narrower than its button, and its width no longer
+                // depends on which months are in range. A .stepper-picker slot
+                // takes precedence over the stepper when present, because a
+                // stepper holding two pickers (the Dashboard's year + month)
+                // would otherwise have the second call overwrite the first and
+                // widen the year menu to a month name's width.
                 (btn.closest('.stepper-picker') || btn.closest('.stepper') || btn.parentElement)
                     .style.setProperty('--picker-menu-min', width);
             };
@@ -219,7 +220,7 @@
         // Toggle a [hidden] menu off its button; any click elsewhere closes it.
         // Returns { close } so a caller can dismiss the menu from its own code
         // (the Forecast picker closes its hover card at the same time), or null
-        // when the page does not hold this picker — the Reports tabs share one
+        // when the page does not contain this picker — the Reports tabs share one
         // document, so every picker script runs on every tab.
         function wirePicker(btnId, menuId, onPick) {
             const btn = document.getElementById(btnId);
@@ -249,9 +250,9 @@
         }
 
         // ── Toast ──────────────────────────────────────────────────────────────
-        // A single persistent element, shown/hidden by class so repeated calls
-        // coalesce (see the header comment). textContent (never innerHTML) keeps
-        // arbitrary error strings inert.
+        // A single persistent element, shown and hidden by class so repeated
+        // calls reuse it (see the header comment). textContent, never innerHTML,
+        // so arbitrary error strings cannot inject markup.
         let _toastEl = null;
         let _toastTimer = null;
 

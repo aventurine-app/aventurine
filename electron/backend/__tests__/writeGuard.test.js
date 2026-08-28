@@ -1,11 +1,11 @@
 'use strict';
 
 // Renderer-trust-boundary containment for file writes (conn.js authorizeWrite,
-// wired into db create / save-as / export). The backend only ever writes to a
-// path the renderer relayed; the Electron shell injects a guard so a path the
-// user didn't pick from a native dialog needs an out-of-renderer confirmation.
-// Off the Electron boundary (no guard) writes stay unrestricted — proven by the
-// rest of the suite, which never installs one.
+// wired into db create / save-as / export). The backend writes only to paths the
+// renderer sends; the Electron shell injects a guard so a path not chosen from a
+// native dialog requires an out-of-renderer confirmation. Outside Electron (no
+// guard) writes are unrestricted, which the rest of the suite exercises by never
+// installing one.
 
 const test = require('node:test');
 const assert = require('node:assert');
@@ -21,8 +21,8 @@ const tmpDir = (t) => {
   return d;
 };
 
-/** Install a guard that records the paths it was asked to confirm and answers
- *  with `verdict`. Returns the call log so tests can assert prompt counts. */
+/** Install a guard that records the paths it was asked to confirm and returns
+ *  `verdict`. Returns the call log so tests can assert prompt counts. */
 function installGuard(conn, verdict) {
   const prompted = [];
   conn.setWriteGuard({
@@ -53,7 +53,7 @@ test('guard: non-dialog create path is refused (403) when the user declines', (t
   const r = c.post('/api/db/create', { path: p });
   assert.equal(r.status, 403);
   assert.equal(r.body.error, 'write_not_authorized');
-  // Refused before any filesystem side effect.
+  // Refused before any filesystem write.
   assert.ok(!fs.existsSync(p));
 });
 

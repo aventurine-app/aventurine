@@ -5,11 +5,11 @@
 // lexicon doesn't name, plus hard negatives that must stay blank.
 //
 // The contract, in priority order:
-//   • PRECISION IS ABSOLUTE — it must never miscategorize. A wrong category is
-//     worse than a blank one (the user was told they'd fill some in). This is
-//     the same trust rule the lexicon lives under.
-//   • RECALL IS A BONUS — it should recover a healthy share of readable
-//     merchants, but abstaining is always an acceptable answer.
+//   • PRECISION FIRST — it must not miscategorize. A wrong category is worse than
+//     a blank one, which the UI already states will occur. Same rule as the
+//     lexicon.
+//   • RECALL SECOND — it should categorize a reasonable share of readable
+//     merchants, but returning null is always an acceptable result.
 //
 // (Abstention on the 119-row hazard corpus is fenced separately, through the
 // full categorize() pipeline, in lexiconLint.test.js.)
@@ -49,8 +49,8 @@ test('classifier: recovers a healthy share of describable-unseen merchants', () 
     if (hit && hit.categoryKey === expected) covered++;
   }
   const recall = covered / positives.length;
-  // Floor, not a target — the model currently sits well above this. It exists
-  // to catch a regression that silently guts recall, not to chase coverage.
+  // A floor, not a target — the model currently sits well above this. It catches
+  // a regression that drops recall, rather than driving coverage up.
   assert.ok(recall >= 0.6, `recall ${(recall * 100).toFixed(0)}% fell below the 60% floor`);
 });
 
@@ -71,8 +71,8 @@ test('classifier: reads descriptive merchants the lexicon never names', () => {
   assert.equal(classify('METRO SPORTING GOODS').categoryKey, 'shopping');
   assert.equal(classify('SUNRISE AUTOMOTIVE SERVICE').categoryKey, 'automobile');
   assert.equal(classify('HARBOR BEHAVIORAL HEALTH').categoryKey, 'health');
-  // Emits a confidence that clears the import auto-apply bar, tagged as its own
-  // source so the blend order stays legible.
+  // Returns a confidence above the import auto-apply threshold, tagged with its
+  // source so the tier order stays traceable.
   const hit = classify('METRO SPORTING GOODS');
   assert.equal(hit.source, 'classifier');
   assert.ok(hit.confidence >= 0.8);

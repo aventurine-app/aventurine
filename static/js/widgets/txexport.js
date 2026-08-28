@@ -1,15 +1,15 @@
 'use strict';
 
 // ─── txexport.js ──────────────────────────────────────────────────────────────
-// Export-all-transactions modal for the Transactions page — the counterpart
-// of txfileimport.js, kept in its own file for the same reason.
+// Export-all-transactions modal for the Transactions page — the counterpart of
+// txfileimport.js, kept in a separate file for the same reason.
 //
-// The renderer never touches the filesystem: serialisation and writes live in
-// the backend (electron/backend/services/txExport.js behind
-// POST /api/transactions/export). This file owns the modal UI and drives the
+// The renderer never touches the filesystem: serialisation and writes are in the
+// backend (electron/backend/services/txExport.js behind
+// POST /api/transactions/export). This file provides the modal UI and drives the
 // chunked export loop — one POST per chunk of rows, each appending to
-// <path>.part until the final call renames it into place — so the progress
-// bar tracks rows actually written, not an animation.
+// <path>.part until the final call renames it into place — so the progress bar
+// tracks rows actually written rather than elapsed time.
 //
 // Flow:
 //   1. Pick a format (CSV / OFX / QFX / QIF) and a destination. Browse…
@@ -34,7 +34,8 @@
 
         // ── Modal shell ───────────────────────────────────────────────────────────
         // Same structure and CSS classes as txfileimport.js's buildModal, plus a
-        // guard so the dialog can't be dismissed while a file write is in flight.
+        // guard so the dialog cannot be dismissed while a file write is in
+        // flight.
         function buildModal(title) {
             const overlay = document.createElement('div');
             overlay.className = 'tx-import-overlay';
@@ -76,8 +77,8 @@
         // ── Export modal ──────────────────────────────────────────────────────────
         // `filters` is the export endpoint's `filters` body field (built by
         // transactions.js from the search bar), or null/absent to export the
-        // whole ledger; `count` is how many rows those filters leave visible —
-        // display only, the backend re-applies the criteria itself.
+        // whole ledger; `count` is how many rows those filters leave visible, for
+        // display only — the backend re-applies the criteria when exporting.
         function run({ filters = null, count = null } = {}) {
             const modal = buildModal('Export Transactions');
             const fileApi = window.electronFile || null;

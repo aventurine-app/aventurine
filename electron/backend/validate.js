@@ -11,10 +11,10 @@ const VALID_MONTHS = [
 
 // Months persist on disk as 1-12 integers (so `ORDER BY year, month` sorts
 // chronologically for anyone querying the DB directly). The API contract — and
-// every request/response payload — still speaks the English month NAME; these
-// two helpers convert at the storage boundary. parseEntry deliberately keeps
-// returning the name (it mirrors the Python validator); callers convert with
-// monthNumber() at the INSERT and monthName() when shaping a response.
+// every request/response payload — uses the English month NAME; these two
+// helpers convert at the storage boundary. parseEntry still returns the name
+// (mirroring the Python validator); callers convert with monthNumber() at the
+// INSERT and monthName() when shaping a response.
 const _MONTH_TO_NUM = new Map(VALID_MONTHS.map((name, i) => [name, i + 1]));
 
 /** English month name -> 1..12, or null if not a valid month name. */

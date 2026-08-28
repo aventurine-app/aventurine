@@ -2,23 +2,23 @@
 
 // Accounts — the Balance Sheet's columns, which double as the accounts a
 // transaction can belong to (transactions.account_key references
-// balance_columns."key"; see the v10 migration). This service owns the one
-// thing the generic year-table factory can't: ADOPTION of a starter account.
+// balance_columns."key"; see the v10 migration). This service holds the one
+// thing the generic year-table factory does not: adoption of a starter account.
 //
 // A fresh database seeds the starter accounts hidden (seed.js
 // DEFAULT_BALANCE_COLUMNS): they exist so onboarding and the import picker can
 // offer stably-keyed, pre-named choices ("Checking", "Credit Card"), but they
-// are invisible everywhere else until the user actually adopts one. Adoption is
-// deliberately a side effect of USE — an import landing in the account — not of
-// picking it in a list, so an abandoned onboarding leaves nothing behind.
+// stay hidden everywhere else until adopted. Adoption happens on USE — an
+// import landing in the account — not on picking it in a list, so an abandoned
+// onboarding leaves no visible accounts behind.
 
 const BAL_TYPE_ORDER = ['cash', 'investment', 'retirement', 'debt'];
 
-/** Position where a newly visible account should land: the end of its own
+/** Position where a newly visible account is inserted: the end of its own
  *  type's block, falling back through earlier types so same-type accounts stay
  *  contiguous (mirror of insertPos in services/categories.js and yearTable.js).
- *  Only VISIBLE accounts count — the starter accounts are parked outside the
- *  display order, so they must not push a real account past its type group.
+ *  Only VISIBLE accounts count — the starter accounts have no display position,
+ *  so they must not push a real account past its type group.
  *  Callers open the slot first: UPDATE position = position + 1 WHERE
  *  position >= the returned value. */
 function insertPos(db, colType) {
@@ -39,11 +39,11 @@ function insertPos(db, colType) {
 }
 
 /**
- * Adopt a starter account: make it visible and give it a real slot in the
- * display order (until now it had none). Idempotent and safe to call for any
- * key — an account that is already visible, or a key that names nothing, is
- * left alone. Returns true only when this call is what revealed it, so a caller
- * can report "your Checking account is now on the Balance Sheet" exactly once.
+ * Adopt a starter account: make it visible and give it a slot in the display
+ * order (until now it had none). Idempotent and safe to call for any key — an
+ * account that is already visible, or a key matching no row, is left unchanged.
+ * Returns true only when this call is what revealed it, so a caller can report
+ * "your Checking account is now on the Balance Sheet" exactly once.
  *
  * Must run inside the caller's transaction: it renumbers neighbouring rows.
  */

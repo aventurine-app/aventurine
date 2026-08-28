@@ -10,10 +10,10 @@
 //
 // Stored 'color-theme' values: '' (light, the default), 'dark', 'colorful'
 // (light, with an accent sidebar — see themes.css), or 'system' (follow the OS).
-// 'system' is the only value that needs resolving; every other one IS the
+// 'system' is the only value that needs resolving; every other value IS the
 // data-theme, so adding a theme means adding a CSS block and a picker button,
-// not editing this file. The live picker (settings.js) keeps 'system' in sync
-// when the OS preference flips while the app is open.
+// not editing this file. The live picker (settings.js) updates 'system' when the
+// OS preference changes while the app is open.
 //
 // 'ui-density' = 'compact' tightens table row heights (else comfortable). Both
 // land on <html> as data-* before first paint to avoid a layout flash on nav.
@@ -27,10 +27,9 @@
 
     // Graph palette — a SECOND, independent axis from the surface theme above
     // (see the block at the foot of themes.css). Stored 'graph-theme' values:
-    // '' (the accent-derived ramp, the default) or 'colorful'. Set pre-paint
-    // for the same reason as the theme: the charts read these tokens at draw
-    // time, and a page that painted under the wrong palette would have to be
-    // told to repaint itself.
+    // '' (the accent-derived ramp, the default) or 'colorful'. Set pre-paint for
+    // the same reason as the theme: the charts read these tokens at draw time,
+    // and a page painted under the wrong palette would need a repaint.
     const g = localStorage.getItem('graph-theme');
     if (g) document.documentElement.dataset.graphTheme = g;
 
@@ -38,18 +37,18 @@
         document.documentElement.dataset.density = 'compact';
     }
 
-    // Feature tier, pre-paint. The backend is the authority on licensing
-    // (electron/backend/router.js answers 402 to the paid routes until a key
-    // is stored), but that verdict arrives over an async IPC round trip, which
-    // is one paint too late: a paying user would see a flash of the free
-    // layout, and a free user a flash of sections they have not bought. So the
-    // last known verdict is cached here as a rendering hint and the real status
-    // corrects it a moment later (shell/license.js).
+    // Feature tier, pre-paint. The backend is authoritative for licensing
+    // (electron/backend/router.js returns 402 for the paid routes until a key is
+    // stored), but that result arrives over an async IPC round trip, one paint
+    // too late: a licensed user would see a flash of the free layout, and a free
+    // user a flash of paid sections. So the last known result is cached here as a
+    // rendering hint and the real status replaces it a moment later
+    // (shell/license.js).
     //
-    // Absent hint means FREE, matching the allowlist in router.js: closed until
-    // something says otherwise. It can only ever be missing on a fresh profile
-    // or cleared storage, and briefly under-showing a paying user is a smaller
-    // wrong than briefly showing paid sections to someone who has not bought.
+    // An absent hint means FREE, matching the allowlist in router.js: closed by
+    // default. It is missing only on a fresh profile or cleared storage, and
+    // briefly hiding paid sections from a licensed user is preferable to briefly
+    // showing them to an unlicensed one.
     //
     // Nothing is gated on this value. Forging it reveals section headings whose
     // every request still returns 402, which is why a spoofable store is the

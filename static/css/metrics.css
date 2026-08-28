@@ -60,8 +60,8 @@
     animation: met-bar-grow 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 .met-band { display: block; height: 100%; min-width: 0; }
-/* A hairline of the card's own background between bands — enough separation to
-   count them without a gap that would make the widths lie. */
+/* A hairline of the card background between bands — enough to count them without
+   a gap that would change the effective widths. */
 .met-band + .met-band { box-shadow: inset 1px 0 0 var(--surface1); }
 .met-band-spent { background: var(--cat-1); }
 .met-band-saved { background: var(--cat-2); }

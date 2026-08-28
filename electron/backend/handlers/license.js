@@ -7,7 +7,8 @@
 const license = require('../license');
 const { bad } = require('../validate');
 
-// One place for the copy, so the renderer never has to know reason codes.
+// The message text for each reason code, kept here so the renderer does not
+// map reason codes itself.
 const REASONS = {
   malformed: "That key doesn't look complete. Copy the whole key from the activation page and try again.",
   unknown_key: 'That key was issued for a different version of Aventurine.',
@@ -29,11 +30,10 @@ function get() {
   return shape(license.status());
 }
 
-/** Read a key WITHOUT storing it, so the panel can show whose key it is before
- *  the user commits. Verification has to happen here rather than in the
- *  renderer: the public key and the decision it drives belong in the main
- *  process, and duplicating either into a page would put a trust decision
- *  somewhere a page could rewrite. */
+/** Read a key WITHOUT storing it, so the panel can show the registered address
+ *  before the user activates. Verification happens here rather than in the
+ *  renderer: the public key and the verification result stay in the main
+ *  process, where a page cannot modify them. */
 function preview(ctx, { body }) {
   const key = (body || {}).key;
   if (typeof key !== 'string') bad('key must be a string');

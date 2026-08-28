@@ -2,28 +2,26 @@
 
 // Top Merchants (Reports → Spending) blueprint. Read-only: ranks the merchants
 // the user spent the most with over a trailing window, for the bar chart that
-// sits under Spending Trends. Trends answers "what did I spend it ON"
-// (categories, month by month); this answers "who did I spend it WITH"
-// (merchants, totalled) — the same ledger seen through the other axis.
+// sits under Spending Trends. Trends breaks spending down by category, month by
+// month; this breaks the same ledger down by merchant, totalled.
 //
-// WHAT COUNTS AS SPENDING is exactly what the sibling report counts (see
-// handlers/trends.js): a categorized row whose CATEGORY is an expense, plus an
-// uncategorized row whose own tx_type says expense. Transfers and income are
-// out, per the direction rule — money moved between your own accounts was
-// never spent with anyone.
+// WHAT COUNTS AS SPENDING matches the sibling report (see handlers/trends.js):
+// a categorized row whose CATEGORY is an expense, plus an uncategorized row
+// whose own tx_type is expense. Transfers and income are excluded, per the
+// direction rule — money moved between the user's own accounts is not spending.
 //
-// WHAT COUNTS AS ONE MERCHANT is services/merchantKey.js — the two-tier rule
-// (curated display_name, else the leading content tokens of the normalised
-// description) that this report used to own outright. It moved out when the
-// Investing report needed to group merchants by the same rule; the reasoning
-// for every part of it lives there. A row that names nobody gets a null key and
-// is skipped here: a bar has to be able to say whose it is.
+// MERCHANT GROUPING is services/merchantKey.js — the two-tier rule (curated
+// display_name, else the leading content tokens of the normalised description)
+// that used to live in this file. It moved when the Investing report needed the
+// same grouping; the reasoning for each part is documented there. A row matching
+// no merchant gets a null key and is skipped here, since a bar has to be
+// labelled.
 //
-// THE WINDOW is a count of CALENDAR MONTHS ending with the current, partial
-// one. Trends excludes the running month because a half-finished month dents a
-// per-month trend line; a ranking has no such shape to dent, and "who have I
-// been spending with lately" that ignores everything since the 1st would read
-// as broken. 'all' drops the date filter entirely.
+// THE WINDOW is a count of CALENDAR MONTHS ending with the current, partial one.
+// Trends excludes the running month because a half-finished month distorts a
+// per-month trend line; a ranking has no per-month shape, and excluding
+// everything since the 1st would leave recent spending out of a "lately"
+// ranking. 'all' drops the date filter entirely.
 
 const { merchantKey, resolvedName } = require('../services/merchantKey');
 const { commonSearchTerm } = require('../services/merchantSearch');
@@ -58,10 +56,10 @@ function topMerchantsGet(ctx, { query }) {
   // First month included: `window` months ending with the current one.
   const from = window === 'all' ? null : addMonthKey(currentMonthKey(), -(window - 1));
 
-  // A categorized row's direction is owned by its category (the direction rule
-  // — a stored tx_type can lag a category re-type), an uncategorized row's by
-  // its own tx_type. Deleting a category requires its transactions be moved
-  // off it first, so the LEFT JOIN never misses on a categorized row.
+  // A categorized row takes its direction from its category (the direction rule
+  // — a stored tx_type can lag a category re-type), an uncategorized row from
+  // its own tx_type. Deleting a category requires its transactions be moved off
+  // it first, so the LEFT JOIN always matches on a categorized row.
   const rows = db
     .prepare(
       `SELECT t.description AS description, t.display_name AS display_name,
@@ -85,14 +83,14 @@ function topMerchantsGet(ctx, { query }) {
     }
     g.total += Number(r.amount) || 0;
     g.count += 1;
-    // Rows arrive date-ordered, so the newest label wins — for an unnamed
-    // group that is the most recent raw description, which is the same row the
-    // ledger would show at the top of the merchant's history.
+    // Rows arrive date-ordered, so the newest label is kept — for an unnamed
+    // group that is the most recent raw description, the same row the ledger
+    // shows at the top of the merchant's history.
     g.name = resolvedName(r) || String(r.description || '').trim();
     g.last_date = r.date;
   }
 
-  // Name is the tiebreak so an equal-spend pair doesn't swap places between
+  // Name is the tiebreak so an equal-spend pair does not swap places between
   // two identical requests.
   const ranked = [...groups.values()]
     .filter((g) => g.total > 0)

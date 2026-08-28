@@ -110,9 +110,9 @@ test('seed heals a drifted system bucket (name + type), leaves the rest alone', 
   const db = connect(tmpFile());
   bootstrapSchema(db);
   seedDefaults(db);
-  // A DB written before the uncat_* lock existed can hold a renamed/re-typed
-  // system bucket (the real-world case: "UNc"). Seeding on open must restore
-  // the canonical row — but never touch user-owned rows or the position.
+  // A DB written before the uncat_* lock existed can hold a renamed or re-typed
+  // system bucket (observed case: "UNc"). Seeding on open must restore the
+  // canonical row, without modifying user-created rows or the position.
   db.prepare(
     "UPDATE categories SET name = 'UNc', cat_type = 'income', position = 99 WHERE \"key\" = 'uncat_expense'"
   ).run();
@@ -149,8 +149,8 @@ test('v8 migration adds transactions.display_name and refreshes v_transactions',
   const db = connect(tmpFile());
   bootstrapSchema(db);
   seedDefaults(db);
-  // Rewind to the v7 shape: no display_name column, view without it. (The
-  // view must go first — SQLite refuses to drop a column a view references.)
+  // Revert to the v7 shape: no display_name column, view without it. (The view
+  // must be dropped first — SQLite refuses to drop a column a view references.)
   db.exec('DROP VIEW v_transactions');
   db.exec('ALTER TABLE transactions DROP COLUMN display_name');
   db.pragma('user_version = 7');

@@ -1,33 +1,28 @@
 'use strict';
 
 // ─── Saved & Invested (Reports) ──────────────────────────────────────────────
-// Two charts off ONE payload (GET /api/transfers): how much moved into the
-// user's own savings and investment accounts each month, and where it went.
-// "Transfer" is the DIRECTION the ledger already derives, not a category the
-// user has to curate — see handlers/transfers.js for why that swap happened. Sibling of trends.js
-// / topmerchants.js, and deliberately shaped like neither of them alone — the
-// second chart here is the first one broken out, not a second question, so the
-// two share a window picker and a single fetch. That is the whole reason there
-// is one control above both cards instead of one in each card header: the
-// moment the two can be set to different months, the stack stops explaining the
-// line and both charts get less trustworthy for it.
+// Two charts from ONE payload (GET /api/transfers): how much moved into the
+// user's savings and investment accounts each month, and which merchants it went
+// to. "Transfer" is the DIRECTION the ledger already derives, not a category the
+// user maintains — see handlers/transfers.js. Related to trends.js and
+// topmerchants.js, but structured differently from both: the second chart here
+// is the first one broken out by merchant, not a separate measure, so the two
+// share a window picker and a single fetch. That is why there is one control
+// above both cards rather than one per card header: if the two could be set to
+// different months, the stack would no longer sum to the line.
 //
-// WHY A LINE THEN A STACK. The first question is "am I putting more or less
-// away", which is a shape over time and reads off a line. The second is "and to whom",
-// which is a part-to-whole broken out over the same months — the one job a
-// stacked column does better than anything else. Splitting them is what keeps
-// the first answer readable: a reader should not have to decode a stack to see
-// a trend.
+// WHY A LINE THEN A STACK. The first chart shows the amount saved over time,
+// which is a shape best read from a line. The second breaks the same months down
+// by merchant, which a stacked column shows best. Keeping them separate keeps
+// the trend readable without decoding a stack.
 //
 // COLOUR FOLLOWS THE MERCHANT, NOT ITS RANK. Slots are assigned on first sight
-// and kept for as long as the page is open (see assignColors), so changing the
-// window does not repaint the merchants that survived it. A reader who has
-// learned that Vanguard is the blue band should not have that taken away by a
-// picker. Eight is the hard ceiling — the categorical ramp is eight steps and a
-// ninth would have to be a generated or reused hue, indistinguishable under
-// colour-vision deficiency. The backend already folds the tail into one "Other"
-// group, which wears a neutral rather than a ninth hue precisely so it never
-// reads as a merchant.
+// and kept while the page is open (see assignColors), so changing the window
+// does not re-colour the merchants that remain. Eight is the maximum: the
+// categorical ramp has eight steps, and a ninth would need a generated or reused
+// hue, indistinguishable under colour-vision deficiency. The backend folds the
+// remainder into one "Other" group, which uses a neutral rather than a ninth hue
+// so it is not mistaken for a merchant.
 //
 // Globals: apiFetch (api.js), escapeHtml (escape.js), formatCurrency
 // (currency.js), merchantAvatarHtml (avatar.js), FinanceChart (chart.js),
@@ -81,7 +76,7 @@
     readPalettes();
     const merchants = (state.data && state.data.merchants) || [];
     const live = new Set(merchants.map((m) => m.key));
-    // Forget merchants no window shows any more, so their slots come back.
+    // Drop merchants no longer in the payload, freeing their colour slots.
     for (const key of [...state.colors.keys()]) {
       if (!live.has(key)) state.colors.delete(key);
     }
@@ -121,9 +116,8 @@
     renderMerchants();
   }
 
-  // The window's total, in the first card's header. A figure, not a sentence:
-  // the picker beside it already says what span it covers, and the chart under
-  // it says how it got there.
+  // The window's total, in the first card's header. A figure with no label: the
+  // picker beside it states the span, and the chart below shows the breakdown.
   function renderTotal() {
     const el = document.getElementById('transfers-total');
     if (!el || !state.data) return;
@@ -135,10 +129,9 @@
     if (!container || !state.data) return;
     const { months, monthly, total, everTransferred } = state.data;
 
-    // Two different nothings, and they want opposite things said. A ledger that
-    // has never held a transfer needs a way to start; a ledger that just has not
-    // held one lately needs a longer time frame, and offering it the button
-    // would be answering a question it didn't ask.
+    // Two different empty states with different messages. A ledger that has never
+    // held a transfer gets a way to start; a ledger with none in this window gets
+    // a suggestion to widen the time frame, not the start button.
     if (!(total > 0)) {
       FinanceChart.render('transfers-chart', { series: [], slots: [] });
       container.innerHTML = everTransferred
@@ -177,10 +170,10 @@
 
     if (!merchants.length) {
       FinanceChart.renderStacked('transfers-merchants-chart', { series: [], slots: [] });
-      // Compact, and it says nothing the card above just said: an empty stack
-      // and an empty line are the same nothing, and the card above already
-      // named it and carries whatever action there is. Two full empty states
-      // stacked is a wall, and two copies of the same advice reads as a fault.
+      // Compact, and it does not repeat the card above: an empty stack and an
+      // empty line mean the same thing, and the card above already states it and
+      // holds the action. Two full empty states stacked would fill the panel and
+      // repeat the same message twice.
       container.innerHTML = UI.emptyState({
         icon: 'chart', compact: true,
         title: 'Nothing to break out',

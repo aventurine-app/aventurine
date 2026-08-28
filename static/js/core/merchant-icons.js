@@ -5,16 +5,15 @@
  *
  * MERCHANT_ICONS maps a merchant slug (see merchantIconSlug in avatar.js —
  * lowercase, alphanumerics only) to the basename of a bundled brand icon in
- * static/merchant-icons/. Several slugs can share one icon: every lexicon
- * needle that names a brand ("wendys", "wendy's") is an alias for that brand's
- * display-name slug, so a hand-typed label matches the same file an imported
- * row does.
+ * static/merchant-icons/. Several slugs can share one icon: every lexicon needle
+ * for a brand ("wendys", "wendy's") is an alias for that brand's display-name
+ * slug, so a hand-typed label matches the same file an imported row does.
  *
  * MERCHANT_ICONS_BLEED lists the icons whose artwork reaches all four corners —
  * a brand-colour tile rather than a mark on transparency. Those fill the avatar
- * circle and get clipped round; the rest sit inset on a neutral disc so a dark
- * monogram has something to stand on. Measured from the pixels at build time,
- * because CSS cannot ask an image whether its corners are transparent.
+ * circle and are clipped round; the rest sit inset on a neutral disc so a dark
+ * monogram has a background. Measured from the pixels at build time, since CSS
+ * cannot read an image's corner transparency.
  *
  * 1430 icons (569 full-bleed), 1717 slugs. */
 

@@ -3,8 +3,8 @@
 // The synthetic training-data generator (scripts/lib/synth.js). It must be
 // deterministic — the shipped model weights are reproducible only if the same
 // seed yields byte-identical data — and it must produce well-formed, well-
-// balanced labels. This does NOT test model accuracy (that's classifier.test.js
-// against the held-out eval corpus); it guards the data pipeline.
+// balanced labels. This does NOT test model accuracy (classifier.test.js covers
+// that against the held-out eval corpus); it covers the data pipeline.
 
 const test = require('node:test');
 const assert = require('node:assert');
@@ -39,6 +39,6 @@ test('every label is a real category key or "unknown"', () => {
 test('"unknown" is well represented (drives abstention)', () => {
   const data = generateDataset();
   const unknown = data.filter((d) => d.label === 'unknown').length;
-  // Enough negatives that the classifier can learn to predict "leave blank".
+  // Enough negatives for the classifier to learn to return null.
   assert.ok(unknown / data.length > 0.25, `unknown share ${(unknown / data.length).toFixed(2)} too low`);
 });

@@ -1,9 +1,9 @@
 'use strict';
 
 // End-to-end verification: boots the REAL app entry (main.js) against an
-// isolated data dir, waits for the window, then asserts from INSIDE the
-// renderer that the page rendered, the preload bridge answers, and a write
-// round-trips through IPC to SQLite and back. Exits 0 on PASS.
+// isolated data dir, waits for the window, then asserts from INSIDE the renderer
+// that the page rendered, the preload bridge responds, and a write round-trips
+// through IPC to SQLite and back. Exits 0 on PASS.
 //
 //   AVENTURINE_E2E=1 electron . is NOT used — this drives main.js directly:
 //   npm run verify  (alias: electron scripts/verify-e2e.js)
@@ -77,9 +77,9 @@ app.whenReady().then(async () => {
     // a windows-1252 fallback renders every em-dash as mojibake).
     check('document parsed as UTF-8', (await evalJs('document.characterSet')) === 'UTF-8');
 
-    // Navigate like a USER: click the navbar link. Renderer-initiated
+    // Navigate the way a user does: click the navbar link. Renderer-initiated
     // navigation fires will-navigate (loadURL does not), so this catches a
-    // miswritten navigation guard that silently blocks every link.
+    // navigation guard that blocks every link with no error.
     await evalJs('document.querySelector(".menu .nav a[href=\'/transactions\']").click()');
     const t0 = Date.now();
     while (
@@ -101,13 +101,12 @@ app.whenReady().then(async () => {
       '!!(window.TxParse && window.TxParse.parseFile && window.TxFileImport && window.TxFileImport.run)'
     ));
 
-    // Merchant brand icons degrade SILENTLY — drop the generated manifest's
-    // <script> tag, or the asset dir from the package, and every avatar quietly
-    // falls back to initials, which is exactly what a working app looks like if
-    // you don't know the icons were meant to be there. So assert all three
-    // links of the chain from inside the real renderer: the manifest loaded,
-    // avatar.js emits an <img> for a merchant we ship an icon for, and that
-    // file actually resolves over app://.
+    // Merchant brand icons fail with no error: drop the generated manifest's
+    // <script> tag, or the asset dir from the package, and every avatar falls back
+    // to initials, which is indistinguishable from a build that never had icons.
+    // So assert all three links of the chain from inside the real renderer: the
+    // manifest loaded, avatar.js emits an <img> for a merchant with a shipped
+    // icon, and that file resolves over app://.
     check('merchant icon manifest loaded', await evalJs(
       '!!(window.MERCHANT_ICONS && Object.keys(window.MERCHANT_ICONS).length > 0'
       + ' && Array.isArray(window.MERCHANT_ICONS_BLEED))'
@@ -141,9 +140,9 @@ app.whenReady().then(async () => {
     for (const [route, name] of Object.entries(routes)) {
       await win.loadURL(`app://aventurine${route}`);
       // A route whose sidebar link is commented out (Credit Cards) is still
-      // reachable by URL but has nothing to highlight. Ask the rendered
-      // sidebar which it is, rather than assuming every route is linked —
-      // otherwise disabling a nav link turns this check permanently red.
+      // reachable by URL but has no nav link to highlight. Check the rendered
+      // sidebar rather than assuming every route is linked; otherwise disabling a
+      // nav link makes this check fail permanently.
       const linked = await evalJs(
         `!!document.querySelector(".menu .nav a[href=" + ${JSON.stringify(JSON.stringify(route))} + "]")`);
       const activeHref = linked ? route : null;
@@ -182,7 +181,7 @@ app.whenReady().then(async () => {
         && !document.querySelector("[data-modal='preferences']").hidden
         && document.querySelector(".settings-theme-btn[data-theme='dark']").classList.contains('active');
     })()`));
-    // Back to the default so the checks after this one see an untouched theme.
+    // Reset to the default so later checks run against the default theme.
     await evalJs('document.querySelector(".settings-theme-btn[data-theme=\'\']").click()');
 
     // The graph palette is the second appearance axis and swaps the same way:

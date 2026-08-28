@@ -3,8 +3,8 @@
 // Balance Forecast (Reports) — pure projection logic, no DB handle. Given a
 // starting balance plus the user's transaction history and any planned items,
 // it projects a running balance forward over a horizon at WEEKLY resolution, so
-// intra-month cash crunches (a big bill landing before payday) are visible
-// instead of being averaged away into a single month-end point.
+// intra-month cash crunches (a big bill landing before payday) stay visible
+// instead of being averaged into a single month-end point.
 //
 // This is NEW behaviour (not a Python port), so there is no oracle fixture; it
 // is pinned by ordinary deterministic unit tests in __tests__/forecast.test.js.
@@ -12,29 +12,29 @@
 // HYBRID model — each week's net is the sum of:
 //
 //   1. A SMOOTH baseline of the user's *irregular* spending and income: the
-//      trailing-average monthly total of everything that ISN'T a detected
+//      trailing-average monthly total of everything that is NOT a detected
 //      recurring pattern, converted to a per-day rate and spread evenly across
-//      the weeks. This keeps the long-run slope honest (it captures one-off and
-//      lumpy spending the way the old monthly model did).
+//      the weeks. This keeps the long-run slope accurate, since it includes
+//      one-off and lumpy spending the way the old monthly model did.
 //   2. DATED recurring flows — subscriptions, rent, paychecks the detector
-//      recognises — projected forward and dropped into the specific week they
-//      fall in. These are subtracted from the smooth baseline above so they are
-//      not counted twice; moving them from "smooth" to "dated" is what gives the
+//      matches — projected forward and placed in the specific week they fall in.
+//      These are subtracted from the smooth baseline above so they are not
+//      counted twice; moving them from "smooth" to "dated" is what gives the
 //      line its within-month shape.
-//   3. User-entered PLANNED items, dropped into the week they fall in.
+//   3. User-entered PLANNED items, placed in the week they fall in.
 //
 // (An earlier version projected ONLY auto-detected recurring charges. That
-// captured ~all income but only the few expenses that repeat on a fixed
-// merchant+cadence, so it systematically overstated the balance. A later version
-// used a single flat monthly average, which was honest about totals but showed
-// no intra-month detail. The hybrid keeps the honest total of the average while
-// restoring the timing detail of the recurring projection.)
+// covered nearly all income but only the few expenses that repeat on a fixed
+// merchant+cadence, so it overstated the balance. A later version used a single
+// flat monthly average, which had the correct total but no intra-month detail.
+// The hybrid keeps the average's total and restores the timing detail of the
+// recurring projection.)
 //
 // The HORIZON (how far ahead to draw) and the trailing-average WINDOW (how much
-// history to estimate from) are separate inputs — see HISTORY_MONTHS. So is the
-// question of which months count at all: a month the ledger has no rows for is
-// un-imported, not a month of zero spending, and is left out of the average
-// rather than dragging it down (see windowAverages' `activeMonths`).
+// history to estimate from) are separate inputs — see HISTORY_MONTHS. So is
+// which months count at all: a month the ledger has no rows for is un-imported,
+// not a month of zero spending, and is left out of the average rather than
+// lowering it (see windowAverages' `activeMonths`).
 
 const {
   localTodayIso, normaliseDesc, classifyCycle, median,
@@ -52,11 +52,11 @@ const MIN_OCCURRENCES = 3;
 const MIN_REGULARITY = 0.7;
 
 // How much history the smooth baseline is averaged over, in COMPLETE calendar
-// months. Deliberately independent of the horizon: how far ahead the user wants
-// to look is a question about the chart, not about how their spending should be
-// estimated. (It used to be the same number, so switching the range picker from
-// 3 months to 6 silently re-estimated the slope — on a ledger whose spending had
-// stepped down, the projected burn tripled purely from picking a longer view.)
+// months. Independent of the horizon: how far ahead the chart draws is separate
+// from how much history the estimate uses. (It used to be the same number, so
+// switching the range picker from 3 months to 6 re-estimated the slope with no
+// indication — on a ledger whose spending had stepped down, the projected burn
+// tripled purely from picking a longer view.)
 const HISTORY_MONTHS = 6;
 
 // Average calendar days per month, used to turn a monthly average into the
@@ -65,7 +65,7 @@ const DAYS_PER_MONTH = 365.25 / 12;
 
 // ── Month-key helpers (keys are 'YYYY-MM', dates are 'YYYY-MM-DD'; both sort
 //    lexicographically in chronological order). addMonthKey is also imported
-//    by handlers/trends.js — change with care. ────────────────────────────────
+//    by handlers/trends.js. ─────────────────────────────────────────────────
 
 const monthKey = (iso) => iso.slice(0, 7);
 
@@ -99,7 +99,8 @@ function monthlyTotals(income, expense) {
 /**
  * Average monthly income and expense over the trailing `window` of COMPLETE
  * calendar months (the current month is excluded). Thin wrapper over
- * windowAverages for the single-totals case; see it for the window rules.
+ * windowAverages for the single-totals case; see windowAverages for the window
+ * rules.
  * Returns { avgIncome, avgExpense, monthsUsed } (monthsUsed 0 ⇒ no usable
  * history).
  */
@@ -120,13 +121,13 @@ function trailingAverage(totals, { today, window, activeMonths = null }) {
  * of data so a new user isn't divided by months that predate them.
  *
  * Months the ledger holds NO transaction for are skipped entirely rather than
- * averaged in as zeros — `activeMonths` (a Set of 'YYYY-MM' the caller knows
- * has rows) is what distinguishes "a month you spent nothing" from "a month you
- * never imported". Counting the latter as a real zero quietly deflated the
- * baseline: a ledger with a two-month gap in an otherwise steady $3,000/mo
+ * averaged in as zeros — `activeMonths` (a Set of 'YYYY-MM' the caller has rows
+ * for) is what separates "a month with no spending" from "a month never
+ * imported". Counting the latter as a real zero lowered the baseline with no
+ * indication: a ledger with a two-month gap in an otherwise steady $3,000/mo
  * reported a typical month of $2,000. Omitted ⇒ fall back to the months
  * `totalsAll` itself has, which is the same rule for every caller that already
- * hands over complete data.
+ * passes complete data.
  */
 function windowAverages(totalsAll, totalsIrreg, { today, window, activeMonths = null }) {
   const empty = {
@@ -166,12 +167,12 @@ function windowAverages(totalsAll, totalsIrreg, { today, window, activeMonths = 
 }
 
 // ── Recurring-pattern detection (for the dated layer) ────────────────────────
-// A trimmed-down sibling of detectRecurringExpenses: same grouping/cycle/
-// regularity rules, but it keeps what the forecast needs — the normalised key
-// (to tag which history rows to pull out of the smooth baseline) and the cycle +
-// predicted amount + last charge (to project occurrences forward). Works for
-// either direction's rows; recurring income (paychecks) drives the "recover
-// after payday" half of the shape.
+// A trimmed-down version of detectRecurringExpenses: same grouping/cycle/
+// regularity rules, returning only what the forecast uses — the normalised key
+// (to mark which history rows to remove from the smooth baseline) and the cycle
+// + predicted amount + last charge (to project occurrences forward). Works for
+// either direction's rows; recurring income (paychecks) produces the upward
+// steps in the line.
 
 /** One cycle step forward from an ISO date. Calendar cycles step by month so a
  *  bill anchored to the 31st clamps month-end correctly; the rest step by days. */
@@ -184,8 +185,8 @@ function stepDate(iso, name, days) {
  * [{ key, name, days, amount, last }] — `key` is the normalised merchant string,
  * `amount` the predicted per-charge amount, `last` the most recent charge date.
  * A pattern is dropped if its next projected charge is already overdue beyond
- * the cycle tolerance (probably cancelled), so it neither displaces the smooth
- * baseline nor gets projected forward.
+ * the cycle tolerance (treated as cancelled), so it is neither removed from the
+ * smooth baseline nor projected forward.
  */
 function recurringPatterns(rows, todayIso) {
   const groups = new Map();
@@ -214,7 +215,7 @@ function recurringPatterns(rows, todayIso) {
     if (regular < MIN_REGULARITY) continue;
 
     const last = dates[dates.length - 1];
-    // Overdue beyond tolerance ⇒ probably cancelled — don't carry it forward.
+    // Overdue beyond tolerance ⇒ treated as cancelled; not carried forward.
     if (daysBetween(stepDate(last, name, days), todayIso) > tol) continue;
 
     const amount = round2(median(dates.slice(-3).map((d) => byDate.get(d))));
@@ -227,15 +228,15 @@ function recurringPatterns(rows, todayIso) {
  * Project each pattern's charges into the forecast window, returning the dated
  * occurrences [{ date, amount }] that fall in [todayIso, endIso).
  *
- * With `catchUpOverdue`, a charge whose due date has already slipped past today
- * is placed on today rather than skipped. Only the forecast asks for this, and
- * only because of who its callers are: recurringPatterns keeps a pattern alive
- * solely while it is overdue by no more than its cycle's tolerance, so a
- * "missed" charge here means a bill the ledger has not seen paid and that is due
- * imminently — silently deferring it a whole cycle hid exactly the near-term
- * cash crunch the report exists to show. The Recurring calendar (handlers/
- * recurring.js) leaves this off: it draws real charges on the days they landed,
- * and inventing one on today would be a dot for something that never happened.
+ * With `catchUpOverdue`, a charge whose due date has already passed is placed
+ * on today rather than skipped. Only the forecast sets this, because
+ * recurringPatterns retains a pattern only while it is overdue by no more than
+ * its cycle's tolerance: a missed charge here is a bill with no matching
+ * transaction in the ledger that is due shortly, and deferring it a whole cycle
+ * removed the near-term cash crunch the report exists to show. The Recurring
+ * calendar (handlers/recurring.js) leaves this off: it draws real charges on
+ * the days they landed, and adding one on today would show a charge that never
+ * occurred.
  */
 function placeRecurring(patterns, todayIso, endIso, { catchUpOverdue = false } = {}) {
   const occ = [];
@@ -289,16 +290,16 @@ function weekLabel(iso) {
  * Walked BACKWARD from `endBalance` — the balance the projection starts at —
  * through the ledger: the balance at the end of day `d` is `endBalance` minus
  * every net flow dated after `d`. Deriving it this way (rather than forward from
- * some older anchor) is what makes the two halves meet exactly at today: both
- * are pinned to the same figure, so the junction is continuous by construction
- * and the eye can compare the recent slope against the projected one. It also
- * means the history inherits whatever staleness `endBalance` carries — the SHAPE
- * is drawn from real transactions either way, only the level rides on the
- * Balance Sheet cell (which the renderer discloses when it is old).
+ * an older anchor) makes the two halves meet exactly at today: both are pinned
+ * to the same figure, so the junction is continuous and the recent slope can be
+ * compared against the projected one. It also means the history carries the
+ * same staleness as `endBalance` — the SHAPE comes from real transactions
+ * either way, only the level comes from the Balance Sheet cell (which the
+ * renderer labels when it is old).
  *
- * Stops at the first transaction the account has: before that there is nothing
- * to walk, and continuing would draw a flat line asserting a balance we have no
- * evidence for. Returns [{ weekEnd, label, balance }] oldest-first, excluding
+ * Stops at the account's first transaction: before that there is nothing to walk
+ * back through, and continuing would draw a flat line at a balance with no
+ * supporting data. Returns [{ weekEnd, label, balance }] oldest-first, excluding
  * today itself (that point is the projection's `anchor`).
  */
 function historySeries({ endBalance, income, expense, spanDays, today }) {
@@ -318,7 +319,8 @@ function historySeries({ endBalance, income, expense, spanDays, today }) {
   const windowStart = addDays(today, -spanDays);
   const start = windowStart > first ? windowStart : first;
 
-  // Flows on or before today, newest first — we consume them walking backward.
+  // Flows on or before today, sorted ascending; consumed from the end while
+  // walking backward.
   const dates = [...net.keys()].filter((d) => d <= today).sort();
   let idx = dates.length - 1;
 
@@ -351,7 +353,7 @@ function historySeries({ endBalance, income, expense, spanDays, today }) {
  *
  * `anchor` is where the line STARTS — today, at the starting balance, before any
  * projected flow. The series' first entry is already a week of flows in, so a
- * chart that plots only the series draws its opening point at the wrong height
+ * chart plotting only the series draws its opening point at the wrong height
  * under a label reading today's date.
  *
  * All monetary values are round2'd at the week boundary.
@@ -364,9 +366,9 @@ function forecast({
   const endIso = horizonEnd(todayIso, months);
   const nWeeks = weekCount(todayIso, endIso);
 
-  // Recurring decomposition: tag the recurring rows so they leave the smooth
-  // baseline, and average the irregular remainder over the same span as the
-  // full history (which feeds the summary's "typical month").
+  // Recurring decomposition: mark the recurring rows so they are excluded from
+  // the smooth baseline, and average the irregular remainder over the same span
+  // as the full history (which feeds the summary's "typical month").
   const incPatterns = recurringPatterns(income, todayIso);
   const expPatterns = recurringPatterns(expense, todayIso);
   const incKeys = new Set(incPatterns.map((p) => p.key));
@@ -382,7 +384,7 @@ function forecast({
   const perDayInc = avg.avgIrregIncome / DAYS_PER_MONTH;
   const perDayExp = avg.avgIrregExpense / DAYS_PER_MONTH;
 
-  // Drop the dated flows (recurring + planned) into their weekly buckets.
+  // Place the dated flows (recurring + planned) into their weekly buckets.
   const incBuckets = new Array(nWeeks).fill(0);
   const expBuckets = new Array(nWeeks).fill(0);
   const drop = (occ, buckets) => {
@@ -408,8 +410,8 @@ function forecast({
   for (let i = 0; i < nWeeks; i++) {
     const weekStart = addDays(todayIso, i * 7);
     const daysInWeek = Math.min(7, daysBetween(weekStart, endIso));
-    // The last day this bucket covers — where its point belongs on a date axis,
-    // since the balance shown is the one reached by the END of the week.
+    // The last day this bucket covers — the point's position on a date axis,
+    // since the balance shown is the one reached at the END of the week.
     const weekEnd = addDays(weekStart, Math.max(0, daysInWeek - 1));
     const inc = round2(perDayInc * daysInWeek + incBuckets[i]);
     const exp = round2(perDayExp * daysInWeek + expBuckets[i]);
@@ -433,17 +435,17 @@ function forecast({
 
   return {
     anchor: { date: todayIso, balance: openingBalance },
-    // The x-axis bounds, symmetric about today by construction — the renderer
-    // should not have to re-derive them and risk drifting off-centre.
+    // The x-axis bounds, symmetric about today by construction, so the renderer
+    // does not re-derive them and drift off-centre.
     domain: { start: addDays(todayIso, -spanDays), end: endIso },
     history,
     series,
     summary: {
       endBalance: series.length ? series[series.length - 1].balance : openingBalance,
       endDate: series.length ? series[series.length - 1].weekEnd : todayIso,
-      // The low point of the projection. Only the below-zero case is surfaced:
-      // on a line that only climbs `lowest` is just week 0, so the level alone
-      // says nothing worth reading.
+      // The low point of the projection. Only the below-zero case is shown in
+      // the UI: on a line that only climbs, `lowest` is always week 0, so the
+      // level alone carries no information.
       lowest,
       belowZero,
       avgIncome: round2(avg.avgIncome),

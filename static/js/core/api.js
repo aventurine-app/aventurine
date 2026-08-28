@@ -16,7 +16,7 @@
 // Who depends on this file:
 //   - Loaded as a plain <script> (no bundler — see the "no build step"
 //     guardrail in PRODUCT.md) and attaches window.apiFetch as a global.
-//     Nearly every page/widget module calls window.apiFetch(...) instead of
+//     Nearly every page and widget module calls window.apiFetch(...) instead of
 //     window.fetch(...): static/js/pages/*.js (home, transactions, trends,
 //     reportcard, credit_cards, portfolio), static/js/widgets/*.js
 //     (txfileimport, txexport, forecast, cashflow-sankey, tables), and
@@ -27,26 +27,26 @@
 //     IPC (channel 'api:request'). On the main-process side that IPC call is
 //     handled in electron/main.js and dispatched by
 //     electron/backend/router.js to the real handlers under
-//     electron/backend/handlers/. This file has no knowledge of those
-//     handlers' internals — it only knows the IPC contract
+//     electron/backend/handlers/. This file does not reference those handlers'
+//     internals; it depends only on the IPC contract
 //     (method, url, body) -> { status, body }.
 //   - The static-fixture branch below has no server-side counterpart at
 //     all: it exists purely so the UI can be opened as a plain HTML file
 //     (no Electron, no backend) for fast visual iteration on layout/design.
 
 (function () {
-  // Gate: only URLs starting with /api/ are intercepted/routed by this
-  // module. Everything else (fonts, images, external URLs) falls through to
-  // the browser's native fetch untouched — see the isApi(url) check in
-  // apiFetch() below.
+  // Gate: only URLs starting with /api/ are intercepted and routed by this
+  // module. Everything else (fonts, images, external URLs) falls through to the
+  // browser's native fetch unchanged — see the isApi(url) check in apiFetch()
+  // below.
   const isApi = (url) => typeof url === 'string' && url.startsWith('/api/');
 
-  // Builds an object shaped like the subset of the Fetch API's Response
-  // that callers actually use (ok/status/json()/text()). Both the Electron
-  // IPC branch and the fixture branch of apiFetch() funnel their result
-  // through this so every caller — regardless of which backend answered —
-  // sees the same shape and can keep writing `const r = await apiFetch(...);
-  // if (r.ok) { const data = await r.json(); }`.
+  // Builds an object shaped like the subset of the Fetch API's Response that
+  // callers use (ok/status/json()/text()). Both the Electron IPC branch and the
+  // fixture branch of apiFetch() return their result through this, so every
+  // caller gets the same shape regardless of which backend responded and can
+  // write `const r = await apiFetch(...); if (r.ok) { const data = await
+  // r.json(); }`.
   function responseLike(status, body) {
     return {
       ok: status >= 200 && status < 300,
@@ -57,13 +57,13 @@
   }
 
   // ── Fixtures (browser-only UI mode) ─────────────────────────────────────
-  // Only reached when there's neither window.financeApi (Electron) nor an
+  // Only reached when there is neither window.financeApi (Electron) nor an
   // http(s): page origin (legacy/dev server) — see the branching order in
-  // apiFetch() near the bottom of this file. Nothing outside this file
-  // reads FL_FIXTURES directly; pages only ever see it indirectly through
-  // apiFetch()'s GET responses, so this data must independently satisfy the
-  // shape every consuming page/widget expects (Dashboard, Trends, Report Card,
-  // Transactions, Forecast, Portfolio, Credit Cards, Balance Sheet).
+  // apiFetch() near the bottom of this file. Nothing outside this file reads
+  // FL_FIXTURES directly; pages receive it only through apiFetch()'s GET
+  // responses, so this data must match the shape every consuming page and widget
+  // expects (Dashboard, Trends, Report Card, Transactions, Forecast, Portfolio,
+  // Credit Cards, Balance Sheet).
   // Just enough shape for every page to render: one year of sparse data.
   const year = new Date().getFullYear();
 
@@ -110,7 +110,7 @@
       balance += net;
       if (!lowest || balance < lowest.balance) lowest = { weekStart, label, balance };
       // weekEnd is where the point sits on the date axis (the balance shown is
-      // the one reached by the week's end) — see services/forecast.js.
+      // the one reached at the end of the week) — see services/forecast.js.
       series.push({ weekStart, weekEnd: iso(i * 7 + 6), label, income, expense, net, balance });
     }
     const last = series[series.length - 1];
@@ -154,21 +154,21 @@
 
   // static/js/pages/recurring.js — a handful of recurring series + this
   // month's occurrences (calendar dots + list). The real backend recomputes
-  // per `month`; this fixture returns the same shape for any month since
-  // query strings aren't modeled (see fixtureResponse() below).
+  // per `month`; this fixture returns the same shape for any month, since query
+  // strings are not modeled (see fixtureResponse() below).
   //
-  // These stand for schedules the user has already ADOPTED — on the real
-  // backend nothing lands here until they pick it out of the detection dialog
-  // (whose own candidates live in recurringCandidatesFixture below), but a
-  // populated page is what pure-UI work on the list/calendar needs to see.
+  // These represent schedules already ADOPTED — on the real backend nothing
+  // appears here until the user picks it out of the detection dialog (whose
+  // candidates are in recurringCandidatesFixture below). A populated list is
+  // what pure-UI work on the list and calendar needs.
   const recurringFixture = (() => {
     const pad = (n) => String(n).padStart(2, '0');
     const today = new Date();
     const ym = `${today.getFullYear()}-${pad(today.getMonth() + 1)}`;
     const iso = (day) => `${ym}-${pad(Math.min(day, 28))}`;
-    // `search` is the term the card's merchant link hands to the Transactions
+    // `search` is the term the card's merchant link passes to the Transactions
     // ledger — the substring shared by every transaction in the series, which
-    // for these single-description fixtures is just the description itself.
+    // for these single-description fixtures is the description itself.
     const series = [
       { key: 'netflix', description: 'NETFLIX.COM', display_name: 'Netflix', direction: 'expense', category_id: 5, category: 'Entertainment', search: 'NETFLIX.COM', amount: 15.49, cycle: 'monthly', occurrences: 6, confidence: 0.92, last_date: iso(14), next_date: iso(14) },
       { key: 'city_fitness', description: 'CITY FITNESS CLUB', display_name: 'City Fitness', direction: 'expense', category_id: 6, category: 'Health & Fitness', search: 'CITY FITNESS CLUB', amount: 42.0, cycle: 'monthly', occurrences: 5, confidence: 0.85, last_date: iso(3), next_date: iso(3) },
@@ -189,11 +189,10 @@
   })();
 
   // The Recurring page's detection picker (⋮ → "Find recurring schedules").
-  // Deliberately disjoint from recurringFixture above — these are patterns
-  // detection found that are NOT yet on the page, which is exactly what the
-  // dialog is for. POST /api/recurring/adopt isn't modeled (fixtures are
-  // read-only), so in a plain browser the dialog opens, ticks and closes
-  // without the list growing.
+  // Disjoint from recurringFixture above — these are detected patterns NOT yet
+  // on the page, which is what the dialog lists. POST /api/recurring/adopt is
+  // not modeled (fixtures are read-only), so in a plain browser the dialog
+  // opens, ticks and closes without the list growing.
   const recurringCandidatesFixture = (() => {
     const pad = (n) => String(n).padStart(2, '0');
     const today = new Date();
@@ -210,14 +209,14 @@
   })();
 
   // Static GET responses keyed by path (query strings are stripped before
-  // lookup — see fixtureResponse() below). Each key corresponds 1:1 to a
-  // real backend route implemented in electron/backend/handlers/ and must
-  // stay shape-compatible with it, since pages can't tell which one
-  // answered. Comments below name the primary page/widget each entry feeds.
+  // lookup — see fixtureResponse() below). Each key corresponds 1:1 to a real
+  // backend route implemented in electron/backend/handlers/ and must stay
+  // shape-compatible with it, since pages cannot distinguish the two sources.
+  // Comments below name the primary page or widget each entry feeds.
   // static/js/pages/transfers.js — the Saved & Invested report. Built the way
   // the real handler builds it (per-merchant months first, totals derived from
-  // them), so the stack sums to the line here exactly as it does against the
-  // backend. One fixture serves every window, since query strings aren't modeled
+  // them), so the stack sums to the line here as it does against the backend.
+  // One fixture serves every window, since query strings are not modeled
   // — the picker changes the label and not the bars. Nine merchants on purpose:
   // eight get a palette slot and the ninth has to fold into "Other", which is
   // the case the legend and the neutral swatch exist for. The mix is savings AND
@@ -337,9 +336,9 @@
   })();
 
   const FL_FIXTURES = {
-    // static/js/shell/license.js — Settings → License. Fixture mode shows an
-    // ACTIVATED copy: pure-UI work should be looking at the app as a buyer sees
-    // it, not at an activation nag.
+    // static/js/shell/license.js — Settings → License. Fixture mode reports an
+    // ACTIVATED copy, so pure-UI work renders the full app rather than the
+    // activation screen.
     '/api/license': {
       state: 'licensed', licensed: true, appMajor: 1,
       license: {
@@ -543,31 +542,31 @@
     return responseLike(200, { ok: true });
   }
 
-  // The single entry point every page/widget/shell module calls instead of
-  // window.fetch() for /api/* URLs (see the file-level comment above for
-  // the full caller list). Resolution order per call:
+  // The single entry point every page, widget and shell module calls instead of
+  // window.fetch() for /api/* URLs (see the file-level comment above for the
+  // full caller list). Resolution order per call:
   //   1. Not an /api/ URL              -> pass through to real fetch().
   //   2. window.financeApi present     -> Electron: forward over IPC to
   //      preload.js's `request` bridge, which invokes 'api:request',
   //      handled in electron/main.js and routed by
   //      electron/backend/router.js to the real handlers. This is the path
   //      used by the actual shipped app.
-  //   3. http(s): page origin          -> a real HTTP server is fronting us
-  //      (legacy/dev workflow, e.g. `electron/scripts/verify-e2e.js`) —
-  //      pass straight through to fetch() so it hits that server.
+  //   3. http(s): page origin          -> a real HTTP server is serving the
+  //      page (legacy/dev workflow, e.g. `electron/scripts/verify-e2e.js`) —
+  //      pass straight through to fetch() so it reaches that server.
   //   4. Otherwise (plain file:// page, no bridge, no server)
   //                                     -> fixtureResponse() above, so pages
   //      can be opened standalone for UI/design iteration.
-  // An unactivated install answers 402 to everything but /api/license
-  // (electron/backend/router.js). Surfacing that ONCE, here, is why no page has
-  // to know licensing exists — a call site just sees its request fail, exactly
-  // as it would on any other error, while the shell explains why.
+  // An unactivated install returns 402 for everything but /api/license
+  // (electron/backend/router.js). Handling that once, here, is why no page
+  // references licensing — a call site sees its request fail as it would on any
+  // other error, and the shell displays the explanation.
   //
-  // Announced rather than handled: this file is the data seam and owns no UI.
-  // static/js/shell/license.js listens and raises the activation screen. Under
-  // a total lockout that screen is normally already up before any page calls
-  // anything, so this is the backup path rather than the usual one: it catches
-  // a license that stops verifying mid-session.
+  // This dispatches an event rather than showing UI: this file is the data seam
+  // and contains no UI code. static/js/shell/license.js listens and raises the
+  // activation screen. Under a total lockout that screen is usually already up
+  // before any page issues a request, so this path is the fallback: it catches a
+  // license that stops verifying mid-session.
   function notifyGated(url) {
     window.dispatchEvent(new CustomEvent('aventurine:license-required', { detail: { url } }));
   }
@@ -579,9 +578,9 @@
     const method = (opts.method || 'GET').toUpperCase();
 
     if (window.financeApi && window.financeApi.request) {
-      // opts.body arrives fetch-style (a JSON string, per callers' usage
-      // e.g. JSON.stringify(...)); financeApi.request wants a parsed object
-      // since IPC serializes structured data natively, not strings-of-JSON.
+      // opts.body arrives fetch-style (a JSON string, e.g. JSON.stringify(...));
+      // financeApi.request takes a parsed object, since IPC serializes
+      // structured data natively rather than JSON strings.
       let body = null;
       if (opts.body != null) {
         try { body = JSON.parse(opts.body); } catch { body = null; }

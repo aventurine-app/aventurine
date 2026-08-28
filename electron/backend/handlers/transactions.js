@@ -52,9 +52,9 @@ function create(ctx, { body }) {
   const err = applyTxFields(db, t, data, { requireAll: true });
   if (err) bad(err);
   db.transaction(() => {
-    // Learn from an explicit assignment; otherwise try the learned rules.
-    // Auto-matched rows never feed back into recordMatch — only direct user
-    // decisions create rules.
+    // Record a rule for an explicit assignment; otherwise apply the existing
+    // rules. Auto-matched rows are never passed to recordMatch — only direct
+    // user assignments create rules.
     if (t.category_id != null) {
       recordMatch(db, t.description, t.category_id);
     } else {
@@ -73,9 +73,9 @@ function update(ctx, { params, body }) {
   const err = applyTxFields(db, t, data, { requireAll: false });
   if (err) bad(err);
   db.transaction(() => {
-    // Only a payload that touches category_id is a categorization decision:
-    // assigning learns/updates the rule for this description, while
-    // explicitly clearing the category retracts it.
+    // Only a payload containing category_id changes categorization: setting it
+    // creates or updates the rule for this description, clearing it deletes
+    // the rule.
     if ('category_id' in data) {
       if (t.category_id != null) {
         recordMatch(db, t.description, t.category_id);
@@ -96,11 +96,10 @@ function remove(ctx, { params }) {
   return { ok: true };
 }
 
-// Wipe the entire ledger. Deliberately narrow: it touches ONLY the
-// transactions table — categories, learned match rules, balance-sheet
-// entries, and every other feature are left exactly as they were. Guarded on
-// the frontend by a type-to-confirm dialog (settings.js). Returns the number
-// of rows removed so the UI can report it.
+// Delete every transaction. Scoped to the transactions table only — categories,
+// learned match rules, balance-sheet entries and everything else are left
+// unchanged. Guarded on the frontend by a type-to-confirm dialog (settings.js).
+// Returns the number of rows removed so the UI can report it.
 function removeAll(ctx) {
   const db = ctx.db();
   const info = db.prepare('DELETE FROM transactions').run();
@@ -113,15 +112,15 @@ function similar(ctx, { query }) {
   if (!rawDesc) return { transactions: [] };
 
   // Match strength arrives per request (the wizard's slider): 1.0 means exact
-  // (case-insensitive) only; any value below it is a fuzzy SequenceMatcher bar.
-  // Absent/garbage values fall back to exact, the safest reading. (The
-  // unattended auto-match bar stays fixed — see services/matchRules.js.)
+  // (case-insensitive) only; any lower value is a fuzzy SequenceMatcher
+  // threshold. Missing or non-numeric values fall back to exact. (The
+  // unattended auto-match threshold is fixed — see services/matchRules.js.)
   let threshold = Number(query.threshold);
   if (!Number.isFinite(threshold)) threshold = 1;
   threshold = Math.min(FUZZY_THRESHOLD_MAX, Math.max(FUZZY_THRESHOLD_MIN, threshold));
 
   // By default only uncategorized rows are candidates; include_categorized=1
-  // (the cascade flow) widens the pool to every transaction.
+  // (the cascade flow) widens the set to every transaction.
   const includeCategorized = query.include_categorized === '1';
   const catFilter = includeCategorized ? '' : ' AND category_id IS NULL';
 
@@ -178,10 +177,10 @@ function categorizeSimilar(ctx, { body }) {
   const cat = db.prepare('SELECT * FROM categories WHERE id = ?').get(categoryId);
   if (!cat) bad('unknown category_id');
 
-  // By default only rows still uncategorized at commit time are touched;
+  // By default only rows still uncategorized at commit time are updated;
   // overwrite:true (the cascade flow, where the user confirmed each row) also
-  // recategorizes rows that already had a category. tx_type derives from the
-  // category — direction is owned by Category.cat_type.
+  // recategorizes rows that already had a category. tx_type is derived from
+  // Category.cat_type.
   const catGuard = data.overwrite === true ? '' : ' AND category_id IS NULL';
   const placeholders = ids.map(() => '?').join(',');
   const updated = db.transaction(() => {
@@ -197,7 +196,7 @@ function categorizeSimilar(ctx, { body }) {
     for (const t of rows) {
       upd.run(categoryId, cat.cat_type, t.id);
       // The user confirmed each of these rows in the Categorize Similar
-      // dialog, so every description is a learned rule.
+      // dialog, so each description becomes a rule.
       recordMatch(db, t.description, categoryId);
     }
     return rows.length;
@@ -271,11 +270,11 @@ function importRows(ctx, { body }) {
   const dryRun = !!(body || {}).dry_run;
   const balances = dryRun ? [] : validateBalances(db, (body || {}).balances);
 
-  // The account every row in this import belongs to — the UI always asks. A
-  // missing/absent key is tolerated (imports predating this, or a caller that
-  // omits it) and leaves the rows unassigned rather than failing the import;
-  // an explicit key that names no account IS an error so a typo can't silently
-  // drop the association.
+  // The account every row in this import belongs to; the UI always prompts for
+  // it. A missing key is accepted (imports predating this, or a caller that
+  // omits it) and leaves the rows unassigned rather than failing the import. An
+  // explicit key matching no account IS an error, so a typo does not drop the
+  // association without notice.
   const rawAccount = (body || {}).account_key;
   let accountKey = null;
   if (rawAccount != null) {
@@ -303,37 +302,36 @@ function importRows(ctx, { body }) {
   }
 
   // Imported rows arrive uncategorized. Two batch passes categorize the
-  // confident ones, then everything commits together. Order matters: the
-  // user's learned rules run first (they personalise and win), then the
-  // built-in lexicon fills in still-uncategorized rows for a useful cold
-  // start. Both skip already-categorized rows, so they never fight. Neither
-  // pass writes to the DB (only reads match_rules/categories), so this is
-  // exactly as valid to run for a dry run as for a real commit.
+  // confident ones, then everything commits together. Order matters: the user's
+  // learned rules run first and take priority, then the built-in lexicon fills
+  // in still-uncategorized rows. Both skip already-categorized rows, so the
+  // second never overwrites the first. Neither pass writes to the DB (they read
+  // match_rules/categories only), so both are safe to run for a dry run.
   const autoCategorized =
     applyAutoMatch(db, inserted) + applyBuiltinCategorize(db, inserted);
-  // Third pass: clean display names for rows the merchant lexicon recognizes
-  // (dictionary lookup only — the raw description is stored untouched and the
-  // ledger keeps it one click away). Hand-entered rows never get one.
+  // Third pass: clean display names for rows the merchant lexicon matches
+  // (dictionary lookup only — the raw description is stored unchanged and the
+  // ledger keeps it one click away). Hand-entered rows get no display name.
   applyDisplayNames(db, inserted);
   let accountAdopted = false;
   if (!dryRun && (inserted.length || balances.length)) {
     db.transaction(() => {
       // Adopting the target account happens HERE, at the storage boundary,
       // rather than in the importer UI: an import landing in a starter account
-      // is exactly what makes it the user's, and doing it server-side means no
-      // caller can land rows in an account that stays invisible. Picking one in
-      // a picker and then abandoning the import adopts nothing.
+      // is what adopts it, and doing it server-side means no caller can insert
+      // rows into an account that stays hidden. Picking one in a picker and then
+      // abandoning the import adopts nothing.
       if (accountKey) accountAdopted = adoptAccount(db, accountKey);
 
       for (const t of inserted) insertTx(db, t);
 
-      // Write each imported month-end balance straight into the Balance Sheet
-      // as ordinary, hand-editable data (a balance_entries cell) — NOT a
-      // separate synced/computed layer. Automating the Balance Sheet as a
-      // derived layer hit design blockers twice; instead an import simply seeds
-      // the cells, and from then on they behave like any value the user typed
-      // (edit it, clear it, override it). One reading per (account, year, month)
-      // from deriveBalances; a re-import overwrites the cell with the newer file.
+      // Write each imported month-end balance into the Balance Sheet as
+      // ordinary, hand-editable data (a balance_entries cell), not a separate
+      // synced or computed layer. Automating the Balance Sheet as a derived
+      // layer was attempted twice and abandoned; instead an import seeds the
+      // cells, and afterwards they work like any value the user typed (edit,
+      // clear, override). One reading per (account, year, month) from
+      // deriveBalances; a re-import overwrites the cell with the newer file.
       const upsertBalance = db.prepare(
         `INSERT INTO balance_entries (year, month, category, value)
          VALUES (?, ?, ?, ?)
@@ -377,16 +375,15 @@ function importRows(ctx, { body }) {
 }
 
 /**
- * The "here's what we found" digest of a just-committed import: the period it
- * covers, its totals by direction, and what it landed in each category. This is
- * what makes the categorizer's work visible in the import-results moment — the
- * user sees their own merchants sorted into their own categories instead of a
- * bare row count. Read straight off the rows we inserted (they carry the
- * category the three categorization passes assigned), so it costs one query.
+ * Summary of a just-committed import: the period it covers, its totals by
+ * direction, and the per-category counts. This is what the import-results screen
+ * shows instead of a bare row count. Read off the rows just inserted (they
+ * carry the category the three categorization passes assigned), so it needs no
+ * extra query.
  *
- * Amounts are stored as magnitudes with the direction in tx_type, so every
- * total here is positive; `uncategorized` counts the rows the categorizer
- * deliberately abstained on, which the user fills in from the ledger.
+ * Amounts are stored as magnitudes with the direction in tx_type, so every total
+ * here is positive; `uncategorized` counts the rows no tier categorized, which
+ * the user fills in from the ledger.
  */
 function summariseImport(db, inserted) {
   const found = {
@@ -552,14 +549,14 @@ function exportTx(ctx, { body }) {
   const { where, args } = exportFilterSql(data.filters);
   const dest = normalisePath(data.path);
   const part = dest + '.part';
-  // Containment: confirm any export destination the renderer relayed without a
-  // native dialog. Idempotent across the chunk loop — approved once, the
-  // offset>0 appends pass straight through (see conn.authorizeWrite).
+  // Containment: confirm any export destination the renderer sent without a
+  // native dialog. Idempotent across the chunk loop — once approved, the
+  // offset>0 appends pass through (see conn.authorizeWrite).
   ctx.authorizeWrite(dest);
 
   if (offset === 0) {
-    // Same guard + error string as /api/db/create; the renderer retries
-    // with overwrite:true after the user confirms.
+    // Same guard and error string as /api/db/create; the renderer retries with
+    // overwrite:true after the user confirms.
     if (!data.overwrite && fs.existsSync(dest)) {
       bad('A file already exists at that location', 409);
     }

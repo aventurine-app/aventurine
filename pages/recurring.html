@@ -36,11 +36,11 @@
         <button type="button" class="p-menu-btn" id="rec-kebab-btn" title="Recurring options" aria-label="Recurring options" aria-haspopup="menu">⋮</button>
     </div>
 
-    <!-- The calendar IS the listing: each occurrence is a chip carrying its own
-         schedule's data, and hovering (or clicking, which pins it) opens the
-         full row in #rec-pop — built by recurring.js and parked on <body> so
-         it can't be clipped by the page's scroll container. #rec-empty only
-         appears while no schedule has been adopted yet. -->
+    <!-- The calendar is the listing: each occurrence is a chip carrying its
+         schedule's data, and hovering (or clicking, which pins it) opens the full
+         row in #rec-pop — built by recurring.js and appended to <body> so it is
+         not clipped by the page's scroll container. #rec-empty appears only while
+         no schedule has been adopted. -->
     <div class="rec-empty" id="rec-empty" hidden></div>
     <div class="rec-calendar" id="rec-calendar"></div>
 

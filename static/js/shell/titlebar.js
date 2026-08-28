@@ -43,8 +43,8 @@
         const panel = panelFor(btn.dataset.menu);
         if (!panel) return;
         closeMenus();
-        // Hang the panel off the button's own bottom-left corner rather than
-        // the bottom of the bar, so it reads as an extension of the button.
+        // Position the panel at the button's bottom-left corner rather than the
+        // bottom of the bar, so it appears attached to the button.
         const r = btn.getBoundingClientRect();
         panel.style.left = `${r.left}px`;
         panel.style.top = `${r.bottom}px`;

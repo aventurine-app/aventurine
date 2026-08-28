@@ -63,10 +63,10 @@
     color: var(--text-primary);
 }
 
-/* ── The free tier's own styling ─────────────────────────────────────────────
+/* ── Free-tier styling ───────────────────────────────────────────────────────
    Everything below is keyed off <html data-license-tier="free">, set pre-paint
    by theme-init.js from a localStorage hint and corrected by shell/license.js
-   once the backend answers.
+   once the backend responds.
 
    IMPORTANT, and the reason this block carries a warning rather than just
    rules: NONE of it is a boundary. pages/ and static/ ship as loose editable

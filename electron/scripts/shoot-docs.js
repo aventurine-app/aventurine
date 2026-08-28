@@ -19,11 +19,10 @@
 //     user's actual Documents folder.
 //
 // DATA — invented, from a seeded generator, so a re-run produces the identical
-// picture and a screenshot only changes when the UI does. The 24-month history
-// carries explicit categories (no dependence on the merchant lexicon); the
-// small demo import at the end is deliberately messier, so the import flow,
-// the duplicate badges, the error banner and the uncategorized backlog all
-// have something real to show.
+// picture and a screenshot changes only when the UI does. The 24-month history
+// carries explicit categories (no dependence on the merchant lexicon); the small
+// demo import at the end is messier, so the import flow, the duplicate badges,
+// the error banner and the uncategorized backlog all have data to show.
 
 const fs = require('fs');
 const os = require('os');
@@ -229,10 +228,10 @@ app.whenReady().then(async () => {
 
     /** Bring an element into the viewport before cropping or hovering it — the
      *  statement tables scroll sideways, so a late column starts off-screen. */
-    const scrollTo = async (selector) => {
+    const scrollTo = async (selector, block = 'center') => {
       await js(`(() => {
         const el = document.querySelector(${JSON.stringify(selector)});
-        if (el) el.scrollIntoView({ block: 'center', inline: 'center' });
+        if (el) el.scrollIntoView({ block: ${JSON.stringify(block)}, inline: 'center' });
       })()`);
       await sleep(350);
     };
@@ -240,7 +239,19 @@ app.whenReady().then(async () => {
     /** Crop to one element, with a little air around it. Clamped to the window:
      *  a rect that runs off-screen is not a screenshot, it is a crash. */
     const shotEl = async (name, selector, pad = 10) => {
-      const r = await rectOf(selector);
+      let r = await rectOf(selector);
+      // A card below the fold has a valid rect that the window cannot show. Pull
+      // it into view and re-measure rather than losing the shot: the dashboard's
+      // third month card sits past 900px and used to fail every run.
+      //
+      // A card TALLER than the window (Top Merchants is 20 rows) cannot fit, so
+      // centring it clips both ends and pulls the title bar into the crop. Those
+      // are anchored to their top instead, with the crop running to the bottom
+      // edge; a list cut off after row N is still legible as a list.
+      if (r && (r.y + r.height > H || r.y < 0)) {
+        await scrollTo(selector, r.height + pad * 2 > H ? 'start' : 'center');
+        r = await rectOf(selector);
+      }
       if (!r || r.width < 2 || r.height < 2) { missing.push(`${name} (${selector})`); return; }
       const x = Math.min(Math.max(0, Math.round(r.x - pad)), W - 2);
       const y = Math.min(Math.max(0, Math.round(r.y - pad)), H - 2);
@@ -318,20 +329,19 @@ app.whenReady().then(async () => {
     };
 
     /** Switch the app's colour theme for a capture. theme-init.js reads
-     *  'color-theme' from localStorage BEFORE first paint, so the value has to
-     *  be written ahead of the nav that should show it — flipping it on a live
-     *  page is not what the app does on launch and is not what to photograph.
-     *  '' is the default light theme; 'dark' is the one the site's dashboard
-     *  shot wants. */
+     *  'color-theme' from localStorage BEFORE first paint, so the value must be
+     *  written before the navigation that should show it; changing it on a live
+     *  page does not reproduce what the app does on launch. '' is the default
+     *  light theme; 'dark' is used for the site's dashboard shot. */
     const setTheme = (value) =>
       js(`localStorage.setItem('color-theme', ${JSON.stringify(value)})`);
 
     const esc = () => js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
 
-    /** Answer the import's account question. With several accounts adopted the
-     *  app deliberately pre-selects nothing on a first import, so the primary
-     *  button stays disabled until something is chosen — pick one, as a user
-     *  would, rather than clicking a dead button. */
+    /** Answer the import's account question. With several accounts adopted the app
+     *  pre-selects nothing on a first import, so the primary button stays disabled
+     *  until something is chosen; this selects one rather than clicking the
+     *  disabled button. */
     const pickImportAccount = async (key) => {
       const ok = await js(`(() => {
         const r = document.querySelector('.tx-import-dialog input[type="radio"][value="' + ${JSON.stringify(key)} + '"]')
@@ -849,18 +859,31 @@ app.whenReady().then(async () => {
       await unhover();
       await shotPage('reports-cash-flow-diagram', '.rep-panel:not([hidden]) .forecast-card');
 
+      // The Spending tab carries TWO cards — the trend lines and the merchant
+      // ranking — so each gets its own crop rather than one shot of the panel.
       await click('#rep-tab-spending');
       await sleep(2000);
       await unhover();
-      await shotPage('spending-page', '.trends-card');
+      await shotEl('spending-page', '.rep-panel:not([hidden]) .trends-card', 10);
       await shotEl('spending-category-chips', '#trends-selector', 8);
+      await shotEl('reports-top-merchants', '.rep-panel:not([hidden]) .trends-card:last-of-type', 10);
+
+      await click('#rep-tab-transfers');
+      await sleep(2500);
+      await unhover();
+      await shotEl('reports-saved-invested', '.rep-panel:not([hidden]) .tfr-card', 10);
+      await shotEl('reports-saved-invested-merchants', '.rep-panel:not([hidden]) .tfr-card:last-of-type', 10);
 
       await click('#rep-tab-forecast');
       await sleep(3000);
       await unhover();
       await shotPage('reports-forecast', '.rep-panel:not([hidden]) .forecast-card');
       await shotEl('reports-forecast-summary', '#forecast-summary', 10);
-      await shotEl('reports-forecast-planned', '.rep-panel:not([hidden]) .forecast-card:last-child', 10);
+
+      await click('#rep-tab-metrics');
+      await sleep(2500);
+      await unhover();
+      await shotEl('reports-metrics', '.rep-panel:not([hidden]) .met-card', 10);
     }
 
     // ═══ Opt-in: website feature shots ═══════════════════════════════════════

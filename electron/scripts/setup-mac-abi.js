@@ -6,10 +6,10 @@
 // from one runner (GitHub's macOS runners are Apple Silicon, so the Intel
 // build is a cross-build even though the host is a Mac).
 //
-// This is the macOS companion to setup-win-abi.js (Windows cross-build) and
-// setup-native-abis.js (the postinstall that parks the host-Node and
-// host-arch Electron binaries for `npm test` / `npm start`). Same mechanism
-// as both: the `bindings` loader probes lib/binding/node-v{ABI}-{platform}-
+// The macOS counterpart to setup-win-abi.js (Windows cross-build) and
+// setup-native-abis.js (the postinstall that stages the host-Node and host-arch
+// Electron binaries for `npm test` / `npm start`). Same mechanism as both: the
+// `bindings` loader probes lib/binding/node-v{ABI}-{platform}-
 // {arch}/better_sqlite3.node at require() time, so parking a binary at that
 // path is all it takes for the packaged app to load it.
 //
@@ -46,7 +46,7 @@ for (const arch of ARCHES) {
     console.log(`[mac-abi] parked Electron ABI ${electronAbi} (${PLATFORM}-${arch}) -> ${path.relative(PKG_DIR, dest)}`);
 }
 
-// Remove the ABI-ambiguous shared location so each runtime falls through to
-// its own ABI directory (the host binaries are already parked).
+// Remove the ABI-ambiguous shared location so each runtime falls through to its
+// matching ABI directory (the host binaries are already staged).
 fs.rmSync(path.join(PKG_DIR, 'build'), { recursive: true, force: true });
 console.log('[mac-abi] removed build/ (ABI-ambiguous shared path)');

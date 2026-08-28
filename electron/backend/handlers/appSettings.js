@@ -9,9 +9,9 @@ const ALLOWED_KEYS = new Set(['tx_auto_match', 'onboarding_dismissed']);
 
 const VALID_VALUES = {
   tx_auto_match: ['on', 'off'],
-  // 'on' = the user has waved off first-run setup (see handlers/onboarding.js).
-  // Sticky, so skipping is respected on relaunch instead of nagging; the Dashboard
-  // dashboard's ordinary empty states still lead the user to each surface.
+  // 'on' = the user skipped first-run setup (see handlers/onboarding.js).
+  // Persisted, so the skip still applies on relaunch; the Dashboard's ordinary
+  // empty states still link to each surface.
   onboarding_dismissed: ['on', 'off'],
 };
 

@@ -2,9 +2,9 @@
 
 // ─── format.js ──────────────────────────────────────────────────────────────
 // Shared plain-number formatting + the app-wide debounce. Loaded globally
-// (pages/partials/scripts.html) before any page/widget script, so every
-// consumer — tables.js, portfolio.js, credit_cards.js — gets the same copy.
-// Extracted from tables.js, which had grown into the de-facto utils home;
+// (pages/partials/scripts.html) before any page or widget script, so every
+// consumer — tables.js, portfolio.js, credit_cards.js — uses the same copy.
+// Extracted from tables.js, which had become the default place for utilities;
 // currency-aware formatting (symbols, hide-cents, separators) stays in
 // currency.js — these helpers are symbol-agnostic.
 //
@@ -15,11 +15,11 @@
 //                              hidden, other decimals kept.
 //
 // Plus the three plain-date helpers every dated surface needs. They live here
-// rather than in currency.js because they carry no currency and no user
-// setting: currency.js owns the date format the user CHOSE (formatDate), these
-// are the fixed ones the app writes and reads itself. Five files had their own
-// copy of MONTHS_SHORT, three their own todayIso and two their own
-// fmtShortDate — all byte-identical, and all a chance to drift.
+// rather than in currency.js because they involve no currency and no user
+// setting: currency.js holds the date format the user selected (formatDate),
+// these are the fixed formats the app reads and writes internally. Five files
+// each had a copy of MONTHS_SHORT, three of todayIso and two of fmtShortDate —
+// all byte-identical, and all able to diverge.
 //
 //   MONTHS_SHORT             → ['Jan' … 'Dec'], the app's one month-abbrev list.
 //   todayIso()               → today as 'YYYY-MM-DD' in LOCAL time. Never

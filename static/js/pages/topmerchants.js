@@ -5,13 +5,13 @@
 // as a ranked horizontal bar chart. Sibling of trends.js in the same panel:
 // that one plots categories over time, this one totals merchants.
 //
-// Data comes from GET /api/top-merchants (already ranked, already capped at 20
-// — the backend owns "who is one merchant", since that rule is shared with the
-// Recurring page's detection).
+// Data comes from GET /api/top-merchants (already ranked, already capped at 20).
+// The merchant-grouping rule lives in the backend, since it is shared with the
+// Recurring page's detection.
 //
 // WHY HORIZONTAL BARS AND NOT THE SHARED FinanceChart: twenty merchant names
 // will not fit under twenty columns, and this is one measure over twenty
-// identities, not a series over time — the form that reads is a ranked list of
+// merchants, not a series over time — the readable form is a ranked list of
 // bars from a common left baseline, where the eye compares lengths down one
 // edge. It's rows of HTML rather than SVG for the same reason the ledger is:
 // each row carries the merchant avatar (brand icon or initials, avatar.js) and
@@ -42,9 +42,9 @@
     render();
   }
 
-  // The bars are the whole report: no standing description above them, the
-  // same way the Forecast card carries its method in the title's tooltip and
-  // nothing else. The window picker in the header says what span they cover.
+  // The bars are the whole report: no description above them, the same as the
+  // Forecast card, which keeps its method in the title's tooltip. The window
+  // picker in the header states the span they cover.
   function render() {
     const btn = document.getElementById('merchants-range-btn');
     if (btn) btn.textContent = WINDOW_LABELS[state.window];
@@ -53,11 +53,12 @@
 
   // ─── Chart ─────────────────────────────────────────────────────────────────
 
-  // Every row is its own grid, so the amount column has to be told how wide to
-  // be or each row sizes it to its own number and the bars stop sharing a right
-  // edge. Measure them all rather than trusting the leader to be the longest
-  // string: that only holds while every amount is formatted the same way, and
-  // the width is cheap over twenty rows. `ch` is the digit advance in the
+  // Every row is a separate grid, so the amount column needs an explicit width;
+  // otherwise each row sizes it to its own number and the bars no longer share a
+  // right edge. All amounts are measured rather than assuming the largest value
+  // has the longest string, which only holds while every amount is formatted the
+  // same way, and measuring twenty rows is cheap. `ch` is the digit advance in
+  // the
   // tabular numeric font, and the symbol and separators are narrower than a
   // digit, so this is never short.
   function amountColumnWidth(list) {
@@ -67,12 +68,13 @@
   }
 
   function barRow(m, rank, max) {
-    // Bars are scaled against the leader, so the longest fills the track and
-    // the rest are read as fractions of it. A zero-length bar can't happen —
-    // the backend drops merchants with nothing to show.
+    // Bars are scaled against the largest value, so the longest fills the track
+    // and the rest are fractions of it. A zero-length bar cannot occur: the
+    // backend drops merchants with no spend.
     const pct = max > 0 ? Math.max((m.total / max) * 100, 1.5) : 0;
-    // Each bar grows a beat after the one above it, so the list reads top-down
-    // in rank order the way the other charts draw left-to-right in time order.
+    // Each bar animates shortly after the one above it, so the list fills
+    // top-down in rank order, as the other charts fill left-to-right in time
+    // order.
     const delay = Math.min((rank - 1) * 25, 500);
     const label = escapeHtml(m.name);
     const inner = `${merchantAvatarHtml(m.name)}<span class="tm-name">${label}</span>`;

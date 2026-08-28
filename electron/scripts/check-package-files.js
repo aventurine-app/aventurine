@@ -1,17 +1,17 @@
 'use strict';
 
-// Guard against the "added a top-level electron/ file but forgot the
-// electron-builder `files` allowlist" mistake. That `files:` list is an
-// explicit allowlist (see electron-builder.yml): anything not named or globbed
-// is silently dropped from the packaged app.asar. When the dropped file is app
-// code that main.js require()s, the packaged app crashes at startup with
-// "Cannot find module" — and nothing shows it in dev, where the file is right
-// there on disk. (This is exactly what shipped a dead build once.)
+// Guard against adding a top-level electron/ file without adding it to the
+// electron-builder `files` allowlist. That `files:` list is an explicit
+// allowlist (see electron-builder.yml): anything not named or globbed is dropped
+// from the packaged app.asar with no warning. When the dropped file is app code
+// that main.js require()s, the packaged app crashes at startup with "Cannot find
+// module", and dev builds do not reproduce it, since the file is present on
+// disk. This has shipped a broken build before.
 //
-// So: every top-level *.js in electron/ is app code that must ship. Dev-only
-// scripts live under scripts/ (not globbed into the package), so they're out of
-// scope here. This runs before every dist build (see package.json) and fails
-// loudly if a top-level file isn't covered by the allowlist.
+// Every top-level *.js in electron/ is app code that must ship. Dev-only scripts
+// live under scripts/ (not globbed into the package) and are out of scope here.
+// This runs before every dist build (see package.json) and fails if a top-level
+// file is not covered by the allowlist.
 
 const fs = require('fs');
 const path = require('path');
@@ -41,9 +41,9 @@ console.log(`[check-package-files] ok — ${topLevelJs.length} top-level files a
 
 // ── Second guard: packaging icons vs. the app logo ───────────────────────────
 // build/icon.png (linux) and build/icon.ico (win) are *copies* of the logo,
-// rendered offline by scripts/make-icons.js — nothing regenerates them during a
-// build. So editing static/icons/logo/logo.svg updates the title bar and leaves
-// every installer, taskbar and launcher shipping the previous mark, silently.
+// rendered offline by scripts/make-icons.js; nothing regenerates them during a
+// build. Editing static/icons/logo/logo.svg therefore updates the title bar
+// while every installer, taskbar and launcher keeps shipping the previous mark.
 // make-icons.js stamps the hash of the SVG it rendered from; compare it here.
 
 const { sourceHash, SRC_SVG, BUILD_DIR, STAMP_FILE } = require('./make-icons.js');

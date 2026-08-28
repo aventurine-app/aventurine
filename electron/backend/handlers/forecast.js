@@ -27,7 +27,7 @@ function plannedList(db) {
  * Each cash-type Balance-Sheet account (column) paired with its latest available
  * balance — the value entered for the most recent (year, month) that account has
  * data for. Only `col_type = 'cash'` columns are listed: the forecast tracks a
- * spendable cash balance, so investment/retirement/debt accounts aren't offered
+ * spendable cash balance, so investment/retirement/debt accounts are not offered
  * as a starting point. `balance` is null when the account has no entries yet.
  * `month` is stored as 1-12, so recency is by (year, month).
  * Ordered by column position so the picker mirrors the Balance Sheet's order.
@@ -35,19 +35,18 @@ function plannedList(db) {
  * `as_of` is the 'YYYY-MM' that balance was recorded for, and it is reported
  * rather than assumed to be current: the Balance Sheet is month-granular and
  * hand-editable, so a user who last imported in March gets a March figure while
- * the projection starts from today. The gap can't be closed here (the
- * transactions between are already spent, and re-deriving a live balance from
+ * the projection starts from today. The gap cannot be closed here (the
+ * transactions in between are already spent, and re-deriving a live balance from
  * them would double-count anything the sheet cell already includes), so the
- * renderer discloses the date instead of quietly presenting a stale number as
- * "your balance".
+ * renderer displays the date alongside the figure.
  *
- * This is what the renderer's account drop-down is built from, and what the
- * starting balance is resolved against (see resolveStart).
+ * This builds the renderer's account drop-down, and the starting balance is
+ * resolved against it (see resolveStart).
  */
 function accountBalances(db) {
   const cols = db
     .prepare(
-      // hidden = 0: unadopted starter accounts are not offerable accounts.
+      // hidden = 0: unadopted starter accounts are not listed.
       `SELECT "key", label, col_type, position FROM balance_columns
         WHERE col_type = 'cash' AND hidden = 0 ORDER BY position`
     )
@@ -76,10 +75,9 @@ function accountBalances(db) {
 
 /**
  * Pick the account the forecast starts from. An explicit `accountKey` must match
- * one of the (cash) accounts (else 400) — selecting a non-cash column is what
- * keeps the picker honest. With no key, default to the first cash account.
- * Returns the chosen account object (from `accounts`) or null when there are no
- * cash accounts at all.
+ * one of the (cash) accounts, else 400, so a non-cash column cannot be selected.
+ * With no key, defaults to the first cash account. Returns the chosen account
+ * object (from `accounts`) or null when there are no cash accounts.
  */
 function resolveStart(accounts, accountKey) {
   if (accountKey !== undefined && accountKey !== '') {
@@ -94,27 +92,27 @@ function resolveStart(accounts, accountKey) {
  * Split transactions into income/expense the same way /api/transactions and the
  * predictions card do: a categorized row's direction follows its
  * Category.cat_type; an uncategorized row keeps its stored tx_type. With
- * `includeTransfers`, transfer-typed rows are folded into the expense (outflow)
- * bucket — money moved out of the cash account on its way to savings/a
- * brokerage; with it off they're dropped, so the projection shows the balance as
- * if that money had stayed put.
+ * `includeTransfers`, transfer-typed rows are added to the expense (outflow)
+ * bucket — money moved out of the cash account into savings or a brokerage; with
+ * it off they are excluded, so the projection shows the balance as if that money
+ * had stayed in the account.
  *
- * SCOPE: the projection tracks ONE account's balance, so it must be driven by
- * that account's flows. Reading the whole ledger meant a Checking forecast was
- * bent by money spent on a credit card or out of savings — in a two-account
- * ledger where every charge belonged to Savings, Checking was still projected
- * $1,000 into the red. Rows carry `account_key` since v10.
+ * SCOPE: the projection tracks ONE account's balance, so it uses that account's
+ * flows. Reading the whole ledger distorted a Checking forecast with money spent
+ * on a credit card or out of savings — in a two-account ledger where every
+ * charge belonged to Savings, Checking was still projected $1,000 below zero.
+ * Rows carry `account_key` since v10.
  *
  * The fallback matters as much as the rule: an account with NO rows of its own
  * falls back to the whole ledger rather than forecasting a flat line. That is
  * the shape of every pre-v10 import (account_key NULL throughout) and of a
  * single-account user who never picked one, and for them the whole ledger IS
- * this account's activity. Which of the two happened is returned as `scope` so
- * the renderer can say so rather than leave the number unexplained.
+ * this account's activity. Which of the two applied is returned as `scope` so
+ * the renderer can label the figure.
  *
  * `activeMonths` is every 'YYYY-MM' the scoped rows touch — including months
- * that are all transfers with transfers switched off, which are real months the
- * user simply had no spendable flow in (see windowAverages).
+ * that are all transfers with transfers switched off, which are real months with
+ * no spendable flow (see windowAverages).
  */
 function directionSplit(db, { includeTransfers, accountKey }) {
   const catTypes = new Map(
@@ -171,9 +169,9 @@ function getForecast(ctx, { query }) {
     start_balance: startBalance,
     start_account: accountKey,
     // Which month the starting balance was recorded for — null when there is no
-    // balance at all. The renderer says so when it isn't recent (accountBalances).
+    // balance. The renderer displays it when it is not recent (accountBalances).
     start_as_of: startAccount ? startAccount.as_of : null,
-    // 'account' when the projection is driven by the chosen account's own rows,
+    // 'account' when the projection uses the chosen account's own rows,
     // 'ledger' when it fell back to every transaction (see directionSplit).
     scope,
     accounts,

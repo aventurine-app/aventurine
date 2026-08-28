@@ -2,17 +2,17 @@
 
 // ─── Electron shell for aventurine ─────────────────────────────────────────
 //
-// The backend lives in THIS process (electron/backend/) and the renderer
-// reaches it over IPC ('api:request' → backend/routes.dispatch). There is no
-// HTTP server, no socket, no port — which retires the whole localhost attack
-// surface the Flask era needed middleware for (host allowlist, origin gate,
-// per-launch token, DNS-rebinding defence): nothing else on the machine can
-// reach a channel that only this renderer holds.
+// The backend runs in THIS process (electron/backend/) and the renderer reaches
+// it over IPC ('api:request' → backend/routes.dispatch). There is no HTTP
+// server, no socket, no port, which removes the localhost attack surface the
+// Flask era needed middleware for (host allowlist, origin gate, per-launch token,
+// DNS-rebinding defence): no other process on the machine can reach a channel
+// held only by this renderer.
 //
-// Pages are pre-rendered static HTML in pages/ (see MIGRATION.md), served
-// from the custom app:// scheme. The fixed origin (app://aventurine) keeps
-// localStorage (theme, currency symbol, zoom) stable across
-// launches — no more persisted-port dance.
+// Pages are pre-rendered static HTML in pages/ (see MIGRATION.md), served from
+// the custom app:// scheme. The fixed origin (app://aventurine) keeps
+// localStorage (theme, currency symbol, zoom) stable across launches, replacing
+// the Flask-era persisted-port handling.
 
 const { app, BrowserWindow, Menu, ipcMain, dialog, protocol, net, shell } = require('electron');
 const fs = require('fs');
@@ -46,7 +46,8 @@ protocol.registerSchemesAsPrivileged([
     { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } },
 ]);
 
-// Kill the default File/Edit/View menu — pages/partials/chrome.html owns the title bar.
+// Remove the default File/Edit/View menu; the title bar is drawn by
+// pages/partials/chrome.html.
 Menu.setApplicationMenu(null);
 
 // One-time rebrand migration (Oliv → Aventurine, 2026-07): the userData dir
@@ -70,16 +71,15 @@ function migrateLegacyProfile(oldDir, newDir) {
     }
 }
 
-// Dev (npm start) gets its own profile so it never shares state with an
-// installed /opt/Aventurine build. Both default to the 'Aventurine' userData
-// dir, so running dev while the packaged app is open makes the second instance
-// fight the first for the Chromium DOM-Storage LevelDB lock: the renderer's
-// first localStorage access then stalls ~4s (twice — localStorage +
-// sessionStorage) before falling back to in-memory, which is the "blank for
-// seconds on launch" symptom. A distinct dev userData dir (its own Local
-// Storage AND its own data/finance.db) sidesteps the collision entirely. Must
-// run before whenReady → startBackend, which derives AVENTURINE_DATA_DIR from
-// userData.
+// Dev (npm start) uses a separate profile so it does not share state with an
+// installed /opt/Aventurine build. Both default to the 'Aventurine' userData dir,
+// so running dev while the packaged app is open leaves the second instance
+// contending for the Chromium DOM-Storage LevelDB lock: the renderer's first
+// localStorage access then stalls ~4s (twice — localStorage + sessionStorage)
+// before falling back to in-memory, which produces the "blank for seconds on
+// launch" symptom. A separate dev userData dir (its own Local Storage and its own
+// data/finance.db) avoids the collision. Must run before whenReady →
+// startBackend, which derives AVENTURINE_DATA_DIR from userData.
 if (app.isPackaged) {
     migrateLegacyProfile(path.join(app.getPath('appData'), 'Oliv'),
                          app.getPath('userData'));
@@ -98,18 +98,18 @@ let mainWindow = null;
 function startBackend() {
     // Same data-dir contract as the Flask era: <userData>/data.
     process.env.AVENTURINE_DATA_DIR = path.join(app.getPath('userData'), 'data');
-    // The license lives beside the profile, NOT under the data dir: that
-    // directory travels with the user's database (pointer file, backups), and
-    // an unlock key must not ride along when finances are copied to another
-    // machine. See backend/license.js.
+    // The license is stored beside the profile, NOT under the data dir: that
+    // directory travels with the user's database (pointer file, backups), and an
+    // unlock key must not be copied along with it to another machine. See
+    // backend/license.js.
     process.env.AVENTURINE_CONFIG_DIR = app.getPath('userData');
-    // Electron knows the real (localized, XDG-aware) Documents folder; the
-    // backend derives the location it proposes for new databases from it
-    // (dbstate.defaultDbDir), and guesses ~/Documents if this is missing.
+    // Electron resolves the localized, XDG-aware Documents folder; the backend
+    // derives the location it proposes for new databases from it
+    // (dbstate.defaultDbDir), and falls back to ~/Documents if this is unset.
     try {
         process.env.AVENTURINE_DOCUMENTS_DIR = app.getPath('documents');
     } catch {
-        // no documents path on this platform — the backend's guess stands
+        // no documents path on this platform — the backend's fallback applies
     }
     const { createConn } = require('./backend/conn');
     const { dispatch } = require('./backend/routes');
@@ -117,9 +117,9 @@ function startBackend() {
     conn.init();
 
     // Renderer-trust-boundary containment for file writes (see conn.js). The
-    // backend only ever writes to a path the renderer relayed; for anything the
-    // user didn't pick through a native dialog (approveWrite, below), require an
-    // OS-level confirmation the sandboxed renderer can't forge or auto-dismiss.
+    // backend writes only to paths the renderer sends; for anything not chosen
+    // through a native dialog (approveWrite, below), require an OS-level
+    // confirmation the sandboxed renderer cannot forge or dismiss.
     conn.setWriteGuard({
         confirm: (filePath) => {
             const win = BrowserWindow.getFocusedWindow() || mainWindow || undefined;
@@ -138,8 +138,9 @@ function startBackend() {
     });
 
     // The single data-plane channel. The renderer sends HTTP-shaped requests
-    // (method, '/api/...', body); routing/validation/status codes all live in
-    // backend/ — the bridge is a dumb pipe and never trusts the renderer.
+    // (method, '/api/...', body); routing, validation and status codes are all in
+    // backend/ — this bridge only forwards, and validates nothing on the
+    // renderer's behalf.
     ipcMain.handle('api:request', (_e, method, url, body) => {
         if (typeof method !== 'string' || typeof url !== 'string') {
             return { status: 400, body: { ok: false, error: 'invalid request' } };
@@ -166,9 +167,9 @@ ipcMain.on('zoom-set', (_e, level) => {
     w.webContents.setZoomLevel(clamped);
 });
 
-// Native file dialogs for the New / Open Database modal (dbactions.js).
-// The renderer only ever receives a path string (or null); all file I/O
-// happens in backend/, which validates the path itself.
+// Native file dialogs for the New / Open Database modal (dbactions.js). The
+// renderer receives only a path string (or null); all file I/O happens in
+// backend/, which validates the path.
 const DB_FILE_FILTERS = [
     { name: 'SQLite Database', extensions: ['db', 'sqlite', 'sqlite3'] },
     { name: 'All Files',       extensions: ['*'] },
@@ -229,10 +230,10 @@ ipcMain.handle('export-choose-path', async (e, format) => {
 });
 
 // The one way out of the app. window.open is denied and will-navigate is locked
-// to app://, so a link to the activation page has to leave through here — and
-// only to hosts we publish. Everything else is dropped silently: an allowlist
-// means a compromised renderer cannot turn this into a way to launch arbitrary
-// URLs (or, on some platforms, local files) through the OS handler.
+// to app://, so a link to the activation page must go through here, and only to
+// the listed hosts. Everything else is dropped without an error: the allowlist
+// prevents a compromised renderer from using this to launch arbitrary URLs (or,
+// on some platforms, local files) through the OS handler.
 const EXTERNAL_HOSTS = new Set(['aventurine-app.com', 'www.aventurine-app.com']);
 
 ipcMain.handle('open-external', (_e, target) => {
@@ -245,8 +246,8 @@ ipcMain.handle('open-external', (_e, target) => {
 
 // ─── app:// protocol ────────────────────────────────────────────────────────
 
-/** Resolve a decoded URL path inside `root`, refusing anything that escapes
- *  it (.. tricks, absolute injections). Returns the absolute path or null. */
+/** Resolve a decoded URL path inside `root`, rejecting anything that escapes it
+ *  (`..` segments, absolute paths). Returns the absolute path or null. */
 function safeJoin(root, urlPath) {
     const resolved = path.resolve(root, '.' + path.posix.normalize('/' + urlPath));
     return resolved.startsWith(root + path.sep) || resolved === root ? resolved : null;
@@ -321,7 +322,7 @@ async function createWindow() {
         width:  1280,
         height: 800,
         title:  'Aventurine',
-        // Frameless: the page draws its own title bar (pages/partials/chrome.html).
+        // Frameless: the page draws the title bar (pages/partials/chrome.html).
         frame:            false,
         backgroundColor:  '#212121',
         webPreferences: {

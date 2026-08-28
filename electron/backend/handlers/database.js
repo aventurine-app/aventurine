@@ -136,16 +136,16 @@ function create(ctx, { body }) {
   }
 
   if (fs.existsSync(p)) bad('A file already exists at that location', 409);
-  // Containment: a path the renderer relayed but didn't get from a native
-  // dialog needs the user's out-of-renderer confirmation before we write —
-  // except in the folder the app itself proposed and displayed, where the
-  // existsSync + 'wx' pair above already rules out clobbering anything.
+  // Containment: a path the renderer sent that did not come from a native
+  // dialog needs out-of-renderer confirmation before writing — except in the
+  // folder the app proposed and displayed, where the existsSync + 'wx' pair
+  // above already prevents overwriting an existing file.
   ctx.authorizeWrite(p, { allowProposedDir: true });
   try {
     const parent = path.dirname(p);
     if (parent) fs.mkdirSync(parent, { recursive: true });
-    // Prove the location is writable BEFORE switching the engine over, so a
-    // bad path fails cleanly without touching the current DB ('wx' = O_EXCL).
+    // Check the location is writable BEFORE switching the engine over, so a bad
+    // path fails without modifying the current DB ('wx' = O_EXCL).
     fs.closeSync(fs.openSync(p, 'wx'));
     fs.unlinkSync(p);
   } catch (e) {
@@ -205,8 +205,8 @@ function open(ctx, { body }) {
   }
   if (!stat || !stat.isFile()) bad('No file found at that location', 404);
 
-  // Encryption is detected from the file itself: a plaintext SQLite file has
-  // a fixed 16-byte magic header; a SQLCipher file does not.
+  // Encryption is detected from the file: a plaintext SQLite file starts with a
+  // fixed 16-byte magic header; a SQLCipher file does not.
   let header;
   try {
     const fd = fs.openSync(p, 'r');
@@ -231,7 +231,8 @@ function unlock(ctx, { body }) {
   return activateExisting(ctx, ctx.state.path, true, data.password);
 }
 
-/** Re-protect the active (encrypted) DB — drops the key, flips to locked. */
+/** Re-lock the active (encrypted) DB: discards the key and sets state to
+ *  locked. */
 function lock(ctx) {
   return ctx.lock();
 }

@@ -10,8 +10,8 @@ const TX_TYPES = ['income', 'expense', 'transfer'];
 
 /**
  * Shape a transaction row for JSON output (mirror of _serialise_tx).
- * Direction is owned by the category: when the row is categorized and a
- * {category_id -> cat_type} Map is supplied, tx_type is derived from it so
+ * Direction comes from the category: when the row is categorized and a
+ * {category_id -> cat_type} Map is supplied, tx_type is derived from it, so
  * rows written before a category was re-typed still render correctly.
  */
 function serialiseTx(t, catTypeById = null) {
@@ -32,9 +32,9 @@ function serialiseTx(t, catTypeById = null) {
   };
 }
 
-/** True when `key` names an existing Balance Sheet account (balance_columns).
+/** True when `key` matches an existing Balance Sheet account (balance_columns).
  *  A transaction's account_key references that same list — accounts are not a
- *  separate entity (see the v10 migration). */
+ *  separate table (see the v10 migration). */
 function accountExists(db, key) {
   return !!db.prepare('SELECT 1 FROM balance_columns WHERE "key" = ?').get(key);
 }
@@ -59,8 +59,8 @@ function applyTxFields(db, t, data, { requireAll }) {
     const val = 'description' in data ? data.description : '';
     if (typeof val !== 'string') return 'invalid description';
     const next = val.slice(0, 200);
-    // A user-edited description supersedes the import-derived clean name; a
-    // payload that merely re-sends the same text (bulk edit) keeps it.
+    // A user-edited description clears the import-derived clean name; a payload
+    // re-sending the same text (bulk edit) leaves it in place.
     if (next !== t.description) t.display_name = null;
     t.description = next;
   }
@@ -106,8 +106,8 @@ function applyTxFields(db, t, data, { requireAll }) {
 
 /** Insert a tx object built by applyTxFields; fills defaults, returns with id.
  *  The INSERT is prepared once per DB handle (WeakMap, so a reopened DB gets a
- *  fresh statement): imports call this once per row, and preparing costs ~3x
- *  what running the statement does. */
+ *  fresh statement): imports call this once per row, and preparing costs ~3x as
+ *  much as running the statement. */
 const insertStmts = new WeakMap();
 function insertTx(db, t) {
   let stmt = insertStmts.get(db);

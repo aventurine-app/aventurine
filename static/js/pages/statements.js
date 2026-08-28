@@ -4,9 +4,9 @@
 // Cash Flow and Balance Sheet merged behind two tabs, with everything on ONE
 // toolbar row: tabs left; ‹ year › stepper dead-center; the ⋮ menu right.
 //
-// The tables are still owned end-to-end by tables.js — this file boots one
-// year-table controller per tab (each scoped to its own container via the
-// *Selector opts) and layers the page chrome on top:
+// The tables are implemented entirely in tables.js; this file starts one
+// year-table controller per tab (each scoped to its container via the *Selector
+// opts) and adds the page chrome on top:
 //
 //   • an ARIA tablist that swaps the visible panel;
 //   • the year stepper: prev/next walk the union of years across both
