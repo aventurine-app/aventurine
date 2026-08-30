@@ -55,6 +55,39 @@
   }
 
   const CHART_RATIO = 320 / 800;   // taller than the line charts — Sankeys need room
+
+  // ─── Layout width vs box width (why app zoom used to shrink the diagram) ─────
+  // The paddings, gaps and label text below are fixed lengths, so they keep
+  // their size while the container does not: app zoom shrinks the box in CSS
+  // pixels, and the same 300px of label gutter then eats a far bigger share of
+  // it. The ribbons paid for all of it — at 250% the span between the columns
+  // had collapsed to almost nothing while the labels around it grew.
+  //
+  // So the diagram is LAID OUT wider than the box and the whole SVG is scaled
+  // down to fit through a viewBox. Bands and labels shrink together, which keeps
+  // the proportions the layout was tuned at, and zoom is what pays for the
+  // shrink. It buys the layout the SQUARE ROOT of the zoom factor, which splits
+  // the zoom between the two things asking for it: the labels still get visibly
+  // larger (else the chart reads as the one thing on the page that ignored the
+  // zoom) and the ribbons still get room instead of surrendering all of it. At
+  // 100% this is a no-op — the box IS the layout width, nothing scales — so only
+  // zoomed views change, and the type never ends up smaller than unzoomed.
+  const MIN_CHART_W = 1280;   // widest we will lay out for; ~a comfortable window
+
+  /** App zoom as a plain factor (1 = 100%). Only Electron has app zoom; in a
+   *  plain browser (fixtures) window.aventurineZoom is absent. */
+  function zoomFactor() {
+    const z = window.aventurineZoom;
+    const f = z ? Math.pow(1.2, z.get()) : 1;
+    return Number.isFinite(f) && f > 1 ? f : 1;
+  }
+
+  /** Logical width to lay the diagram out at, for a box `boxW` CSS px wide. */
+  function layoutWidth(boxW) {
+    const stretched = Math.round(boxW * Math.sqrt(zoomFactor()));
+    return Math.min(Math.max(boxW, MIN_CHART_W), stretched);
+  }
+
   const PAD = { l: 150, r: 150, t: 28, b: 16 };
   const NODE_W = 13;               // node-bar thickness
   const MIN_BAND = 1.5;            // floor so a tiny category is still visible
@@ -160,7 +193,9 @@
          + ` L ${f(tx)} ${f(t1)} C ${f(mx)} ${f(t1)} ${f(mx)} ${f(s1)} ${f(sx)} ${f(s1)} Z`;
   }
 
-  function buildSVG(W) {
+  function buildSVG(boxW) {
+    // Geometry below is in layout units; `k` maps them onto the box at the end.
+    const W = layoutWidth(boxW);
     const { income, expense, totalIncome, totalExpense } = aggregate(state.year);
     if (totalIncome <= 0 && totalExpense <= 0) return null; // caller → empty state
 
@@ -304,7 +339,10 @@
           + `<text class="sankey-amount" x="${cLabelX}" y="${centerTop - CENTER_LABEL_GAP}" text-anchor="middle">${escapeHtml(fmtMoney(totalIncome))}</text>`;
 
     const cls = `cashflow-sankey${firstPaint ? ' sankey-enter' : ''}`;
-    return `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" class="${cls}" style="display:block;">`
+    const k = boxW / W;   // 1 when the box was wide enough to lay out in directly
+    return `<svg width="${boxW}" height="${Math.round(H * k)}" viewBox="0 0 ${W} ${H}"`
+         + ` preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"`
+         + ` class="${cls}" style="display:block;">`
          + `${waves}${bars}</svg>`;
   }
 
