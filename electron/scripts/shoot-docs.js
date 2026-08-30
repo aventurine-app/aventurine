@@ -336,6 +336,14 @@ app.whenReady().then(async () => {
     const setTheme = (value) =>
       js(`localStorage.setItem('color-theme', ${JSON.stringify(value)})`);
 
+    /** Switch the chart palette for a capture. A SECOND axis from the surface
+     *  theme above, read pre-paint by the same theme-init.js, so it has the same
+     *  rule: write it before the navigation that should show it. '' is the
+     *  accent-derived default ramp; 'gemstone' is the jewel-toned one the
+     *  website's shots are taken in. */
+    const setGraphTheme = (value) =>
+      js(`localStorage.setItem('graph-theme', ${JSON.stringify(value)})`);
+
     const esc = () => js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
 
     /** Answer the import's account question. With several accounts adopted the app
@@ -905,6 +913,14 @@ app.whenReady().then(async () => {
     if (ONLY && ONLY.has('site')) {
       console.log('\n— site —');
 
+      // Every site crop is shot in the LIGHT theme and the GEMSTONE chart
+      // palette, so the Features section reads as one set. Set once here rather
+      // than per shot: both live in localStorage on a fixed origin, so they
+      // survive every nav below. The docs phases run under the defaults, which
+      // is why the pair is put back at the end of the block.
+      await setTheme('');
+      await setGraphTheme('gemstone');
+
       // Both dashboard bands — Month to Month over Year to Year, six cards.
       // Unlike the crops below this one is padded: those are cards, whose own
       // rounded edge is the frame, while the dashboard's outermost things are a
@@ -916,22 +932,14 @@ app.whenReady().then(async () => {
       // current month is a part-month and the top band would open on a half
       // paycheque against a half month of spending. The month before it is the
       // whole picture the card is meant to show.
-      // Shot in DARK, alone among the site crops: the dashboard is the site's
-      // lead image and the six cards are almost all chart, which is where the
-      // dark theme has something to show. The theme is set before the nav, not
-      // after it (see setTheme), and put back to light immediately after so the
-      // remaining crops — and any docs phase running in the same pass — are
-      // unaffected.
-      await setTheme('dark');
       await nav('/', 3200);
-      if (await js(`document.documentElement.dataset.theme !== 'dark'`)) {
-        throw new Error('dashboard did not load in the dark theme');
+      if (await js(`document.documentElement.dataset.graphTheme !== 'gemstone'`)) {
+        throw new Error('dashboard did not load in the gemstone palette');
       }
       await click('#dashboard-month-prev');
       await sleep(900);
       await unhover();
       await shotEl('site-dashboard', '.dashboard-page', 20);
-      await setTheme('');
 
       // The ledger card: header row through the pagination footer, which is a
       // row of the same table, so one element covers it.
@@ -941,19 +949,6 @@ app.whenReady().then(async () => {
       await nav('/transactions', 2500);
       await unhover();
       await shotEl('site-transactions', '.tx-wrapper', 0);
-
-      // The same crop in dark, shot as a second file rather than replacing the
-      // light one: the site currently shows neither, and which theme the ledger
-      // is presented in is still an open question there. Kept in the script so
-      // the pair stays regenerable together and cannot drift apart.
-      await setTheme('dark');
-      await nav('/transactions', 2500);
-      if (await js(`document.documentElement.dataset.theme !== 'dark'`)) {
-        throw new Error('transactions did not load in the dark theme');
-      }
-      await unhover();
-      await shotEl('site-transactions-dark', '.tx-wrapper', 0);
-      await setTheme('');
 
       // Month stepper and the calendar with its occurrence chips — the whole
       // feature, minus the chrome around it. Shot with one schedule's card
@@ -991,6 +986,9 @@ app.whenReady().then(async () => {
       await nav('/reports', 3200);
       await unhover();
       await shotEl('site-cash-flow', '.rep-panel:not([hidden]) .forecast-card', 0);
+
+      // Back to the defaults for any docs phase sharing the pass.
+      await setGraphTheme('');
     }
 
     // ═══ Phase 9: recurring ══════════════════════════════════════════════════
