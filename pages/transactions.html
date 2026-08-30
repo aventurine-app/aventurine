@@ -25,7 +25,7 @@
          the right group holds the action chips
          (icon chips for Edit / Delete / Add, labeled primary buttons for
          Import / Export). Inactive filter chips read as a
-         dashed outline with just the field name; clicking one drops a popover of
+         quiet outline with just the field name; clicking one drops a popover of
          options, and once a value is picked the chip fills with the primary
          accent and reads "Field : value" with a leading × to clear it. Type,
          Account and Category take several values at once (checkbox lists,
@@ -40,7 +40,6 @@
                 <button class="tx-filter-main" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Filter by Date">
                     <span class="tx-filter-name">Date</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
                 </button>
-                <svg class="tx-filter-dash" aria-hidden="true"><rect x="0.5" y="0.5" rx="7.5"></rect></svg>
             </div>
             <div class="tx-filter-chip" data-filter="name">
                 <button class="tx-filter-clear" type="button" aria-label="Clear name filter">
@@ -49,7 +48,6 @@
                 <button class="tx-filter-main" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Filter by Name">
                     <span class="tx-filter-name">Name</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
                 </button>
-                <svg class="tx-filter-dash" aria-hidden="true"><rect x="0.5" y="0.5" rx="7.5"></rect></svg>
             </div>
             <div class="tx-filter-chip" data-filter="type">
                 <button class="tx-filter-clear" type="button" aria-label="Clear type filter">
@@ -58,7 +56,6 @@
                 <button class="tx-filter-main" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Filter by Type">
                     <span class="tx-filter-name">Type</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
                 </button>
-                <svg class="tx-filter-dash" aria-hidden="true"><rect x="0.5" y="0.5" rx="7.5"></rect></svg>
             </div>
             <div class="tx-filter-chip" data-filter="account">
                 <button class="tx-filter-clear" type="button" aria-label="Clear account filter">
@@ -67,7 +64,6 @@
                 <button class="tx-filter-main" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Filter by Account">
                     <span class="tx-filter-name">Account</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
                 </button>
-                <svg class="tx-filter-dash" aria-hidden="true"><rect x="0.5" y="0.5" rx="7.5"></rect></svg>
             </div>
             <div class="tx-filter-chip" data-filter="category">
                 <button class="tx-filter-clear" type="button" aria-label="Clear category filter">
@@ -76,7 +72,6 @@
                 <button class="tx-filter-main" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Filter by Category">
                     <span class="tx-filter-name">Category</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
                 </button>
-                <svg class="tx-filter-dash" aria-hidden="true"><rect x="0.5" y="0.5" rx="7.5"></rect></svg>
             </div>
             <div class="tx-filter-chip" data-filter="amount">
                 <button class="tx-filter-clear" type="button" aria-label="Clear amount filter">
@@ -85,7 +80,6 @@
                 <button class="tx-filter-main" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Filter by Amount">
                     <span class="tx-filter-name">Amount</span><span class="tx-filter-rule" aria-hidden="true"></span><span class="tx-filter-value"></span>
                 </button>
-                <svg class="tx-filter-dash" aria-hidden="true"><rect x="0.5" y="0.5" rx="7.5"></rect></svg>
             </div>
             <button class="tx-clear-all" type="button" id="tx-clear-all" hidden>Clear all</button>
         </div>

@@ -273,22 +273,20 @@
 
 /* ── Filter chips ──────────────────────────────────────────────────────────
    The chip is the visual unit; its two child buttons (clear ×, label) sit
-   transparently inside the shared border. Inactive → dashed outline, grayed,
+   transparently inside the shared border. Inactive → solid outline, grayed,
    just the field name. Active → solid accent-green identity with the leading
    × revealed and the " : value" half shown.
 
-   The inactive outline is drawn by .tx-filter-dash (an SVG rect stroke), NOT by
-   this border: CSS `border-style: dashed` offers no control over dash length —
-   Chromium derives it from the border width, and at 1px the dashes are so tight
-   the chip reads as an almost solid line. The border stays in the box model as a
-   transparent 1px spacer so the chip's size never changes between states; the
-   active state is the one that paints it. */
+   The inactive outline is the chip's own border on the neutral --border token —
+   one step quieter than the label's --text-tertiary, and the same outline every
+   input and card wears, so a resting chip reads as a control rather than as
+   text with a box round it. */
 .tx-filter-chip {
     position: relative;
     display: inline-flex;
     align-items: stretch;
     height: 32px;
-    border: 1px solid transparent;
+    border: 1px solid var(--border);
     border-radius: 8px;
     background: transparent;
     color: var(--text-tertiary);
@@ -297,34 +295,8 @@
     transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
-/* The dashed outline, as a stroked rect inset half a stroke-width so the 1px
-   line lands inside the chip's own 1px border box. It inherits `color`, so the
-   hover/idle text colour below carries the outline with it — one colour to
-   change, never two. stroke-dasharray is the dash/gap knob: first number is the
-   dash length, second the gap between them. */
-.tx-filter-dash {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    overflow: visible;
-    pointer-events: none;
-}
-
-.tx-filter-dash rect {
-    width: calc(100% - 1px);
-    height: calc(100% - 1px);
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1;
-    stroke-dasharray: 4 4;
-}
-
-/* Active chips wear the solid accent border instead — drop the dashes. */
-.tx-filter-chip.is-active .tx-filter-dash { display: none; }
-
-/* Inactive hover lifts the text + outline so the chip reads clickable. The
-   outline follows via currentColor, so only `color` moves here. */
+/* Inactive hover lifts the text + fill so the chip reads clickable. The outline
+   holds at --border — lifting it too would undo the quieter resting weight. */
 .tx-filter-chip:not(.is-active):hover {
     color: var(--text-secondary);
     background: var(--frost-2);
@@ -407,7 +379,7 @@
     height: 16px;
     padding: 1px;
     box-sizing: border-box;
-    border: 1px solid currentColor;
+    border: 1px solid var(--border);
     border-radius: 50%;
 }
 .tx-filter-clear:hover { color: var(--accent-negative); }
