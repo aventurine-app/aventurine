@@ -132,13 +132,20 @@
 <div class="tfr-page">
 
     <!-- Investing. Two cards, ONE picker: the second card is the first one
-         broken out by merchant, so the two are readings of the same rows over
-         the same months and the stack has to total the line. Two pickers would
+         broken out by account — one band per Transfer row of the Cash Flow
+         grid — so the two are readings of the same statement cells over the
+         same months and the stack has to total the line. Two pickers would
          let them fall out of step, and a stack that doesn't explain the chart
-         above it is worse than no second chart. The panel-level toolbar row is
+         beside it is worse than no second chart. The panel-level toolbar row is
          the sanctioned home for a control that scopes more than one card (see
          the note at the top of this file); a report's controls still never get
-         hoisted into the tab bar. Controller: static/js/pages/transfers.js. -->
+         hoisted into the tab bar. Controller: static/js/pages/transfers.js.
+
+         The two cards sit SIDE BY SIDE in .tfr-charts. Both charts are the same
+         months at the same width, so they draw at the same height and their
+         month axes line up across the gap — which is the whole reason to put a
+         stack next to the line it totals rather than under it, since comparing
+         a column to its point no longer costs a scroll. -->
     <div class="tfr-toolbar">
         <div class="range-selector" id="transfers-range">
             <button class="range-selector-btn" id="transfers-range-btn" type="button"
@@ -151,6 +158,8 @@
             </div>
         </div>
     </div>
+
+    <div class="tfr-charts">
 
     <div class="tfr-card">
         <div class="dashboard-card-header">
@@ -167,16 +176,18 @@
 
     <div class="tfr-card">
         <div class="dashboard-card-header">
-            <span class="dashboard-card-title">Saved &amp; Invested by Merchant<span class="fc-info" tabindex="0" role="note"
-                aria-label="The same months split by where the money went. The eight biggest get their own color and everything else is grouped as Other, so the columns always add up to the chart above. Click a name to see those transactions."
-                data-tip="The same months split by where the money went. The eight biggest get their own color and everything else is grouped as Other, so the columns always add up to the chart above. Click a name to see those transactions.">i</span></span>
+            <span class="dashboard-card-title">Saved &amp; Invested by Account<span class="fc-info" tabindex="0" role="note"
+                aria-label="The same months split by which of your accounts the money went into, taken from the Transfer rows of the Cash Flow statement. The eight biggest get their own color and everything else is grouped as Other, so the columns always add up to the trend chart. Click a name to see those transactions."
+                data-tip="The same months split by which of your accounts the money went into, taken from the Transfer rows of the Cash Flow statement. The eight biggest get their own color and everything else is grouped as Other, so the columns always add up to the trend chart. Click a name to see those transactions.">i</span></span>
         </div>
 
         <div class="chart-area">
-            <div id="transfers-merchants-chart"></div>
+            <div id="transfers-accounts-chart"></div>
         </div>
         <div class="tfr-legend" id="transfers-legend"></div>
     </div>
+
+    </div><!-- /.tfr-charts -->
 
 </div>
 
@@ -267,18 +278,23 @@
          living here as a report instead. ONE year at a time, chosen from the
          header picker: every other report on this page is read that way, and
          six ratios drawn as gauges need the width that stacking every year
-         side by side was spending. Controller: static/js/pages/metrics.js. -->
+         side by side was spending. The picker sits in a panel-level toolbar row
+         above the cards, not in the first card's header, because it scopes all
+         three of them — the same rule the Saved & Invested tab follows.
+         Controller: static/js/pages/metrics.js. -->
+    <div class="met-toolbar">
+        <div class="range-selector" id="metrics-year">
+            <button class="range-selector-btn" id="metrics-year-btn" type="button"
+                aria-haspopup="menu" title="Year shown by every card below">Year</button>
+            <div class="range-selector-menu" id="metrics-year-menu" hidden></div>
+        </div>
+    </div>
+
     <div class="met-card">
         <div class="dashboard-card-header">
             <span class="dashboard-card-title">Metrics<span class="fc-info" tabindex="0" role="note"
                 aria-label="The selected year's totals, the ratios behind them, and six money goals: spending under 70% of income, total debt under 25% of income, saving at least 20% of income, investing 15% to 20% of income, spending down year over year, and income up year over year. Transfers between your own accounts are never counted as income or spending."
                 data-tip="The selected year's totals, the ratios behind them, and six money goals: spending under 70% of income, total debt under 25% of income, saving at least 20% of income, investing 15% to 20% of income, spending down year over year, and income up year over year. Transfers between your own accounts are never counted as income or spending.">i</span></span>
-            <div class="met-controls">
-                <div class="range-selector" id="metrics-year">
-                    <button class="range-selector-btn" id="metrics-year-btn" type="button">Year</button>
-                    <div class="range-selector-menu" id="metrics-year-menu" hidden></div>
-                </div>
-            </div>
         </div>
 
         <div id="metrics-body"></div>

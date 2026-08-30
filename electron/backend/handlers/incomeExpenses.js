@@ -20,10 +20,17 @@ function columnsPayload(db) {
 }
 
 /** The category key a transaction feeds: its category's key, or one of the two
- *  uncategorized buckets (by tx_type) for NULL-category rows. */
+ *  uncategorized buckets (by tx_type) for NULL-category rows. An uncategorized
+ *  TRANSFER feeds no cell: the statement is an income/spend surface and the
+ *  direction rule keeps transfers off every one of those, so bucketing it as
+ *  uncategorized expense would have the statement report moved money as spent.
+ *  There is no uncat_transfer bucket to send it to instead, and inventing one
+ *  would put a column on the statement for rows that belong on none of it. */
 function txKey(t, keyById) {
   if (t.category_id == null) {
-    return NULL_KEYS[(t.tx_type ?? 'expense') === 'income' ? 'income' : 'expense'];
+    const dir = t.tx_type ?? 'expense';
+    if (dir === 'transfer') return null;
+    return NULL_KEYS[dir === 'income' ? 'income' : 'expense'];
   }
   return keyById.get(t.category_id);
 }

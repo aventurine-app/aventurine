@@ -214,29 +214,30 @@
   // shape-compatible with it, since pages cannot distinguish the two sources.
   // Comments below name the primary page or widget each entry feeds.
   // static/js/pages/transfers.js — the Saved & Invested report. Built the way
-  // the real handler builds it (per-merchant months first, totals derived from
+  // the real handler builds it (per-account months first, totals derived from
   // them), so the stack sums to the line here as it does against the backend.
   // One fixture serves every window, since query strings are not modeled
-  // — the picker changes the label and not the bars. Nine merchants on purpose:
+  // — the picker changes the label and not the bars. Nine accounts on purpose:
   // eight get a palette slot and the ninth has to fold into "Other", which is
-  // the case the legend and the neutral swatch exist for. The mix is savings AND
-  // brokerage, because the report reads the transfer DIRECTION rather than one
-  // category and both belong here.
+  // the case the legend and the neutral swatch exist for. A band is a Transfer
+  // ROW of the Cash Flow grid, so the names are categories and the links carry
+  // the category key; the uncategorized band is here too, since it is the one
+  // band the statement has no row for and therefore the one that never links.
   const transfersFixture = (() => {
-    const brokers = [
-      { key: 'n:vanguard',        name: 'Vanguard',           search: 'Vanguard',           base: 600, drift: 12 },
-      { key: 'n:fidelity',        name: 'Fidelity',           search: 'Fidelity',           base: 400, drift: 8 },
-      { key: 'n:robinhood',       name: 'Robinhood',          search: 'Robinhood',          base: 180, drift: -4 },
-      { key: 'n:coinbase',        name: 'Coinbase',           search: 'Coinbase',           base: 120, drift: 6 },
-      { key: 'd:harbor crest',    name: 'HARBOR CREST FUNDS', search: 'HARBOR CREST FUNDS', base: 95,  drift: 0 },
-      { key: 'd:ally savings',    name: 'ALLY SAVINGS XFER',  search: 'ALLY SAVINGS',       base: 75,  drift: 3 },
-      { key: 'n:acorns',          name: 'Acorns',             search: 'Acorns',             base: 60,  drift: 2 },
-      { key: 'n:betterment',      name: 'Betterment',         search: 'Betterment',         base: 50,  drift: 1 },
-      { key: 'd:northgate trust', name: 'NORTHGATE TRUST',    search: 'NORTHGATE TRUST',    base: 40,  drift: 0 },
+    const rows = [
+      { key: 'investing', name: 'Investing',        cat: 'investing', base: 600, drift: 12 },
+      { key: 'savings',   name: 'Savings',          cat: 'savings',   base: 400, drift: 8 },
+      { key: 'cat_31',    name: 'Brokerage',        cat: 'cat_31',    base: 180, drift: -4 },
+      { key: 'cat_32',    name: 'Crypto',           cat: 'cat_32',    base: 120, drift: 6 },
+      { key: 'cat_33',    name: 'Emergency Fund',   cat: 'cat_33',    base: 95,  drift: 0 },
+      { key: 'cat_34',    name: 'College Fund',     cat: 'cat_34',    base: 75,  drift: 3 },
+      { key: 'cat_35',    name: 'Roth IRA',         cat: 'cat_35',    base: 60,  drift: 2 },
+      { key: '__uncategorized__', name: 'Uncategorized', cat: null,   base: 50,  drift: 1 },
+      { key: 'cat_36',    name: 'Vacation Fund',    cat: 'cat_36',    base: 40,  drift: 0 },
     ];
     const monthly = {};
     let total = 0;
-    const merchants = brokers.map((b) => {
+    const accounts = rows.map((b) => {
       const m = {};
       trendsMonths.forEach((ym, i) => {
         // Every third month sits out, so the stack has gaps and short columns
@@ -247,10 +248,10 @@
         monthly[ym] = (monthly[ym] || 0) + v;
         total += v;
       });
-      return { key: b.key, name: b.name, search: b.search, total: Object.values(m).reduce((a, c) => a + c, 0), count: Object.keys(m).length, monthly: m };
+      return { key: b.key, name: b.name, cat: b.cat, total: Object.values(m).reduce((a, c) => a + c, 0), monthly: m };
     });
-    // The folded tail: not one merchant, so it carries no search term and wears
-    // a neutral instead of a ninth hue.
+    // The folded tail: more than one account, so it carries no category key and
+    // wears a neutral instead of a ninth hue.
     const otherMonthly = {};
     trendsMonths.forEach((ym, i) => {
       const v = 25 + (i % 4) * 10;
@@ -258,12 +259,12 @@
       monthly[ym] = (monthly[ym] || 0) + v;
       total += v;
     });
-    merchants.push({
-      key: '__other__', name: 'Other', search: null,
+    accounts.push({
+      key: '__other__', name: 'Other', cat: null,
       total: Object.values(otherMonthly).reduce((a, c) => a + c, 0),
-      count: 14, monthly: otherMonthly,
+      monthly: otherMonthly,
     });
-    return { ok: true, window: 12, months: trendsMonths, total, monthly, merchants, everTransferred: true };
+    return { ok: true, window: 12, months: trendsMonths, total, monthly, accounts, everTransferred: true };
   })();
 
   // static/js/pages/metrics.js — the Metrics report: one year's totals, the

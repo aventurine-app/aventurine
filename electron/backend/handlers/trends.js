@@ -4,13 +4,26 @@
 // EXPENSE category over a trailing window of complete months, for the chart +
 // "biggest movers" panel. The movers math is client-side (services/trends has
 // no state); this handler only aggregates.
+//
+// Source of truth: the CASH FLOW STATEMENT, not the raw ledger — the same
+// per-cell blend the statement renders (computed from transactions, a stored
+// Entry overriding its own cell), so a hand-typed cell is not silently
+// overruled by a chart, and a year with no year-table contributes nothing here
+// exactly as it contributes nothing there. Top Merchants still reads the ledger
+// directly: it ranks merchants, and the statement has no per-merchant cell.
 
 const { addMonthKey } = require('../services/forecast');
+const { computedCells, manualCells, blendCells } = require('./incomeExpenses');
+const { monthNumber } = require('../validate');
 
 // Allowed trailing windows, in months (6mo / 12mo / 3yr / 5yr).
 const ALLOWED_WINDOWS = new Set([6, 12, 36, 60]);
 const DEFAULT_WINDOW = 12;
 
+// The statement keys uncategorized spend by its system bucket; the chart has
+// always shipped it as a synthetic series, so the key is translated on the way
+// out rather than leaking a bucket the category selector never showed.
+const UNCAT_CELL = 'uncat_expense';
 const UNCAT_KEY = '__uncategorized__';
 
 /** Current local 'YYYY-MM'. */
@@ -31,35 +44,19 @@ function trendsGet(ctx, { query }) {
   const firstMonth = addMonthKey(lastComplete, -(window - 1));
   const months = [];
   for (let i = 0; i < window; i++) months.push(addMonthKey(firstMonth, i));
+  const inWindow = new Set(months);
 
-  // Per-(category, month) expense sums for real expense categories.
-  const rows = db
-    .prepare(
-      `SELECT t.category_id AS cid, substr(t.date, 1, 7) AS ym, SUM(t.amount) AS s
-         FROM transactions t
-         JOIN categories c ON c.id = t.category_id
-        WHERE c.cat_type = 'expense'
-          AND substr(t.date, 1, 7) BETWEEN ? AND ?
-        GROUP BY t.category_id, ym`
-    )
-    .all(firstMonth, lastComplete);
+  // What the statement shows, cell for cell.
+  const cells = blendCells(computedCells(db), manualCells(db));
 
-  // Null-category spending → a synthetic "Uncategorized" series.
-  const uncatRows = db
-    .prepare(
-      `SELECT substr(t.date, 1, 7) AS ym, SUM(t.amount) AS s
-         FROM transactions t
-        WHERE t.category_id IS NULL AND t.tx_type = 'expense'
-          AND substr(t.date, 1, 7) BETWEEN ? AND ?
-        GROUP BY ym`
-    )
-    .all(firstMonth, lastComplete);
-
-  // Category metadata, excluding the uncat_expense system bucket.
-  const cats = db
-    .prepare("SELECT id, \"key\", name FROM categories WHERE cat_type = 'expense' AND \"key\" != 'uncat_expense'")
-    .all();
-  const metaById = new Map(cats.map((c) => [c.id, c]));
+  // Expense-category names, keyed the way the statement keys its cells; a cell
+  // whose key isn't here is income or transfer, and isn't spending.
+  const nameByKey = new Map(
+    db
+      .prepare("SELECT \"key\", name FROM categories WHERE cat_type = 'expense'")
+      .all()
+      .map((c) => [c.key, c.name])
+  );
 
   // Accumulate monthly maps per category key.
   const byKey = new Map(); // key -> { key, name, monthly }
@@ -68,13 +65,18 @@ function trendsGet(ctx, { query }) {
     if (!entry) { entry = { key, name, monthly: {} }; byKey.set(key, entry); }
     return entry;
   };
-  for (const r of rows) {
-    const meta = metaById.get(r.cid);
-    if (!meta) continue; // uncat_expense bucket or a non-expense row — skip
-    ensure(meta.key, meta.name).monthly[r.ym] = r.s;
-  }
-  for (const r of uncatRows) {
-    if (r.s) ensure(UNCAT_KEY, 'Uncategorized').monthly[r.ym] = r.s;
+  for (const [yearStr, byMonth] of Object.entries(cells)) {
+    for (const [month, row] of Object.entries(byMonth)) {
+      const num = monthNumber(month);
+      if (!num) continue;
+      const ym = `${yearStr}-${String(num).padStart(2, '0')}`;
+      if (!inWindow.has(ym)) continue;
+      for (const [cellKey, value] of Object.entries(row)) {
+        const name = nameByKey.get(cellKey);
+        if (name === undefined) continue;
+        ensure(cellKey === UNCAT_CELL ? UNCAT_KEY : cellKey, name).monthly[ym] = value;
+      }
+    }
   }
 
   // Only categories with non-zero spend in the window; sorted by total desc so

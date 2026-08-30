@@ -1,8 +1,9 @@
 'use strict';
 
-// Spending Trends (Reports). Read-only over transactions, so no migration/schema
-// assertions here. The trailing window is relative to "now", so target months
-// are computed dynamically (last COMPLETE month = one month before the current).
+// Spending Trends (Reports). Read-only over the Cash Flow statement (the same
+// per-cell blend the statement renders), so no migration/schema assertions here.
+// The trailing window is relative to "now", so target months are computed
+// dynamically (last COMPLETE month = one month before the current).
 
 const test = require('node:test');
 const assert = require('node:assert');
@@ -13,13 +14,30 @@ function catId(c, key) {
   return c.conn.db().prepare('SELECT id FROM categories WHERE "key" = ?').get(key).id;
 }
 
-function insertTx(c, { date, amount, category_id = null, tx_type = 'expense' }) {
+/** Opt a year into the statement (what an import's ensureActiveYear does). */
+function activateYear(c, year) {
+  c.conn.db().prepare('INSERT OR IGNORE INTO active_years (year) VALUES (?)').run(Number(year));
+}
+
+// `activate: false` leaves the year off the statement, which is how a user opts
+// a year out — those transactions feed no cell and so no trend.
+function insertTx(c, { date, amount, category_id = null, tx_type = 'expense', activate = true }) {
+  if (activate) activateYear(c, date.slice(0, 4));
   c.conn
     .db()
     .prepare(
       "INSERT INTO transactions (date, description, category_id, amount, notes, tx_type) VALUES (?, '', ?, ?, '', ?)"
     )
     .run(date, category_id, amount, tx_type);
+}
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** Split a 'YYYY-MM' into the { year, month } an /api/entry body wants. */
+function entryCell(ym) {
+  const [year, mm] = ym.split('-');
+  return { year: Number(year), month: MONTH_NAMES[Number(mm) - 1] };
 }
 
 /** 'YYYY-MM' (+ a mid-month date) for `monthsBack` complete months ago. */
@@ -87,3 +105,57 @@ test('trends: window clamps to {6,12,36,60}', (t) => {
   assert.equal(c.get('/api/trends?window=60').body.months.length, 60);
 });
 
+
+test('trends: a typed Cash Flow cell overrides the computed value', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  const m1 = monthsAgo(1);
+  const m2 = monthsAgo(2);
+
+  insertTx(c, { date: m1.date, amount: 200, category_id: food });
+  insertTx(c, { date: m2.date, amount: 120, category_id: food });
+
+  // Claim the newest month's cell; the older one keeps its computed value.
+  const r0 = c.post('/api/entry', { ...entryCell(m1.ym), category: 'food', value: 75 });
+  assert.equal(r0.status, 200, JSON.stringify(r0.body));
+
+  let foodCat = c.get('/api/trends?window=12').body.categories.find((x) => x.key === 'food');
+  assert.equal(foodCat.monthly[m1.ym], 75, 'entry overrides its own cell');
+  assert.equal(foodCat.monthly[m2.ym], 120, 'untouched cell stays computed');
+
+  // Clearing the entry releases the cell back to the computed value.
+  const r1 = c.del('/api/entry', { ...entryCell(m1.ym), category: 'food' });
+  assert.equal(r1.status, 200, JSON.stringify(r1.body));
+  foodCat = c.get('/api/trends?window=12').body.categories.find((x) => x.key === 'food');
+  assert.equal(foodCat.monthly[m1.ym], 200);
+});
+
+test('trends: a year with no year-table contributes nothing', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  const m1 = monthsAgo(1);
+
+  insertTx(c, { date: m1.date, amount: 200, category_id: food, activate: false });
+  // Seeding opts the CURRENT year in, so opt it back out to be the year with no
+  // year-table (what DELETE /api/year does).
+  c.conn.db().prepare('DELETE FROM active_years').run();
+  assert.deepEqual(c.get('/api/trends?window=12').body.categories, []);
+
+  // Opting the year in is what puts it on the chart.
+  activateYear(c, m1.ym.slice(0, 4));
+  const foodCat = c.get('/api/trends?window=12').body.categories.find((x) => x.key === 'food');
+  assert.equal(foodCat.monthly[m1.ym], 200);
+});
+
+test('trends: a hand-entered cell needs no transaction behind it', (t) => {
+  const c = makeClient(t);
+  const m1 = monthsAgo(1);
+  c.post('/api/year', { year: entryCell(m1.ym).year });
+
+  const r0 = c.post('/api/entry', { ...entryCell(m1.ym), category: 'rent', value: 900 });
+  assert.equal(r0.status, 200, JSON.stringify(r0.body));
+
+  const rent = c.get('/api/trends?window=12').body.categories.find((x) => x.key === 'rent');
+  assert.ok(rent, 'rent present');
+  assert.equal(rent.monthly[m1.ym], 900);
+});
