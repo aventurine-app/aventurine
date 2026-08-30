@@ -27,10 +27,21 @@
 
     // Graph palette — a SECOND, independent axis from the surface theme above
     // (see the block at the foot of themes.css). Stored 'graph-theme' values:
-    // '' (the accent-derived ramp, the default) or 'colorful'. Set pre-paint for
-    // the same reason as the theme: the charts read these tokens at draw time,
-    // and a page painted under the wrong palette would need a repaint.
-    const g = localStorage.getItem('graph-theme');
+    // '' (the accent-derived Aventurine ramp, the default) or 'gemstone'. Set
+    // pre-paint for the same reason as the theme: the charts read these tokens at
+    // draw time, and a page painted under the wrong palette would need a
+    // repaint.
+    //
+    // 'colorful' was this palette's name before it was retoned to jewel colours.
+    // The stored value is rewritten rather than merely mapped, because an
+    // unknown value is not an error anywhere — it just falls through to the
+    // accent ramp with no picker button lit — so a stale one would silently look
+    // like the user had never chosen a palette at all.
+    let g = localStorage.getItem('graph-theme');
+    if (g === 'colorful') {
+        g = 'gemstone';
+        localStorage.setItem('graph-theme', g);
+    }
     if (g) document.documentElement.dataset.graphTheme = g;
 
     if (localStorage.getItem('ui-density') === 'compact') {

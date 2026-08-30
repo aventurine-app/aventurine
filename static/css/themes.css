@@ -84,21 +84,13 @@ html[data-theme="dark"],
 
     --accent-info: var(--accent-info-light);
 
-    /* Categorical series palette (Reports: Spending + Cash Flow). The accent
-       ramp doesn't need a per-theme block — every stop is a mix of tokens that
-       flip here — but the merchant spectrum is fixed hex, so it does. Charts
-       paint the colour as INK on the page, and the ink that carries on a
-       near-black background is the PALE step; the mid-tones this resolves to in
-       the light theme would sink into it. (The avatars flip the other way,
-       ui.css — there the colour is a fill under dark initials.) */
-    --cat-1: var(--spectrum-pale-1);
-    --cat-2: var(--spectrum-pale-2);
-    --cat-3: var(--spectrum-pale-3);
-    --cat-4: var(--spectrum-pale-4);
-    --cat-5: var(--spectrum-pale-5);
-    --cat-6: var(--spectrum-pale-6);
-    --cat-7: var(--spectrum-pale-7);
-    --cat-8: var(--spectrum-pale-8);
+    /* (--cat-* had a per-theme block here, back when the categorical ramp was
+       the fixed-hex merchant spectrum and dark needed the PALE step where light
+       needed the mid one. It is accent mixes now (style.css) — every stop mixes
+       with --text-primary or --background, both of which flip right here — so
+       the one definition already lands the ink on the correct side of the page
+       colour in either theme, and a second copy would only drift. The avatars
+       still use the spectrum directly, ui.css.) */
 
     /* ── Frost layer tokens ──────────────────────────────────────────────
      * Translucent overlays that tint surfaces in the current theme's
@@ -216,14 +208,22 @@ html[data-theme="colorful"] div.menu {
    attribute off IS the accent palette. Only an alternative needs tokens here. */
 
 
-/* ─── Colorful graphs ────────────────────────────────────────────────────────
+/* ─── Gemstone graphs ─────────────────────────────────────────────────────────
    Eight distinct hues instead of eight steps of one. The accent ramp asks the
    eye to tell series apart by lightness, which works for two or three lines of
    the same measure and stops working past that; here hue does the work.
 
+   Deep, slightly desaturated stones rather than the bright primaries this
+   palette shipped with as "Colorful": mean lightness drops (0.57 → 0.54 on the
+   light surface) and the top of the chroma range comes in hard (0.26 → 0.19),
+   which is what turns a set of vivid hues into a set of jewel tones.
+
+     1 Lapis      2 Tourmaline   3 Tiger's Eye  4 Garnet
+     5 Tanzanite  6 Amber        7 Rhodolite    8 Emerald
+
    Fixed hex, not accent mixes, for the same reason --spectrum-* is fixed: the
    whole job is to be eight DIFFERENT colours, which no mix of a single accent
-   can be. That means this ramp does NOT follow the accent — picking Colorful is
+   can be. That means this ramp does NOT follow the accent — picking Gemstone is
    picking a palette of its own, and the UI accent still colours the chrome.
 
    The stops were chosen with the dataviz validator (OKLab ΔE, Machado CVD
@@ -233,31 +233,36 @@ html[data-theme="colorful"] div.menu {
    Two consequences worth keeping if these are ever edited:
 
      • The ORDER is load-bearing. The checks run on ADJACENT pairs, and slots
-       1-4 additionally get drawn together in one frame (the Dashboard's
-       Balances pie takes --chart-1..4, its Income vs Expenses chart takes
-       -1/-4/-2), so those four are separated as a group too. Re-ordering the
-       hues re-opens both checks.
+       1-4 are additionally drawn together in one frame (the Dashboard's
+       Balances pie takes --chart-1..4), so those four are checked ALL-PAIRS as
+       a group. That group check is what chose this order out of the ones the
+       stones allow: it is also what the bright set failed, at ΔE 3.6 between
+       its green and its orange, which is why the pie's slices used to be hard
+       to tell apart for a red-green colourblind reader.
      • Dark is a SELECTED set, not a lightened copy. The two surfaces have
        different lightness bands (0.43–0.77 vs 0.48–0.67), so each stop was
-       re-picked against the surface it actually sits on.
+       re-picked against the surface it actually sits on. Muting costs
+       separation, so this is where the retone had the least room: the dark set
+       keeps the stones' hues and their relative order but spends more of the
+       band than the light set does.
 
-   --cat-* is deliberately untouched: the categorical charts (Spending, the Cash
-   Flow Sankey's expense side) already draw a hue per category from the merchant
-   spectrum, so they are what this palette makes the ACCENT charts look like —
-   there is nothing to convert. Leaving them also keeps the Sankey's two sides
-   in two different colour families, which is how it says which side is which. */
-html[data-graph-theme="colorful"],
-.settings-graph-swatch[data-graph-theme="colorful"] {   /* the Preferences preview,
-                                                           in this palette's context
-                                                           whether or not it is live */
-    --chart-1: #2563eb;   /* blue */
-    --chart-2: #15803d;   /* green */
-    --chart-3: #c026d3;   /* magenta */
-    --chart-4: #d9660a;   /* orange */
-    --chart-5: #0891b2;   /* cyan */
-    --chart-6: #a16207;   /* gold */
-    --chart-7: #7c3aed;   /* violet */
-    --chart-8: #dc2626;   /* red */
+   Note there is no green in slots 1-4. Emerald and garnet cannot both sit in
+   the pie's four and still clear the group check while muted — under simulated
+   deuteranopia a muted green and a muted red converge — and the named income
+   series has the stronger claim on the green, so the pie gives up its green
+   slice instead. */
+html[data-graph-theme="gemstone"],
+.settings-graph-swatch[data-graph-theme="gemstone"] {   /* the Preferences preview,
+                                                        in this palette's context
+                                                        whether or not it is live */
+    --chart-1: #1a49ae;   /* lapis */
+    --chart-2: #0086a5;   /* tourmaline */
+    --chart-3: #bd771d;   /* tiger's eye */
+    --chart-4: #b00d14;   /* garnet */
+    --chart-5: #623faf;   /* tanzanite */
+    --chart-6: #c55f18;   /* amber */
+    --chart-7: #9645a0;   /* rhodolite */
+    --chart-8: #099e71;   /* emerald */
 
     /* The three named series (style.css). With eight real hues to spend, the
        flow types get the colours those words already mean to anyone who has
@@ -269,14 +274,17 @@ html[data-graph-theme="colorful"],
 
        Green-vs-red is also the worst pair in existence for the ~8% of men with
        red-green colour blindness, so the two are separated by LIGHTNESS as well
-       as hue: this pair clears the ΔE 8 CVD target (8.6 here, 8.9 on dark),
-       where the app's own gain/loss tokens would have landed at 6.0. Both
-       charts additionally label every series in the legend, so colour is never
-       the only thing carrying the meaning. Re-tinting either one means
-       re-running the validator on the trio, not just eyeballing it. */
-    --chart-income:   #15803d;
-    --chart-expense:  #dc2626;
-    --chart-transfer: #2563eb;
+       as hue, and here the EMERALD is the lighter of the pair. Getting that
+       round the right way is what the whole trio turns on: with the garnet
+       lighter, as the bright set had it, the pair sat at ΔE 4.7. This way it
+       reaches 14.3 on light and 10.8 on dark, and both stops stay on the ramp —
+       the bright set had to take its dark-theme red off the ramp entirely to
+       clear the target. Both charts additionally label every series in the
+       legend, so colour is never the only thing carrying the meaning.
+       Re-tinting either one means re-running the validator on the trio. */
+    --chart-income:   var(--chart-8);
+    --chart-expense:  var(--chart-4);
+    --chart-transfer: var(--chart-1);
 
     /* Cash Flow Sankey. Money ARRIVING is green here — the same green the
        income line and the income bar wear, so "green means coming in" holds
@@ -294,59 +302,45 @@ html[data-graph-theme="colorful"],
     --chart-inflow-5: color-mix(in srgb, var(--chart-income) 82%, var(--background));
     --chart-inflow-6: color-mix(in srgb, var(--chart-income) 40%, var(--background));
     --chart-net:      var(--chart-income);
+
+    /* The categorical ramp — the Spending report's per-category lines, the
+       Sankey's outflow bands, the Saved & Invested stack. The SAME eight stones
+       as above, just dealt in a different order, so the two orders are
+       separately checked for adjacent-pair separation and neither has to
+       compromise for the other.
+
+       Emerald is deliberately LAST. Categories are assigned in size order, so
+       slot 8 is only reached by a household with eight-plus spending categories
+       — which keeps green off the big outflow bands and lets it go on meaning
+       income, the one thing this palette says out loud. (Garnet is not treated
+       the same way: on this ramp it is one merchant category among eight and
+       reads as a label, not as a verdict, whereas green would be sitting
+       directly opposite a green inflow in the same diagram.)
+
+       Aliases rather than a second copy of the hexes: --chart-* is already
+       re-picked per theme, so these follow to the dark set for free. */
+    --cat-1: var(--chart-1);   /* lapis */
+    --cat-2: var(--chart-6);   /* amber */
+    --cat-3: var(--chart-2);   /* tourmaline */
+    --cat-4: var(--chart-4);   /* garnet */
+    --cat-5: var(--chart-7);   /* rhodolite */
+    --cat-6: var(--chart-3);   /* tiger's eye */
+    --cat-7: var(--chart-5);   /* tanzanite */
+    --cat-8: var(--chart-8);   /* emerald */
 }
 
-/* The categorical ramp — the Spending report's per-category lines and the
-   Sankey's outflow bands. It is the SAME eight colours as --chart-* above, just
-   dealt in a different order, so the two orders are separately checked for
-   adjacent-pair separation and neither has to compromise for the other.
-
-   Green is deliberately LAST. Categories are assigned in size order, so slot 8
-   is only reached by a household with eight-plus spending categories — which
-   keeps green off the big outflow bands and lets it go on meaning income, the
-   one thing this palette says out loud. (Red is not treated the same way: on
-   this ramp it is one merchant category among eight and reads as a label, not
-   as a verdict, whereas green would be sitting directly opposite a green
-   inflow in the same diagram.)
-
-   Aliases rather than a second copy of the hexes: --chart-* is already
-   re-picked per theme, so these follow to the dark set for free. The second
-   selector is what carries them there — themes.css's dark block re-points
-   --cat-* at the pale spectrum on equal specificity, and matching it exactly
-   would leave this depending on which rule happens to be written last. */
-html[data-graph-theme="colorful"],
-html[data-graph-theme="colorful"][data-theme="dark"] {
-    --cat-1: var(--chart-1);   /* blue */
-    --cat-2: var(--chart-4);   /* orange */
-    --cat-3: var(--chart-5);   /* cyan */
-    --cat-4: var(--chart-6);   /* gold */
-    --cat-5: var(--chart-3);   /* magenta */
-    --cat-6: var(--chart-8);   /* red */
-    --cat-7: var(--chart-7);   /* violet */
-    --cat-8: var(--chart-2);   /* green */
-}
-
-/* Same eight hues re-picked for the dark surface. Two attributes deep, so it
-   outweighs the light block above whichever order they land in. */
-html[data-graph-theme="colorful"][data-theme="dark"],
-html[data-theme="dark"] .settings-graph-swatch[data-graph-theme="colorful"] {
-    --chart-1: #4a90f0;   /* blue */
-    --chart-2: #31a05c;   /* green */
-    --chart-3: #c95cd8;   /* magenta */
-    --chart-4: #d07c22;   /* orange */
-    --chart-5: #20a6c0;   /* cyan */
-    --chart-6: #a8871a;   /* gold */
-    --chart-7: #9a7bf0;   /* violet */
-    --chart-8: #e85f6b;   /* red */
-
-    /* Green/red/blue again, re-picked for this surface — and the trio's red is
-       deliberately NOT --chart-8 here, the only place the named series leave the
-       ramp. The dark lightness band is half the width of the light one, and
-       inside it green and red collapse to ΔE 4.7 under deuteranopia; clearing
-       the target needs a red lighter than the band allows. A trio drawn on its
-       own, never alongside the other eight, can spend that: this red sits a step
-       above the band and the pair reaches 8.9. Everything else stays in-band. */
-    --chart-income:   #278a4a;
-    --chart-expense:  #f07d85;
-    --chart-transfer: #4a90f0;
+/* Same eight stones re-picked for the dark surface. Two attributes deep, so it
+   outweighs the light block above whichever order they land in. The named trio
+   and the --cat-* deal are aliases, so they follow these values with nothing to
+   restate here. */
+html[data-graph-theme="gemstone"][data-theme="dark"],
+html[data-theme="dark"] .settings-graph-swatch[data-graph-theme="gemstone"] {
+    --chart-1: #3365cc;   /* lapis */
+    --chart-2: #169dbf;   /* tourmaline */
+    --chart-3: #c07d2c;   /* tiger's eye */
+    --chart-4: #be342f;   /* garnet */
+    --chart-5: #775ac5;   /* tanzanite */
+    --chart-6: #c55f19;   /* amber */
+    --chart-7: #a051aa;   /* rhodolite */
+    --chart-8: #00a475;   /* emerald */
 }

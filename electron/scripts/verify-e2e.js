@@ -192,12 +192,12 @@ app.whenReady().then(async () => {
       const chart1 = () => getComputedStyle(document.documentElement)
         .getPropertyValue('--chart-1').trim();
       const before = chart1();
-      document.querySelector(".settings-graph-btn[data-graph-theme='colorful']").click();
+      document.querySelector(".settings-graph-btn[data-graph-theme='gemstone']").click();
       const after = chart1();
-      return document.documentElement.dataset.graphTheme === 'colorful'
+      return document.documentElement.dataset.graphTheme === 'gemstone'
         && after !== before
         && !document.querySelector("[data-modal='preferences']").hidden
-        && document.querySelector(".settings-graph-btn[data-graph-theme='colorful']").classList.contains('active');
+        && document.querySelector(".settings-graph-btn[data-graph-theme='gemstone']").classList.contains('active');
     })()`));
     // Back to the accent ramp, same as the theme above.
     await evalJs('document.querySelector(".settings-graph-btn[data-graph-theme=\'\']").click()');

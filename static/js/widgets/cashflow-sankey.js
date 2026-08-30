@@ -27,13 +27,11 @@
   //       few sources, usually one dominant one, so they do not need separate
   //       hues; one colour leading into a hub of the same colour (--chart-net)
   //       renders as a single stream. Which colour depends on the graph palette:
-  //       the UI accent under the accent ramp, green under Colorful
-  //       (themes.css).
-  //   expenses (right)— the merchant spectrum (--cat-*), one hue per category,
-  //       the same eight colours the Spending report and the ledger's avatars
-  //       use. This side has a dozen bands, each a named category; on the
-  //       previous greyed-accent ramp they sorted by lightness and were hard to
-  //       match back to a label.
+  //       the UI accent under Aventurine, green under Gemstone (themes.css).
+  //   expenses (right)— the --cat-* ramp, one colour per category, the same
+  //       eight the Spending report uses. Under Gemstone that is eight distinct
+  //       hues; under Aventurine it is eight steps of the accent, in
+  //       size order, so the bands sort by lightness the way the amounts sort.
   //
   // The hub uses the inflow colour, since it is not a category and stays out of
   // the category spectrum. Colours are read from the tokens at render time so an
@@ -42,8 +40,8 @@
   const NET_FALLBACK = '#497e74';
   const INCOME_FALLBACK = ['#497e74', '#79b2a7', '#365e56', '#25413b', '#5b9f92', '#9bc5bd'];
   const CAT_FALLBACK = [
-    '#404e77', '#776a40', '#407777', '#5c7740',
-    '#77406a', '#40774e', '#5c4077', '#774040',
+    '#1e2422', '#283a36', '#33514b', '#3e6860',
+    '#4b7f75', '#659188', '#80a29c', '#99b3ae',
   ];
 
   function readSankeyPalettes() {

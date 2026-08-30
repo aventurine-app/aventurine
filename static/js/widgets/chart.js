@@ -30,16 +30,17 @@
   //   'accent' (default) — the accent-derived --chart-* ramp (style.css). One
   //       measure over time; the series are variations of the same thing, so
   //       following the UI accent is exactly right.
-  //   'categorical'      — the merchant spectrum, --cat-* (style.css). For a
-  //       chart whose series are CATEGORIES, where hue is the label rather
-  //       than decoration and eight rungs of one accent can't be told apart.
+  //   'categorical'      — the --cat-* ramp (style.css). For a chart whose
+  //       series are CATEGORIES rather than one measure over time. What that
+  //       ramp IS depends on the graph palette: eight steps of the accent under
+  //       Aventurine, eight distinct hues under Gemstone (themes.css).
   const PALETTE = [
     '#8fb088', '#5c7152', '#a9c1a4', '#33402d',
     '#7c9670', '#b6c8b2', '#647a59', '#5a6f50',
   ];
   const CAT_PALETTE = [
-    '#404e77', '#776a40', '#407777', '#5c7740',
-    '#77406a', '#40774e', '#5c4077', '#774040',
+    '#1e2422', '#283a36', '#33514b', '#3e6860',
+    '#4b7f75', '#659188', '#80a29c', '#99b3ae',
   ];
 
   function readPalette(name) {

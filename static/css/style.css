@@ -301,28 +301,40 @@
    --avatar-icon-bg:  #f0f0f2;
 
    /* ── Categorical series palette ──────────────────────────────────────────
-    * Where a chart's series are CATEGORIES, hue is the label, not decoration:
-    * the Reports page's Spending report (one line per expense category) and the
-    * expense side of its Cash Flow Sankey (one band each) draw from these
-    * instead of the --chart-* ramp. A single-accent ramp requires distinguishing
-    * eight lines by lightness alone, which made neighbouring categories hard to
-    * separate. Everything that plots ONE measure over time — net worth, forecast,
-    * balances, and the Sankey's income side — keeps the accent ramp, so the app
-    * stays accent-coloured overall.
+    * Where a chart's series are CATEGORIES rather than one measure over time:
+    * the Reports page's Spending report (one line per expense category), the
+    * expense side of its Cash Flow Sankey (one band each), the Saved & Invested
+    * stack, and the Metrics spent/saved bar.
     *
-    * These are the spectrum's ink step: mid-tone on the light theme, and the pale
-    * step on dark (see themes.css), whichever contrasts with the page background.
-    * The avatars use the two steps the other way round, since there the colour is
-    * the fill and the initials are the ink. Ordered hue-alternating (cool/warm)
-    * so adjacent series differ. */
-   --cat-1: var(--spectrum-mid-1);
-   --cat-2: var(--spectrum-mid-2);
-   --cat-3: var(--spectrum-mid-3);
-   --cat-4: var(--spectrum-mid-4);
-   --cat-5: var(--spectrum-mid-5);
-   --cat-6: var(--spectrum-mid-6);
-   --cat-7: var(--spectrum-mid-7);
-   --cat-8: var(--spectrum-mid-8);
+    * Under the Aventurine palette these are EIGHT STEPS OF THE ACCENT, the same
+    * as everything else it paints — that is what "Aventurine" means as a graph
+    * palette, and a palette that stayed accent-coloured everywhere except its
+    * categorical charts was only half a choice. Gemstone, which has real hues to
+    * spend, re-points these at them (themes.css); this is the palette that does
+    * not, so identity here is carried by the legend and the direct labels each of
+    * those cards already draws, with the ramp separating the series.
+    *
+    * It reads as a RAMP, not as eight arbitrary tints, and that is the point:
+    * categories arrive in size order, so lightness ends up tracking size —
+    * biggest category darkest — instead of being noise. The stops were solved
+    * with the dataviz ordinal checks (monotone lightness, adjacent ΔL >= 0.06,
+    * the pale end still clearing 2:1 on the surface it sits on) against BOTH
+    * surface themes at once: each stop mixes the accent with --text-primary (the
+    * high-contrast direction in either theme) or with --background (the soft
+    * direction), and because those two flip per theme, one definition here
+    * yields a light-theme ramp that runs dark→pale and a dark-theme one that
+    * runs pale→dark, each anchored on its own page colour. The percentages carry
+    * decimals because the eight steps only just fit between the accent floor and
+    * the pale end's contrast floor; rounding them to whole numbers collapses a
+    * gap below the ΔL threshold. Re-run the validator rather than tidying them. */
+   --cat-1: color-mix(in srgb, var(--accent-primary) 10%,   var(--text-primary));
+   --cat-2: color-mix(in srgb, var(--accent-primary) 32%,   var(--text-primary));
+   --cat-3: color-mix(in srgb, var(--accent-primary) 54.5%, var(--text-primary));
+   --cat-4: color-mix(in srgb, var(--accent-primary) 78%,   var(--text-primary));
+   --cat-5: color-mix(in srgb, var(--accent-primary) 99%,   var(--background));
+   --cat-6: color-mix(in srgb, var(--accent-primary) 82%,   var(--background));
+   --cat-7: color-mix(in srgb, var(--accent-primary) 65%,   var(--background));
+   --cat-8: color-mix(in srgb, var(--accent-primary) 49%,   var(--background));
 
    /* Neutral charcoal — secondary (outlined) buttons read as a quiet neutral
       sibling of the accent-filled primary instead of carrying the olive accent.
