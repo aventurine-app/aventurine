@@ -89,6 +89,34 @@ if (app.isPackaged) {
     app.setPath('userData', devDir);
 }
 
+// ─── Single instance ────────────────────────────────────────────────────────
+// One process per profile. Without this a second launch (a double-clicked
+// launcher, the Start Menu entry alongside the desktop shortcut) opens a second
+// window on the SAME finance.db with its own connection and its own in-memory
+// passphrase, and both contend for Chromium's DOM-Storage LevelDB lock — the
+// ~4s blank-window stall described in the dev-profile note above, now with two
+// writers on one SQLite file behind it.
+//
+// The lock is keyed on userData, which the block above has already pointed at a
+// separate dev directory, so `npm start` and an installed build stay
+// independent by design — the collision this guards is two copies of the SAME
+// install.
+//
+// Must be requested BEFORE whenReady → startBackend so a losing instance quits
+// without ever opening the database.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+    app.quit();
+} else {
+    // The user asked for the app; they get the window they already have.
+    app.on('second-instance', () => {
+        if (!mainWindow || mainWindow.isDestroyed()) return;
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.show();
+        mainWindow.focus();
+    });
+}
+
 // ─── Backend (in-process) ───────────────────────────────────────────────────
 
 let conn = null;
@@ -378,12 +406,29 @@ async function createWindow() {
 // ─── App lifecycle ──────────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
+    // Lost the single-instance race — app.quit() is already in flight.
+    if (!gotSingleInstanceLock) return;
+
     registerAppProtocol();
     try {
         startBackend();
     } catch (err) {
         console.error('[electron] backend failed to start:', err);
-        dialog.showErrorBox('Aventurine', `The database backend failed to start:\n${err.message}`);
+        // A database from a NEWER build is the one startup failure the user can
+        // actually act on, and the action is not "try again" — migrate.js climbs
+        // and never descends, so this install will never open this file. Name the
+        // file and both ways out, rather than reporting it as a generic crash.
+        if (err && err.code === 'db_schema_too_new') {
+            const dbPath = (conn && conn.state && conn.state.path) || '(unknown location)';
+            dialog.showErrorBox('Aventurine',
+                'This database was created by a newer version of Aventurine, so this '
+                + 'version cannot open it.\n\n'
+                + `${dbPath}\n\n`
+                + 'Install the newer version of Aventurine to open it — or rename this '
+                + 'file and Aventurine will start again with a new, empty database.');
+        } else {
+            dialog.showErrorBox('Aventurine', `The database backend failed to start:\n${err.message}`);
+        }
         app.quit();
         return;
     }

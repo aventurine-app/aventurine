@@ -8,7 +8,28 @@
 //                                     re-stamp. Each migration is additive and
 //                                     idempotent so a re-run is harmless.
 
+const fs = require('fs');
+
 const { SCHEMA_VERSION, createBaselineSchema, DDL } = require('./schema');
+
+/**
+ * The database's user_version is ABOVE SCHEMA_VERSION: it was written by a
+ * newer build, whose shape this one cannot know. Refusing is the whole point —
+ * migrate.js climbs and never descends, so an older app reading a newer file
+ * would run its queries against columns and tables it has no model of, and the
+ * first symptom the user gets is a scatter of "no such column" errors on pages
+ * that used to work. The failure has to name itself instead.
+ */
+class SchemaTooNewError extends Error {
+  constructor(found, supported) {
+    super(`database schema v${found} was written by a newer version of Aventurine `
+        + `(this build understands up to v${supported})`);
+    this.name = 'SchemaTooNewError';
+    this.code = 'db_schema_too_new';
+    this.found = found;
+    this.supported = supported;
+  }
+}
 
 function tableExists(db, name) {
   return !!db
@@ -298,6 +319,33 @@ const MIGRATIONS = [
   }],
 ];
 
+/**
+ * Byte-copy the database file before the first migration touches it. The same
+ * belt-and-braces conn.rekey() takes for the other operation that rewrites a
+ * user's file in place, and for the same reason: the per-migration transaction
+ * below covers everything SQLite can roll back, and this covers what it cannot
+ * (a torn write, a full disk mid-commit, a machine that loses power).
+ *
+ * Best-effort by design. A read-only directory or a full disk must not stop an
+ * upgrade the app needs to run to be usable at all — the transaction is still
+ * carrying the real guarantee. Returns the backup path, or null.
+ */
+function backupBeforeMigrate(db, fromVersion) {
+  const target = db.name;
+  // No file to copy: an in-memory database (tests, fixtures).
+  if (!target || target === ':memory:') return null;
+  const backup = `${target}.v${fromVersion}-premigration-bak`;
+  try {
+    // Flush the WAL into the main file (no-op outside WAL) so the copy is current.
+    try { db.pragma('wal_checkpoint(TRUNCATE)'); } catch { /* not WAL */ }
+    fs.copyFileSync(target, backup);
+    return backup;
+  } catch (err) {
+    console.warn(`[migrate] could not back up ${target} before migrating: ${err.message}`);
+    return null;
+  }
+}
+
 function bootstrapSchema(db) {
   if (!tableExists(db, 'active_years')) {
     createBaselineSchema(db);
@@ -306,13 +354,39 @@ function bootstrapSchema(db) {
   }
   // Already initialised — climb from the stored version to SCHEMA_VERSION.
   let version = Number(db.pragma('user_version', { simple: true })) || 0;
-  for (const [target, run] of MIGRATIONS) {
-    if (version < target) {
-      run(db);
-      db.pragma(`user_version = ${target}`);
+
+  if (version > SCHEMA_VERSION) throw new SchemaTooNewError(version, SCHEMA_VERSION);
+
+  const pending = MIGRATIONS.filter(([target]) => version < target);
+  if (!pending.length) return;
+
+  const backup = backupBeforeMigrate(db, version);
+  try {
+    for (const [target, run] of pending) {
+      // ONE TRANSACTION PER MIGRATION, not one around the whole climb. SQLite
+      // makes DDL transactional, so a step that throws half way through a table
+      // rebuild (v11, v14: DROP + CREATE + INSERT + RENAME) rolls back whole
+      // rather than leaving the table dropped and its replacement half-filled.
+      // Per-step means an earlier success is kept and stamped, so a retry
+      // resumes at the step that failed instead of redoing the climb.
+      //
+      // The version stamp rides INSIDE the transaction: a migration that
+      // committed without its stamp would re-run on the next launch, and only
+      // the idempotency guards inside each step are stopping that from being
+      // destructive.
+      db.transaction(() => {
+        run(db);
+        db.pragma(`user_version = ${target}`);
+      })();
       version = target;
     }
+  } catch (err) {
+    // Keep the backup — it is now the only copy of the pre-migration database,
+    // and the path is what a support reply needs to be able to name.
+    if (backup) err.backupPath = backup;
+    throw err;
   }
+  if (backup) fs.rmSync(backup, { force: true });
 }
 
-module.exports = { bootstrapSchema, tableExists };
+module.exports = { bootstrapSchema, tableExists, SchemaTooNewError, MIGRATIONS };

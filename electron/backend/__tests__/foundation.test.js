@@ -9,10 +9,12 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+const crypto = require('node:crypto');
+
 const { connect, verifyKey } = require('../db');
-const { bootstrapSchema, tableExists } = require('../migrate');
+const { bootstrapSchema, tableExists, SchemaTooNewError, MIGRATIONS } = require('../migrate');
 const { seedDefaults } = require('../seed');
-const { SCHEMA_VERSION } = require('../schema');
+const { SCHEMA_VERSION, DDL } = require('../schema');
 
 function tmpFile() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fl-test-'));
@@ -240,5 +242,190 @@ test('SQLCipher encrypted round trip (create, verify key, reopen)', () => {
 
   db = connect(p, key);
   assert.equal(db.prepare('SELECT msg FROM probe').get().msg, 'hello');
+  db.close();
+});
+// ─── Migration discipline ────────────────────────────────────────────────────
+// These tests are the fence that keeps migrations switched ON: any change to
+// the shape of the database has to arrive with a migration that carries an
+// existing database to the same place, or one of them fails.
+
+/** Structural fingerprint of a database: what the app and its queries actually
+ *  depend on. Comments and identifier quoting are normalised away — a table
+ *  rebuilt by a migration is stored as SQLite re-serialised it (quoted name, no
+ *  comments), while a fresh one keeps schema.js's verbatim text including the
+ *  self-describing comments it ships for external SQLite tools. That difference
+ *  is cosmetic and deliberate; columns, types, defaults and CHECK constraints
+ *  are not, and they survive this normalisation. */
+function schemaFingerprint(db) {
+  const norm = (sql) => String(sql || '')
+    .replace(/--[^\n]*/g, ' ')   // line comments
+    .replace(/"/g, '')           // identifier quoting (RENAME re-quotes names)
+    .replace(/\s+/g, ' ')
+    .trim();
+  const rows = db.prepare(
+    "SELECT type, name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name"
+  ).all();
+  return rows.map((r) => `${r.type} ${r.name} :: ${norm(r.sql)}`).join('\n');
+}
+
+/** A database rewound to `version` by `rewind`, then climbed back up. */
+function climbedFrom(version, rewind) {
+  const db = connect(tmpFile());
+  bootstrapSchema(db);
+  seedDefaults(db);
+  rewind(db);
+  db.pragma(`user_version = ${version}`);
+  bootstrapSchema(db);
+  return db;
+}
+
+// The v13 shape: recurring_overrides before `removed` became `adopted`.
+const V13_RECURRING = `CREATE TABLE recurring_overrides (
+   "key" VARCHAR(200) NOT NULL,
+   display_name VARCHAR(100),
+   direction VARCHAR(10) CHECK (direction IN ('income', 'expense', 'transfer')),
+   cycle VARCHAR(20)
+     CHECK (cycle IN ('weekly', 'biweekly', 'monthly', 'quarterly', 'yearly')),
+   amount FLOAT CHECK (amount > 0),
+   last_date DATE,
+   removed INTEGER DEFAULT 0 NOT NULL CHECK (removed IN (0, 1)),
+   PRIMARY KEY ("key")
+ )`;
+
+test('migration ladder: SCHEMA_VERSION is the top of it, with no gaps', () => {
+  const keys = MIGRATIONS.map(([v]) => v);
+  assert.deepStrictEqual(keys, [...keys].sort((a, b) => a - b), 'migrations are in order');
+  assert.equal(new Set(keys).size, keys.length, 'no duplicate migration versions');
+  assert.deepStrictEqual(
+    keys,
+    Array.from({ length: SCHEMA_VERSION - 1 }, (_, i) => i + 2),
+    'every version from 2 to SCHEMA_VERSION has exactly one migration'
+  );
+  assert.equal(
+    keys[keys.length - 1],
+    SCHEMA_VERSION,
+    `SCHEMA_VERSION (${SCHEMA_VERSION}) must equal the highest migration key — a bump `
+    + 'without a migration strands every existing database at the old shape'
+  );
+});
+
+// The one that actually forces the discipline. It fails on ANY edit to the
+// baseline DDL, which is the moment to ask: does an existing database need a
+// migration to reach this same shape? (Almost always yes — the exception is a
+// comment-only edit.) Then bump SCHEMA_VERSION, add the migration, and update
+// the hash below in the same commit.
+test('baseline schema is pinned: changing it requires a migration', () => {
+  const EXPECTED_SCHEMA_VERSION = 14;
+  const EXPECTED_DDL_HASH = 'ebac4ae3c22b969a40e5ab1b2806806192e82273d525ff0ad79c882f163dab24';
+
+  const actual = crypto.createHash('sha256').update(DDL.join('\n')).digest('hex');
+  assert.equal(
+    actual, EXPECTED_DDL_HASH,
+    '\n\n  schema.js DDL changed.\n'
+    + '  A fresh database now has a shape that existing databases do NOT.\n\n'
+    + '  1. Add a migration in migrate.js that carries an existing DB to the same shape.\n'
+    + '  2. Bump SCHEMA_VERSION in schema.js.\n'
+    + '  3. Update EXPECTED_SCHEMA_VERSION + EXPECTED_DDL_HASH in this test:\n'
+    + `       EXPECTED_SCHEMA_VERSION = ${SCHEMA_VERSION}\n`
+    + `       EXPECTED_DDL_HASH       = '${actual}'\n`
+    + '  4. Add a case to the "migrated database matches a fresh one" test below.\n'
+  );
+  assert.equal(
+    SCHEMA_VERSION, EXPECTED_SCHEMA_VERSION,
+    'SCHEMA_VERSION moved without the baseline DDL changing — was the migration written '
+    + 'but the baseline forgotten? A fresh DB would then be created at the OLD shape.'
+  );
+});
+
+// The other half: a migration must land an existing database in the SAME place
+// a fresh one starts. Add a case here whenever a migration is added.
+test('a migrated database matches a fresh one', () => {
+  const fresh = connect(tmpFile());
+  bootstrapSchema(fresh);
+  seedDefaults(fresh);
+  const expected = schemaFingerprint(fresh);
+  fresh.close();
+
+  const cases = {
+    // v12 — before recurring_overrides existed at all (climbs v13 + v14).
+    12: (db) => db.exec('DROP TABLE recurring_overrides'),
+    // v13 — recurring_overrides still carrying `removed` (climbs v14).
+    13: (db) => {
+      db.exec('DROP TABLE recurring_overrides');
+      db.exec(V13_RECURRING);
+    },
+  };
+
+  for (const [version, rewind] of Object.entries(cases)) {
+    const db = climbedFrom(Number(version), rewind);
+    assert.equal(Number(db.pragma('user_version', { simple: true })), SCHEMA_VERSION);
+    assert.equal(
+      schemaFingerprint(db), expected,
+      `a database climbed from v${version} does not match a fresh one — its migration is incomplete`
+    );
+    db.close();
+  }
+});
+
+test('a database from a NEWER version is refused, not opened', () => {
+  const db = connect(tmpFile());
+  bootstrapSchema(db);
+  seedDefaults(db);
+  db.pragma(`user_version = ${SCHEMA_VERSION + 1}`);
+
+  // Silently opening it is the failure this guards: migrate.js climbs and never
+  // descends, so the app would query columns and tables it has no model of.
+  assert.throws(() => bootstrapSchema(db), (err) => {
+    assert.ok(err instanceof SchemaTooNewError);
+    assert.equal(err.code, 'db_schema_too_new');
+    assert.equal(err.found, SCHEMA_VERSION + 1);
+    assert.equal(err.supported, SCHEMA_VERSION);
+    return true;
+  });
+  db.close();
+});
+
+test('a failing migration rolls back whole and leaves the pre-migration backup', () => {
+  const file = tmpFile();
+  const db = connect(file);
+  bootstrapSchema(db);
+  seedDefaults(db);
+
+  // A v13 recurring_overrides missing the `removed` column v14 reads: v14 gets
+  // past CREATE and dies on the INSERT ... SELECT, half way through the table
+  // rebuild — exactly the shape that used to leave a dropped table behind.
+  db.exec('DROP TABLE recurring_overrides');
+  db.exec(V13_RECURRING.replace(
+    'removed INTEGER DEFAULT 0 NOT NULL CHECK (removed IN (0, 1)),', ''
+  ));
+  db.prepare('INSERT INTO recurring_overrides ("key", display_name) VALUES (?, ?)')
+    .run('netflix', 'Netflix');
+  db.pragma('user_version = 13');
+
+  assert.throws(() => bootstrapSchema(db));
+
+  // Rolled back whole: no half-built replacement, the original rows still there,
+  // and the version still 13 so the climb is retried rather than skipped.
+  assert.ok(!tableExists(db, 'recurring_overrides_new'), 'no half-built table left behind');
+  assert.equal(db.prepare('SELECT COUNT(*) c FROM recurring_overrides').get().c, 1);
+  assert.equal(Number(db.pragma('user_version', { simple: true })), 13);
+
+  // And the untouched copy taken before the climb started is still on disk.
+  assert.ok(fs.existsSync(`${file}.v13-premigration-bak`), 'pre-migration backup kept');
+  db.close();
+});
+
+test('a successful migration cleans up its backup', () => {
+  const file = tmpFile();
+  const db = connect(file);
+  bootstrapSchema(db);
+  seedDefaults(db);
+  db.exec('DROP TABLE recurring_overrides');
+  db.exec(V13_RECURRING);
+  db.pragma('user_version = 13');
+
+  bootstrapSchema(db);
+  assert.equal(Number(db.pragma('user_version', { simple: true })), SCHEMA_VERSION);
+  assert.ok(!fs.existsSync(`${file}.v13-premigration-bak`), 'backup removed on success');
   db.close();
 });

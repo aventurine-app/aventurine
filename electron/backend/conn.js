@@ -14,7 +14,7 @@ const path = require('path');
 
 const { connect, sqlQuote } = require('./db');
 const { createDbState, defaultDbDir } = require('./dbstate');
-const { bootstrapSchema } = require('./migrate');
+const { bootstrapSchema, SchemaTooNewError } = require('./migrate');
 const { seedDefaults } = require('./seed');
 const { ApiError } = require('./validate');
 
@@ -126,13 +126,24 @@ function createConn() {
       candidate = connect(path, encrypted ? key : null);
       bootstrapSchema(candidate);
       seedDefaults(candidate);
-    } catch {
+    } catch (err) {
       if (candidate) {
         try { candidate.close(); } catch { /* already closed */ }
       }
       if (create) {
         try { fs.unlinkSync(path); } catch { /* never created / already gone */ }
         throw new ApiError('Could not initialise the new database', 500);
+      }
+      // A file from a NEWER build is not a migration failure and must not be
+      // reported as one: nothing the user does to this app will open it, so the
+      // message names the actual fix (run the newer version) instead of
+      // implying a retry might work.
+      if (err instanceof SchemaTooNewError) {
+        throw new ApiError(
+          'This database was created by a newer version of Aventurine. '
+          + 'Update the app to open it.',
+          400
+        );
       }
       throw new ApiError(
         'Database could not be migrated (was it made by a newer version of the app?)',
