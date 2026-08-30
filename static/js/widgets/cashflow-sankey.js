@@ -14,8 +14,7 @@
 // in forecast.css under the .cashflow-sankey namespace.
 //
 // Globals in play (loaded before this script): apiFetch (api.js), escapeHtml
-// (escape.js), UI.emptyState (ui.js), CURRENCY_SYMBOL / formatCurrency
-// (currency.js).
+// (escape.js), UI.emptyState (ui.js), formatCurrency (currency.js).
 
 (function () {
   const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -60,9 +59,14 @@
   const CHART_RATIO = 320 / 800;   // taller than the line charts — Sankeys need room
   const PAD = { l: 150, r: 150, t: 28, b: 16 };
   const NODE_W = 13;               // node-bar thickness
-  const GAP = 8;                   // vertical gap between stacked side nodes
   const MIN_BAND = 1.5;            // floor so a tiny category is still visible
-  const LABEL_GAP = 26;            // min vertical spacing between adjacent labels (name + amount)
+  const LABEL_GAP = 32;            // min vertical spacing between adjacent labels (name + amount)
+  const GAP = LABEL_GAP;           // vertical gap between stacked side nodes. Tied to the label block:
+                                   // two adjacent bands are at least this far apart centre to centre
+                                   // whatever they are worth, so every label sits on its own band's
+                                   // centreline and the leader lines below stay unused
+  const LABEL_MARGIN = 16;         // height held back at each end of a side column, so a hairline band
+                                   // at the very top or bottom still has room for its own label
   const CENTER_LABEL_GAP = 12;     // breathing room between the centre label group and the Net Inflow node
 
   const state = {
@@ -82,15 +86,23 @@
     return `/transactions?year=${state.year}&cat=${encodeURIComponent(key)}`;
   }
 
-  // ─── Currency helpers (mirror forecast.js) ─────────────────────────────────
+  // ─── Currency helpers ──────────────────────────────────────────────────────
+  // One form, used for the printed amounts and the tooltips alike: the full
+  // figure, grouped and in the user's own format. The labels are spaced a whole
+  // label apart now, so there is room for it — a rounded "$14.8K" under a
+  // category was hiding digits nothing else on the page hides.
   const fmtMoney = (n) => formatCurrency(n, true);
 
-  function fmtCompact(n) {
-    const abs = Math.abs(n);
-    const sign = n < 0 ? '-' : '';
-    if (abs >= 1_000_000) return sign + CURRENCY_SYMBOL + (abs / 1_000_000).toFixed(1) + 'M';
-    if (abs >= 1_000)     return sign + CURRENCY_SYMBOL + (abs / 1_000).toFixed(1) + 'K';
-    return sign + CURRENCY_SYMBOL + abs.toFixed(0);
+  /** A category's share of its OWN side's total — income bands read against
+   *  income, expense bands against expenses — so the two columns each add up to
+   *  100% and a small category is measured against something it belongs to.
+   *  Under 10% keeps a decimal, since whole percents would flatten the tail of a
+   *  dozen categories into a row of 1s and 0s. */
+  function fmtShare(value, total) {
+    if (!(total > 0)) return '';
+    const pct = (value / total) * 100;
+    if (pct > 0 && pct < 0.1) return '(<0.1%)';
+    return `(${pct < 10 ? pct.toFixed(1) : Math.round(pct)}%)`;
   }
 
   // ─── Data ───────────────────────────────────────────────────────────────────
@@ -159,9 +171,10 @@
 
     // Tall enough that every category label on the busier side gets LABEL_GAP of
     // vertical room, so the spread pass below never overlaps labels.
-    const labelRoom = Math.max(income.length, expense.length) * LABEL_GAP + PAD.t + PAD.b + 12;
+    const labelRoom = Math.max(income.length, expense.length) * LABEL_GAP
+      + PAD.t + PAD.b + LABEL_MARGIN * 2 + 12;
     const H = Math.max(Math.round(W * CHART_RATIO), labelRoom, 260);
-    const availH = H - PAD.t - PAD.b;
+    const availH = H - PAD.t - PAD.b - LABEL_MARGIN * 2;
     const maxTotal = Math.max(totalIncome, totalExpense, 1);
 
     // One value→px scale shared by all three columns so band widths line up. Each
@@ -198,11 +211,12 @@
     const incomeNodes = layoutSide(income, incomeX, INCOME_PALETTE);
     const expenseNodes = layoutSide(expense, expenseX, EXPENSE_PALETTE);
 
-    // Nodes + labels. A small category sits on a near-zero-height node, so
-    // centring its label on the node would overlap its neighbour. The labels are
-    // positioned independently of the bands: pushed apart to at least LABEL_GAP
-    // within the chart bounds, with a thin leader line back to each node. The
-    // bands and nodes stay exactly value-proportional.
+    // Nodes + labels. GAP already holds adjacent bands a label's height apart, so
+    // in the normal case every label lands on its own band's centreline. This pass
+    // is the backstop for the cases that beats — a very short chart, more
+    // categories than the height can seat — pushing labels apart to at least
+    // LABEL_GAP within the chart bounds and drawing a thin leader back to any node
+    // it had to move away from. The bands stay exactly value-proportional either way.
     const spreadLabels = (sideNodes) => {
       const top = PAD.t + 10;
       const bottom = H - PAD.b - 12;
@@ -261,9 +275,11 @@
         if (Math.abs(ly - cy) > 1) {
           g += `<path class="sankey-leader" d="M ${r1(edgeX)} ${r1(cy)} L ${r1(labelX)} ${r1(ly)}" fill="none"/>`;
         }
+        const share = fmtShare(n.total, isIncome ? totalIncome : totalExpense);
         g += `<text class="sankey-label" x="${labelX}" y="${r1(ly - 3)}" text-anchor="${anchor}">${escapeHtml(n.label)}</text>`
-           + `<text class="sankey-amount" x="${labelX}" y="${r1(ly + 11)}" text-anchor="${anchor}">${escapeHtml(fmtCompact(n.total))}</text>`
-           + `</a>`;
+           + `<text class="sankey-amount" x="${labelX}" y="${r1(ly + 11)}" text-anchor="${anchor}">${escapeHtml(fmtMoney(n.total))}`
+           + (share ? ` <tspan class="sankey-share">${escapeHtml(share)}</tspan>` : '')
+           + `</text></a>`;
         waves += g;
 
         // Bare node cap, painted on top of the waves layer (outside the link).
@@ -284,8 +300,8 @@
     const cLabelX = centerX + NODE_W / 2;
     bars += `<rect class="sankey-node sankey-node-center" x="${centerX}" y="${centerTop}" width="${NODE_W}" height="${centerH}" rx="2" fill="${NET_COLOR}">`
           + `<title>Net Inflow: ${fmtMoney(totalIncome)}</title></rect>`
-          + `<text class="sankey-label sankey-label-center" x="${cLabelX}" y="${centerTop - CENTER_LABEL_GAP - 11}" text-anchor="middle">Net Inflow</text>`
-          + `<text class="sankey-amount sankey-label-center" x="${cLabelX}" y="${centerTop - CENTER_LABEL_GAP}" text-anchor="middle">${escapeHtml(fmtCompact(totalIncome))}</text>`;
+          + `<text class="sankey-label" x="${cLabelX}" y="${centerTop - CENTER_LABEL_GAP - 11}" text-anchor="middle">Net Inflow</text>`
+          + `<text class="sankey-amount" x="${cLabelX}" y="${centerTop - CENTER_LABEL_GAP}" text-anchor="middle">${escapeHtml(fmtMoney(totalIncome))}</text>`;
 
     const cls = `cashflow-sankey${firstPaint ? ' sankey-enter' : ''}`;
     return `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" class="${cls}" style="display:block;">`
