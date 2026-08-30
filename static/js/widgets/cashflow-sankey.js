@@ -174,7 +174,13 @@
     const labelRoom = Math.max(income.length, expense.length) * LABEL_GAP
       + PAD.t + PAD.b + LABEL_MARGIN * 2 + 12;
     const H = Math.max(Math.round(W * CHART_RATIO), labelRoom, 260);
-    const availH = H - PAD.t - PAD.b - LABEL_MARGIN * 2;
+    // Every column hangs from ONE shared top edge — the diagram reads as a flat
+    // lid with the bands growing downward off it, so the top ribbon on each side
+    // runs straight across and the two sides are comparable from the same line.
+    // The edge sits below the centre node's two-line label (PAD.t + LABEL_MARGIN
+    // clears it), and only the space beneath it is available to the bands.
+    const TOP = PAD.t + LABEL_MARGIN;
+    const availH = H - TOP - PAD.b - LABEL_MARGIN;
     const maxTotal = Math.max(totalIncome, totalExpense, 1);
 
     // One value→px scale shared by all three columns so band widths line up. Each
@@ -190,16 +196,12 @@
     const expenseX = W - PAD.r - NODE_W;
     const centerX = (W - NODE_W) / 2;
     const centerH = maxTotal * scale;
-    // Centre the node, but float it down off the top edge when it would otherwise
-    // fill the full height (e.g. a single dominant income source), so the two-line
-    // label + its CENTER_LABEL_GAP always clears the chart top.
-    const centerTop = Math.max((H - centerH) / 2, CENTER_LABEL_GAP + 22);
+    const centerTop = TOP;
 
-    // Lay out a stacked side column, vertically centred. Returns nodes with y/h
-    // and a colour from that side's palette, in payload order.
+    // Lay out a stacked side column from the shared top edge downward. Returns
+    // nodes with y/h and a colour from that side's palette, in payload order.
     const layoutSide = (items, x, palette) => {
-      const colH = items.reduce((a, c) => a + Math.max(c.total * scale, MIN_BAND), 0) + gaps(items.length);
-      let y = (H - colH) / 2;
+      let y = TOP;
       return items.map((c, i) => {
         const h = Math.max(c.total * scale, MIN_BAND);
         const node = { ...c, x, y, h, color: palette[i % palette.length] };
