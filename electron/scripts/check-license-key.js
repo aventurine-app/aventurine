@@ -41,6 +41,7 @@ function main(key) {
     malformed: '  Not a well-formed key. Truncated paste, or a different format version.',
     unknown_key: '  Signed under a key slot this build does not carry. Wrong app version,\n  or the worker is issuing under a slot that was never shipped.',
     bad_signature: '  Well-formed but not signed by us. Either a forgery, a single mistyped\n  character, or the worker and this build disagree on the wire format.',
+    revoked: `  Genuine, but ${res.license?.licenseId} is in REVOKED_LICENSE_IDS, so this\n  build refuses it. Sold to ${res.license?.email}.`,
     entitlement: `  Genuine, but covers ${res.license?.entitlement}.x and this build is ${appMajor()}.x.`,
   }[res.reason] || '');
   process.exit(1);

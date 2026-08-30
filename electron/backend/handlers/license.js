@@ -13,6 +13,7 @@ const REASONS = {
   malformed: "That key doesn't look complete. Copy the whole key from the activation page and try again.",
   unknown_key: 'That key was issued for a different version of Aventurine.',
   bad_signature: "That key isn't valid. Check for a missed character, or re-run activation to get a fresh copy.",
+  revoked: 'That key has been blocked and no longer activates Aventurine. If you bought it yourself, please email support.',
   entitlement: 'That license covers an earlier version. Visit the activation page to get a key for this one.',
 };
 

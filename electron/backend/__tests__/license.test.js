@@ -174,6 +174,56 @@ test('entitlement gates by major version and names the license', (t) => {
   assert.equal(res.license.email, 'buyer@example.com');
 });
 
+// ─── Revocation ─────────────────────────────────────────────────────────────
+
+/** Block one licenseId for the duration of a test. */
+function withRevoked(t, id) {
+  L.REVOKED_LICENSE_IDS.add(id);
+  t.after(() => L.REVOKED_LICENSE_IDS.delete(id));
+}
+
+test('a revoked license is refused at every version, and names itself', (t) => {
+  const real = pair();
+  withKey(t, 0, real.raw);
+
+  const key = L.encode({ ...BASE, entitlement: 99 }, real.sign);
+  assert.ok(L.verify(key, { major: 1 }).ok, 'valid before it is blocked');
+
+  withRevoked(t, BASE.licenseId);
+  const res = L.verify(key, { major: 1 });
+  assert.equal(res.ok, false);
+  // Not 'bad_signature': the key is genuine, we have simply stopped honouring
+  // it, and support has to be able to tell those two apart from the reason code
+  // alone. The license rides along so the blocked copy can be identified.
+  assert.equal(res.reason, 'revoked');
+  assert.equal(res.license.email, BASE.email);
+  assert.equal(res.license.licenseId, BASE.licenseId);
+});
+
+test('revocation is checked before entitlement', (t) => {
+  const real = pair();
+  withKey(t, 0, real.raw);
+  withRevoked(t, BASE.licenseId);
+
+  // A key that is BOTH blocked and out of entitlement reports blocked, because
+  // "get a fresh key from the activation page" is advice that cannot work: the
+  // worker's deny list carries the same id and will refuse to issue one.
+  const key = L.encode({ ...BASE, entitlement: 1 }, real.sign);
+  assert.equal(L.verify(key, { major: 5 }).reason, 'revoked');
+});
+
+test('revoking one license leaves every other key alone', (t) => {
+  const real = pair();
+  withKey(t, 0, real.raw);
+  withRevoked(t, BASE.licenseId);
+
+  const other = L.encode(
+    { ...BASE, licenseId: L.licenseIdFor('GUM-TEST-0002'), email: 'other@example.com' },
+    real.sign
+  );
+  assert.ok(L.verify(other, { major: 1 }).ok);
+});
+
 // ─── Stored license ─────────────────────────────────────────────────────────
 
 function withConfigDir(t) {
@@ -479,6 +529,34 @@ test('gate: entitlement is what makes a paid major upgrade possible', (t) => {
   assert.equal(st.state, 'invalid');
   assert.equal(st.reason, 'entitlement');
   assert.equal(st.license.email, BASE.email);
+});
+
+test('gate: a revoked license sends a licensed install back to the free tier', (t) => {
+  const real = pair();
+  withKey(t, 0, real.raw);
+  const c = unlicensedClient(t);
+
+  L.activate(L.encode({ ...BASE, entitlement: 99 }, real.sign));
+  assert.equal(dispatch(c.conn, 'GET', '/api/trends', null).status, 200);
+
+  // The key on disk does not change and is not deleted. status() re-verifies on
+  // every read, so shipping the id is the whole mechanism.
+  withRevoked(t, BASE.licenseId);
+  assert.equal(dispatch(c.conn, 'GET', '/api/trends', null).status, 402);
+
+  // Back to the free tier rather than to a dead app: the ledger is still theirs.
+  assert.equal(dispatch(c.conn, 'GET', '/api/transactions', null).status, 200);
+
+  const st = dispatch(c.conn, 'GET', '/api/license', null).body;
+  assert.equal(st.state, 'invalid');
+  assert.equal(st.reason, 'revoked');
+  assert.ok(st.message, 'the renderer never maps reason codes itself');
+  assert.equal(st.license.email, BASE.email);
+
+  // And it cannot be pasted back in, which is the point of blocking it.
+  const again = dispatch(c.conn, 'POST', '/api/license/activate', { key: L.encode({ ...BASE, entitlement: 99 }, real.sign) });
+  assert.equal(again.status, 400);
+  assert.equal(again.body.reason, 'revoked');
 });
 
 test('gate: which gate answers depends on whether the route is free', (t) => {

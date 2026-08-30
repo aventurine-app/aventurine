@@ -32,8 +32,9 @@
 // `entitlement` is the upgrade lever: a key issued today covers 1.x, so when
 // 2.0 ships every install returns to the activation page for a fresh key, and
 // THAT request re-verifies against Gumroad live. That is how a refunded or
-// charged-back purchase eventually stops working, with no revocation list and
-// no clock in the app.
+// charged-back purchase eventually stops working, with no clock in the app.
+// REVOKED_LICENSE_IDS below is the targeted version of the same idea, for one
+// key that has been published rather than for every key at a version boundary.
 //
 // The slot nibble is the rotation lever: if the signing key is ever exposed,
 // issue under slot 1 and append its public half to PUBLIC_KEYS. Old keys still
@@ -62,6 +63,31 @@ const PUBLIC_KEYS = [
   // secrets (SIGNING_KEY_PKCS8) and an offline backup.
   'SbyQc1LuFC4Wh5uhuZpODQYIsEpIIPHEjks81JeZMLo=',
 ];
+
+// ─── Revoked licenses ───────────────────────────────────────────────────────
+//
+// licenseIds that must stop unlocking this build: a key that has been published
+// somewhere it should not have been. The ID is the handle rather than the unlock
+// key itself because it is short, survives a re-issue (it is derived from the
+// Gumroad key, and the worker returns a different unlock key each day), and is
+// non-reversible. That last part matters: this file is published, so a list of
+// real keys would be a list of WORKING keys.
+//
+// This is the weaker half of a pair, deliberately. The activation worker's deny
+// list is what stops a leaked Gumroad key being exchanged for a fresh unlock key,
+// and it bites the moment it deploys. This list only ever reaches someone who
+// installs a build carrying it, because the app makes no network call and never
+// will. Whoever never updates keeps working, which is the same bargain the whole
+// offline design already made, and the reason the worker list is the first move
+// and this one is the follow-up.
+//
+// Entries are lowercase hex, 16 characters. Get one from a Gumroad license key
+// with `node scripts/license-id.js "<key>"`, or read it straight off About ->
+// License in the copy being blocked. Add the SAME id to DENIED_LICENSE_IDS in
+// the activation worker, or a blocked customer can simply re-activate.
+const REVOKED_LICENSE_IDS = new Set([
+  // '0123456789abcdef',
+]);
 
 // ─── Crockford base32 ───────────────────────────────────────────────────────
 // Chosen over base64 because a key gets read aloud, retyped and pasted out of
@@ -138,7 +164,7 @@ function appMajor() {
 /**
  * Check an unlock key. Pure: no filesystem, no clock, no network.
  * @returns {{ok:true, license:object}|{ok:false, reason:string}}
- *   reason ∈ malformed | unknown_key | bad_signature | entitlement
+ *   reason ∈ malformed | unknown_key | bad_signature | revoked | entitlement
  */
 function verify(keyString, { major = appMajor() } = {}) {
   if (typeof keyString !== 'string' || !keyString.trim()) {
@@ -172,8 +198,14 @@ function verify(keyString, { major = appMajor() } = {}) {
     email: body.subarray(HEADER_BYTES).toString('utf8'),
   };
 
-  // Checked AFTER the signature so the caller can report WHICH license is too
-  // old, rather than returning the same error for an invalid key.
+  // Both of these are checked AFTER the signature so the caller can report WHICH
+  // license was refused, rather than returning the same error for an invalid key.
+  // Revocation is checked before entitlement because it is the more specific
+  // answer: a blocked key is blocked at every version, and telling its holder to
+  // visit the activation page for a fresh one would be a wild goose chase.
+  if (REVOKED_LICENSE_IDS.has(license.licenseId)) {
+    return { ok: false, reason: 'revoked', license };
+  }
   if (license.entitlement < major) {
     return { ok: false, reason: 'entitlement', license };
   }
@@ -289,5 +321,6 @@ module.exports = {
   b32encode,
   b32decode,
   PUBLIC_KEYS,
+  REVOKED_LICENSE_IDS,
   FORMAT,
 };
