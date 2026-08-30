@@ -1806,7 +1806,7 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     display: block;
     margin-top: 4px;
     color: var(--text-secondary);
-    font-family: var(--font-numeric);
+    font-family: var(--font-mono);
     word-break: break-all;
 }
 

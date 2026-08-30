@@ -429,7 +429,7 @@
     color: var(--text-primary);
     font-family: var(--font-numeric);
     font-size: var(--size-h3);
-    font-weight: var(--weight-light);
+    font-weight: var(--weight-bold);
     letter-spacing: var(--track-tight);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;

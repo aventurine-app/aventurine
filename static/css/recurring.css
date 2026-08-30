@@ -164,7 +164,7 @@
 }
 
 .rec-day-num {
-    font-family: var(--font-numeric);
+    font-family: var(--font-mono);
     font-size: var(--size-small);
     color: var(--text-secondary);
     font-variant-numeric: tabular-nums;

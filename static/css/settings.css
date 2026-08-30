@@ -248,7 +248,7 @@
   border-radius: 5px;
   outline: none;
   color: var(--text-primary);
-  font-family: var(--font-numeric);
+  font-family: var(--font-mono);
   font-size: var(--size-body);
   text-align: center;
   padding: 4px 10px;
@@ -278,7 +278,7 @@
   border-radius: 5px;
   outline: none;
   color: var(--text-primary);
-  font-family: var(--font-numeric);
+  font-family: var(--font-mono);
   font-size: var(--size-body);
   font-variant-numeric: tabular-nums;
   padding: 4px 12px;
@@ -322,7 +322,7 @@
 .settings-zoom-value {
   min-width: 48px;
   text-align: center;
-  font-family: var(--font-numeric);
+  font-family: var(--font-mono);
   font-size: var(--size-body);
   font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
@@ -470,7 +470,7 @@
 .settings-threshold-value {
   min-width: 42px;
   text-align: right;
-  font-family: var(--font-numeric);
+  font-family: var(--font-mono);
   font-size: var(--size-body);
   font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
@@ -625,7 +625,7 @@
     border-radius: 5px;
     outline: none;
     color: var(--text-primary);
-    font-family: var(--font-numeric);
+    font-family: var(--font-mono);
     font-size: var(--size-body);
     padding: 4px 12px;
     caret-color: var(--frost-caret);

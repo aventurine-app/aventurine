@@ -428,13 +428,21 @@
      *   --font-h1       → page titles
      *   --font-h2       → card / section titles
      *   --font-h3       → subsection titles, eyebrow labels
-     *   --font-numeric  → currencies, totals, percentages, anything tabular —
-     *                     pair with font-variant-numeric: tabular-nums */
+     *   --font-numeric  → currencies, totals, percentages, anything tabular.
+     *                     Same family as body text; pair with
+     *                     font-variant-numeric: tabular-nums for column
+     *                     alignment. The Statements grids re-point this token
+     *                     at --font-mono on .stmt-sheet (statements.css), so
+     *                     the spreadsheet keeps its monospaced columns while
+     *                     every other money value reads as body text.
+     *   --font-mono     → monospaced: the Statements grids, and strings meant
+     *                     to be read character by character (a license key) */
     --font-menu:    'Manrope', system-ui, sans-serif;
     --font-h1:      'Manrope', Georgia, serif;
     --font-h2:      'Manrope', system-ui, sans-serif;
     --font-h3:      'Manrope', system-ui, sans-serif;
-    --font-numeric: 'IBM Plex Mono', system-ui, sans-serif;
+    --font-numeric: 'Manrope', system-ui, sans-serif;
+    --font-mono:    'IBM Plex Mono', system-ui, sans-serif;
 
     /* ── Size scale — 1.25 modular ratio anchored at 15px body ───────────
      *   display → hero numerical values (Net Worth, Insights metrics)

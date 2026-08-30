@@ -229,7 +229,7 @@
     border-radius: 5px;
     outline: none;
     color: var(--text-primary);
-    font-family: var(--font-numeric);
+    font-family: var(--font-mono);
     font-size: var(--size-small);
     line-height: var(--lh-relaxed);
     letter-spacing: 0.04em;
@@ -281,6 +281,6 @@
 }
 
 .license-preview strong {
-    font-family: var(--font-numeric);
+    font-family: var(--font-mono);
     font-weight: var(--weight-medium);
 }

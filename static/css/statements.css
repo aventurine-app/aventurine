@@ -14,10 +14,15 @@
     gap: var(--space-8);
 }
 
+/* The grids are a spreadsheet, so their figures stay monospaced while the rest
+   of the app renders money in the body face. Re-pointing --font-numeric here
+   covers every cell, input and total inside the sheet (tables.css) in one place
+   instead of a mono declaration per selector. */
 .stmt-sheet {
     display: flex;
     flex-direction: column;
     gap: var(--space-8);
+    --font-numeric: var(--font-mono);
 }
 
 /* Bare years never need the wide month-name label slot (ui.css default). */

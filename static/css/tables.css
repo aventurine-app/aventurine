@@ -554,7 +554,7 @@
     border-radius: 4px;
     outline: none;
     color: var(--text-primary);
-    font-family: var(--font-numeric);
+    font-family: var(--font-mono);
     font-size: var(--size-body);
     padding: 4px 10px;
     margin-bottom: 16px;
