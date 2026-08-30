@@ -1274,7 +1274,7 @@
      * SECURITY: bar labels are user-controlled category names — escaped both in
      * the axis label and the <title> tooltip.
      */
-    function buildBarChartSVG({ bars, W, animate = true }) {
+    function buildBarChartSVG({ bars, W, avail = 0, animate = true }) {
         if (bars.length === 0) return null;
 
         const { l: PL, r: PR, t: PT } = CHART_PAD;
@@ -1306,7 +1306,15 @@
             ? Math.round(Math.max(...labels.map(l => l.length)) * LABEL_PX * Math.sin(TILT * Math.PI / 180))
             : 0;
         const PB = CHART_PAD.b + extra;
-        const H  = Math.max(Math.round(W * CHART_RATIO), 170) + extra;
+        // Height comes from the HOST where there is one (`avail`, measured by
+        // observeChart's fillHeight mode): a row of categories has no aspect
+        // ratio to honour, and taking the card's height is what puts the bars in
+        // the space a taller neighbour opened up instead of leaving it blank
+        // under them. The tilt's extra bottom padding comes out of that height,
+        // so the labels never push the SVG past the card clipping it. Without a
+        // measurement it falls back to the width-derived height this chart has
+        // always drawn at.
+        const H  = Math.max(avail, Math.round(W * CHART_RATIO), 170) + (avail ? 0 : extra);
         const CH = H - PT - PB;
 
         // Spending is always ≥ 0, so the axis is anchored at zero and snapped to
@@ -1382,7 +1390,11 @@
             color: palette[i % palette.length],
             value: c.total,
         }));
-        observeChart('spending-chart', (W, animate) => buildBarChartSVG({ bars, W, animate }));
+        observeChart(
+            'spending-chart',
+            (W, animate, H) => buildBarChartSVG({ bars, W, avail: H, animate }),
+            { fillHeight: true },
+        );
     }
 
     /** Update the stepper label/buttons, fetch the month (cached per page load),

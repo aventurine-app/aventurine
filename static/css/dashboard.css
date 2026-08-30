@@ -238,6 +238,22 @@
     margin-top: 0;
 }
 
+/* Spending fills its card the same way, and for the same reason: the bars are
+   read against one another rather than against a shape over time, so there is no
+   aspect ratio to honour and the width-derived height only left a band of dead
+   space under a row the taller Balances card had stretched. Same two lengths as
+   above — flex-basis 0 keeps the SVG out of the card's own height so a drawn
+   chart can never ask for a taller card, and the explicit min-height replaces the
+   content-based minimum that would let it. Its value is the tallest the chart can
+   need on its own: the 170px floor plus the ~60px a fully tilted set of category
+   labels takes out of the bottom padding, so the SVG is never taller than the host
+   clipping it. */
+.spending-card .chart-area {
+    flex: 1 1 0;
+    min-height: 230px;
+    margin-top: 0;
+}
+
 /* Empty states are the exception to the bottom-pinning above: with no chart to
    line up, `margin-top: auto` left the notice sitting on the card's bottom edge
    while the space above it stayed blank. When the body holds one, the host
