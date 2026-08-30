@@ -266,7 +266,7 @@
     <!-- The old standalone "Yearly Report Card" page, which nothing linked to,
          living here as a report instead. ONE year at a time, chosen from the
          header picker: every other report on this page is read that way, and
-         six ratios plus four goals need the width that stacking every year
+         six ratios drawn as gauges need the width that stacking every year
          side by side was spending. Controller: static/js/pages/metrics.js. -->
     <div class="met-card">
         <div class="dashboard-card-header">
@@ -282,6 +282,30 @@
         </div>
 
         <div id="metrics-body"></div>
+    </div>
+
+    <!-- Vitals and Inflation are their own CARDS, not sections of the one above.
+         Three questions — what the year totalled, what its ratios say, what got
+         more expensive — read as three answers, and the card border is the
+         separator this page already uses everywhere else (Spending and Saved &
+         Invested are each two cards). Both start hidden: metrics.js reveals them
+         once there is a year to fill them, so a database with nothing in it
+         shows one empty state rather than three. -->
+    <div class="met-card" id="metrics-vitals-card" hidden>
+        <div class="dashboard-card-header">
+            <span class="dashboard-card-title">Vitals</span>
+        </div>
+        <div id="metrics-vitals"></div>
+    </div>
+
+    <div class="met-card" id="metrics-inflation-card" hidden>
+        <div class="dashboard-card-header">
+            <span class="dashboard-card-title">Inflation<span class="fc-info" tabindex="0" role="note"
+                aria-label="What each cost did against the year before it. All five charts share one scale, so a higher line is a bigger rise wherever it appears. The axis stops at a doubling — a point past that is pinned to the edge as an arrowhead, and its real figure is on the label. A category with no spend in the earlier year has no percentage to give, and the line breaks there."
+                data-tip="What each cost did against the year before it. All five charts share one scale, so a higher line is a bigger rise wherever it appears. The axis stops at a doubling — a point past that is pinned to the edge as an arrowhead, and its real figure is on the label. A category with no spend in the earlier year has no percentage to give, and the line breaks there.">i</span></span>
+            <div class="met-controls" id="metrics-inflation-figure"></div>
+        </div>
+        <div id="metrics-inflation"></div>
     </div>
 
 </div>

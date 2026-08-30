@@ -2,8 +2,9 @@
 
 // Metrics (Reports) — pure metrics/goals logic, no DB handle.
 // Given each year's income / expense / transfer / debt totals it derives the
-// headline figures, year-over-year changes, the ratios, and the met/missed
-// outcome of four money goals.
+// headline figures, year-over-year changes, the ratios, the met/missed outcome
+// of four money goals, and the per-category spend series the Inflation section
+// charts.
 //
 // Transfers (money moved to savings/brokerage accounts) stay out of every
 // income/spend surface — they are not spending and not earning, so no goal is
@@ -29,6 +30,79 @@ const INVESTED_GOAL = [0.15, 0.20];   // of which 15–20% goes to investing
 // pass/fail line would give 71% and 140% the same result.
 const NEAR_BAND = 0.05;   // ratio goals: 5 points past the bound
 const NEAR_TREND = 0.02;  // trend goals: a move under 2% the wrong way
+
+// ─── Metric bands ────────────────────────────────────────────────────────────
+// Where each ratio's meter is coloured, and what tone it earns there. Shipped
+// to the renderer with the report (`bands` on the response) rather than copied
+// into the frontend, for the same reason the goal targets are: two copies of a
+// tuned number diverge the first time one of them is retuned.
+//
+// Every band is [from, to] as a share of the 0–100% track, `to`-INCLUSIVE, so a
+// value lands in the FIRST band whose `to` it does not exceed. That is what
+// makes "expenses under 70%" put exactly 70% in the good band. Values outside
+// 0–100% clamp into the end band, which is why a negative cash-flow margin
+// reads 'bad' and a 300% debt ratio does too, with no extra rule.
+//
+// The shape differs by what the ratio measures, and deliberately:
+//
+//  - LOWER IS BETTER (expenses, debt, expense concentration): good → caution →
+//    bad, left to right. There is no bad band at the left end, because spending
+//    or owing nothing is not a problem to flag.
+//  - PUTTING MONEY AWAY (saving, investing): bad → good → caution. The caution
+//    at the TOP is the point — past the target, money is sitting in an account
+//    instead of being lived on, which is worth a look rather than a gold star.
+//
+// `cashFlowMargin` and `topExpenseShare` are still computed and still on the
+// response — they are figures, and other readers may want them — but they have
+// no bands, because Vitals no longer draws a gauge for either and a band exists
+// only to colour a gauge.
+// ─── Inflation ───────────────────────────────────────────────────────────────
+// The expense categories the Inflation section charts, in the order it draws
+// them. A DELIBERATELY SHORT list of the costs that move a household budget,
+// not every expense category: the section asks "what got more expensive", and
+// five small multiples answer that where thirteen would be a wall nobody reads.
+//
+// Keyed, not named. A user renaming "Auto & Transport" keeps the key, so the
+// section follows the rename; the name shown comes from the categories table at
+// read time (the handler resolves it), never from this list.
+const INFLATION_CATEGORIES = ['rent', 'food', 'utilities', 'automobile', 'shopping'];
+
+/** Year-over-year change of one category's spend, as a fraction. null when
+ *  there is no prior year or the prior year had no spend in it — a rise from
+ *  nothing has no finite percentage, and calling it +100% would be inventing a
+ *  baseline the ledger does not have. */
+function categoryChange(curr, prev) {
+  if (prev == null || !(prev > 0)) return null;
+  return (curr - prev) / prev;
+}
+
+const METRIC_BANDS = {
+  expenseToIncome: [
+    { from: 0, to: EXPENSE_RATIO_GOAL, tone: 'good' },
+    { from: EXPENSE_RATIO_GOAL, to: 0.85, tone: 'caution' },
+    { from: 0.85, to: 1, tone: 'bad' },
+  ],
+  debtToIncome: [
+    { from: 0, to: DTI_GOAL, tone: 'good' },
+    { from: DTI_GOAL, to: 0.40, tone: 'caution' },
+    { from: 0.40, to: 1, tone: 'bad' },
+  ],
+  savingsRate: [
+    { from: 0, to: 0.10, tone: 'bad' },
+    { from: 0.10, to: SAVINGS_GOAL, tone: 'good' },
+    { from: SAVINGS_GOAL, to: 1, tone: 'caution' },
+  ],
+  // The good range runs to 40%, not to INVESTED_GOAL[1]: the GOAL is the 15–20%
+  // band a year is graded against, while the gauge's green is the range that is
+  // simply healthy, and investing a third of an income is not a thing to caution
+  // anybody about. The two are deliberately decoupled — they were the same
+  // numbers only while the tile carried the goal's badge.
+  investedRate: [
+    { from: 0, to: INVESTED_GOAL[0], tone: 'bad' },
+    { from: INVESTED_GOAL[0], to: 0.40, tone: 'good' },
+    { from: 0.40, to: 1, tone: 'caution' },
+  ],
+};
 
 /** a / b, or null when the denominator is non-positive (ratio undefined). */
 function ratio(a, b) {
@@ -155,10 +229,11 @@ function evaluateGoals({ income, expenses, debt, transfers, invested, prev }) {
 
 /**
  * Build the per-year report cards from raw yearly totals. `rows` is an array of
- * { year, income, expenses, transfers, invested, topExpense, debt } (debt null
- * when the year has no Balance-Sheet debt data, topExpense null when the year
- * has no spending). Returns the cards in ascending year order; the handler
- * re-sorts for display.
+ * { year, income, expenses, transfers, invested, topExpense, debt,
+ *   expenseByCat, categoryNames } (debt null when the year has no Balance-Sheet
+ * debt data, topExpense null when the year has no spending; the last two are a
+ * key→amount and a key→name map, from which the Inflation series is cut).
+ * Returns the cards in ascending year order; the handler re-sorts for display.
  */
 function buildReportCards(rows) {
   const sorted = rows
@@ -172,7 +247,16 @@ function buildReportCards(rows) {
         ? { key: r.topExpense.key, name: r.topExpense.name, amount: round2(r.topExpense.amount) }
         : null,
       debt: r.debt == null ? null : round2(r.debt),
+      // The charted categories, always all of them and always in order, so a
+      // year that spent nothing on one still holds its place in the series
+      // rather than shifting the others along.
+      inflation: INFLATION_CATEGORIES.map((key) => ({
+        key,
+        name: (r.categoryNames && r.categoryNames[key]) || key,
+        amount: round2((r.expenseByCat && r.expenseByCat[key]) || 0),
+      })),
     }))
+    .map((r) => ({ ...r, inflationByKey: new Map(r.inflation.map((c) => [c.key, c.amount])) }))
     .sort((a, b) => a.year - b.year);
 
   const byYear = new Map(sorted.map((r) => [r.year, r]));
@@ -218,6 +302,16 @@ function buildReportCards(rows) {
         topExpenseShare: r.topExpense ? ratio(r.topExpense.amount, r.expenses) : null,
       },
       goals: evaluateGoals({ ...r, prev }),
+      // What each charted category cost this year and how that moved. Computed
+      // per year rather than only for the selected one, because the Inflation
+      // charts plot five years at once and the renderer picks a window out of
+      // them without asking the backend again.
+      inflation: r.inflation.map((c) => ({
+        key: c.key,
+        name: c.name,
+        amount: c.amount,
+        pct: categoryChange(c.amount, prev ? (prev.inflationByKey.get(c.key) ?? null) : null),
+      })),
     };
   });
 }
@@ -225,6 +319,8 @@ function buildReportCards(rows) {
 module.exports = {
   buildReportCards,
   evaluateGoals,
+  METRIC_BANDS,
+  INFLATION_CATEGORIES,
   EXPENSE_RATIO_GOAL,
   DTI_GOAL,
   SAVINGS_GOAL,

@@ -4,12 +4,13 @@
    Loads only alongside forecast.css (pages/reports.html), which owns the .rep-*
    tab shell, the card header chrome (.dashboard-card-header / -title), the
    "i" info badge and the page padding. What lives here is the report's own
-   column: the composition bar, the headline figure tiles and their sparklines,
-   and the ratio grid drawn as meters.
+   column, across its THREE cards: the headline figure tiles and their
+   sparklines, the Vitals grid of range-coloured gauges, and the Inflation
+   card's five small multiples.
 
    Every mark on this card is drawn from a number that is also printed beside
-   it — the bar has its legend, the meters have their percentages, the
-   sparklines have the year picker. Nothing here is reachable only by looking.
+   it — the gauges have their percentages, the sparklines have the year
+   picker. Nothing here is reachable only by looking.
    ============================================================================ */
 
 .metrics-page {
@@ -32,109 +33,18 @@
 /* ─── Header controls: year picker ────────────────────────────────────────── */
 .met-controls { display: flex; align-items: center; gap: var(--space-16); }
 
-/* ─── Composition bar ─────────────────────────────────────────────────────────
-   The year's income split into where it went. ONE mark that answers three of
-   the six ratios below (cash-flow margin, savings rate, and by difference the
-   share left), which is why it earns the top of the card.
-
-   The bands wear the categorical ramp rather than gain-green / loss-red: money
-   spent is not a loss and money put away is not a gain, and those two colours
-   are spoken for elsewhere in the app. "Left over" is the remainder, so it wears
-   a neutral — the same instinct as the Saved & Invested legend's "Other". */
-.met-composition {
-    padding: var(--space-4) 0 var(--space-20);
-    border-bottom: var(--border-width) solid var(--border);
-}
-
-.met-bar {
-    display: flex;
-    height: 12px;
-    border-radius: 6px;
-    overflow: hidden;
-    position: relative;
-    background: var(--frost-2);
-    /* Grows as ONE piece, the way it is read, rather than each band sprouting
-       on its own (mirrors the stacked columns in transfers.css). */
-    transform: scaleX(0);
-    transform-origin: left center;
-    animation: met-bar-grow 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-.met-band { display: block; height: 100%; min-width: 0; }
-/* A hairline of the card background between bands — enough to count them without
-   a gap that would change the effective widths. */
-.met-band + .met-band { box-shadow: inset 1px 0 0 var(--surface1); }
-.met-band-spent { background: var(--cat-1); }
-.met-band-saved { background: var(--cat-2); }
-.met-band-left  { background: color-mix(in srgb, var(--text-tertiary) 22%, transparent); }
-
-/* Only drawn when the year spent more than it earned: where income ran out. */
-.met-band-notch {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    margin-left: -1px;
-    background: var(--text-primary);
-}
-
-.met-keys {
-    list-style: none;
-    margin: var(--space-12) 0 0;
-    padding: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-8) var(--space-24);
-}
-.met-key {
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-8);
-    min-width: 0;
-}
-.met-key-dot {
-    flex-shrink: 0;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    align-self: center;
-}
-.met-key-spent .met-key-dot { background: var(--cat-1); }
-.met-key-saved .met-key-dot { background: var(--cat-2); }
-.met-key-left  .met-key-dot { background: color-mix(in srgb, var(--text-tertiary) 45%, transparent); }
-.met-key-label {
-    color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    white-space: nowrap;
-}
-.met-key-value {
-    color: var(--text-primary);
-    font-family: var(--font-numeric);
-    font-size: var(--size-small);
-    font-weight: var(--weight-semibold);
-    font-variant-numeric: tabular-nums;
-}
-.met-key-amount {
-    color: var(--text-tertiary);
-    font-family: var(--font-numeric);
-    font-size: var(--size-micro);
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-
 /* ─── Headline figures ────────────────────────────────────────────────────── */
-/* Four money totals across the top, and below them six ratios in threes.
-   Both counts are FIXED at each breakpoint rather than auto-fit, because
-   auto-fit sizes by available width and would leave 6 tiles as 5 + 1 on a wide
-   window — a ragged last row reads as a tile that didn't load. Folding 4 → 2 and
-   6 → 3 → 2 keeps every row full at every width. Breakpoints match
-   dashboard.css: the sidebar and page padding take ~280px off the viewport. */
+/* Four money totals in the first card, four ratios in the second — the same
+   count, so the two cards share one column rhythm down the page.
+   Both are FIXED at each breakpoint rather than auto-fit, because auto-fit sizes
+   by available width and would leave a ragged last row, which reads as a tile
+   that didn't load. Folding 4 → 2 → 1 keeps every row full at every width.
+   Breakpoints match dashboard.css: the sidebar and page padding take ~280px off
+   the viewport. */
 .met-figures {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: var(--space-20) 28px;
-    padding: var(--space-20) 0 var(--space-24);
-    border-bottom: var(--border-width) solid var(--border);
 }
 .met-figure { min-width: 0; display: flex; flex-direction: column; gap: var(--space-4); }
 .met-figure-label {
@@ -197,23 +107,199 @@
 .met-change-flat { color: var(--text-tertiary); }
 .met-change-none { color: var(--text-tertiary); font-style: italic; font-weight: var(--weight-regular); }
 
-/* ─── Ratio grid ──────────────────────────────────────────────────────────── */
-.met-metrics {
+/* ─── Card-level figure ───────────────────────────────────────────────────────
+   The one figure a whole card reports, sitting in its header where the other
+   cards on this page put their range pickers. It reuses the YoY pill the
+   headline figures carry — same arrow, same three tones — at the size a card
+   title can sit beside, because it IS the same reading, just about the card. */
+.met-section-figure .met-change { font-size: var(--size-h3); }
+
+.met-section-empty {
+    margin: 0 0 var(--space-8);
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+}
+
+/* ─── Inflation ───────────────────────────────────────────────────────────────
+   The third card. Five small multiples: per category, a line across the years
+   over and under a 0% line. They SHARE ONE Y SCALE — set once from every category's points — so a
+   higher line is a bigger rise wherever it appears. Scaled per chart, a 3% rise
+   in Utilities and a 60% rise in Rent draw the same line, and the comparison the
+   section exists for is gone.
+
+   Same three-column grid as the ratios above, at the same breakpoints: five
+   charts across one row would be ~190px each, and a five-year x axis of
+   four-digit labels does not read at that width. */
+.met-inflation {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-24) 28px;
-    padding: var(--space-24) 0 var(--space-4);
+}
+
+.met-inflation .inf-cat { min-width: 0; }
+
+.inf-cat-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-8);
+    min-width: 0;
+}
+.inf-cat-name {
+    min-width: 0;
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wide);
+    text-transform: uppercase;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* The selected year's change for this category — the number the chart's last
+   column draws. Arrowed as well as coloured, the way the YoY pills are: a cost
+   going up is the bad direction here, and that must not be carried by hue
+   alone. */
+.inf-cat-pct {
+    flex: none;
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+    font-variant-numeric: tabular-nums;
+}
+.inf-up   { color: var(--accent-negative); }
+.inf-down { color: var(--accent-positive); }
+.inf-flat { color: var(--text-tertiary); }
+
+/* Two rows: the axis gutter beside the plot, then the year labels under the
+   plot only — so a label lines up with the column it names rather than with the
+   chart's left edge. */
+.inf-chart {
+    display: grid;
+    grid-template-columns: 46px minmax(0, 1fr);
+    column-gap: var(--space-8);
+    padding-top: var(--space-12);
+}
+
+.inf-y { position: relative; height: 96px; }
+.inf-y-tick {
+    position: absolute;
+    right: 0;
+    transform: translateY(-50%);
+    color: var(--text-tertiary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-micro);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+/* 0% is the line every bar is measured from, so it is the one tick that reads
+   as part of the chart rather than as a bound on it. */
+.inf-y-zero { color: var(--text-secondary); }
+
+.inf-plot { position: relative; height: 96px; }
+/* The baseline. Solid, unlike a gridline, because the bars start here — it is
+   the chart's origin, not a reference mark. */
+.inf-zero {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    margin-top: -0.5px;
+    background: color-mix(in srgb, var(--text-tertiary) 55%, transparent);
+}
+
+/* The line and its fill. Drawn in a 0–100 box stretched to whatever width the
+   grid gives the cell (preserveAspectRatio="none"), which is why the stroke is
+   non-scaling and the dots are HTML rather than SVG circles — both would
+   otherwise be squashed by the same transform that makes the plot fill its
+   cell. */
+.inf-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+/* The sign, carried by the geometry: the part of the fill ABOVE the 0% line is
+   a cost that rose, the part below it one that fell. Two clipped copies of one
+   polygon, so a line that crosses zero changes colour exactly where it crosses
+   rather than at a point somebody had to pick. */
+.inf-area-up   { fill: color-mix(in srgb, var(--accent-negative) 20%, transparent); }
+.inf-area-down { fill: color-mix(in srgb, var(--accent-positive) 20%, transparent); }
+
+/* The chart's ONE mark, so it is drawn to be seen: a solid, near-body-weight
+   line over the pale fills, not the hairline it was when point dots shared the
+   job of showing where the values sat.
+
+   It is deliberately NOT dashed and carries no draw-on animation. A
+   stroke-dasharray here is measured in DEVICE pixels rather than user units,
+   because vector-effect="non-scaling-stroke" moves the stroke into screen
+   space — so the "draw the line in" animation this had left a 1px-on, 1px-off
+   dotted line that all but vanished against the fill. The whole svg fades in
+   instead, which needs no dashing to do it.
+
+   Neutral, because the fill under it already says which way the cost went and a
+   coloured line over a coloured area is one hue too many at this size. */
+.inf-stroke {
+    fill: none;
+    stroke: color-mix(in srgb, var(--text-primary) 85%, transparent);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.inf-svg {
+    opacity: 0;
+    animation: inf-fade-in 0.4s ease-out forwards;
+}
+
+/* A hover target per year, carrying that year's figure. Invisible on purpose:
+   the chart holds no symbols, so this is how a pointer still reaches a value
+   without a dot being drawn to aim at. */
+.inf-hit {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    cursor: default;
+}
+
+/* No gap: each label owns an equal slice of the plot's width and is centred in
+   it, which is exactly where its year's point is drawn. */
+.inf-x {
+    grid-column: 2;
+    display: flex;
+    margin-top: var(--space-8);
+}
+.inf-x-label {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+    color: var(--text-tertiary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-micro);
+    font-variant-numeric: tabular-nums;
+}
+.inf-x-current { color: var(--text-primary); font-weight: var(--weight-semibold); }
+
+/* ─── Ratio grid ──────────────────────────────────────────────────────────── */
+.met-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-24) 28px;
 }
 
 @media (max-width: 1100px) {
-    .met-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .met-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .met-figures,
+    .met-metrics,
+    .met-inflation { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 700px) {
     .met-figures,
-    .met-metrics { grid-template-columns: minmax(0, 1fr); }
-    .met-keys { gap: var(--space-8) var(--space-16); }
+    .met-metrics,
+    .met-inflation { grid-template-columns: minmax(0, 1fr); }
 }
 .met-metric { min-width: 0; display: flex; flex-direction: column; gap: var(--space-4); }
 .met-metric-label {
@@ -226,111 +312,90 @@
     display: flex;
     align-items: center;
 }
-.met-metric-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-8);
-    min-width: 0;
+
+/* ─── Gauges ──────────────────────────────────────────────────────────────────
+   Every ratio tile's meter is a GAUGE: the full 0–100% track it is a share of,
+   pre-coloured into the three ranges the value can land in, with a tick and a
+   percentage at each boundary between two of them, and the year's own value
+   riding above the track in a waypoint pin.
+
+   This replaced a bar that filled from the left with a target notched on it.
+   That drawing put the whole verdict at ONE point — the tip of the fill — so it
+   only meant something to a reader who already knew what a good number was.
+   Colouring the track instead puts the scale on screen before the value is, and
+   makes the pin's colour a consequence of where it landed rather than a second,
+   separately computed opinion (which is why the ✓/!/✕ badge is gone: with the
+   ranges drawn, it said the same thing twice).
+
+   The ranges are drawn at part strength. They are the ground the reading is
+   taken against, and at full saturation three of them under a small number
+   would out-shout it. The pin is the mark that gets full colour. */
+.met-gauge {
+    position: relative;
+    margin-top: var(--space-8);
 }
-.met-metric-value {
-    color: var(--text-primary);
+
+/* Reserved on every tile whether or not there is a value to pin, so a row of
+   gauges keeps one baseline and an N/A tile doesn't ride up out of line. Tall
+   enough for a headline-sized pin plus its point and the gap under it. */
+.met-gauge-pins {
+    position: relative;
+    height: 40px;
+}
+
+/* A ratio with no value for this year. It has no point on the track to stand on,
+   so it is not drawn as a pin — but the tile still has to SAY so, which is the
+   job the headline percentage used to do before the pin took it over. */
+.met-gauge-none {
+    position: absolute;
+    left: 0;
+    bottom: var(--space-8);
+    color: var(--text-tertiary);
     font-family: var(--font-numeric);
     font-size: var(--size-h3);
     font-weight: var(--weight-semibold);
     font-variant-numeric: tabular-nums;
 }
-.met-metric-na .met-metric-value { color: var(--text-tertiary); }
 
-/* The goal verdict, on the tile whose number IS the goal. Three levels, not
-   two: hit or beaten, slightly off, off. Colour is paired with a glyph, never
-   carrying the verdict on its own. */
-.met-status {
-    flex-shrink: 0;
-    width: 18px;
-    height: 18px;
-    line-height: 18px;
-    text-align: center;
-    border-radius: 50%;
-    font-size: 11px;
-    font-weight: var(--weight-bold);
-    cursor: default;
-}
-.met-status-met {
-    color: var(--accent-positive);
-    background: color-mix(in srgb, var(--accent-positive) 18%, transparent);
-}
-.met-status-near {
-    color: var(--warning);
-    background: var(--warning-fill);
-}
-.met-status-miss {
-    color: var(--accent-negative);
-    background: color-mix(in srgb, var(--accent-negative) 18%, transparent);
-}
-
-/* ─── Meters ──────────────────────────────────────────────────────────────────
-   A percentage against the full 0–100% it is a share of, with the goal's target
-   notched on the track where the ratio has one.
-
-   A GRADED tile's fill takes the goal's colour, so a row of tiles answers "how
-   is the year going" before a single number is read. An ungraded ratio keeps
-   the neutral accent — there is no verdict, so there is no colour to give it.
-
-   The tick lane below the track is reserved on EVERY tile, target or not, so a
-   row of tiles keeps one baseline whether or not it is graded. */
-.met-meter {
+.met-gauge-track {
     position: relative;
-    margin-top: var(--space-4);
-    padding-bottom: var(--space-20);
-}
-.met-meter-track {
-    position: relative;
-    height: 6px;
-    border-radius: 3px;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
     background: var(--frost-2);
-}
-/* An UNGRADED ratio's fill is neutral, not the app accent: the accent green
-   sits close enough to the "goal met" green that a row of bars stopped reading
-   as graded / ungraded at a glance, which is the one thing this row is for. */
-.met-meter-fill {
-    height: 100%;
-    border-radius: 3px;
-    background: color-mix(in srgb, var(--text-tertiary) 60%, transparent);
+    /* Grows as ONE piece, the way it is read. */
     transform: scaleX(0);
     transform-origin: left center;
-    animation: met-fill-grow 0.55s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: met-fill-grow 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
-.met-metric-na .met-meter-fill { animation: none; transform: none; }
-.met-graded-met  .met-meter-fill { background: var(--accent-positive); }
-.met-graded-near .met-meter-fill { background: var(--warning); }
-.met-graded-miss .met-meter-fill { background: var(--accent-negative); }
+/* A year with no value for this ratio still gets its scale, quietly: the ranges
+   are what the tile is about even when there is nothing to plot on them. */
+.met-metric-na .met-gauge-track { opacity: 0.45; }
 
-/* A goal that is a BAND rather than a line: the stretch of track the year is
-   aiming to land in. Stands a little proud of the track so it reads as a target
-   laid over the meter, the way the single-line notch does. Sits UNDER the fill:
-   a year that reaches the band paints over it, which is exactly what reaching
-   it should look like. */
-.met-meter-band {
+.met-gauge-band { position: absolute; top: 0; bottom: 0; }
+.met-gauge-good    { background: color-mix(in srgb, var(--accent-positive) 55%, transparent); }
+.met-gauge-caution { background: color-mix(in srgb, var(--warning) 55%, transparent); }
+.met-gauge-bad     { background: color-mix(in srgb, var(--accent-negative) 55%, transparent); }
+
+/* The boundary between two ranges. Inside the track rather than overhanging it,
+   because the number underneath is what names the boundary — the tick only has
+   to say which point on the track that number belongs to. */
+.met-gauge-tick {
     position: absolute;
-    top: -2px;
-    bottom: -2px;
-    border-radius: 2px;
-    background: color-mix(in srgb, var(--text-secondary) 34%, transparent);
-}
-/* Stands taller than the track so the target reads as a threshold laid ACROSS
-   the meter rather than a segment of it. */
-.met-meter-notch {
-    position: absolute;
-    top: -3px;
-    bottom: -3px;
+    top: 0;
+    bottom: 0;
     width: 2px;
     margin-left: -1px;
-    border-radius: 1px;
-    background: var(--text-secondary);
+    background: var(--text-primary);
 }
-.met-meter-tick {
+
+.met-gauge-scale {
+    position: relative;
+    height: var(--space-16);
+}
+.met-gauge-mark {
     position: absolute;
-    top: 13px;
+    top: var(--space-4);
     transform: translateX(-50%);
     color: var(--text-tertiary);
     font-family: var(--font-numeric);
@@ -339,25 +404,79 @@
     white-space: nowrap;
 }
 
-/* Names the thing the percentage is ABOUT (the biggest expense category), so
-   the tile can say "31% Housing" without a second tile to hold the name. It
-   rides on the value's line, not one of its own: only one tile in the grid has
-   a sub, and an extra line pushed that tile's meter out of step with the two
-   beside it. */
-.met-metric-sub {
-    min-width: 0;
-    color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    overflow: hidden;
-    text-overflow: ellipsis;
+/* ─── The waypoint pin ────────────────────────────────────────────────────────
+   The year's value, sitting above the track at the point it names, pointing
+   down at it.
+
+   It is a TINTED box with a coloured edge, not a solid block of the range
+   colour: white on the positive green is about 3:1, under what a small bold
+   number needs, and a pin whose own value is hard to read would be a strange
+   thing for the pin to be. The edge and the tint carry the colour; the number
+   keeps the body text colour and stays legible in both themes.
+
+   Centred on the true value even at 0% and 100%, where it overhangs the track by
+   about half its width — that overhang lands in the grid gutter or the card
+   padding, both 28px, and nudging it inward would point it at a percentage the
+   year did not have. */
+.met-pin {
+    position: absolute;
+    bottom: var(--space-8);
+    transform: translateX(-50%);
+    padding: var(--space-4) var(--space-8);
+    border: 1.5px solid;
+    border-radius: 6px;
+    background: var(--surface1);
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    /* The tile's headline size: this pin IS the tile's number, not an annotation
+       on one — the percentage under the label that used to be it is gone. */
+    font-size: var(--size-h3);
+    font-weight: var(--weight-semibold);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.4;
     white-space: nowrap;
+    opacity: 0;
+    animation: met-pin-drop 0.35s cubic-bezier(0.4, 0, 0.2, 1) 0.15s forwards;
+}
+/* The point. A square turned 45° with two of its edges kept, so the pin's
+   outline carries on around the tip; its unbordered half covers the box's
+   bottom edge where the two meet. */
+.met-pin::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -5px;
+    width: 10px;
+    height: 10px;
+    margin-left: -5px;
+    background: inherit;
+    border-right: 1.5px solid;
+    border-bottom: 1.5px solid;
+    border-color: inherit;
+    transform: rotate(45deg);
+}
+.met-pin-good {
+    border-color: var(--accent-positive);
+    background: color-mix(in srgb, var(--accent-positive) 16%, var(--surface1));
+}
+.met-pin-caution {
+    border-color: var(--warning);
+    background: color-mix(in srgb, var(--warning) 18%, var(--surface1));
+}
+.met-pin-bad {
+    border-color: var(--accent-negative);
+    background: color-mix(in srgb, var(--accent-negative) 16%, var(--surface1));
 }
 
-@keyframes met-bar-grow  { to { transform: scaleX(1); } }
 @keyframes met-fill-grow { to { transform: scaleX(1); } }
+@keyframes inf-fade-in   { to { opacity: 1; } }
+@keyframes met-pin-drop {
+    from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
 
 @media (prefers-reduced-motion: reduce) {
-    .met-bar,
-    .met-meter-fill { animation: none; transform: scaleX(1); }
+    .met-gauge-track { animation: none; transform: scaleX(1); }
+    .met-pin { animation: none; opacity: 1; }
+    .inf-svg { animation: none; opacity: 1; }
 }

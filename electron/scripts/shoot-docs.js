@@ -883,7 +883,10 @@ app.whenReady().then(async () => {
       await click('#rep-tab-metrics');
       await sleep(2500);
       await unhover();
-      await shotEl('reports-metrics', '.rep-panel:not([hidden]) .met-card', 10);
+      // The whole column, not one card: the report is three stacked cards now
+      // (totals, Vitals, Inflation) and cropping to .met-card catches only the
+      // first of them.
+      await shotEl('reports-metrics', '.rep-panel:not([hidden]) .metrics-page', 10);
     }
 
     // ═══ Opt-in: website feature shots ═══════════════════════════════════════
