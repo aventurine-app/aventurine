@@ -541,8 +541,9 @@
     transition: background 0.12s ease, color 0.12s ease;
 }
 
+/* Selection is carried by the checkbox alone — the label keeps its resting
+   colour, so a ticked row and an unticked one read as the same list. */
 .tx-pop-option:hover { background: var(--frost-3); color: var(--text-primary); }
-.tx-pop-option.is-selected { color: var(--accent-primary); }
 
 .tx-pop-option:focus-visible {
     outline: 2px solid var(--accent-primary);
