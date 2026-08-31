@@ -1,5 +1,11 @@
 # Local secrets and data — never commit these.
 .secret_key
+# Stray license from license.js configDir()'s fallback: with no
+# AVENTURINE_CONFIG_DIR set (a test or script run by hand from electron/), it
+# writes license.json under the CWD instead of the app profile. main.js always
+# sets the variable, so this only ever appears in a dev tree.
+.config/
+electron/.config/
 finance.db
 finance.db.bak*
 *.bak
