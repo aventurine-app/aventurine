@@ -101,7 +101,8 @@ app.whenReady().then(async () => {
     await sleep(500);
     check('picker modal open', await js('!!document.querySelector(".onb-dialog .acct-tiles")'));
     const tiles = await js(`[...document.querySelectorAll('.acct-tile-name')].map(e => e.textContent)`);
-    check('kind tiles rendered, Credit Card second', tiles[1] === 'Credit Card', tiles.join(' | '));
+    check('the four account types are the only kinds offered',
+      tiles.join('|') === 'Cash|Retirement|Investment|Debt', tiles.join(' | '));
     check('no "your accounts" section on a fresh DB',
       await js(`[...document.querySelectorAll('.acct-section-label')].map(e => e.textContent).join('|')`) === 'Add your first account');
     check('the name field is hidden until a kind is picked',
@@ -255,7 +256,7 @@ app.whenReady().then(async () => {
     check('the adopted account appears under "your accounts", by its name',
       (await js(`[...document.querySelectorAll('.acct-tile-name')].map(e => e.textContent)`))[0] === 'Everyday Checking');
     check('both sections present on the second pass',
-      await js(`[...document.querySelectorAll('.acct-section-label')].map(e => e.textContent).join('|')`) === 'Your accounts|Or add a new one');
+      await js(`[...document.querySelectorAll('.acct-section-label')].map(e => e.textContent).join('|')`) === 'Your accounts|Add New Account');
     check('progress chip for the finished account',
       await js(`document.querySelector('.onb-done-chip')?.textContent`) === 'Everyday Checking');
     check('"Finish" is offered as the deliberate way out on a second pass',

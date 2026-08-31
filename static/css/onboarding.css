@@ -107,7 +107,7 @@
     text-transform: uppercase;
 }
 
-/* Breathing room between the two groups, so "your accounts" and "add a new one"
+/* Breathing room between the two groups, so "your accounts" and "add new account"
    read as separate answers to the same question rather than one long list. */
 .acct-tiles + .acct-section-label { margin-top: 18px; }
 

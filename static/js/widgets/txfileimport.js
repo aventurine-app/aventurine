@@ -482,27 +482,29 @@
             render();
         }
 
-        // The kinds of account a user can add, in presentation order — most-imported
-        // first, independent of Balance Sheet position (which groups by col_type). A
-        // card export is the messiest, most commonly imported statement there is.
+        // The kinds of account a user can add: the four col_types themselves, one
+        // tile each. It listed six narrower kinds (Checking, Credit Card, Savings,
+        // Investments, Retirement, Loan), which asked the user to place their
+        // account in a taxonomy the app does not otherwise use — the ledger only
+        // ever reads col_type, so the extra precision was collected and discarded.
         //
         // `kind` matches the key of the seeded starter row this replaces for the
-        // first account of its kind (seed.js DEFAULT_BALANCE_COLUMNS); `type` is the
-        // col_type a new column gets otherwise. These labels and hints are STATIC
-        // and never read from the database, so a starter row renamed ("Chase
-        // Checking") does not turn this list of kinds into a list of existing
-        // accounts. The six kinds cover all four col_types, so the user never picks
-        // a type directly.
+        // first account of its type (seed.js DEFAULT_BALANCE_COLUMNS, whose six rows
+        // outnumber these four; the unmatched ones stay hidden and unadopted, which
+        // is what they already do until an import lands in them); `type` is the
+        // col_type a new column gets otherwise. These labels are STATIC and never
+        // read from the database, so a starter row renamed ("Chase Checking") does
+        // not turn this list of kinds into a list of existing accounts.
         //
+        // No hints: the label IS the col_type, and the sub-line under an EXISTING
+        // account tile carries that same word, so a hint here would restate it.
         // The placeholders show that these are the user's own account names, using
         // generic examples rather than real brands.
         const ACCOUNT_KINDS = [
-            { kind: 'checking',    label: 'Checking',    type: 'cash',       group: 'Cash',       hint: 'Everyday spending account',      placeholder: 'e.g. Joint Checking' },
-            { kind: 'credit_card', label: 'Credit Card', type: 'debt',       group: 'Debt',       hint: 'A card you pay off',             placeholder: 'e.g. Everyday Card' },
-            { kind: 'savings',     label: 'Savings',     type: 'cash',       group: 'Cash',       hint: 'Money set aside',                placeholder: 'e.g. Emergency Fund' },
-            { kind: 'investments', label: 'Investments', type: 'investment', group: 'Investment', hint: 'Brokerage or taxable investing', placeholder: 'e.g. Brokerage' },
-            { kind: 'retirement',  label: 'Retirement',  type: 'retirement', group: 'Retirement', hint: '401(k), IRA, pension',           placeholder: 'e.g. Work 401(k)' },
-            { kind: 'debt',        label: 'Loan',        type: 'debt',       group: 'Debt',       hint: 'Loan, mortgage, line of credit', placeholder: 'e.g. Car Loan' },
+            { kind: 'checking',    label: 'Cash',       type: 'cash',       placeholder: 'e.g. Joint Checking' },
+            { kind: 'retirement',  label: 'Retirement', type: 'retirement', placeholder: 'e.g. Work 401(k)' },
+            { kind: 'investments', label: 'Investment', type: 'investment', placeholder: 'e.g. Brokerage' },
+            { kind: 'credit_card', label: 'Debt',       type: 'debt',       placeholder: 'e.g. Everyday Card' },
         ];
 
         // ── The account question ──────────────────────────────────────────────────
@@ -516,7 +518,7 @@
         //
         //   Your accounts  — the accounts that already exist, under the names the
         //                    user gave them. Omitted entirely until there is one.
-        //   Add a new one  — the KINDS of account (below), each named by the user
+        //   Add New Account — the KINDS of account (below), each named by the user
         //                    at creation.
         //
         // Naming is part of creating and is never skipped: account names are
@@ -544,12 +546,12 @@
                 ${adopted.length ? `
                 <div class="acct-section-label">Your accounts</div>
                 <div class="acct-tiles">
-                    ${adopted.map(a => tile(a.key, a.label, ACCOUNT_KINDS.find(k => k.type === a.type)?.group || '', a.key === preselect)).join('')}
+                    ${adopted.map(a => tile(a.key, a.label, ACCOUNT_KINDS.find(k => k.type === a.type)?.label || '', a.key === preselect)).join('')}
                 </div>` : ''}
 
-                <div class="acct-section-label">${adopted.length ? 'Or add a new one' : 'Add your first account'}</div>
+                <div class="acct-section-label">${adopted.length ? 'Add New Account' : 'Add your first account'}</div>
                 <div class="acct-tiles">
-                    ${ACCOUNT_KINDS.map(k => tile(`new:${k.kind}`, k.label, k.hint, false)).join('')}
+                    ${ACCOUNT_KINDS.map(k => tile(`new:${k.kind}`, k.label, '', false)).join('')}
                 </div>
                 <div class="acct-custom" hidden>
                     <label class="acct-custom-label" for="${esc(name)}-new-name">What do you call it?</label>
