@@ -193,9 +193,10 @@
          + ` L ${f(tx)} ${f(t1)} C ${f(mx)} ${f(t1)} ${f(mx)} ${f(s1)} ${f(sx)} ${f(s1)} Z`;
   }
 
-  function buildSVG(boxW) {
+  function buildSVG(boxW, boxH) {
     // Geometry below is in layout units; `k` maps them onto the box at the end.
     const W = layoutWidth(boxW);
+    const k = boxW / W;   // 1 when the box was wide enough to lay out in directly
     const { income, expense, totalIncome, totalExpense } = aggregate(state.year);
     if (totalIncome <= 0 && totalExpense <= 0) return null; // caller → empty state
 
@@ -206,7 +207,16 @@
     // vertical room, so the spread pass below never overlaps labels.
     const labelRoom = Math.max(income.length, expense.length) * LABEL_GAP
       + PAD.t + PAD.b + LABEL_MARGIN * 2 + 12;
-    const H = Math.max(Math.round(W * CHART_RATIO), labelRoom, 260);
+    // Height comes from the BOX when the page gave it one (see the
+    // #rep-panel-cashflow rules in forecast.css): the card is stretched to the
+    // viewport, so the diagram fills whatever is left under the header rather
+    // than standing at a share of its own width. CHART_RATIO is only the
+    // fallback for a box with no definite height — a plain browser opening the
+    // page file without the app chrome, where nothing above sets one. Divide by
+    // `k` because these are LAYOUT units and `k` is what maps them to CSS px, so
+    // a zoomed (scaled-down) diagram still lands at boxH on screen.
+    const wantH = boxH > 0 ? Math.round(boxH / k) : Math.round(W * CHART_RATIO);
+    const H = Math.max(wantH, labelRoom, 260);
     // Every column hangs from ONE shared top edge — the diagram reads as a flat
     // lid with the bands growing downward off it, so the top ribbon on each side
     // runs straight across and the two sides are comparable from the same line.
@@ -339,8 +349,12 @@
           + `<text class="sankey-amount" x="${cLabelX}" y="${centerTop - CENTER_LABEL_GAP}" text-anchor="middle">${escapeHtml(fmtMoney(totalIncome))}</text>`;
 
     const cls = `cashflow-sankey${firstPaint ? ' sankey-enter' : ''}`;
-    const k = boxW / W;   // 1 when the box was wide enough to lay out in directly
-    return `<svg width="${boxW}" height="${Math.round(H * k)}" viewBox="0 0 ${W} ${H}"`
+    // Normally H*k IS boxH. It is larger only when the labels needed more room
+    // than the viewport had (labelRoom / the 260 floor won above), and then the
+    // svg is capped at the box and preserveAspectRatio="meet" shrinks the whole
+    // diagram to fit instead of letting it spill out of .chart-area's clip.
+    const drawH = boxH > 0 ? Math.min(Math.round(H * k), Math.round(boxH)) : Math.round(H * k);
+    return `<svg width="${boxW}" height="${drawH}" viewBox="0 0 ${W} ${H}"`
          + ` preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"`
          + ` class="${cls}" style="display:block;">`
          + `${waves}${bars}</svg>`;
@@ -374,21 +388,31 @@
     const target = el.parentElement || el; // .chart-area
     if (chartObserver) chartObserver.disconnect();
 
+    // Both dimensions are watched now that the diagram is laid out to the box's
+    // height as well as its width. .chart-area's height comes from the flex
+    // chain above it, never from this svg, so redrawing cannot resize the box
+    // that triggered the redraw — no observer loop.
     let lastW = 0;
-    const draw = (w) => {
+    let lastH = 0;
+    const draw = (w, h) => {
       w = Math.round(w);
-      if (w <= 0 || w === lastW) return;
+      h = Math.round(h || 0);
+      if (w <= 0 || (w === lastW && h === lastH)) return;
       lastW = w;
-      const svg = buildSVG(w);
+      lastH = h;
+      const svg = buildSVG(w, h);
       if (svg === null) { showEmpty(true); return; }
       showEmpty(false);
       el.innerHTML = svg;
       firstPaint = false;
     };
 
-    chartObserver = new ResizeObserver((entries) => draw(entries[0].contentRect.width));
+    chartObserver = new ResizeObserver((entries) => {
+      const r = entries[0].contentRect;
+      draw(r.width, r.height);
+    });
     chartObserver.observe(target);
-    draw(target.clientWidth);
+    draw(target.clientWidth, target.clientHeight);
   }
 
   // ─── Year picker (mirrors forecast.js's range picker) ────────────────────────

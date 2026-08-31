@@ -991,6 +991,52 @@ app.whenReady().then(async () => {
       await setGraphTheme('');
     }
 
+    // ═══ Opt-in: full-frame app shots ════════════════════════════════
+    // Whole-window captures — title bar, sidebar and page in one picture — for
+    // the website, where the site crops above deliberately drop all of that.
+    // Shot in the same light theme and gemstone palette, so the two sets read
+    // as one app. Opt in by naming it, like `site`:
+    //
+    //   SHOT_ONLY=frames SHOT_W=1900 SHOT_H=1400 SHOT_OUT=… \
+    //     electron --no-sandbox --force-device-scale-factor=2 scripts/shoot-docs.js
+    //
+    // Same 1900×1400 as `site`, and for the same reasons: below ~1900 the
+    // ledger's Notes column falls off the right edge, and the dashboard's
+    // second band needs the height. Full WIDTH always, but each shot is
+    // trimmed to where its own page ends — the window is sized for the longest
+    // of the three, and on the shorter pages that would otherwise leave a field
+    // of empty background under the content, which reads as a mistake rather
+    // than as an app.
+    if (ONLY && ONLY.has('frames')) {
+      console.log('\n— frames —');
+      await setTheme('');
+      await setGraphTheme('gemstone');
+
+      // Stepped back one month for the reason the site dashboard is: the seeded
+      // ledger stops at today, so the current month is a part-month and the top
+      // band would open on a half paycheque against a half month of spending.
+      await nav('/', 3200);
+      if (await js(`document.documentElement.dataset.graphTheme !== 'gemstone'`)) {
+        throw new Error('dashboard did not load in the gemstone palette');
+      }
+      await click('#dashboard-month-prev');
+      await sleep(900);
+      await unhover();
+      await shotPage('frame-dashboard', '.dashboard-page', 20);
+
+      await nav('/transactions', 2500);
+      await unhover();
+      await shotPage('frame-transactions', '.tx-wrapper', 20);
+
+      // Cash Flow is the Reports page's first tab, so the nav lands on it.
+      await nav('/reports', 3200);
+      await unhover();
+      await shotPage('frame-cash-flow', '.rep-panel:not([hidden]) .forecast-card', 20);
+
+      // Back to the defaults for any docs phase sharing the pass.
+      await setGraphTheme('');
+    }
+
     // ═══ Phase 9: recurring ══════════════════════════════════════════════════
     if (phase('recurring')) {
       console.log('\n— recurring —');

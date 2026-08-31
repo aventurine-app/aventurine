@@ -43,6 +43,20 @@
     min-width: 0;
 }
 
+/* Cash Flow is the one report laid out to the viewport rather than to its own
+   content (see the #rep-panel-cashflow rules further down), and a chain of
+   flex:1 children only divides a height that is DEFINITE. min-height: 100% is
+   not: the column is still auto-height, so it grows to whatever the diagram
+   drew last and never shrinks back — zoom out, and zooming back in left the
+   card stuck at the taller size, hanging out of the page. height: 100% is the
+   definite one, and it is scoped to the tab that wants it so the reports that
+   legitimately run past the viewport (Forecast, Metrics) keep growing.
+   border-box because of the padding above. */
+.rep-reports:has(#rep-panel-cashflow:not([hidden])) {
+    box-sizing: border-box;
+    height: 100%;
+}
+
 /* Tab styles live in ui.css — the segmented control shared with .stmt-tab
    (Statements). The column above stretches its children; keep the track hugging
    its labels like the other pages' toolbars do. */
@@ -349,6 +363,53 @@
    from the chart palette baked into the SVG (per-node) + theme tokens for the
    chrome, so it retones with palette / light mode like the other charts. */
 #cashflow-chart { width: 100%; }
+
+/* ─── The Sankey gets the whole viewport ─────────────────────────────────────
+   Every other report on this page is a card sized by its own content, but a
+   Sankey's readability is its HEIGHT: bands, labels and the gaps between them
+   all divide the vertical space, and a height derived from the width (the old
+   320/800 ratio) left the ribbons crushed on a tall window while empty page sat
+   below the card. So this one panel is stretched from .page down to .chart-area
+   — each link grows, and the box the diagram measures is what the viewport had
+   left rather than a fixed slab. min-height: 0 at each step because a flex item
+   defaults to refusing to shrink below its content. cashflow-sankey.js reads the
+   resulting height off .chart-area (via its ResizeObserver) and lays the diagram
+   out to fill it; with no definite height (a plain browser, no page chrome) it
+   falls back to the width ratio, so fixtures still render. */
+/* :not([hidden]) because an ID beats the `.rep-panel[hidden] { display: none }`
+   rule in ui.css — without it this display:flex would un-hide the panel. */
+#rep-panel-cashflow:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+#rep-panel-cashflow .forecast-page {
+    flex: 1;
+    min-height: 0;
+}
+
+#rep-panel-cashflow .forecast-card-main {
+    flex: 1;
+    min-height: 0;
+}
+
+#rep-panel-cashflow .chart-area {
+    flex: 1;
+    min-height: 0;
+}
+
+/* No diagram to fill the space with: the empty state is a short message, and a
+   viewport of blank under it reads as a card that failed to load. Keyed off the
+   empty-state element (filled only by showEmpty) rather than off an empty
+   #cashflow-chart, so the FIRST paint still measures a stretched box and the
+   diagram is drawn at full height once instead of twice. */
+#rep-panel-cashflow:has(#cashflow-empty:not(:empty)) .forecast-page,
+#rep-panel-cashflow:has(#cashflow-empty:not(:empty)) .forecast-card-main,
+#rep-panel-cashflow:has(#cashflow-empty:not(:empty)) .chart-area {
+    flex: 0 0 auto;
+}
 
 .cashflow-sankey .sankey-node {
     stroke: var(--background);
