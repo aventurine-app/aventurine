@@ -118,6 +118,20 @@ function dataGet(ctx) {
 function entryUpsert(ctx, { body }) {
   const db = ctx.db();
   const parsed = parseEntry(body);
+  // A Cash Flow cell names a CATEGORY. parseEntry checks the string's type and
+  // length but has no table to check it against — and it is shared with the
+  // Balance Sheet, whose cells name balance_columns instead — so the existence
+  // check belongs here, per route, not in the shared validator.
+  //
+  // WRITE ONLY. Reads and deletes stay unchecked on purpose: a database that
+  // has climbed through v9/v11/v14, or that predates the removal of the budget
+  // and credit-card features, can hold entry rows whose key no longer resolves.
+  // Refusing to READ those would make historical cells disappear from the
+  // statement, and refusing to DELETE them would leave the user no way to clear
+  // one. This stops new orphans; it does not disown the old ones.
+  if (!db.prepare('SELECT 1 FROM categories WHERE "key" = ?').get(parsed.category)) {
+    bad('unknown category');
+  }
   db.prepare(
     `INSERT INTO entries (year, month, category, value) VALUES (?, ?, ?, ?)
      ON CONFLICT(year, month, category) DO UPDATE SET value = excluded.value`

@@ -339,6 +339,17 @@ function backupBeforeMigrate(db, fromVersion) {
     // Flush the WAL into the main file (no-op outside WAL) so the copy is current.
     try { db.pragma('wal_checkpoint(TRUNCATE)'); } catch { /* not WAL */ }
     fs.copyFileSync(target, backup);
+    // Owner-only, like the database it copies. copyFileSync applies the umask
+    // instead of the source file's mode, so without this a plaintext database's
+    // pre-migration copy lands world-readable on a typical Linux account — and
+    // a FAILED migration keeps that copy deliberately (see the caller), so it is
+    // exactly the one that sticks around. An encrypted database copies as
+    // ciphertext, so there it is the permissions alone that were wrong.
+    try {
+      fs.chmodSync(backup, 0o600);
+    } catch {
+      // best-effort; may fail on Windows ACLs or unusual filesystems
+    }
     return backup;
   } catch (err) {
     console.warn(`[migrate] could not back up ${target} before migrating: ${err.message}`);

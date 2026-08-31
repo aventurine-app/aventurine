@@ -994,3 +994,68 @@ test('onboarding: skipping is sticky and independent of freshness', (t) => {
   assert.equal(c.get('/api/onboarding').body.dismissed, false);
   assert.equal(c.put('/api/app-settings/onboarding_dismissed', { value: 'maybe' }).status, 400);
 });
+
+// ── Entry cells name something real ──────────────────────────────────────────
+// A Cash Flow cell is keyed by a CATEGORY key and a Balance Sheet cell by a
+// balance_columns key. parseEntry checks the string's type and length but is
+// shared by both, so it has no table to check against; each route does its own.
+
+test('entry: a Cash Flow cell must name a real category', (t) => {
+  const c = makeClient(t);
+  c.post('/api/year', { year: 2026 });
+
+  const ok = c.post('/api/entry', { year: 2026, month: 'January', category: 'food', value: 10 });
+  assert.equal(ok.status, 200);
+
+  const bad = c.post('/api/entry', { year: 2026, month: 'January', category: 'nope', value: 10 });
+  assert.equal(bad.status, 400);
+  assert.equal(bad.body.error, 'unknown category');
+
+  // A Balance Sheet column key is not a Cash Flow category, and vice versa.
+  // Read it straight from the table: starter accounts seed hidden, so the
+  // /api/balance/columns listing is empty until one is adopted by use.
+  const colKey = c.conn.db().prepare('SELECT "key" FROM balance_columns LIMIT 1').get().key;
+  assert.equal(
+    c.post('/api/entry', { year: 2026, month: 'January', category: colKey, value: 10 }).status,
+    400
+  );
+});
+
+test('entry: a Balance Sheet cell must name a real column', (t) => {
+  const c = makeClient(t);
+  c.post('/api/balance/year', { year: 2026 });
+  const colKey = c.conn.db().prepare('SELECT "key" FROM balance_columns LIMIT 1').get().key;
+
+  assert.equal(
+    c.post('/api/balance/entry', { year: 2026, month: 'January', category: colKey, value: 5 }).status,
+    200
+  );
+  // 'food' is a Cash Flow category, so it names no column here.
+  assert.equal(
+    c.post('/api/balance/entry', { year: 2026, month: 'January', category: 'food', value: 5 }).status,
+    400
+  );
+});
+
+test('entry: an orphan cell from an older schema still reads and still deletes', (t) => {
+  // Databases that climbed through v9/v11/v14, or that predate the budget and
+  // credit-card removals, can hold entry rows whose key no longer resolves.
+  // The check is on WRITE only: refusing to read those would make historical
+  // cells vanish from the statement, and refusing to delete them would leave
+  // the user no way to clear one.
+  const c = makeClient(t);
+  c.post('/api/year', { year: 2026 });
+  c.conn.db()
+    .prepare('INSERT INTO entries (year, month, category, value) VALUES (?, ?, ?, ?)')
+    .run(2026, 1, 'retired_feature_key', 42);
+
+  const data = c.get('/api/data').body;
+  assert.equal(data.manual['2026'].January.retired_feature_key, 42,
+    'an orphan cell must still be readable');
+
+  assert.equal(
+    c.del('/api/entry', { year: 2026, month: 'January', category: 'retired_feature_key' }).status,
+    200
+  );
+  assert.equal(c.get('/api/data').body.manual['2026']?.January?.retired_feature_key, undefined);
+});
