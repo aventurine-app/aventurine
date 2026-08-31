@@ -417,7 +417,7 @@
     }
 
     // Exposed globally; tables.js calls it behind a `window.enableCellSelection`
-    // guard, so pages that load tables.js but have no grid (Credit Cards) work
-    // even when this script is absent.
+    // guard, so pages that load tables.js but have no grid work even when this
+    // script is absent.
     window.enableCellSelection = enableCellSelection;
 }());

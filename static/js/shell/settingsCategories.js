@@ -126,7 +126,7 @@
 
     function rowHtml(c) {
         // The two seeded "Uncategorized" buckets are read-only: their key is
-        // hardcoded elsewhere (Cash Flow/Report Card/credit-card stats) to
+        // hardcoded elsewhere (Cash Flow/Report Card) to
         // bucket NULL-category transactions, so renaming or deleting them would
         // break those totals (the backend blocks it too). Their name renders as a
         // static label with no input, but they stay draggable so they can still

@@ -13,7 +13,6 @@ const routes = [
   ...require('./handlers/categories').routes,
   ...require('./handlers/transactions').routes,
   ...require('./handlers/portfolio').routes,
-  ...require('./handlers/creditCards').routes,
   ...require('./handlers/predictions').routes,
   ...require('./handlers/forecast').routes,
   ...require('./handlers/trends').routes,

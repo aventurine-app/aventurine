@@ -119,7 +119,6 @@ app.whenReady().then(async () => {
         apiFetch("/api/recurring"),
         apiFetch("/api/report-card"),
         apiFetch("/api/portfolio/data"),
-        apiFetch("/api/credit-cards/data"),
         apiFetch("/api/predictions/upcoming"),
       ].map(p => p.then(r => r.status)))`);
     check('every paid route answers 402', paid.every((s) => s === 402));

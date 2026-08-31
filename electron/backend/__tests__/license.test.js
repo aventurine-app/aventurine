@@ -438,7 +438,6 @@ test('gate: everything built on top of the ledger needs a key', (t) => {
     ['GET', '/api/recurring/candidates', null],
     ['GET', '/api/predictions/upcoming', null],
     ['GET', '/api/report-card', null],
-    ['GET', '/api/credit-cards/data', null],
     ['GET', '/api/portfolio/data', null],
     // The year grids on the Statements page. Import still writes year tables, but
     // it does so inside the backend rather than over these routes, so locking them

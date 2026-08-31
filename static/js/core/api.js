@@ -18,7 +18,7 @@
 //     guardrail in PRODUCT.md) and attaches window.apiFetch as a global.
 //     Nearly every page and widget module calls window.apiFetch(...) instead of
 //     window.fetch(...): static/js/pages/*.js (home, transactions, trends,
-//     reportcard, credit_cards, portfolio), static/js/widgets/*.js
+//     reportcard, portfolio), static/js/widgets/*.js
 //     (txfileimport, txexport, forecast, cashflow-sankey, tables), and
 //     static/js/shell/*.js (nav, dbactions, autolock, titlebar, settings,
 //     settingsCategories), plus core/store.js and core/encryption.js.
@@ -63,7 +63,7 @@
   // FL_FIXTURES directly; pages receive it only through apiFetch()'s GET
   // responses, so this data must match the shape every consuming page and widget
   // expects (Dashboard, Trends, Report Card, Transactions, Forecast, Portfolio,
-  // Credit Cards, Balance Sheet).
+  // Balance Sheet).
   // Just enough shape for every page to render: one year of sparse data.
   const year = new Date().getFullYear();
 
@@ -497,14 +497,6 @@
         entries: [{ id: 1, ticker: 'VTI', asset_name: 'Total Market ETF',
                     amount: 12, price: 210.5, market_price: 268.4 }],
       }],
-    },
-    // static/js/pages/credit_cards.js — card list plus per-category monthly
-    // spend, used to estimate rewards earned.
-    '/api/credit-cards/data': {
-      cards: [{ id: 1, name: 'Demo Card', credit_limit: 5000, rewards_pct: 1.5,
-                annual_fee: 0, category_id: 4 }],
-      categories: [{ id: 4, name: 'Food' }],
-      monthly_spend: { 4: 520.0 },
     },
     // Recurring-spend predictions — no dashboard widget consumes this one
     // (the Recurring report below uses detectRecurringSeries, not this

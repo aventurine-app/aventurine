@@ -99,6 +99,12 @@ const DDL = [
      PRIMARY KEY (id),
      UNIQUE ("key")
    )`,
+  // RETAINED, UNUSED: the Credit Cards page and its /api/credit-cards routes
+  // were removed as unshipped. Nothing reads or writes this table any more. It
+  // is kept, like budget_amounts, so a database holding card rows is not
+  // silently emptied and restoring the feature needs no migration. Do not edit
+  // the DDL below: its text lives in sqlite_master and is hash-pinned by
+  // foundation.test.js, so even a comment change looks like a schema change.
   `CREATE TABLE credit_cards (
      -- Tracked credit cards. category_id optionally links a card to the spend
      -- category it is paid from.

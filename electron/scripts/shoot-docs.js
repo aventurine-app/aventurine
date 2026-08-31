@@ -1072,18 +1072,6 @@ app.whenReady().then(async () => {
     // ═══ Phase 10: tools ═════════════════════════════════════════════════════
     if (phase('tools')) {
       console.log('\n— tools —');
-      // Credit Cards: one card, filled in so its derived stats are real.
-      await nav('/credit-cards', 2500);
-      const card = await post('/api/credit-cards', { name: 'Everyday Card' });
-      await js(`apiFetch('/api/credit-cards/${card.card.id}', { method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credit_limit: 9000, rewards_pct: 2, annual_fee: 95,
-          category_id: ${catId.food} }) }).then(r => r.json())`);
-      await nav('/credit-cards', 2500);
-      await unhover();
-      await shotPage('credit-cards-page', '.cc-grid');
-      await shotEl('credit-card-single', '.cc-grid > *:first-child', 10);
-
       // Portfolio: a few holdings.
       const acct = await js('apiFetch("/api/portfolio/data").then(r => r.json())');
       const accountId = acct.accounts[0].id;

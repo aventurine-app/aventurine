@@ -1,8 +1,8 @@
 'use strict';
 
-// Port of tests/test_transactions.py, tests/test_match_rules.py,
-// tests/test_predictions.py (API half), and tests/test_credit_cards.py
-// (API half — the pure helpers are covered in services.test.js).
+// Port of tests/test_transactions.py, tests/test_match_rules.py and
+// tests/test_predictions.py (API half — the pure helpers are covered in
+// services.test.js).
 
 const test = require('node:test');
 const assert = require('node:assert');
@@ -646,22 +646,10 @@ test('predictions: limit and ordering', (t) => {
   assert.equal(getUpcoming(c, '?limit=6').length, 6);
 });
 
-// ── test_credit_cards.py (API half) ───────────────────────────────────────────
+// ── Shared helpers for the statement/transaction tests below ────────────────
 
 const categoryByKey = (c, key) =>
   c.get('/api/categories').body.categories.find((x) => x.key === key);
-
-function makeCard(c, payload = {}) {
-  const r = c.post('/api/credit-cards', payload);
-  assert.equal(r.status, 200);
-  return r.body.card;
-}
-
-const ccData = (c) => {
-  const r = c.get('/api/credit-cards/data');
-  assert.equal(r.status, 200);
-  return r.body;
-};
 
 function addEntry(c, year, month, category, value) {
   const r = c.post('/api/entry', { year, month, category, value });
@@ -673,127 +661,6 @@ function addTx(c, isoDate, amount, { catId = null, txType = 'expense' } = {}) {
   if (catId !== null) payload.category_id = catId;
   assert.equal(c.post('/api/transactions', payload).status, 200);
 }
-
-test('cards: create defaults and data payload', (t) => {
-  const c = makeClient(t);
-  const card = makeCard(c);
-  assert.equal(card.name, 'New Card');
-  assert.equal(card.credit_limit, 0);
-  assert.equal(card.rewards_pct, 0);
-  assert.equal(card.annual_fee, 0);
-  assert.equal(card.category_id, null);
-
-  const data = ccData(c);
-  assert.deepStrictEqual(data.cards.map((x) => x.id), [card.id]);
-  const listed = new Set(data.categories.map((x) => x.id));
-  const full = c.get('/api/categories').body.categories;
-  assert.deepStrictEqual(
-    listed,
-    new Set(full.filter((x) => x.cat_type === 'expense').map((x) => x.id))
-  );
-  assert.deepStrictEqual(
-    new Set(Object.keys(data.monthly_spend)),
-    new Set([...listed].map(String))
-  );
-  assert.ok(Object.values(data.monthly_spend).every((v) => v === 0));
-});
-
-test('cards: update fields round and validate', (t) => {
-  const c = makeClient(t);
-  const card = makeCard(c);
-  const r = c.put(`/api/credit-cards/${card.id}`, {
-    name: '  Sapphire  ',
-    credit_limit: 5000.005,
-    rewards_pct: 1.5,
-    annual_fee: 95,
-  });
-  assert.equal(r.status, 200);
-  const updated = r.body.card;
-  assert.equal(updated.name, 'Sapphire');
-  assert.equal(updated.credit_limit, 5000.01);
-  assert.equal(updated.rewards_pct, 1.5);
-  assert.equal(updated.annual_fee, 95);
-
-  for (const bad of [
-    { credit_limit: -1 },
-    { annual_fee: NaN },
-    { rewards_pct: 101 },
-    { rewards_pct: -0.5 },
-    { credit_limit: true },
-    { name: '   ' },
-  ]) {
-    assert.equal(c.put(`/api/credit-cards/${card.id}`, bad).status, 400, JSON.stringify(bad));
-  }
-});
-
-test('cards: category assignment rules', (t) => {
-  const c = makeClient(t);
-  const card = makeCard(c);
-  const food = categoryByKey(c, 'food');
-  const income = categoryByKey(c, 'income');
-
-  assert.equal(c.put(`/api/credit-cards/${card.id}`, { category_id: income.id }).status, 400);
-  assert.equal(c.put(`/api/credit-cards/${card.id}`, { category_id: 999999 }).status, 404);
-  assert.equal(c.put(`/api/credit-cards/${card.id}`, { category_id: 'food' }).status, 400);
-
-  let r = c.put(`/api/credit-cards/${card.id}`, { category_id: food.id });
-  assert.equal(r.status, 200);
-  assert.equal(r.body.card.category_id, food.id);
-
-  r = c.put(`/api/credit-cards/${card.id}`, { category_id: null });
-  assert.equal(r.status, 200);
-  assert.equal(r.body.card.category_id, null);
-});
-
-test('cards: delete card', (t) => {
-  const c = makeClient(t);
-  const card = makeCard(c);
-  assert.equal(c.del(`/api/credit-cards/${card.id}`).status, 200);
-  assert.deepStrictEqual(ccData(c).cards, []);
-  assert.equal(c.del(`/api/credit-cards/${card.id}`).status, 404);
-});
-
-test('cards: category delete unlinks card', (t) => {
-  const c = makeClient(t);
-  const catId = c.post('/api/categories', { name: 'Hobbies', cat_type: 'expense' }).body.category
-    .id;
-  const card = makeCard(c);
-  c.put(`/api/credit-cards/${card.id}`, { category_id: catId });
-
-  assert.equal(c.del(`/api/categories/${catId}`).status, 200);
-  assert.equal(ccData(c).cards[0].category_id, null);
-});
-
-test('cards: manual entries average when no transactions exist', (t) => {
-  const c = makeClient(t);
-  const food = categoryByKey(c, 'food');
-  addEntry(c, 2026, 'January', 'food', 300);
-  addEntry(c, 2026, 'February', 'food', 100);
-  addEntry(c, 2026, 'March', 'food', 0); // no spend -> skipped
-  assert.equal(ccData(c).monthly_spend[String(food.id)], 200.0);
-});
-
-test('cards: cells compute from transactions; an entry overrides its one cell', (t) => {
-  const c = makeClient(t);
-  const food = categoryByKey(c, 'food');
-  addTx(c, '2026-01-05', 100, { catId: food.id });
-  addTx(c, '2026-01-20', 50, { catId: food.id });
-  addTx(c, '2026-03-02', 250, { catId: food.id });
-  assert.equal(ccData(c).monthly_spend[String(food.id)], 200.0); // (150 + 250) / 2
-
-  // Overriding January replaces that cell's computed 150 outright.
-  addEntry(c, 2026, 'January', 'food', 350);
-  assert.equal(ccData(c).monthly_spend[String(food.id)], 300.0); // (350 + 250) / 2
-});
-
-test('cards: uncategorized expense bucket', (t) => {
-  const c = makeClient(t);
-  const uncat = categoryByKey(c, 'uncat_expense');
-  addTx(c, '2026-02-10', 120);
-  addTx(c, '2026-02-12', 80, { txType: 'income' });
-
-  assert.equal(ccData(c).monthly_spend[String(uncat.id)], 120.0);
-});
 
 // ── Per-cell precedence: computed by default, an Entry overrides its cell ────
 

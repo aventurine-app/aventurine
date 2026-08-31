@@ -34,7 +34,6 @@ const PAGE_ROUTES = {
     '/statements':      'statements.html',
     '/portfolio':       'portfolio.html',
     '/transactions':    'transactions.html',
-    '/credit-cards':    'credit-cards.html',
     // Cash Flow, Spending and Forecast are tabs of this one page.
     '/reports':         'reports.html',
     '/recurring':       'recurring.html',

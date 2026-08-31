@@ -124,7 +124,6 @@
      *  destination is what is checked. */
     const PAID_PATHS = new Set([
         '/statements', '/portfolio', '/reports', '/recurring',
-        '/credit-cards',
     ]);
 
     /** Trailing slashes only; '/' is the Dashboard and is free. */

@@ -145,9 +145,6 @@ function remove(ctx, { params }) {
     // Delete the learned rules pointing at this category, so none references a
     // deleted id.
     db.prepare('DELETE FROM match_rules WHERE category_id = ?').run(cat.id);
-    // Credit cards reference the category only for stats — unlink rather than
-    // block the delete.
-    db.prepare('UPDATE credit_cards SET category_id = NULL WHERE category_id = ?').run(cat.id);
     // Drop this category's budget envelope (keyed by its stable key).
     db.prepare('DELETE FROM budget_amounts WHERE category = ?').run(cat.key);
     db.prepare('DELETE FROM categories WHERE id = ?').run(cat.id);

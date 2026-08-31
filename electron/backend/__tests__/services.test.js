@@ -3,8 +3,8 @@
 // Parity tests against Python-generated oracles (fixtures/*.json) for the
 // ported pure services, plus semantic tests for applyTxFields / parseEntry.
 // The oracles were produced by the OLD backend (services/predictions.py,
-// services/credit_cards.py, round()) so the port is checked against the
-// real thing, not against my reading of it.
+// round()) so the port is checked against the real thing, not against my
+// reading of it.
 
 const test = require('node:test');
 const assert = require('node:assert');
@@ -13,7 +13,6 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { detectRecurringExpenses } = require('../services/predictions');
-const { recentMonthlyAverage } = require('../services/creditCards');
 const { round2, parseEntry, parseIsoDate, ApiError } = require('../validate');
 const { applyTxFields, newTx } = require('../services/transactions');
 const { connect } = require('../db');
@@ -36,14 +35,6 @@ test('detectRecurringExpenses matches the Python oracle exactly', () => {
     kept += got.length;
   }
   assert.ok(kept >= 10, 'oracle exercises kept rows, not only drops');
-});
-
-test('recentMonthlyAverage matches the Python oracle', () => {
-  for (const c of load('ccavg-oracle.json')) {
-    const totals = new Map(c.totals.map(([y, m, v]) => [y * 100 + m, v]));
-    const got = recentMonthlyAverage(totals, c.window);
-    assert.ok(Math.abs(got - c.expected) < 1e-9, `avg mismatch: js=${got} py=${c.expected}`);
-  }
 });
 
 test('round2 matches Python round(x, 2) including ties-to-even', () => {

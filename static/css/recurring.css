@@ -691,11 +691,10 @@ html[data-theme="dark"] .rec-pop-cadence {
 }
 
 /* ─── Edit mode ─────────────────────────────────────────────────────────────
-   The card's four fields become real inputs. The name reuses the borderless
-   underline-on-focus treatment Credit Cards' name field uses (it sits where a
-   title was, so it shouldn't look boxed until touched); type/cadence/amount
-   use the same boxed control Credit Cards' other fields use, since a <select>
-   and a number need a clear click/type target. .rec-select is shared by both
+   The card's four fields become real inputs. The name takes a borderless
+   underline-on-focus treatment (it sits where a title was, so it shouldn't
+   look boxed until touched); type/cadence/amount take a boxed control, since
+   a <select> and a number need a clear click/type target. .rec-select is shared by both
    the Type and Cadence dropdowns — same look, different `data-field`. */
 .rec-input-name {
     display: block;

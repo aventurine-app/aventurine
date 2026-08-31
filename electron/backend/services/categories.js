@@ -5,8 +5,8 @@
 const VALID_CAT_TYPES = ['income', 'expense', 'transfer'];
 
 // The two seeded "Uncategorized" buckets — their `key` is hardcoded elsewhere
-// (NULL_SYNC_KEYS in handlers/incomeExpenses.js, reportCard.js, creditCards.js,
-// trends.js) to bucket NULL-category transactions, so renaming, retyping, or
+// (NULL_SYNC_KEYS in handlers/incomeExpenses.js, reportCard.js, trends.js) to
+// bucket NULL-category transactions, so renaming, retyping, or
 // deleting them breaks those aggregations with no error. Write guards in
 // handlers/categories.js block API drift; seed.js repairs any pre-existing
 // drift on every DB open, so the stored row is always canonical and no read

@@ -3,7 +3,7 @@
 // ─── format.js ──────────────────────────────────────────────────────────────
 // Shared plain-number formatting + the app-wide debounce. Loaded globally
 // (pages/partials/scripts.html) before any page or widget script, so every
-// consumer — tables.js, portfolio.js, credit_cards.js — uses the same copy.
+// consumer — tables.js, portfolio.js — uses the same copy.
 // Extracted from tables.js, which had become the default place for utilities;
 // currency-aware formatting (symbols, hide-cents, separators) stays in
 // currency.js — these helpers are symbol-agnostic.

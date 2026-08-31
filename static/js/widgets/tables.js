@@ -782,8 +782,8 @@
         //    paste, delete). Implemented in cellselect.js, which writes cells by
         //    dispatching synthetic `input` events that re-run the per-input save
         //    handlers wired above, so paste and delete persist through the same
-        //    path as typing. Guarded so Credit Cards (which loads tables.js but
-        //    builds no year table and does not load cellselect.js) is unaffected.
+        //    path as typing. Guarded so a page that loads tables.js but builds
+        //    no year table, and does not load cellselect.js, is unaffected.
         if (window.enableCellSelection) {
             enableCellSelection(table, { cellSelector: 'td.data-cell' });
         }
