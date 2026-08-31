@@ -9,6 +9,12 @@ on:
     branches: ['**']
   pull_request:
 
+# Least privilege for GITHUB_TOKEN. Without a block the job inherits the
+# repository default, which can be read/write across every scope; this workflow
+# checks out and runs tests, so read access to the contents is all of it.
+permissions:
+  contents: read
+
 jobs:
   backend:
     runs-on: ubuntu-latest

@@ -20,6 +20,13 @@ on:
   release:
     types: [published]
 
+# Nothing here uses GITHUB_TOKEN at all: the one step authenticates as
+# SITE_DISPATCH_TOKEN to reach the OTHER repository. So the ambient token gets
+# no scopes. This matters more than in the test workflow, because this job is
+# the one holding a cross-repository credential, and an empty ambient token
+# means a compromised step cannot also reach back into THIS repo with it.
+permissions: {}
+
 jobs:
   ping:
     runs-on: ubuntu-latest
