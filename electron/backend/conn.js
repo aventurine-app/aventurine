@@ -27,11 +27,6 @@ function secureChmod(p) {
   }
 }
 
-// Random, per-process, never persisted or shared. It exists only to key the
-// MAC below; nothing verifies these digests anywhere else, so the key has no
-// reason to outlive the process or be known to anything outside it.
-const SECRET_COMPARE_KEY = crypto.randomBytes(32);
-
 /**
  * Constant-time passphrase comparison. `a !== b` returns as soon as two bytes
  * differ, so the time it takes leaks how much of a guess was right — the
@@ -40,30 +35,32 @@ const SECRET_COMPARE_KEY = crypto.randomBytes(32);
  *
  * The exposure here is modest (an attacker needs to be driving the renderer
  * already, and the passphrase they would be recovering unlocks a database they
- * could copy anyway), so this is hygiene rather than a live hole. It is also
- * a few lines, and "compare secrets in constant time" is not a rule worth
- * having an exception to.
+ * could copy anyway), so this is hygiene rather than a live hole. It is also a
+ * few lines, and "compare secrets in constant time" is not a rule worth having
+ * an exception to.
  *
- * NOT PASSWORD STORAGE, which is what a scanner will assume on sight. Nothing
- * here is written down: the digests live for the length of one comparison, and
- * both inputs are already plaintext in this process (state.key IS the
- * passphrase). There is no stored artifact for anyone to crack offline, so the
- * usual remedy — argon2id/bcrypt/scrypt — protects nothing here and would put a
- * deliberately slow KDF on an equality check. CodeQL flagged the earlier
- * createHash form as js/insufficient-password-hash for exactly that assumption.
+ * NO DIGEST, deliberately. Two earlier versions ran both sides through
+ * SHA-256, then through HMAC-SHA256, purely to equalise the lengths that
+ * timingSafeEqual insists on. CodeQL flags BOTH as
+ * js/insufficient-password-hash, because a passphrase reaching any hashing API
+ * looks like password storage — where a fast hash really is the bug, since a
+ * stolen store can be cracked offline. Nothing is stored here (both inputs are
+ * already plaintext in this process; state.key IS the passphrase), so the
+ * usual remedy of argon2id/bcrypt/scrypt would put a deliberately slow KDF on
+ * an equality check and protect nothing. Comparing the bytes directly needs no
+ * such argument, from a scanner or a reader.
  *
- * The MAC is what equalises the lengths, since timingSafeEqual throws on
- * mismatched inputs and an early length check would leak the length. Keyed
- * rather than a bare hash: it is the standard idiom for comparing
- * variable-length secrets (Django's constant_time_compare did this before
- * compare_digest existed), the random key removes any argument about forcing a
- * collision, and it reads as what it is — a MAC, not a password digest.
+ * The cost is that an unequal LENGTH returns early, so the passphrase's length
+ * leaks while its content does not. That is the same guarantee the canonical
+ * primitive gives — Python's hmac.compare_digest documents that it leaks input
+ * lengths — and a length is not what an oracle attack is after.
  */
 function sameSecret(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string') return false;
-  const mac = (s) =>
-    crypto.createHmac('sha256', SECRET_COMPARE_KEY).update(s, 'utf8').digest();
-  return crypto.timingSafeEqual(mac(a), mac(b));
+  const ab = Buffer.from(a, 'utf8');
+  const bb = Buffer.from(b, 'utf8');
+  if (ab.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ab, bb);
 }
 
 /**
