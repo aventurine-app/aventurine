@@ -464,6 +464,17 @@ test('gate: the allowlist is closed by default', (t) => {
   for (const url of ['/api/balance/entry', '/api/balance/year/2026', '/api/report-card']) {
     assert.equal(dispatch(c.conn, 'POST', url, {}).status, 402, `${url} should be gated`);
   }
+
+  // A prefix frees the address and its path segments below it, never an address
+  // that merely starts with the same characters. None of these routes exists,
+  // so the assertion is 404-not-402: the gate let them through to the router,
+  // which is what a free route looks like from here. Nothing collides today —
+  // the point is that adding '/api/transactions-admin' tomorrow does not ship
+  // free by accident, which is the whole reason this list is an allowlist.
+  for (const url of ['/api/transactions-admin', '/api/licenses', '/api/dbx', '/api/categoriesx']) {
+    assert.equal(dispatch(c.conn, 'GET', url, null).status, 402,
+      `${url} must not be freed by a prefix it only resembles`);
+  }
 });
 
 test('gate: /api/license is the one thing that answers', (t) => {

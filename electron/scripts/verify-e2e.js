@@ -24,6 +24,18 @@ const { app, BrowserWindow } = require('electron');
 require('../main.js'); // the real entry: backend, protocol, window
 app.setPath('userData', tmp);
 
+// main.js requests the single-instance lock at REQUIRE time, and in dev it has
+// already re-pointed userData at the shared 'aventurine-dev' profile — before
+// the setPath above can isolate us. So a running `npm start` makes this process
+// the losing second instance: main.js calls app.quit(), whenReady never fires,
+// and this script would exit 0 having asserted nothing at all. A verification
+// that passes vacuously is worse than one that fails, so say so and fail.
+if (!app.hasSingleInstanceLock()) {
+  console.error('FAIL — another Aventurine instance holds the single-instance '
+    + 'lock. Close `npm start` (or the installed app) and run this again.');
+  process.exit(1);
+}
+
 const DEADLINE_MS = 20000;
 
 async function waitForWindow() {

@@ -98,6 +98,13 @@ function yearTableRoutes({
   function apiUpsertEntry(ctx, { body }) {
     const db = ctx.db();
     const parsed = parseEntry(body);
+    // This feature's cells name a column of ITS OWN colTable (balance_columns
+    // for the Balance Sheet), not a Cash Flow category — which is why the check
+    // lives in each caller rather than in the shared parseEntry. Write only; see
+    // the note on the Cash Flow copy for why reads and deletes stay open.
+    if (!db.prepare(`SELECT 1 FROM ${colTable} WHERE "key" = ?`).get(parsed.category)) {
+      bad('unknown category');
+    }
     db.prepare(
       `INSERT INTO ${entryTable} (year, month, category, value) VALUES (?, ?, ?, ?)
        ON CONFLICT(year, month, category) DO UPDATE SET value = excluded.value`

@@ -134,6 +134,15 @@
                 // arming, the Security status line in Settings) has to re-read the
                 // changed encryption state, and a reload is the simplest way to
                 // do that.
+                // Close the gate BEFORE clearing, so the answer is already
+                // "no" if the reload below never happens. The reload is what
+                // normally re-reads status and re-answers Store.setPersistence
+                // (core/store.js); a response that arrives but never reaches
+                // the reload would otherwise leave this document still holding
+                // the permission the previous, unencrypted state was granted.
+                // Harmless on 'decrypt' — the reload re-opens it a moment later,
+                // and if it does not, closed is the direction to fail in.
+                window.Store?.setPersistence(false);
                 try { sessionStorage.clear(); } catch { /* disabled — ignore */ }
                 window.location.reload();
                 return;

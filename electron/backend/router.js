@@ -28,15 +28,30 @@ const { ApiError } = require('./validate');
 /** Persist an unexpected handler failure to <data dir>/backend-errors.log so
  *  it survives when the main-process console isn't visible (desktop launch).
  *  Best-effort: logging must never mask or replace the original failure. */
+// Cap the log so a failure that repeats on every request cannot fill the disk.
+// Past it the file is truncated rather than rotated: this is a debugging aid,
+// the useful entries are the recent ones, and a second file would be a second
+// thing carrying query text around.
+const ERROR_LOG_MAX_BYTES = 1 << 20; // 1 MiB
+
 function logBackendError(method, reqPath, e) {
   console.error(`[backend] ${method} ${reqPath} failed:`, e);
   try {
     const dir = process.env.AVENTURINE_DATA_DIR;
     if (!dir) return;
-    fs.appendFileSync(
-      path.join(dir, 'backend-errors.log'),
-      `${new Date().toISOString()} ${method} ${reqPath}\n${(e && e.stack) || e}\n\n`
-    );
+    const file = path.join(dir, 'backend-errors.log');
+    // A SQLite error message can carry the statement that failed, so this file
+    // can hold fragments of the user's ledger. It sits in the data dir, beside
+    // finance.db for anyone on the default location. Owner-only, like the
+    // database — appendFileSync creates with the umask (0644 on a typical Linux
+    // account) and only applies a mode when it creates the file, so the chmod
+    // is unconditional rather than create-only.
+    let size = 0;
+    try { size = fs.statSync(file).size; } catch { /* first write */ }
+    const entry = `${new Date().toISOString()} ${method} ${reqPath}\n${(e && e.stack) || e}\n\n`;
+    if (size + entry.length > ERROR_LOG_MAX_BYTES) fs.writeFileSync(file, entry);
+    else fs.appendFileSync(file, entry);
+    fs.chmodSync(file, 0o600);
   } catch {
     // disk full / read-only data dir — nothing more we can do
   }
@@ -114,9 +129,11 @@ function compile(pattern) {
 // means bypassing it requires editing and rebuilding the app rather than
 // changing something in the renderer, which is the limit of any offline
 // scheme.
+// Each entry frees ITSELF and its path segments below it, and nothing else —
+// see the matcher. Trailing slashes are not needed and not used.
 const FREE_PREFIXES = [
   '/api/license',
-  '/api/db/',
+  '/api/db',
   '/api/onboarding',
   '/api/app-settings',
   '/api/transactions',
@@ -128,9 +145,15 @@ const FREE_PREFIXES = [
 // free a future '/api/dataset'.
 const FREE_EXACT = new Set(['/api/data', '/api/balance/data']);
 
+// A prefix frees the address itself and everything under a '/' below it, never
+// an address that merely STARTS with the same characters: a bare startsWith let
+// '/api/transactions' free a future '/api/transactions-admin', and
+// '/api/license' free '/api/licenses'. Nothing collides today; the point is
+// that the list stays an allowlist as routes are added, which is the whole
+// reason it is an allowlist rather than a deny list.
 function isLicenseGated(path) {
   if (FREE_EXACT.has(path)) return false;
-  return !FREE_PREFIXES.some((p) => path === p || path.startsWith(p));
+  return !FREE_PREFIXES.some((p) => path === p || path.startsWith(p + '/'));
 }
 
 function buildRouter(routes) {
@@ -160,11 +183,15 @@ function buildRouter(routes) {
     // reachable so status/unlock/open/create work, and /api/license does too —
     // activation applies to the INSTALL, not to any one database, so it must
     // respond before and without an unlock.
+    // Segment-anchored for the same reason as the license allowlist above: this
+    // is a deny gate, so a prefix that matches more than it means to is an
+    // exemption nobody asked for.
+    const underPrefix = (p) => path === p || path.startsWith(p + '/');
     if (
       ctx.state.locked &&
       path.startsWith('/api/') &&
-      !path.startsWith('/api/db/') &&
-      !path.startsWith('/api/license')
+      !underPrefix('/api/db') &&
+      !underPrefix('/api/license')
     ) {
       return { status: 423, body: { ok: false, error: 'db_locked' } };
     }

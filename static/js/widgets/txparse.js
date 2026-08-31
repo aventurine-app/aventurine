@@ -73,6 +73,21 @@
             .replace(/&amp;/g, '&');
     }
 
+    // Undo the leading apostrophe a spreadsheet-safe exporter adds to a cell
+    // that would otherwise be read as a formula (=, +, -, @, tab, CR). Ours
+    // adds it — see csvText in electron/backend/services/txExport.js — and so
+    // do plenty of other tools, so this is worth doing for any CSV, not only
+    // for our own round trip.
+    //
+    // ONE apostrophe, and only when a trigger character follows it. A payee
+    // genuinely written "'74 Camaro fund" starts with an apostrophe that no
+    // exporter added and that nothing should remove, and stripping
+    // unconditionally would eat a character from a real description on every
+    // pass through the importer.
+    function unescapeCsvFormula(s) {
+        return /^'[=+\-@\t\r]/.test(s) ? s.slice(1) : s;
+    }
+
     // ── Delimited-text parser (CSV / TSV / ; / |) ────────────────────────────
     // Handles quoted fields, embedded delimiters/newlines in quoted fields,
     // escaped quotes ("" inside a quoted field), and Windows line endings.
@@ -86,6 +101,11 @@
         let field     = '';
         let inQuote   = false;
 
+        // One place to close a field, so the formula-guard unescape applies to
+        // every way a field can end (delimiter, newline, end of file) rather
+        // than to whichever two of the three someone remembered.
+        const endField = () => { row.push(unescapeCsvFormula(field.trim())); field = ''; };
+
         for (let i = 0; i < text.length; i++) {
             const ch = text[i];
             if (inQuote) {
@@ -98,10 +118,9 @@
                 }
             } else {
                 if (ch === '"')  { inQuote = true; }
-                else if (ch === delim) { row.push(field.trim()); field = ''; }
+                else if (ch === delim) { endField(); }
                 else if (ch === '\n') {
-                    row.push(field.trim());
-                    field = '';
+                    endField();
                     if (row.length > 1 || row[0] !== '') allRows.push(row);
                     row = [];
                 } else {
@@ -110,7 +129,7 @@
             }
         }
         // Flush the last field / row (file may not end with \n).
-        row.push(field.trim());
+        endField();
         if (row.length > 1 || row[0] !== '') allRows.push(row);
 
         if (allRows.length === 0) return { headers: [], rows: [], fixed: false };
@@ -267,10 +286,29 @@
     // directory → local headers) and deflate entries are inflated with the
     // native DecompressionStream, so no third-party code is needed.
 
+    // Ceiling on what one archive member may expand to. A deflate stream can
+    // reach roughly 1000:1, so a small .xlsx can ask for gigabytes and take the
+    // renderer down with it — the zip-bomb shape. A bank statement's sheet XML
+    // is a few MB at the outside, and the cap is per entry rather than per file
+    // because the parser only ever reads two of them (sharedStrings + one
+    // worksheet). Hitting it is reported as a bad file, which is what a file
+    // that does this is.
+    const MAX_INFLATED_BYTES = 256 * 1024 * 1024;
+
     // Index the archive: EOCD record → central directory → {name → entry}.
     function readZip(buf) {
         const bytes = new Uint8Array(buf);
         const view  = new DataView(buf);
+
+        // Every offset below is read out of the file being parsed, so none of
+        // them can be trusted to point inside it. A DataView read past the end
+        // throws RangeError, which would escape as an unhandled failure rather
+        // than as "this file is not readable"; bounds-check instead and report.
+        const need = (off, len) => {
+            if (off < 0 || off + len > bytes.length) {
+                throw new Error('zip archive is truncated or corrupt.');
+            }
+        };
 
         // End-of-central-directory record: scan backwards from the end (it
         // sits after an up-to-64KB zip comment).
@@ -286,6 +324,7 @@
         const td      = new TextDecoder();
         let p = view.getUint32(eocd + 16, true);  // central directory offset
         for (let n = 0; n < count; n++) {
+            need(p, 46);
             if (view.getUint32(p, true) !== 0x02014b50) break;
             const method     = view.getUint16(p + 10, true);
             const compSize   = view.getUint32(p + 20, true);
@@ -297,7 +336,7 @@
             entries.set(name, { method, compSize, localOff });
             p += 46 + nameLen + extraLen + commentLen;
         }
-        return { bytes, view, entries };
+        return { bytes, view, entries, need };
     }
 
     // Extract one entry as text. The local header's name/extra lengths can
@@ -305,16 +344,42 @@
     async function readZipFile(zip, name) {
         const e = zip.entries.get(name);
         if (!e) return null;
+        zip.need(e.localOff, 30);
         const nameLen  = zip.view.getUint16(e.localOff + 26, true);
         const extraLen = zip.view.getUint16(e.localOff + 28, true);
         const start    = e.localOff + 30 + nameLen + extraLen;
+        zip.need(start, e.compSize);
         const data     = zip.bytes.subarray(start, start + e.compSize);
 
         if (e.method === 0) return new TextDecoder().decode(data);   // stored
         if (e.method !== 8) throw new Error('unsupported zip compression method.');
+
+        // Read the inflated stream in chunks and stop at MAX_INFLATED_BYTES,
+        // rather than letting Response.text() buffer whatever the entry decides
+        // to expand to. The declared uncompressed size in the header is not the
+        // check — it is a number the same file supplies — so this measures what
+        // actually arrives.
         const stream = new Blob([data]).stream()
             .pipeThrough(new DecompressionStream('deflate-raw'));
-        return await new Response(stream).text();
+        const reader = stream.getReader();
+        const decoder = new TextDecoder();
+        let out = '';
+        let total = 0;
+        try {
+            for (;;) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                total += value.length;
+                if (total > MAX_INFLATED_BYTES) {
+                    throw new Error('this workbook expands to far more data than a '
+                        + 'statement should contain — it may be corrupt.');
+                }
+                out += decoder.decode(value, { stream: true });
+            }
+        } finally {
+            reader.cancel().catch(() => { /* already closed */ });
+        }
+        return out + decoder.decode();
     }
 
     // "BC" → 0-based column index (A=0, Z=25, AA=26, …).

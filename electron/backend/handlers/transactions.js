@@ -106,6 +106,15 @@ function removeAll(ctx) {
   return { ok: true, deleted: info.changes };
 }
 
+// Ceilings on the two array-shaped request bodies. The backend runs in the
+// Electron MAIN process, so a request big enough to take minutes does not slow
+// one connection down — it blocks the IPC channel and the whole window sits
+// unresponsive behind it. Both limits are far above any real statement: the
+// largest bank exports run to tens of thousands of rows, and the Categorize
+// Similar dialog is bounded by what a person ticks.
+const MAX_IMPORT_ROWS = 100000;
+const MAX_IDS = 5000;
+
 function similar(ctx, { query }) {
   const db = ctx.db();
   const rawDesc = (query.description || '').trim();
@@ -171,6 +180,14 @@ function categorizeSimilar(ctx, { body }) {
   const categoryId = data.category_id;
 
   if (!Array.isArray(ids) || !ids.length) bad('ids must be a non-empty array');
+  // Each id is bound as a parameter, so this is not an injection guard: it is
+  // that the ids go into an `IN (...)` list one placeholder each, and SQLite
+  // caps a statement's parameters (SQLITE_MAX_VARIABLE_NUMBER). Past the cap the
+  // prepare throws and the request reports a 500 — a client mistake dressed as
+  // a backend fault. The type check is the same idea: a non-integer reaches
+  // better-sqlite3 as an unbindable value and throws there instead of here.
+  if (ids.length > MAX_IDS) bad(`ids must contain at most ${MAX_IDS} entries`);
+  if (!ids.every(Number.isInteger)) bad('ids must all be integers');
   if (typeof categoryId !== 'number' || !Number.isInteger(categoryId)) {
     bad('category_id must be an integer');
   }
@@ -261,6 +278,9 @@ function importRows(ctx, { body }) {
   const db = ctx.db();
   const rows = (body || {}).rows;
   if (!Array.isArray(rows) || !rows.length) bad('rows must be a non-empty array');
+  if (rows.length > MAX_IMPORT_ROWS) {
+    bad(`rows must contain at most ${MAX_IMPORT_ROWS} entries`);
+  }
 
   // A dry run runs the exact same row-building + categorization passes below
   // (both read-only against the DB) but skips the transaction() block that

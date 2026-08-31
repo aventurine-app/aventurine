@@ -9,13 +9,16 @@
     <script src="/static/js/shell/ui.js"></script>
     <script src="/static/js/core/api.js"></script>
     <script src="/static/js/core/currency.js"></script>
+    <!-- store.js loads BEFORE dbactions.js: dbactions reads GET /api/db/status
+         at load and hands the answer to Store.setPersistence / Store.clearAll,
+         so window.Store has to exist by then. It depends only on api.js. -->
+    <script src="/static/js/core/store.js"></script>
     <script src="/static/js/shell/dbactions.js"></script>
     <script src="/static/js/core/encryption.js"></script>
     <script src="/static/js/shell/autolock.js"></script>
     <script src="/static/js/shell/settings.js"></script>
     <script src="/static/js/shell/settingsCategories.js"></script>
     <script src="/static/js/shell/license.js"></script>
-    <script src="/static/js/core/store.js"></script>
     <script src="/static/js/shell/titlebar.js"></script>
     <script src="/static/js/shell/zoom.js"></script>
     <script src="/static/js/shell/nav.js"></script>

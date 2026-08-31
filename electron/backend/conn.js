@@ -9,6 +9,7 @@
 // Factory, not singleton, so tests build isolated instances (the way each Python
 // test built a fresh app via create_app()).
 
+const crypto = require('node:crypto');
 const fs = require('fs');
 const path = require('path');
 
@@ -23,6 +24,85 @@ function secureChmod(p) {
     fs.chmodSync(p, 0o600);
   } catch {
     // best-effort; may fail on Windows ACLs or unusual filesystems
+  }
+}
+
+/**
+ * Constant-time passphrase comparison. `a !== b` returns as soon as two bytes
+ * differ, so the time it takes leaks how much of a guess was right — the
+ * classic way a comparison becomes an oracle for recovering a secret one
+ * character at a time.
+ *
+ * The exposure here is modest (an attacker needs to be driving the renderer
+ * already, and the passphrase they would be recovering unlocks a database they
+ * could copy anyway), so this is hygiene rather than a live hole. It is also a
+ * few lines, and "compare secrets in constant time" is not a rule worth having
+ * an exception to.
+ *
+ * NO DIGEST, deliberately. Two earlier versions ran both sides through
+ * SHA-256, then through HMAC-SHA256, purely to equalise the lengths that
+ * timingSafeEqual insists on. CodeQL flags BOTH as
+ * js/insufficient-password-hash, because a passphrase reaching any hashing API
+ * looks like password storage — where a fast hash really is the bug, since a
+ * stolen store can be cracked offline. Nothing is stored here (both inputs are
+ * already plaintext in this process; state.key IS the passphrase), so the
+ * usual remedy of argon2id/bcrypt/scrypt would put a deliberately slow KDF on
+ * an equality check and protect nothing. Comparing the bytes directly needs no
+ * such argument, from a scanner or a reader.
+ *
+ * The cost is that an unequal LENGTH returns early, so the passphrase's length
+ * leaks while its content does not. That is the same guarantee the canonical
+ * primitive gives — Python's hmac.compare_digest documents that it leaks input
+ * lengths — and a length is not what an oracle attack is after.
+ */
+function sameSecret(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const ab = Buffer.from(a, 'utf8');
+  const bb = Buffer.from(b, 'utf8');
+  if (ab.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ab, bb);
+}
+
+/**
+ * Overwrite a file with random bytes, then delete it. Used for the sidecar
+ * backup a rekey leaves behind when the pre-rekey bytes were PLAINTEXT: an
+ * ordinary unlink returns the blocks to the free list with the ledger still
+ * legible in them, which is a poor way to finish the operation whose entire
+ * purpose was to make that ledger unreadable.
+ *
+ * HONEST LIMIT: this is not a guaranteed erase, and cannot be one from user
+ * space. A copy-on-write filesystem (btrfs, ZFS) writes the random bytes to new
+ * blocks and leaves the originals for the next snapshot or balance to reclaim,
+ * and any SSD's wear levelling may do the same underneath a filesystem that
+ * would otherwise overwrite in place. It closes the straightforward case
+ * (in-place filesystems, and undelete tools generally); it is not a defence
+ * against someone imaging the disk. Best-effort throughout — failing to shred
+ * must never fail the rekey, which has already succeeded by this point.
+ */
+function shredFile(p) {
+  try {
+    const { size } = fs.statSync(p);
+    if (size > 0) {
+      const fd = fs.openSync(p, 'r+');
+      try {
+        const buf = Buffer.allocUnsafe(Math.min(1 << 20, size));
+        for (let off = 0; off < size; off += buf.length) {
+          const n = Math.min(buf.length, size - off);
+          crypto.randomFillSync(buf, 0, n);
+          fs.writeSync(fd, buf, 0, n, off);
+        }
+        fs.fsyncSync(fd);
+      } finally {
+        fs.closeSync(fd);
+      }
+    }
+  } catch {
+    // unreadable / already gone / read-only — fall through to the unlink
+  }
+  try {
+    fs.unlinkSync(p);
+  } catch {
+    // already gone
   }
 }
 
@@ -200,7 +280,9 @@ function createConn() {
     const needsCurrent = action === 'change' || action === 'decrypt';
     if (needsCurrent) {
       if (!state.encrypted) throw new ApiError('database is not encrypted', 400);
-      if (currentPassword !== state.key) throw new ApiError('invalid_password', 401);
+      if (!sameSecret(currentPassword, state.key)) {
+        throw new ApiError('invalid_password', 401);
+      }
     }
     if (action === 'encrypt' && state.encrypted) {
       throw new ApiError('database is already encrypted', 400);
@@ -216,10 +298,17 @@ function createConn() {
 
     const target = state.path;
     const backup = target + '.rekey-bak';
+    // A backup of a PLAINTEXT database is a second readable copy of the whole
+    // ledger. It is worth making — a half-keyed database is unrecoverable and
+    // this is the rollback — but it is worth making carefully: owner-only from
+    // the moment it exists (copyFileSync applies the umask, which on a typical
+    // Linux account is 0644), and shredded rather than unlinked on the way out.
+    const plaintextBackup = !state.encrypted;
     try { fs.unlinkSync(backup); } catch { /* no stale backup */ }
     // Flush to the main file (no-op outside WAL) so the byte-copy is current.
     try { handle.pragma('wal_checkpoint(TRUNCATE)'); } catch { /* not WAL */ }
     fs.copyFileSync(target, backup);
+    secureChmod(backup);
 
     try {
       if (action === 'encrypt') {
@@ -247,7 +336,8 @@ function createConn() {
       // place. If the restore copy failed, the backup is the sole surviving
       // good copy — keep it for manual recovery rather than deleting it.
       if (restored) {
-        try { fs.unlinkSync(backup); } catch { /* best-effort cleanup */ }
+        if (plaintextBackup) shredFile(backup);
+        else { try { fs.unlinkSync(backup); } catch { /* best-effort cleanup */ } }
       }
       throw new ApiError('Could not change encryption — the database was left unchanged', 500);
     }
@@ -258,7 +348,16 @@ function createConn() {
 
     secureChmod(target);
     dbstate.savePointer();
-    try { fs.unlinkSync(backup); } catch { /* best-effort cleanup */ }
+    // The 'encrypt' case is the one that matters: the user has just asked for
+    // this ledger to stop being readable on disk, and the backup is the last
+    // plaintext copy of it. A NOTE ON WHAT SURVIVES: the backup is only cleared
+    // on a rekey that finishes. One interrupted by a crash or a power loss
+    // leaves it in place on purpose — at that point it may be the only intact
+    // copy, so deleting it at the next launch would turn a recoverable failure
+    // into data loss. It is at least owner-only, and named plainly enough to be
+    // recognised.
+    if (plaintextBackup) shredFile(backup);
+    else { try { fs.unlinkSync(backup); } catch { /* best-effort cleanup */ } }
     return statusPayload();
   }
 

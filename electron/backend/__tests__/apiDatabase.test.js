@@ -370,3 +370,45 @@ test('db: locked startup gates data APIs until unlock', (t) => {
   assert.equal(r.body.locked, false);
   assert.equal(c2.get('/api/data').status, 200);
 });
+
+// ── Rekey sidecar backup ─────────────────────────────────────────────────────
+// conn.rekey copies the database before keying it, so a failure can roll back.
+// For the 'encrypt' action that copy is the last PLAINTEXT copy of the ledger,
+// which makes how it is created and how it is removed part of the feature.
+
+test('db: encrypting does not leave its plaintext backup behind', (t) => {
+  const c = makeClient(t);
+  c.post('/api/transactions', {
+    date: '2026-01-05', description: 'BACKUP PROBE', tx_type: 'expense', amount: 12,
+  });
+
+  const backup = c.dbPath + '.rekey-bak';
+  const r = c.post('/api/db/encryption', { action: 'encrypt', newPassword: 'pw-1' });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.encrypted, true);
+  assert.equal(fs.existsSync(backup), false, 'the plaintext sidecar must not survive');
+});
+
+test('db: the rekey backup is made owner-only, not umask-default', (t) => {
+  // The backup is gone by the time the request returns, so the mode it was
+  // given is observed through the chmod itself. copyFileSync applies the umask
+  // (0644 on a typical Linux account) rather than the source file's mode, so
+  // without an explicit chmod a plaintext database's backup is world-readable
+  // for as long as it exists — which, after a crash mid-rekey, is forever.
+  const c = makeClient(t);
+  const backup = c.dbPath + '.rekey-bak';
+
+  const chmods = [];
+  const realChmod = fs.chmodSync;
+  fs.chmodSync = (p, mode) => { chmods.push([p, mode]); return realChmod(p, mode); };
+  t.after(() => { fs.chmodSync = realChmod; });
+
+  const r = c.post('/api/db/encryption', { action: 'encrypt', newPassword: 'pw-2' });
+  fs.chmodSync = realChmod;
+
+  assert.equal(r.status, 200);
+  assert.ok(
+    chmods.some(([p, mode]) => p === backup && mode === 0o600),
+    `expected the backup to be chmod 0600; saw ${JSON.stringify(chmods)}`
+  );
+});
