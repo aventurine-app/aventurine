@@ -64,6 +64,45 @@
     let mode = 'new';           // 'new' | 'saveas' | 'open' | 'unlock'
     let busy = false;
 
+    // ── Locked database ───────────────────────────────────────────────────────
+    // Set once the active database is known to be locked, and never cleared:
+    // every route out of this state ends in succeed(), which reloads the page.
+    let _locked = false;
+    let _lockedPath = '';
+
+    /**
+     * Put the app into its locked presentation. The backend has already dropped
+     * the key (POST /api/db/lock, or a restart with an encrypted DB), so the
+     * data APIs answer 423 from here on; this is the renderer's half.
+     *
+     * Three things, all of which auto-lock needs and none of which showing the
+     * prompt does on its own. Auto-lock exists for "I have walked away from the
+     * machine", and the figures a page already drew stay perfectly readable
+     * under a translucent, blurred scrim — a blur is a privacy gesture, not a
+     * cover. So:
+     *
+     *   1. The content region is hidden (html[data-db-locked], dbmodal.css).
+     *      CSS rather than emptying the DOM: nothing needs the nodes back after
+     *      a reload, and tearing containers out from under running page scripts
+     *      is the riskier of the two for no extra benefit.
+     *   2. Chrome modals that may be open are closed. Preferences and About are
+     *      the cases that matter: an idle lock can fire with either up, and both
+     *      offer controls addressing a backend that has stopped answering. The
+     *      DB modal is excluded — it is the thing being shown.
+     *   3. The dataset cache goes with the pixels, in memory and in
+     *      sessionStorage. Leaving it would keep a copy of exactly what was just
+     *      taken off screen, and (see core/store.js) sessionStorage is a file on
+     *      disk under Electron.
+     */
+    function enterLocked(path) {
+        _locked = true;
+        _lockedPath = path || _lockedPath;
+        document.documentElement.dataset.dbLocked = '1';
+        document.querySelectorAll('.settings-modal-overlay')
+            .forEach(m => { m.hidden = true; });
+        window.Store?.clearAll();
+    }
+
     function setError(msg) {
         errorEl.textContent = msg || '';
         errorEl.hidden = !msg;
@@ -198,6 +237,11 @@
 
     function hideModal() {
         if (mode === 'unlock') return;   // locked app stays prompting
+        // "Open a different database…" leaves unlock mode for open mode, which
+        // IS dismissable — but dismissing it while the database is still locked
+        // would leave the user on a hidden page with no prompt and no way back.
+        // Fall back to the prompt instead of hiding.
+        if (_locked) { showModal('unlock', { path: _lockedPath }); return; }
         modal.hidden = true;
     }
 
@@ -444,7 +488,20 @@
                 _encryptionAvailable = !!s.encryption_available;
                 if (typeof s.sep === 'string' && s.sep) browserSep = s.sep;
                 if (typeof s.default_dir === 'string') _defaultDir = s.default_dir;
+                // This is the answer core/store.js is waiting on before it will
+                // put anything in sessionStorage — which Chromium persists to a
+                // file under the app profile, so an encrypted database must not
+                // have its payloads mirrored there in the clear. Passing false
+                // also purges entries left by a build that predates the gate.
+                window.Store?.setPersistence(!s.encrypted);
                 return s;
+            })
+            .catch(err => {
+                // No answer is not permission to persist, and core/store.js is
+                // holding its first read until somebody says either way. Answer
+                // closed rather than leaving it to time out.
+                window.Store?.setPersistence(false);
+                throw err;
             });
     }
 
@@ -454,12 +511,12 @@
         showNew:    () => showModal('new', { encryptionUnavailable: !_encryptionAvailable }),
         showSaveAs: () => showModal('saveas', {}),
         showOpen:   () => showModal('open', {}),
-        showUnlock: (path) => showModal('unlock', { path }),
+        showUnlock: (path) => { enterLocked(path); showModal('unlock', { path }); },
     };
 
     // On every page load, read whether the active DB is locked (an encrypted DB
     // restored from the previous session with no key supplied yet).
     fetchStatus()
-        .then(s => { if (s.locked) showModal('unlock', { path: s.path }); })
+        .then(s => { if (s.locked) { enterLocked(s.path); showModal('unlock', { path: s.path }); } })
         .catch(() => { /* backend unreachable — nothing to do */ });
 }());

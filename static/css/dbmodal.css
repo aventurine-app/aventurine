@@ -14,6 +14,22 @@
 
 .db-modal-overlay[hidden] { display: none; }
 
+/* ─── Locked database (html[data-db-locked], set by shell/dbactions.js) ──────
+   The unlock prompt is raised over a page that may already have drawn the
+   user's figures, and auto-lock's whole purpose is that those figures stop
+   being readable when the machine is left alone. The dismissable modes get the
+   translucent blurred scrim above, which is a privacy gesture rather than a
+   cover; this one gets an opaque ground and the content region hidden outright.
+   Both, not either: the hidden .page holds even if the overlay is dismissed or
+   restyled, and the opaque scrim covers whatever sits outside .page. */
+html[data-db-locked] .page { visibility: hidden; }
+
+html[data-db-locked] .db-modal-overlay {
+    background: var(--background);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
 /* dbactions.js shows/hides rows via the hidden attribute; the display:flex
    on .db-field/.db-check would otherwise override the UA's [hidden] rule. */
 .db-modal-overlay [hidden] { display: none; }
