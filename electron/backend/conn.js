@@ -27,6 +27,11 @@ function secureChmod(p) {
   }
 }
 
+// Random, per-process, never persisted or shared. It exists only to key the
+// MAC below; nothing verifies these digests anywhere else, so the key has no
+// reason to outlive the process or be known to anything outside it.
+const SECRET_COMPARE_KEY = crypto.randomBytes(32);
+
 /**
  * Constant-time passphrase comparison. `a !== b` returns as soon as two bytes
  * differ, so the time it takes leaks how much of a guess was right — the
@@ -36,16 +41,29 @@ function secureChmod(p) {
  * The exposure here is modest (an attacker needs to be driving the renderer
  * already, and the passphrase they would be recovering unlocks a database they
  * could copy anyway), so this is hygiene rather than a live hole. It is also
- * one line, and "compare secrets in constant time" is not a rule worth having
- * an exception to.
+ * a few lines, and "compare secrets in constant time" is not a rule worth
+ * having an exception to.
  *
- * Hashing first is what makes the lengths equal: timingSafeEqual throws on
- * mismatched lengths, and length is not a secret worth the extra branch.
+ * NOT PASSWORD STORAGE, which is what a scanner will assume on sight. Nothing
+ * here is written down: the digests live for the length of one comparison, and
+ * both inputs are already plaintext in this process (state.key IS the
+ * passphrase). There is no stored artifact for anyone to crack offline, so the
+ * usual remedy — argon2id/bcrypt/scrypt — protects nothing here and would put a
+ * deliberately slow KDF on an equality check. CodeQL flagged the earlier
+ * createHash form as js/insufficient-password-hash for exactly that assumption.
+ *
+ * The MAC is what equalises the lengths, since timingSafeEqual throws on
+ * mismatched inputs and an early length check would leak the length. Keyed
+ * rather than a bare hash: it is the standard idiom for comparing
+ * variable-length secrets (Django's constant_time_compare did this before
+ * compare_digest existed), the random key removes any argument about forcing a
+ * collision, and it reads as what it is — a MAC, not a password digest.
  */
 function sameSecret(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string') return false;
-  const h = (s) => crypto.createHash('sha256').update(s, 'utf8').digest();
-  return crypto.timingSafeEqual(h(a), h(b));
+  const mac = (s) =>
+    crypto.createHmac('sha256', SECRET_COMPARE_KEY).update(s, 'utf8').digest();
+  return crypto.timingSafeEqual(mac(a), mac(b));
 }
 
 /**
