@@ -3,8 +3,11 @@
 // Recurring (Reports) blueprint. Surfaces detectRecurringSeries
 // (services/predictions.js) as a full listing rather than the top-N "due
 // soon" slice /api/predictions/upcoming returns, plus a per-month calendar of
-// occurrences (actual past charges + projected future ones) for the
-// requested month. Income, expense, AND transfer patterns are all detected here
+// occurrences (actual past charges + projected ones) for the
+// requested month — projected ones fill BOTH the future and any gap between a
+// series' last recorded charge and today, so a schedule never renders a month
+// as empty merely because the ledger stopped naming it. Income, expense, AND
+// transfer patterns are all detected here
 // (unlike Cash Flow/Forecast, which exclude transfers), since a recurring
 // autosave or auto-invest transfer is one of the schedules this page is for.
 // Every schedule's label/direction/cadence/amount can be corrected
@@ -254,12 +257,24 @@ function recurringGet(ctx, { query }) {
         });
       }
     }
-    // Project forward from today through this month's end; placeRecurring's
-    // catch-up loop already no-ops when monthEndExclusive is in the past, so
-    // this needs no branching for past/current/future months.
+    // Project forward from the series' OWN last recorded charge, not from
+    // today. Projecting from today left every month between the last real
+    // charge and now drawing nothing at all: no actual chips (the ledger has
+    // none) and no projected ones (they were skipped as past), so a schedule
+    // whose merchant string changed — a bank renaming a payroll line, an
+    // un-imported recent statement — read as months in which the charge simply
+    // never happened, while the months either side of the gap rendered fine.
+    // A series survives detection for up to LAPSED_GRACE_DAYS past its next due
+    // date, so that gap can be three months wide. Stepping from last_date fills
+    // it with the ordinary projected (faint) chip, which is the honest reading:
+    // expected here, nothing recorded. No chip can collide with an actual one,
+    // since the first step lands strictly after last_date, the newest date in
+    // `dates`. placeRecurring's catch-up loop then no-ops (nothing precedes the
+    // start bound) and its end bound still leaves months earlier than the last
+    // recorded charge empty.
     const projected = placeRecurring(
       [{ key: s.key, name: s.cycle, days: s.cycle_days, amount: s.amount, last: s.last_date }],
-      todayIso,
+      s.last_date,
       monthEndExclusive
     );
     for (const o of projected) {
