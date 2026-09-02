@@ -138,7 +138,6 @@ html[data-theme="dark"] {
        it reads as an extension of the pressed button rather than a strip
        dropped from the chrome. */
     position: fixed;
-    min-width: 180px;
     z-index: 1200;
     /* The button's hover/expanded fill (--titlebar-frost) is translucent; over
        page content it would show through, so composite it over the bar's own
@@ -166,6 +165,9 @@ html[data-theme="dark"] {
     cursor: pointer;
     text-decoration: none;
     display: block;
+    /* The panel carries no width floor, so it shrinks to fit its items — nowrap
+       keeps "Open Database…" on one line while it does. */
+    white-space: nowrap;
     transition: background-color 120ms ease, color 120ms ease;
 }
 

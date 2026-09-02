@@ -49,9 +49,9 @@
 //
 //   UI.lockPickerWidth(btn, captions)
 //       Pin a picker button (.stepper-label) to the width of the widest caption
-//       it can show, and pass that width to the menu below it as a minimum.
-//       Used by the month steppers, whose caption length otherwise changes with
-//       the month.
+//       it can show, so the arrows either side of it hold still. Used by the
+//       month steppers, whose caption length otherwise changes with the month.
+//       The menu it opens is sized separately, by its own content.
 //
 //   UI.toast(message, { type = 'info', duration = 5000 })
 //       Small transient notice, bottom-center. type: 'info' | 'error'.
@@ -199,18 +199,11 @@
                 }
                 probe.remove();
                 if (!widest) return;   // stepper not laid out (hidden tab) — leave it alone
-                const width = Math.ceil(widest) + 'px';
-                btn.style.width = width;
-                // The menu opens inside the stepper, so pass the same figure
-                // down as its minimum (.stepper .p-table-dropdown in ui.css): the
-                // list is never narrower than its button, and its width no longer
-                // depends on which months are in range. A .stepper-picker slot
-                // takes precedence over the stepper when present, because a
-                // stepper holding two pickers (the Dashboard's year + month)
-                // would otherwise have the second call overwrite the first and
-                // widen the year menu to a month name's width.
-                (btn.closest('.stepper-picker') || btn.closest('.stepper') || btn.parentElement)
-                    .style.setProperty('--picker-menu-min', width);
+                btn.style.width = Math.ceil(widest) + 'px';
+                // Only the BUTTON is pinned. The menu below it sizes to its own
+                // longest caption (ui.css), so a list of month names is not
+                // stretched to the width of whatever caption the button had to
+                // reserve room for.
             };
             measure();
             document.fonts?.ready?.then(measure);

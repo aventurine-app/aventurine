@@ -69,6 +69,26 @@
     padding: var(--space-8) var(--space-12);
 }
 
+/* Enabled, the button carries the primary accent on its text and its outline
+   instead of .button-secondary's neutral grey: the accent is what the calendar
+   already uses for the current day, so the one control that returns there wears
+   the same colour. The DISABLED state is untouched — on the current month there
+   is nowhere to go back to, and buttons.css already drops it to grey text on a
+   grey border, which is what an inert control should look like.
+   The hover fills with the same accent and swaps in --button-text, the way
+   .button-primary does. Inheriting .button-secondary's charcoal fill here would
+   put a grey hover under an accent outline, so the two states would read as two
+   different buttons. */
+.rec-today-btn:not(:disabled) {
+    color: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+.rec-today-btn:not(:disabled):hover {
+    background: var(--accent-primary);
+    color: var(--button-text);
+}
+
 .rec-month-stepper #rec-month-label {
     min-width: 132px;
     text-align: center;

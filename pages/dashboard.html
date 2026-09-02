@@ -110,8 +110,10 @@
             <!-- The stepper scopes every card in this section: current month by
                  default. Two pickers reach any month the ledger holds directly
                  (year, then month within it); the arrows still walk one month at
-                 a time and roll over the year boundary themselves. -->
-            <div class="stepper" id="dashboard-month" aria-label="Dashboard month">
+                 a time and roll over the year boundary themselves. .stepper-joined
+                 (ui.css) closes the gaps so the arrows and both pickers read as
+                 one control, the shape the Cash Flow year+month pair uses. -->
+            <div class="stepper stepper-joined" id="dashboard-month" aria-label="Dashboard month">
                 <button class="stepper-btn button-primary" id="dashboard-month-prev" type="button" aria-label="Previous month">&#8249;</button>
                 <span class="stepper-picker" id="dashboard-year-picker">
                     <button class="stepper-label" id="dashboard-year-label" type="button" aria-live="polite"

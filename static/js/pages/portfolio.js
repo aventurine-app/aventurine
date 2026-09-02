@@ -31,6 +31,12 @@
     // Columns: Asset Name | Ticker | Amount | Avg Price | Market Price | Total | ROI
     const COL_COUNT = 7;
 
+    // Decimal places the Amount column keeps. Amount is a share/unit count, not
+    // money: fractional-share brokers sell to 4 places and crypto is quoted
+    // finer still, so the 2 places the money columns use would misstate a
+    // holding. The backend stores the number unrounded either way.
+    const AMOUNT_DP = 4;
+
     // ─── State ──────────────────────────────────────────────────────────────────
     let ACCOUNTS = [];
 
@@ -378,12 +384,14 @@
 
         // — Amount / Avg Price / Mkt Price (colIdx 2, 3, 4) —
         // Amount is a *count of shares/units*, not a currency value, so it gets
-        // plain comma formatting (makeNumberWrap(.., .., false)). The price
-        // columns are currency and carry the user's chosen symbol as part of
-        // their input value (makeNumberWrap(.., .., true)).
+        // plain comma formatting (makeNumberWrap(.., .., false)) and AMOUNT_DP
+        // decimals instead of the money default of 2 — fractional shares and
+        // crypto are held to more places than cents. The price columns are
+        // currency and carry the user's chosen symbol as part of their input
+        // value (makeNumberWrap(.., .., true)).
         const amountTd = document.createElement('td');
         amountTd.className = 'col-number';
-        const amountWrap = makeNumberWrap(entry.amount, '0', false);
+        const amountWrap = makeNumberWrap(entry.amount, '0', false, AMOUNT_DP);
         const amountInp  = amountWrap.querySelector('input');
         wireNav(amountInp, tr, wrapper, 2);
         amountTd.appendChild(amountWrap);
@@ -472,6 +480,7 @@
         // The Amount input is unit-count, no symbol → applyCommaFormat.
         // The two price inputs carry the symbol → applyCurrencyFormat.
         amountInp.addEventListener('input', () => {
+            clampDecimals(amountInp, AMOUNT_DP);
             applyCommaFormat(amountInp);
             updateComputed();
             debouncedSave();
@@ -497,13 +506,32 @@
      *   isCurrency  — true for the price inputs (the cell shows the user's
      *                 currency symbol prefix); false for the Amount column
      *                 (unit count, no symbol)
+     *   decimals    — decimal places for a non-currency value (formatDisplay's
+     *                 default of 2 when omitted); ignored when isCurrency,
+     *                 where the currency setting decides
      *
      * The wrapper used to contain a separate .p-currency-sym span next to the
      * input. That has been removed — when isCurrency is true, the symbol is
      * baked directly into input.value via formatCurrency() at render time and
      * maintained by applyCurrencyFormat() on every keystroke.
      */
-    function makeNumberWrap(value, placeholder, isCurrency) {
+    /**
+     * Drop anything typed past `max` decimal places, keeping the caret where it
+     * was. Runs before applyCommaFormat so the formatter (and the value that
+     * gets saved) never sees more precision than the cell displays — otherwise
+     * a 6-decimal entry would be stored in full and then re-render rounded on
+     * the next load.
+     */
+    function clampDecimals(input, max) {
+        const dot = input.value.indexOf('.');
+        if (dot === -1 || input.value.length - dot - 1 <= max) return;
+        const pos = input.selectionStart;
+        input.value = input.value.slice(0, dot + 1 + max);
+        const clamped = Math.min(pos, input.value.length);
+        input.setSelectionRange(clamped, clamped);
+    }
+
+    function makeNumberWrap(value, placeholder, isCurrency, decimals) {
         const wrap = document.createElement('div');
         wrap.className = 'p-number-wrap';
         const input = document.createElement('input');
@@ -514,7 +542,7 @@
         // as a plain comma-formatted number. formatDisplay strips trailing
         // ".00" for whole numbers in both cases.
         if (value) {
-            input.value = isCurrency ? formatCurrency(value, true, { editable: true }) : formatDisplay(value);
+            input.value = isCurrency ? formatCurrency(value, true, { editable: true }) : formatDisplay(value, decimals);
         } else {
             input.value = '';
         }
@@ -550,7 +578,7 @@
         const totalAmt = entries.reduce((s, e) => s + (e.amount || 0), 0);
         const amtTd = document.createElement('td');
         amtTd.className = 'col-number';
-        amtTd.innerHTML = `<span class="p-computed">${totalAmt ? formatDisplay(totalAmt) : ''}</span>`;
+        amtTd.innerHTML = `<span class="p-computed">${totalAmt ? formatDisplay(totalAmt, AMOUNT_DP) : ''}</span>`;
         tr.appendChild(amtTd);
 
         // Avg / Mkt price columns are blank: a single figure here would require

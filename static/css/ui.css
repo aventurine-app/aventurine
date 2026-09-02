@@ -307,12 +307,19 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
      * to the sidebar; a right-aligned menu would spill left off that scroll box
      * and be clipped under the nav. Left-align them so they open into the page.
      * (Rule below, after the base declarations, to override right/left.) */
-    background: var(--surface2);
+    /* Same fill as the button that opens it (.stepper-label /
+     * .range-selector-btn), so the menu reads as that control extended
+     * downward. On dark the token IS surface2, so nothing moves there; on light
+     * it steps a rung lighter, which is where the two used to disagree. */
+    background: var(--toolbar-control-bg);
     border: var(--border-width) solid var(--border);
     border-radius: 5px;
     box-shadow: var(--shadow-menu);
     z-index: 500;
-    min-width: 160px;
+    /* No width floor. These boxes are position:absolute, so they shrink to fit,
+     * and every item is nowrap — the menu is therefore exactly as wide as its
+     * longest caption. The old 160px minimum sat a list of four-digit years or
+     * month names in a box wider than anything in it. */
     padding: 4px;
 }
 
@@ -322,7 +329,7 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
    Thin frosted thumb on a transparent track (set explicitly: the menu is
    mounted into whatever parent its anchor button has, so it can't rely on
    inheriting the page's scrollbar-color — and the surface1 track that
-   inheritance would bring reads as a stripe on this surface2 menu). */
+   inheritance would bring reads as a stripe on this menu's fill). */
 .p-dropdown-scroll {
     max-height: 320px;
     overflow-y: auto;
@@ -339,12 +346,6 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
     right: auto;
     left: 50%;
     transform: translateX(-50%);
-    /* The month pickers pin their label to the widest caption it can show and
-     * publish that figure here (UI.lockPickerWidth), so the menu is exactly as
-     * wide as the control it drops from — one static block, rather than a list
-     * whose width tracks whichever months the 12-month window happens to hold.
-     * Steppers that don't set it keep the 160px default from the base rule. */
-    min-width: var(--picker-menu-min, 160px);
 }
 
 .p-dropdown-item, .range-selector-menu button {
@@ -586,6 +587,49 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
 .stepper-label:focus-visible, .range-selector-btn:focus-visible {
     outline: 2px solid var(--accent-primary);
     outline-offset: 2px;
+}
+
+/* ─── Joined stepper (.stepper-joined) ──────────────────────────────────────
+ * The ‹ year month › cluster drawn as ONE control instead of four abutting
+ * ones — the same seam treatment the Cash Flow year+month pair uses
+ * (.range-selector-pair, forecast.css), extended over the arrow buttons so the
+ * accent fills are the two ends of the same box rather than a pair of squares
+ * parked either side of it. The gap closes, every interior corner squares off,
+ * and the outer corners keep the label's 6px radius.
+ *
+ * The seam between the two labels is the FIRST label's right border; the second
+ * drops its left one, since two borders on one seam draw a double line. The
+ * label borders that meet an arrow button stay, because .button-primary carries
+ * no border of its own and that hairline is the only edge between the accent
+ * fill and the label. Hover and focus raise their own segment above the
+ * neighbour, so a highlight or a focus ring is never cut by the next border. */
+.stepper-joined { gap: 0; }
+
+.stepper-joined .stepper-btn,
+.stepper-joined .stepper-label { border-radius: 0; }
+
+.stepper-joined > :first-child,
+.stepper-joined > :first-child .stepper-label {
+    border-top-left-radius: 6px;
+    border-bottom-left-radius: 6px;
+}
+
+.stepper-joined > :last-child,
+.stepper-joined > :last-child .stepper-label {
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
+
+.stepper-joined .stepper-picker + .stepper-picker .stepper-label {
+    border-left: none;
+}
+
+.stepper-joined .stepper-btn:hover,
+.stepper-joined .stepper-btn:focus-visible,
+.stepper-joined .stepper-label:hover,
+.stepper-joined .stepper-label:focus-visible {
+    position: relative;
+    z-index: 1;
 }
 
 /* ─── Toast (UI.toast) ───────────────────────────────────────────────────────

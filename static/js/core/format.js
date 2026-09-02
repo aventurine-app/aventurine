@@ -11,8 +11,9 @@
 //   debounce(fn, delay)      → trailing-edge debounced wrapper of fn.
 //   applyCommaFormat(input)  → live-reformat a text input with thousand
 //                              separators, preserving the caret position.
-//   formatDisplay(num)       → read-only display string: commas, ".00"
-//                              hidden, other decimals kept.
+//   formatDisplay(num, max)  → read-only display string: commas, ".00"
+//                              hidden, other decimals kept (up to `max`,
+//                              default 2).
 //
 // Plus the three plain-date helpers every dated surface needs. They live here
 // rather than in currency.js because they involve no currency and no user
@@ -34,6 +35,7 @@
     const _RE_NON_DIGIT    = /[^0-9]/g;
     const _RE_THOUSANDS    = /\B(?=(\d{3})+(?!\d))/g;
     const _RE_SINGLE_DIGIT = /[0-9]/;
+    const _RE_TRAILING_ZEROS = /0+$/;
 
     /** Strip non-numeric chars, then insert thousand separators into the integer part. */
     function formatWithCommas(raw) {
@@ -85,11 +87,19 @@
      * Format a number for read-only display (totals, footer cells, computed
      * spans). Hides ".00" so whole-dollar values look clean. Decimals like .50
      * are preserved as ".50".
+     *
+     * maxDecimals raises the ceiling for columns that are not money — the
+     * portfolio Amount column is a share/unit count, where 0.4375 of a share
+     * is a real holding and rounding it to 0.44 would misstate it. Zeros past
+     * the cents place are dropped (1.5000 -> 1.50) so the extra precision only
+     * shows up on the rows that use it; the first two decimals are kept
+     * whenever there are any, which is what the 2-decimal default already did.
      */
-    function formatDisplay(num) {
-        const fixed = num.toFixed(2);
-        const [intStr, decStr] = fixed.split('.');
+    function formatDisplay(num, maxDecimals = 2) {
+        const fixed = num.toFixed(maxDecimals);
+        const [intStr, decRaw] = fixed.split('.');
         const intFormatted = intStr.replace(_RE_THOUSANDS, ',');
+        const decStr = decRaw.replace(_RE_TRAILING_ZEROS, '').padEnd(2, '0');
         return decStr === '00' ? intFormatted : intFormatted + '.' + decStr;
     }
 
