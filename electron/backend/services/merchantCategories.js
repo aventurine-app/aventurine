@@ -1289,6 +1289,96 @@ const MERCHANTS = [
   // "KETTLE AND FIRE" / "SALT AND STRAW" — the same story for '&' spelled out.
   ['kettle and fire', 'food'], ['salt and straw', 'food'],
 
+  // ── Software, AI & internet services ────────────────────────────────────────
+  // Subscriptions to software and online services: AI assistants, developer and
+  // hosting accounts, security and productivity tools, cloud storage. These map
+  // to 'general', the only default bucket that fits — a Claude or Figma charge
+  // is neither Entertainment (which holds streaming and media) nor Utilities
+  // (household service). It is also the first use the lexicon makes of that key.
+  //
+  // Rejected on the usual substring grounds: 'gemini' (a crypto exchange, and
+  // the hazard corpus holds "GOOGLE *GEMINI AI PREMIUM"), 'suno' (inside
+  // "Sunoco"), 'udio' (inside "audio"/"studio"), 'canva' ("canvas"), 'notion'
+  // ("notional"), 'descript' ("descriptive"), 'xero' ("Xerox"), 'eset'
+  // ("reset"), 'loom' ("heirloom"), 'asana' (yoga studios), 'framer' (picture
+  // framers), 'basecamp' (RV parks), 'windsurf' (board shops), 'cohere'
+  // ("Coherent"), 'grok', 'miro' — the solid or qualified spellings are used
+  // instead. Bare 'adobe' is out too: it names southwestern restaurants
+  // ("Adobe Grill"), and a merchant hit beats the 'grill' keyword, so the
+  // product forms are listed individually.
+  // AI assistants, labs & creative models
+  ['anthropic', 'general'], ['claude.ai', 'general'], ['openai', 'general'],
+  ['chatgpt', 'general'], ['perplexity', 'general'], ['midjourney', 'general'],
+  ['elevenlabs', 'general'], ['eleven labs', 'general'], ['mistral ai', 'general'],
+  ['huggingface', 'general'], ['hugging face', 'general'], ['stability ai', 'general'],
+  ['runwayml', 'general'], ['runway ml', 'general'], ['deepseek', 'general'],
+  ['groq', 'general'], ['character.ai', 'general'], ['character ai', 'general'],
+  ['suno inc', 'general'], ['suno.com', 'general'], ['ideogram', 'general'],
+  ['leonardo.ai', 'general'], ['luma ai', 'general'], ['synthesia', 'general'],
+  ['notebooklm', 'general'], ['github copilot', 'general'], ['x.ai', 'general'],
+  ['together ai', 'general'], ['openrouter', 'general'], ['jasper ai', 'general'],
+  ['copy.ai', 'general'], ['gamma.app', 'general'], ['heygen', 'general'],
+  ['pika labs', 'general'], ['civitai', 'general'],
+  // AI coding tools & app builders
+  // Two spellings of Cursor: the card descriptor prints "CURSOR, AI POWERED
+  // IDE", and the comma survives normalisation, so neither form contains the
+  // other.
+  ['cursor ai', 'general'], ['cursor, ai', 'general'], ['replit', 'general'],
+  ['lovable.dev', 'general'], ['bolt.new', 'general'], ['v0.dev', 'general'],
+  ['codeium', 'general'], ['tabnine', 'general'],
+  // Developer platforms, hosting & domains
+  ['github', 'general'], ['gitlab', 'general'], ['vercel', 'general'],
+  ['netlify', 'general'], ['digitalocean', 'general'], ['digital ocean', 'general'],
+  ['linode', 'general'], ['heroku', 'general'], ['cloudflare', 'general'],
+  // AWS by the domain its descriptor carries: "AMAZON WEB SERVICES" cannot be
+  // a needle (the noise stripper removes the transaction-type marker "web"),
+  // and 'amazon services' would swallow Amazon's own retail seller entity.
+  // Both needles are longer than 'amazon', so they beat the shopping mapping.
+  ['aws.amazon', 'general'], ['aws emea', 'general'],
+  ['jetbrains', 'general'], ['atlassian', 'general'], ['namecheap', 'general'],
+  ['godaddy', 'general'], ['porkbun', 'general'], ['squarespace', 'general'],
+  ['wix.com', 'general'], ['webflow', 'general'], ['shopify', 'general'],
+  ['linear.app', 'general'], ['bluehost', 'general'], ['hostgator', 'general'],
+  ['siteground', 'general'], ['dreamhost', 'general'], ['fastmail', 'general'],
+  // Adobe, by product (see the note above on why the bare brand is unsafe).
+  ['adobe systems', 'general'], ['adobe inc', 'general'], ['adobe creative', 'general'],
+  ['adobe acro', 'general'], ['adobe photoshop', 'general'], ['adobe lightroom', 'general'],
+  ['adobe express', 'general'], ['adobe stock', 'general'],
+  // Productivity, design & collaboration
+  ['dropbox', 'general'], ['figma', 'general'], ['notion labs', 'general'],
+  ['grammarly', 'general'], ['evernote', 'general'], ['todoist', 'general'],
+  ['calendly', 'general'], ['docusign', 'general'], ['zapier', 'general'],
+  ['airtable', 'general'], ['monday.com', 'general'], ['trello', 'general'],
+  ['clickup', 'general'], ['otter.ai', 'general'], ['wetransfer', 'general'],
+  ['setapp', 'general'], ['mailchimp', 'general'], ['beehiiv', 'general'],
+  ['ghost.org', 'general'],
+  ['zoom.us', 'general'], ['zoom video', 'general'], ['zoom communications', 'general'],
+  ['slack technologies', 'general'], ['slack.com', 'general'],
+  // Accounting & tax software ('intuit payroll' is longer, so a payroll
+  // deposit still resolves to income.)
+  ['quickbooks', 'general'], ['turbotax', 'general'], ['freshbooks', 'general'],
+  ['intuit', 'general'],
+  // Security, password managers & VPNs
+  ['1password', 'general'], ['lastpass', 'general'], ['dashlane', 'general'],
+  ['bitwarden', 'general'], ['nordvpn', 'general'], ['nordpass', 'general'],
+  ['expressvpn', 'general'], ['surfshark', 'general'], ['protonmail', 'general'],
+  ['proton mail', 'general'], ['proton ag', 'general'], ['protonvpn', 'general'],
+  ['proton vpn', 'general'], ['mullvad', 'general'], ['malwarebytes', 'general'],
+  ['mcafee', 'general'], ['nortonlifelock', 'general'], ['norton antivirus', 'general'],
+  ['bitdefender', 'general'], ['kaspersky', 'general'], ['avast', 'general'],
+  ['avg technologies', 'general'],
+  // Cloud storage & named service plans. The platform BILLING descriptors are
+  // deliberately absent — "APPLE.COM/BILL" (an abstention case in the corpus
+  // fixture), "GOOGLE PLAY", "MSFT *…": one of those rows can be a game, a
+  // song, storage or hardware, so it names a payment channel and not a
+  // purchase. Only the named services below are listed.
+  ['icloud', 'general'], ['google one', 'general'], ['google storage', 'general'],
+  ['google workspace', 'general'], ['google cloud', 'general'],
+  ['backblaze', 'general'], ['carbonite', 'general'],
+  // Other consumer online services
+  ['linkedin', 'general'], ['ancestry.com', 'general'], ['23andme', 'general'],
+  ['duolingo', 'general'],
+
   // ── Income — payroll / deposits (direction-guarded in categorize.js) ──
   ['adp payroll', 'income'], ['gusto pay', 'income'], ['payroll', 'income'],
   ['direct deposit', 'income'],
@@ -2625,6 +2715,92 @@ const DISPLAY_OVERRIDES = {
   'ko-fi': 'Ko-fi',
   'buy me a coffee': 'Buy Me a Coffee',
   capcut: 'CapCut',
+
+  // Software, AI & internet services
+  'claude.ai': 'Claude',
+  openai: 'OpenAI',
+  chatgpt: 'ChatGPT',
+  elevenlabs: 'ElevenLabs',
+  'eleven labs': 'ElevenLabs',
+  'mistral ai': 'Mistral AI',
+  huggingface: 'Hugging Face',
+  'stability ai': 'Stability AI',
+  runwayml: 'Runway',
+  'runway ml': 'Runway',
+  deepseek: 'DeepSeek',
+  'character.ai': 'Character.AI',
+  'character ai': 'Character.AI',
+  'suno inc': 'Suno',
+  'suno.com': 'Suno',
+  'leonardo.ai': 'Leonardo AI',
+  'luma ai': 'Luma AI',
+  notebooklm: 'NotebookLM',
+  'github copilot': 'GitHub Copilot',
+  'x.ai': 'xAI',
+  'together ai': 'Together AI',
+  openrouter: 'OpenRouter',
+  'jasper ai': 'Jasper',
+  'gamma.app': 'Gamma',
+  heygen: 'HeyGen',
+  civitai: 'Civitai',
+  'cursor ai': 'Cursor',
+  'cursor, ai': 'Cursor',
+  'lovable.dev': 'Lovable',
+  'v0.dev': 'v0',
+  github: 'GitHub',
+  gitlab: 'GitLab',
+  digitalocean: 'DigitalOcean',
+  'digital ocean': 'DigitalOcean',
+  jetbrains: 'JetBrains',
+  godaddy: 'GoDaddy',
+  'wix.com': 'Wix',
+  'linear.app': 'Linear',
+  hostgator: 'HostGator',
+  siteground: 'SiteGround',
+  dreamhost: 'DreamHost',
+  'adobe systems': 'Adobe',
+  'adobe inc': 'Adobe',
+  'adobe creative': 'Adobe',
+  'adobe acro': 'Adobe',
+  'adobe photoshop': 'Adobe',
+  'adobe lightroom': 'Adobe',
+  'adobe express': 'Adobe',
+  'adobe stock': 'Adobe',
+  'notion labs': 'Notion',
+  docusign: 'DocuSign',
+  clickup: 'ClickUp',
+  wetransfer: 'WeTransfer',
+  beehiiv: 'beehiiv',
+  'ghost.org': 'Ghost',
+  'zoom.us': 'Zoom',
+  'zoom video': 'Zoom',
+  'zoom communications': 'Zoom',
+  'slack technologies': 'Slack',
+  'slack.com': 'Slack',
+  quickbooks: 'QuickBooks',
+  turbotax: 'TurboTax',
+  freshbooks: 'FreshBooks',
+  '1password': '1Password',
+  lastpass: 'LastPass',
+  nordvpn: 'NordVPN',
+  nordpass: 'NordPass',
+  expressvpn: 'ExpressVPN',
+  protonmail: 'Proton',
+  'proton mail': 'Proton',
+  'proton ag': 'Proton',
+  protonvpn: 'Proton VPN',
+  'proton vpn': 'Proton VPN',
+  mcafee: 'McAfee',
+  nortonlifelock: 'Norton',
+  'norton antivirus': 'Norton',
+  'avg technologies': 'AVG',
+  icloud: 'iCloud',
+  'google storage': 'Google One',
+  linkedin: 'LinkedIn',
+  'aws.amazon': 'Amazon Web Services',
+  'aws emea': 'Amazon Web Services',
+  'ancestry.com': 'Ancestry',
+  '23andme': '23andMe',
 
   // Apostrophe-stripped twins (same canonical name as the possessive form).
   'tonys chocolonely': "Tony's Chocolonely",
