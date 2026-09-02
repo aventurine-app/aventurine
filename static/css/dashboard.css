@@ -269,9 +269,13 @@
 
 /* The card title is an all-caps section eyebrow. One step up from the
    micro 11px tier so it reads as a section header, not a tag. Legend
-   labels inside the card stay at micro to create a hierarchy. */
+   labels inside the card stay at micro to create a hierarchy.
+   Colour is base-500, the same rung the Transactions table's column
+   headers use (.tx-header-row th, transactions.css), so the card names
+   sit back and the figures and charts read loudest. See that rule for
+   why 500 is the right step on both themes and for the contrast note. */
 .dashboard-card-title {
-    color: var(--text-primary);
+    color: var(--color-base-500);
     font-family: var(--font-h3);
     font-size: var(--size-small);
     font-weight: var(--weight-semibold);

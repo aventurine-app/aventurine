@@ -89,11 +89,11 @@
   }
 
   const PAD = { t: 28, b: 16 };
-  const LABEL_OFFSET = 10;         // gap between a node's edge and its label text
-  const EDGE_PAD = 10;             // gap between the longest label and the container edge
-  const MIN_GUTTER = 60;           // floor, so a column of short names still has a margin
-  const MAX_GUTTER = 150;          // ceiling: past this the ribbons pay for one long name
+  const LABEL_OFFSET = 10;         // gap between a node's inner edge and its label text
+  const EDGE_PAD = 10;             // gap between a side column and the container edge
   const NODE_W = 13;               // node-bar thickness
+  const CAP_R = 3;                 // rounding on a side bar's OUTER corners only; the inner
+                                   // face is square so the ribbon meets it flush
   const MIN_BAND = 1.5;            // floor so a tiny category is still visible
   const LABEL_GAP = 32;            // min vertical spacing between adjacent labels (name + amount)
   const GAP = LABEL_GAP;           // vertical gap between stacked side nodes. Tied to the label block:
@@ -104,54 +104,12 @@
                                    // at the very top or bottom still has room for its own label
   const CENTER_LABEL_GAP = 12;     // breathing room between the centre label group and the Net Inflow node
 
-  /* ─── Side gutters are MEASURED, not reserved ──────────────────────────────
-     The gutter either side used to be a flat 150 layout units, sized for the
-     longest category name that could turn up. Most ledgers have none that long,
-     so the strip between the labels and the card edge sat empty and the ribbons
-     ran narrow. The width each side actually needs is measured off the two label
-     lines it will draw — the name at 11px and the amount + share at 10px — and
-     the gutter is that, clamped between MIN_GUTTER and the old 150. */
-  let measureCtx;
-
-  /** Label faces, as canvas font strings. Layout units are CSS px before the
-   *  viewBox scale, so measuring at the stylesheet's own sizes gives the widths
-   *  the SVG lays out with. */
-  function labelFonts() {
-    const cs = getComputedStyle(document.documentElement);
-    const family = cs.getPropertyValue('--font-h3').trim() || 'sans-serif';
-    const semi = cs.getPropertyValue('--weight-semibold').trim() || '600';
-    const bold = cs.getPropertyValue('--weight-bold').trim() || '700';
-    return { name: `${semi} 11px ${family}`, amount: `${bold} 10px ${family}` };
-  }
-
-  /** Text width in layout units, or null where no 2D context is available. */
-  function textWidth(text, font) {
-    if (measureCtx === undefined) {
-      const c = document.createElement('canvas');
-      measureCtx = (c.getContext && c.getContext('2d')) || null;
-    }
-    if (!measureCtx) return null;
-    measureCtx.font = font;
-    const w = measureCtx.measureText(text).width;
-    return Number.isFinite(w) ? w : null;
-  }
-
-  /** Horizontal room one side column needs for its labels. */
-  function gutterFor(items, sideTotal, fonts) {
-    let widest = 0;
-    for (const c of items) {
-      const share = fmtShare(c.total, sideTotal);
-      const amount = fmtMoney(c.total) + (share ? ` ${share}` : '');
-      // .sankey-label carries letter-spacing: 0.03em, which measureText does not
-      // include — add it back so a long name is not measured short and clipped.
-      const name = textWidth(c.label, fonts.name);
-      const amt = textWidth(amount, fonts.amount);
-      if (name === null || amt === null) return MAX_GUTTER;
-      widest = Math.max(widest, name + c.label.length * 11 * 0.03, amt);
-    }
-    if (widest <= 0) return MAX_GUTTER;
-    return Math.max(MIN_GUTTER, Math.min(MAX_GUTTER, Math.ceil(widest) + LABEL_OFFSET + EDGE_PAD));
-  }
+  /* ─── Labels sit INSIDE, over the ribbons ─────────────────────────────────
+     Each category's name and amount hang off the inner face of its bar, out
+     over its own ribbon, rather than in a gutter outside it. The gutter used to
+     be measured off the longest label and the ribbons paid for it; with the
+     labels inside, the side columns sit EDGE_PAD from the card edge and the
+     ribbons get the whole width. */
 
   const state = {
     data: null,   // last /api/data payload
@@ -298,9 +256,8 @@
       availH / maxTotal
     );
 
-    const fonts = labelFonts();
-    const incomeX = gutterFor(income, totalIncome, fonts);
-    const expenseX = W - gutterFor(expense, totalExpense, fonts) - NODE_W;
+    const incomeX = EDGE_PAD;
+    const expenseX = W - EDGE_PAD - NODE_W;
     const centerX = (W - NODE_W) / 2;
     const centerH = maxTotal * scale;
     const centerTop = TOP;
@@ -350,12 +307,27 @@
     };
 
     const r1 = (v) => Math.round(v * 10) / 10;
+    // A side bar as a path: the two corners on the card-edge side are rounded,
+    // the two on the ribbon side are square. outer: -1 → rounded on the left
+    // (income), +1 → rounded on the right (expense).
+    const capPath = (x, y, w, h, outer) => {
+      const r = Math.min(CAP_R, h / 2, w / 2);
+      const x0 = r1(x), x1 = r1(x + w), y0 = r1(y), y1 = r1(y + h);
+      if (outer < 0) {
+        return `M ${x1} ${y0} L ${r1(x + r)} ${y0} Q ${x0} ${y0} ${x0} ${r1(y + r)}`
+             + ` L ${x0} ${r1(y + h - r)} Q ${x0} ${y1} ${r1(x + r)} ${y1} L ${x1} ${y1} Z`;
+      }
+      return `M ${x0} ${y0} L ${r1(x + w - r)} ${y0} Q ${x1} ${y0} ${x1} ${r1(y + r)}`
+           + ` L ${x1} ${r1(y + h - r)} Q ${x1} ${y1} ${r1(x + w - r)} ${y1} L ${x0} ${y1} Z`;
+    };
     // Build one side. Each category is a single link wrapping its WAVE (the
     // ribbon) + leader + labels — that whole flow is the click target, so you
     // click the big wave, not the thin end bar. The bars come back separately to
     // paint on top as bare caps, outside any link. The ribbon stacks against the
     // centre node from centerTop (income flows node→centre, expense centre→node).
-    // dir: -1 → income (labels to the left), +1 → expense (labels to the right).
+    // dir points from the bar toward its labels, which sit on the INNER face:
+    // +1 → income (labels to the right, over the ribbon), -1 → expense (labels
+    // to the left).
     const sideMarkup = (sideNodes, anchor, dir, isIncome) => {
       const labelYs = spreadLabels(sideNodes);
       let waves = '';
@@ -364,7 +336,7 @@
       sideNodes.forEach((n, i) => {
         const cy = n.y + n.h / 2;
         const ly = labelYs[i];
-        const edgeX = dir < 0 ? n.x : n.x + NODE_W; // node edge facing the label
+        const edgeX = dir > 0 ? n.x + NODE_W : n.x; // inner node edge, facing the label
         const labelX = edgeX + dir * LABEL_OFFSET;  // text anchor x
         const h = n.total * scale;                  // true height; slot stays exact
         // Income flows node→centre slot; expense flows centre slot→node.
@@ -386,28 +358,29 @@
         }
         const share = fmtShare(n.total, isIncome ? totalIncome : totalExpense);
         g += `<text class="sankey-label" x="${labelX}" y="${r1(ly - 3)}" text-anchor="${anchor}">${escapeHtml(n.label)}</text>`
-           + `<text class="sankey-amount" x="${labelX}" y="${r1(ly + 11)}" text-anchor="${anchor}">${escapeHtml(fmtMoney(n.total))}`
+           + `<text class="sankey-amount" x="${labelX}" y="${r1(ly + 13)}" text-anchor="${anchor}">${escapeHtml(fmtMoney(n.total))}`
            + (share ? ` <tspan class="sankey-share">${escapeHtml(share)}</tspan>` : '')
            + `</text></a>`;
         waves += g;
 
         // Bare node cap, painted on top of the waves layer (outside the link).
-        bars += `<rect class="sankey-node" x="${n.x}" y="${n.y}" width="${NODE_W}" height="${n.h}" rx="2" fill="${n.color}">`
-              + `<title>${escapeHtml(n.label)}: ${fmtMoney(n.total)}</title></rect>`;
+        bars += `<path class="sankey-node" d="${capPath(n.x, n.y, NODE_W, n.h, -dir)}" fill="${n.color}">`
+              + `<title>${escapeHtml(n.label)}: ${fmtMoney(n.total)}</title></path>`;
         slot += h;
       });
       return { waves, bars };
     };
 
-    const inc = sideMarkup(incomeNodes, 'end', -1, true);
-    const exp = sideMarkup(expenseNodes, 'start', 1, false);
+    const inc = sideMarkup(incomeNodes, 'start', 1, true);
+    const exp = sideMarkup(expenseNodes, 'end', -1, false);
     const waves = inc.waves + exp.waves;   // bottom layer: ribbons + labels (clickable)
     let bars = inc.bars + exp.bars;        // top layer: bare node caps
 
     // Centre node — sized to the larger side; label sits above it. Not a
-    // category, so it stays outside any link.
+    // category, so it stays outside any link. Ribbons meet it on both faces,
+    // so it has no outer corners to round.
     const cLabelX = centerX + NODE_W / 2;
-    bars += `<rect class="sankey-node sankey-node-center" x="${centerX}" y="${centerTop}" width="${NODE_W}" height="${centerH}" rx="2" fill="${NET_COLOR}">`
+    bars += `<rect class="sankey-node sankey-node-center" x="${centerX}" y="${centerTop}" width="${NODE_W}" height="${centerH}" fill="${NET_COLOR}">`
           + `<title>Net Inflow: ${fmtMoney(totalIncome)}</title></rect>`
           + `<text class="sankey-label" x="${cLabelX}" y="${centerTop - CENTER_LABEL_GAP - 11}" text-anchor="middle">Net Inflow</text>`
           + `<text class="sankey-amount" x="${cLabelX}" y="${centerTop - CENTER_LABEL_GAP}" text-anchor="middle">${escapeHtml(fmtMoney(totalIncome))}</text>`;

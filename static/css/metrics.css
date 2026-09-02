@@ -4,7 +4,7 @@
    Loads only alongside forecast.css (pages/reports.html), which owns the .rep-*
    tab shell, the card header chrome (.dashboard-card-header / -title), the
    "i" info badge and the page padding. What lives here is the report's own
-   column, across its THREE cards: the headline figure tiles and their
+   column: one shell holding three sub-cards — the headline figure tiles and their
    sparklines, the Vitals grid of range-coloured gauges, and the Inflation
    card's five small multiples.
 
@@ -19,24 +19,50 @@
     gap: var(--space-24);
 }
 
-/* ─── The one control, above every card ───────────────────────────────────────
-   The year picker scopes all three cards, not just the first, so it sits in a
-   panel-level toolbar row rather than in one card's header — the Saved &
-   Invested tab's rule (see static/css/transfers.css). Right-aligned, where a
-   card header's own controls sit, so the column of controls down the page
-   still lines up. */
-.met-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-}
-
-.met-card {
+/* ─── One container for the whole report ──────────────────────────────────────
+   The shell is the page's ordinary card (border, surface, shadow), holding the
+   year heading and its picker in a header row and the three sections below as
+   flat sub-cards. The year picker scopes every section, not just the first,
+   which is why it sits in the shell's header and not in a section's. */
+.met-shell {
     min-width: 0;
     border: var(--border-width) solid var(--border);
     border-radius: 8px;
     background: var(--surface1);
     box-shadow: var(--shadow-card);
+    padding: var(--space-24) 28px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+}
+
+.met-shell-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-16);
+    min-height: var(--control-height);
+}
+
+/* The chosen year, as the title of everything under it. */
+.met-year {
+    margin: 0;
+    color: var(--text-primary);
+    font-family: var(--font-h3);
+    font-size: var(--size-h1);
+    font-weight: var(--weight-bold);
+    line-height: var(--lh-tight);
+    font-variant-numeric: tabular-nums;
+}
+
+/* The sections are sub-cards INSIDE the shell: bordered so each question reads
+   as its own answer, but with no shadow — a shadow inside a shadowed card
+   reads as a card floating on a card. */
+.met-card {
+    min-width: 0;
+    border: var(--border-width) solid var(--border);
+    border-radius: 8px;
+    background: var(--surface1);
     padding: var(--space-24) 28px;
     display: flex;
     flex-direction: column;

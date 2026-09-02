@@ -447,14 +447,9 @@
     flex: 0 0 auto;
 }
 
-.cashflow-sankey .sankey-node {
-    stroke: var(--background);
-    stroke-width: 1;
-}
-
 /* Each category's wave (the ribbon) + its labels is one link to that category's
    transactions; the node bar is a bare cap, not part of the link. Brighten the
-   wave and labels on hover/keyboard-focus so the click target reads, and outline
+   wave on hover/keyboard-focus so the click target reads, and outline
    the wave's own contour on focus (a box around a ribbon would be huge). */
 .cashflow-sankey .sankey-cat { cursor: pointer; }
 .cashflow-sankey .sankey-cat .sankey-link,
@@ -465,10 +460,6 @@
 }
 .cashflow-sankey .sankey-cat:hover .sankey-link,
 .cashflow-sankey .sankey-cat:focus-visible .sankey-link { opacity: 0.72; }
-.cashflow-sankey .sankey-cat:hover .sankey-label,
-.cashflow-sankey .sankey-cat:hover .sankey-share,
-.cashflow-sankey .sankey-cat:focus-visible .sankey-label,
-.cashflow-sankey .sankey-cat:focus-visible .sankey-share { fill: var(--text-secondary); }
 .cashflow-sankey .sankey-cat:focus { outline: none; }
 .cashflow-sankey .sankey-cat:focus-visible .sankey-link {
     stroke: var(--accent-primary);
@@ -490,10 +481,10 @@
     opacity: 0.45;
 }
 
-/* The amount carries the full text colour and the name is muted under it: the
-   number is what the diagram is reporting, the name only says whose it is. */
+/* Name, amount and share all carry the full text colour: they float on the
+   inner face of the bar, over the ribbon, and a muted tone read poorly there. */
 .cashflow-sankey .sankey-label {
-    fill: var(--text-tertiary);
+    fill: var(--text-primary);
     font-family: var(--font-h3);
     font-size: 11px;
     font-weight: var(--weight-semibold);
@@ -503,15 +494,15 @@
 .cashflow-sankey .sankey-amount {
     fill: var(--text-primary);
     font-family: var(--font-h3);   /* the label's face — the pair reads as one block */
-    font-size: 10px;
+    font-size: 13px;               /* the figure is the line's point, so it leads the name */
     font-weight: var(--weight-bold);
     font-variant-numeric: tabular-nums;
 }
 
-/* The share rides along in the amount's run, muted and unbolded: it qualifies
-   the figure it follows rather than competing with it. */
+/* The share rides along in the amount's run, unbolded: it qualifies the figure
+   it follows rather than competing with it. */
 .cashflow-sankey .sankey-share {
-    fill: var(--text-tertiary);
+    font-size: 10px;
     font-weight: var(--weight-regular);
 }
 

@@ -138,16 +138,17 @@ const METRIC_BANDS = {
     { from: DTI_GOAL, to: 0.40, tone: 'caution' },
     { from: 0.40, to: 1, tone: 'bad' },
   ],
-  savingsRate: [
-    { from: 0, to: 0.10, tone: 'bad' },
-    { from: 0.10, to: SAVINGS_GOAL, tone: 'good' },
-    { from: SAVINGS_GOAL, to: 1, tone: 'caution' },
-  ],
-  // The good range runs to 40%, not to INVESTED_GOAL[1]: the GOAL is the 15–20%
-  // band a year is graded against, while the gauge's green is the range that is
-  // simply healthy, and investing a third of an income is not a thing to caution
+  // Both put-away gauges run their green PAST the goal they are graded against
+  // (SAVINGS_GOAL 20%, INVESTED_GOAL 15–20%): the goal is the bar a year is
+  // marked against, while the gauge's green is the range that is simply
+  // healthy, and putting a third of an income away is not a thing to caution
   // anybody about. The two are deliberately decoupled — they were the same
   // numbers only while the tile carried the goal's badge.
+  savingsRate: [
+    { from: 0, to: 0.10, tone: 'bad' },
+    { from: 0.10, to: 0.30, tone: 'good' },
+    { from: 0.30, to: 1, tone: 'caution' },
+  ],
   investedRate: [
     { from: 0, to: INVESTED_GOAL[0], tone: 'bad' },
     { from: INVESTED_GOAL[0], to: 0.40, tone: 'good' },

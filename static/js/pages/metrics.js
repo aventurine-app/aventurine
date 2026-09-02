@@ -587,19 +587,28 @@
 
   // ─── Year picker (mirrors the Cash Flow tab's) ─────────────────────────────
 
+  // The chosen year is printed twice: in the picker button and as the shell's
+  // heading, so the report's title and its control never disagree.
+  function showYear(y) {
+    const btn = document.getElementById('metrics-year-btn');
+    const heading = document.getElementById('metrics-year-heading');
+    if (btn) btn.textContent = y == null ? 'No data' : String(y);
+    if (heading) heading.textContent = y == null ? '' : String(y);
+  }
+
   function buildYearMenu() {
     const btn = document.getElementById('metrics-year-btn');
     const menu = document.getElementById('metrics-year-menu');
     if (!btn || !menu) return;
 
     if (!state.years.length) {
-      btn.textContent = 'No data';
+      showYear(null);
       btn.disabled = true;
       menu.innerHTML = '';
       return;
     }
     btn.disabled = false;
-    btn.textContent = String(state.year);
+    showYear(state.year);
     menu.innerHTML = state.years
       .map((row) => `<button type="button" data-year="${row.year}">${row.year}</button>`)
       .join('');
@@ -610,7 +619,7 @@
       const y = parseInt(b.dataset.year, 10);
       if (y === state.year) return;
       state.year = y;
-      document.getElementById('metrics-year-btn').textContent = String(y);
+      showYear(y);
       render();
     });
   }

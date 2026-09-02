@@ -282,23 +282,25 @@
 
     <!-- The old standalone "Yearly Report Card" page, which nothing linked to,
          living here as a report instead. ONE year at a time, chosen from the
-         header picker: every other report on this page is read that way, and
-         six ratios drawn as gauges need the width that stacking every year
-         side by side was spending. The picker sits in a panel-level toolbar row
-         above the cards, not in the first card's header, because it scopes all
-         three of them — the same rule the Saved & Invested tab follows.
-         Controller: static/js/pages/metrics.js. -->
-    <div class="met-toolbar">
+         picker: every other report on this page is read that way, and six
+         ratios drawn as gauges need the width that stacking every year side by
+         side was spending. The whole report is ONE container (.met-shell): the
+         chosen year as its heading top-left, the picker top-right, and the
+         three sections below as flat sub-cards, so the year reads as the
+         title of everything under it. Controller: static/js/pages/metrics.js. -->
+    <div class="met-shell">
+    <div class="met-shell-header">
+        <h2 class="met-year" id="metrics-year-heading" aria-live="polite"></h2>
         <div class="range-selector" id="metrics-year">
             <button class="range-selector-btn" id="metrics-year-btn" type="button"
-                aria-haspopup="menu" title="Year shown by every card below">Year</button>
+                aria-haspopup="menu" title="Year shown by every section below">Year</button>
             <div class="range-selector-menu" id="metrics-year-menu" hidden></div>
         </div>
     </div>
 
     <div class="met-card">
         <div class="dashboard-card-header">
-            <span class="dashboard-card-title">Metrics<span class="fc-info" tabindex="0" role="note"
+            <span class="dashboard-card-title">Fundamentals<span class="fc-info" tabindex="0" role="note"
                 aria-label="The selected year's totals, the ratios behind them, and six money goals: spending under 70% of income, total debt under 25% of income, saving at least 20% of income, investing 15% to 20% of income, spending down year over year, and income up year over year. Transfers between your own accounts are never counted as income or spending."
                 data-tip="The selected year's totals, the ratios behind them, and six money goals: spending under 70% of income, total debt under 25% of income, saving at least 20% of income, investing 15% to 20% of income, spending down year over year, and income up year over year. Transfers between your own accounts are never counted as income or spending.">i</span></span>
         </div>
@@ -306,13 +308,12 @@
         <div id="metrics-body"></div>
     </div>
 
-    <!-- Vitals and Inflation are their own CARDS, not sections of the one above.
-         Three questions — what the year totalled, what its ratios say, what got
-         more expensive — read as three answers, and the card border is the
-         separator this page already uses everywhere else (Spending and Saved &
-         Invested are each two cards). Both start hidden: metrics.js reveals them
-         once there is a year to fill them, so a database with nothing in it
-         shows one empty state rather than three. -->
+    <!-- Vitals and Inflation are their own sub-cards, not sections of the one
+         above. Three questions — what the year totalled, what its ratios say,
+         what got more expensive — read as three answers, and the card border is
+         the separator this page already uses everywhere else. Both start
+         hidden: metrics.js reveals them once there is a year to fill them, so a
+         database with nothing in it shows one empty state rather than three. -->
     <div class="met-card" id="metrics-vitals-card" hidden>
         <div class="dashboard-card-header">
             <span class="dashboard-card-title">Vitals</span>
@@ -329,6 +330,8 @@
         </div>
         <div id="metrics-inflation"></div>
     </div>
+
+    </div><!-- /.met-shell -->
 
 </div>
 
