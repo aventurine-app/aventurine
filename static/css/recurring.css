@@ -430,8 +430,8 @@
        shadow rendered as a dark halo across three day cells, heavier than the
        chip it describes. Halved opacity on a tighter, closer
        blur: enough lift to read as floating, not enough to stain the calendar.
-       (--shadow-card, which raised surfaces use, resolves to no shadow at all,
-       which would leave the card flat against the grid.) */
+       (--shadow-card, which raised surfaces use, is the bottom rung of the
+       ladder and sits too low to read as floating over the grid.) */
     box-shadow: var(--shadow-popover);
     padding: 10px 12px;
 }

@@ -141,14 +141,18 @@
 }
 
 /* Colorful reads as light everywhere except the sidebar, so its swatch is the
-   light face plus a vertical accent band on the left — the nav. The band is a
+   light face plus a vertical band on the left — the nav. The band is a
    background-image over --sw-surface, which puts it UNDER ::before (the top
    background strip), and that is the real layout: the title bar spans the full
-   width and the sidebar starts below it. The accent rung matches the live nav
-   fill (themes.css), not --accent-primary. */
+   width and the sidebar starts below it. The band carries the same base-700 →
+   base-900 top-to-bottom gradient the live nav fill uses (themes.css); its
+   width comes from background-size rather than a second colour stop, because
+   the gradient now runs down the band instead of across it. */
 .settings-theme-swatch[data-theme="colorful"] {
-    background-image: linear-gradient(to right,
-        var(--color-accent-700) 0 24%, transparent 24%);
+    background-image: linear-gradient(to bottom,
+        var(--color-base-700), var(--color-base-900));
+    background-repeat: no-repeat;
+    background-size: 24% 100%;
 }
 
 /* ── Graph palette swatches ─────────────────────────────────────────────

@@ -173,12 +173,19 @@ html[data-theme="dark"],
    child, so none of this reaches the database modal. */
 html[data-theme="colorful"] div.menu {
 
-    /* Nav fill. The 700 rung, not --accent-primary (600): white labels clear
-       AA 4.5:1 on 700 (7.3:1) but only just on 600 (4.6:1), and the idle label
-       — which is most of the sidebar most of the time — falls to 3.8:1 there.
-       Same reasoning the active-chip tokens above already follow: pick the ramp
-       rung the text can actually live on. */
-    --surface1: var(--color-accent-700);
+    /* Nav fill. A vertical neutral gradient, base-700 at the top down to
+       base-900 at the bottom. The gradient is painted as a background-IMAGE
+       over the --surface1 background-color nav.css already sets, so nav.css
+       keeps its one theme-agnostic rule. --surface1 is re-pointed to the
+       bottom stop so the parts that read a flat colour (the scrollbar track)
+       land on a rung the gradient actually contains. White labels clear AA on
+       both stops (base-700 is 7.6:1, base-900 is 16.8:1). */
+    --surface1: var(--color-base-900);
+    background-image: linear-gradient(
+        to bottom,
+        var(--color-base-700),
+        var(--color-base-900)
+    );
 
     /* Labels + icons. Idle dims to 85% white (5.7:1); hover/active go pure
        white (7.3:1); section titles sit at 72% (4.7:1). All clear AA. */
@@ -186,11 +193,33 @@ html[data-theme="colorful"] div.menu {
     --text-primary:   #fff;
     --text-tertiary:  rgba(255,255,255, 0.72);
 
-    /* Hover/active fill + scrollbar. White-tinted like the dark theme's frost,
+    /* Hover fill + scrollbar. White-tinted like the dark theme's frost,
        because the nav is a DARK surface now regardless of the light page it
-       sits next to — the light theme's black tints would vanish on it. */
+       sits next to — the light theme's black tints would vanish on it. The
+       ACTIVE link takes the accent fill instead (rule below). */
     --frost-3: rgba(255,255,255, 0.16);
     --border:  rgba(255,255,255, 0.28);
+}
+
+/* Active nav item. The one place in the sidebar that takes the accent as a
+   FILL rather than a tint: --frost-3 is a white wash that reads the same on
+   every rung of the gradient, so on this theme the open page is marked with
+   the accent instead. Scoped to .active only — hover keeps the frost, so a
+   hovered link never impersonates the open one.
+
+   base-050 (not #fff) on accent-600 keeps the label on the same near-white
+   the rest of the app uses for text on a filled accent. The icon strokes
+   currentColor and follows.
+
+   The shadow lifts the chip off the gradient behind it. It is cast in black
+   at low alpha rather than in a darker accent, so it reads as depth on every
+   rung the nav passes through instead of only near the one it was mixed for,
+   and it is kept wide and faint so the edge stays soft against a background
+   that is already changing value down the sidebar. */
+html[data-theme="colorful"] .nav li a.active {
+    background: var(--accent-primary);
+    color: var(--color-base-050);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
 }
 
 

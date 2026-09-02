@@ -249,8 +249,11 @@
 /* == Header labels == */
 /* Canonical "table header eyebrow" — shared by every spreadsheet page and the
    Transactions table (.tx-header-row, transactions.css, which loads alongside
-   this file on that page). The Transactions header adds only text-align +
-   a bottom border on top of this. */
+   this file on that page). The Transactions header adds text-align, a bottom
+   border, and its own colour on top of this — it overrides --text-primary here
+   with base-500, one rung below the quietest text tier, so on that page the
+   rows read louder than their column names. Everything else in this block
+   still applies to it. */
 .db-table th,
 .tx-header-row th {
     color: var(--text-primary);

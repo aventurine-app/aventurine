@@ -53,6 +53,12 @@
        items (.nav li a) so those three surfaces read the same. */
     border-radius: 8px;
     background: var(--surface1);
+    /* The shared card elevation (style.css), the same one .db-wrapper takes —
+       the Statements and Portfolio tables are the same surface as this one and
+       the three read at one height. The overflow:hidden below clips the
+       wrapper's CHILDREN; a box-shadow paints outside the border box, so it is
+       unaffected. */
+    box-shadow: var(--shadow-card);
     /* Takes the height left under the header + chips and passes it to the flex
        column inside (table + footer). It is NOT a scroller — overflow:hidden is
        here only to clip the bands to the rounded corners. min-height:0 lets the
@@ -194,6 +200,35 @@
    chip per search field (Date / Name / Amount / Type / Category) plus a Clear
    all; the right group holds the action chips. The filter chips and their option
    popovers are defined at the end of this section. */
+/* Import / Export are the only two accent-filled buttons on this page, and they
+   sit in the chip row directly above .tx-wrapper. The wrapper takes the shared
+   card elevation, so without a shadow of their own these two read as printed
+   ONTO the toolbar while the table floats above it.
+
+   The value is written out rather than reading --shadow-card: it is tighter and
+   far darker than the card token (1px/3px at 0.42, against 2px/6px at 0.14). A
+   card is a large pale surface where a wide soft drop is what separates it from
+   the page; these are small saturated accent blocks, and at card blur the
+   shadow spread wider than the button and read as a smudge rather than an edge.
+   The alpha now sits between the card and menu rungs, but the geometry stays
+   short, so it reads as a hard contact edge rather than as a floating panel.
+
+   Scoped to these two buttons, not to .button-primary: that class is the app's
+   accent action everywhere (modal footers, empty-state CTAs, the settings
+   panels), and most of those already sit on a raised surface where a second
+   shadow would stack.
+
+   box-shadow is added to the transition list in buttons.css only for these two
+   — the shared rule animates background/colour/border/transform — so the lift
+   settles at the same rate as the hover fill instead of snapping. */
+.tx-import-btn,
+.tx-export-btn {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.42);
+    transition: background-color 0.15s ease, color 0.15s ease,
+                border-color 0.15s ease, transform 0.1s ease,
+                box-shadow 0.15s ease;
+}
+
 .tx-chips {
     display: flex;
     align-items: center;
@@ -615,13 +650,35 @@
 }
 
 /* ─── 2. Header row + column widths ──────────────────────────────────────── */
-/* The eyebrow treatment (colour, type, padding) is shared with .db-table th
-   in tables.css (grouped there); this header only adds left alignment and a
-   bottom-border divider on top of it. */
-/* The header is a fixed band above the scrolling body (see .tx-table), so the
+/* The eyebrow treatment (type, padding) is shared with .db-table th in
+   tables.css (grouped there); this header adds left alignment, a bottom-border
+   divider, and its own colour on top of it.
+   The header is a fixed band above the scrolling body (see .tx-table), so the
    eyebrow cells only need left alignment; the divider is on <thead>. */
 .tx-header-row th {
     text-align: left;
+    /* One step quieter than --text-tertiary, the last of the three semantic
+       text tiers, so this reaches past them into the palette. base-500 is the
+       right rung on BOTH themes: the tiers run 900/700/600 on light and
+       100/300/400 on dark, so the next step down converges on 500 either way
+       and one value covers both.
+
+       The column names are read once and then stop being read, while the
+       ledger rows are what the page is for — so the labels sit back and the
+       data reads loudest. Being below the tertiary placeholder colour is not a
+       clash: these cells are bold, uppercase and tracked out, so the eyebrow
+       treatment tells them apart from body text at any weight of grey.
+
+       CONTRAST: 3.4:1 on the light themes and 4.6:1 on dark, against 4.5:1 for
+       13px bold (too small to qualify for the large-text 3:1 allowance). The
+       light figure is BELOW AA and was accepted deliberately for the quieter
+       header; --text-tertiary is the rung to return to if that is revisited.
+
+       This overrides the shared rule in tables.css by source order (equal
+       specificity, transactions.css loads second); .db-table th on Statements
+       and Portfolio keeps the louder tier, since those grids are read BY their
+       month/account headers rather than down a single list. */
+    color: var(--color-base-500);
     /* Cells default to content-box, which would add padding/border on top of
        the width below instead of being included in it — border-box makes
        offsetWidth (what txSyncColumnWidths measures) map 1:1 onto `width`. */
@@ -763,11 +820,6 @@
     font-family: var(--font-numeric);
     font-variant-numeric: tabular-nums;
     text-align: right;
-}
-
-.tx-row td.tx-col-notes,
-.tx-row td.tx-col-description {
-    color: var(--text-secondary);
 }
 
 /* Notes is capped + content-fit (unlike description, which flexes), so a long

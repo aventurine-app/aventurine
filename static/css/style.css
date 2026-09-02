@@ -571,13 +571,16 @@
        same height. The sidebar nav keeps its own downward shadow (it casts
        vertically, not as a floating card).
 
-       DELIBERATELY FLAT. The app separates a card from the page with its
-       border and its lighter fill, not with a drop shadow, so the value is
-       zeroed rather than the token being removed — eleven rules read it, and
-       keeping the knob is what lets the whole set be raised again by editing
-       one line. A non-zero alpha is left in place so the shape of the value is
-       still obvious to whoever does. */
-    --shadow-card: 0 0px 0px rgba(0, 0, 0, 0.2);
+       This was zeroed for a long stretch — the card was separated from the
+       page by its border and its lighter fill alone — and the token was kept
+       at zero rather than removed precisely so the whole set could be raised
+       again from this one line. It now is.
+
+       The value is the BOTTOM rung of the elevation ladder (card → menu →
+       modal), so it stays well under --shadow-menu's 8px/24px/0.5: a short
+       drop and a low alpha, enough to lift a card off --background without
+       reading as a floating panel. Theme-independent, like the two below. */
+    --shadow-card: 0 2px 6px rgba(0, 0, 0, 0.14);
 
     /* Elevation drop shadow shared by every dropdown menu / popover (titlebar
        File menu, ⋮ table menus, range pickers, Transactions filter popovers).
