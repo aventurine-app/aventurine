@@ -488,6 +488,10 @@
         const tabs = Array.from(tabBar.querySelectorAll('.settings-tab'));
         const modal = tabBar.closest('.settings-modal');
         const panels = modal ? Array.from(modal.querySelectorAll('.settings-tabpanel')) : [];
+        // The footer holds Restore Defaults, which only means something on a tab
+        // of settings. A tab that carries data-footer="hide" (About) takes the
+        // whole bar away rather than showing a button with nothing to restore.
+        const footer = modal ? modal.querySelector('[data-settings-footer]') : null;
 
         function activate(tab, focus) {
             tabs.forEach(t => {
@@ -497,6 +501,7 @@
                 t.tabIndex = on ? 0 : -1;
             });
             panels.forEach(p => { p.hidden = p.dataset.tabpanel !== tab.dataset.tab; });
+            if (footer) footer.hidden = tab.dataset.footer === 'hide';
             if (focus) tab.focus();
         }
 

@@ -495,7 +495,7 @@
 
 .settings-modal { width: 560px; }
 
-/* Tabbed Preferences modal: wider than the plain settings frame so the four
+/* Tabbed Preferences modal: wider than the plain settings frame so the five
    horizontal section tabs sit comfortably across the top. Fixed height keeps
    the frame from jumping as you switch between short and tall tabs — the body
    scrolls within it. The shared max-height (style.css) still clamps it on
@@ -580,6 +580,10 @@
     padding: 0 22px;
     border-top: var(--border-width) solid var(--border);
 }
+
+/* display:flex outranks the [hidden] attribute, so the hidden state needs
+   spelling out. settings.js hides the bar on tabs that carry no settings. */
+.settings-modal-footer[hidden] { display: none; }
 
 /* ── Security section ────────────────────────────────────────────────────
    Disabled timer row (auto-lock off) dims and blocks interaction. */

@@ -5,7 +5,7 @@
 // same chrome:
 //   • Window controls (min / max / close) → ipc bridge in preload.js
 //   • File dropdown toggle (New / Open / Save Database As)
-//   • Settings modal open / close
+//   • Settings button → the Settings modal
 //
 // The File items call window.dbActions (dbactions.js, which loads before this
 // file). That keeps the modal wiring and API calls in one place.
@@ -27,10 +27,12 @@
         }
     });
 
-    // ── Title-bar dropdown menus (File / Settings) ────────────────────
+    // ── Title-bar dropdown menus (File) ───────────────────────────────
     // Each menu button carries data-menu="<name>"; its panel carries
     // data-menu-panel="<name>". The panels float over page content with
     // their left edge aligned to the button. Only one is open at a time.
+    // Settings is not one of them: it has a single destination, so it opens
+    // the modal on the click rather than a menu of one item.
     const menuButtons = bar.querySelectorAll('.titlebar-menu-item[data-menu]');
 
     const panelFor = name => document.querySelector(`[data-menu-panel="${name}"]`);
@@ -85,22 +87,19 @@
         }
     });
 
-    // ── Settings modals (Preferences / About) ─────────────────────────
+    // ── Settings modal ────────────────────────────────────────────────
+    // One modal holds every setting, with About as its last tab, so the title
+    // bar's Settings button opens it directly. The tab it opens on is whichever
+    // was last active, which is also where the user left it.
     function openModal(name) {
         const modal = document.querySelector(`[data-modal="${name}"]`);
         if (modal) modal.hidden = false;
     }
 
-    // Settings dropdown actions open the matching modal.
-    panelFor('settings')?.addEventListener('click', e => {
-        const item = e.target.closest('[data-action]');
-        if (!item) return;
-        closeMenus();
-        if (item.dataset.action === 'open-preferences') {
-            openModal('preferences');
-        } else if (item.dataset.action === 'open-about') {
-            openModal('about');
-        }
+    bar.querySelector('[data-action="open-settings"]')?.addEventListener('click', e => {
+        e.stopPropagation();
+        closeMenus();       // the File dropdown, if it is open
+        openModal('preferences');
     });
 
     // Wire close (× button + backdrop click) for every settings modal.

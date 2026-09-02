@@ -250,12 +250,15 @@ app.whenReady().then(async () => {
     check('paid routes answer', paidNow.every((s) => s === 200));
 
     // ── Deactivating from About ───────────────────────────────────────────
-    // Preferences is opened alongside About to prove the modal sweep is not
-    // special-cased to the one the click came from.
-    await evalJs('document.querySelector("[data-action=\'open-about\']").click()');
-    await evalJs('document.querySelector("[data-modal=\'preferences\']").hidden = false');
+    // The title bar's Settings button opens the one settings modal; About is
+    // its last tab. The DB modal is opened alongside it to prove the modal
+    // sweep is not special-cased to the one the click came from.
+    await evalJs('document.querySelector("[data-action=\'open-settings\']").click()');
+    await evalJs('document.getElementById("settings-tab-about").click()');
+    await evalJs('document.querySelector(".db-modal-overlay").hidden = false');
     check('About is open before deactivating', await evalJs(
-      'document.querySelector("[data-modal=\'about\']").hidden === false'
+      'document.querySelector("[data-modal=\'preferences\']").hidden === false'
+      + ' && document.querySelector("[data-tabpanel=\'about\']").hidden === false'
     ));
 
     // Deactivate confirms first, and Cancel must cancel: a confirm step that
@@ -273,7 +276,8 @@ app.whenReady().then(async () => {
       + ' && document.documentElement.dataset.licenseTier === "full"'
     ));
     check('and leaves About where it was', await evalJs(
-      'document.querySelector("[data-modal=\'about\']").hidden === false'
+      'document.querySelector("[data-modal=\'preferences\']").hidden === false'
+      + ' && document.querySelector("[data-tabpanel=\'about\']").hidden === false'
     ));
     check('cancelling really did not deactivate', await evalJs(
       'apiFetch("/api/license").then(r => r.json()).then(b => b.licensed === true)'

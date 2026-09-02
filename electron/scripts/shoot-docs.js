@@ -1099,10 +1099,10 @@ app.whenReady().then(async () => {
     if (phase('settings')) {
       console.log('\n— settings —');
       await nav('/', 2500);
-      await click('.titlebar-menu-item[data-menu="settings"]');
-      await sleep(250);
-      await click('[data-action="open-preferences"]');
+      await click('[data-action="open-settings"]');
       await sleep(700);
+      await click('#settings-tab-appearance');
+      await sleep(250);
       await shotEl('preferences-appearance', '.settings-modal-tabbed');
       for (const [tab, name] of [['transactions', 'preferences-transactions'],
         ['format', 'preferences-format'], ['security', 'preferences-security']]) {

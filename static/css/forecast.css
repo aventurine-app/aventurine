@@ -185,7 +185,12 @@
 
 /* Both menus hang off their own half, so the year list opens under the year and
    the month list under the month; the right-aligned default (ui.css) keeps each
-   inside the card. */
+   inside the card. The 160px floor from .p-table-dropdown is dropped here: these
+   lists hold four-digit years and month names, all shorter than that, and the
+   items are nowrap — so each menu sizes to its own longest caption instead of
+   sitting in a box wider than anything in it. */
+.range-selector-pair .range-selector-menu { min-width: 0; }
+
 .range-selector-pair .range-selector-btn:hover,
 .range-selector-pair .range-selector-btn:focus-visible {
     position: relative;

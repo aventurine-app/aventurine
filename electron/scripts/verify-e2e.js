@@ -176,11 +176,11 @@ app.whenReady().then(async () => {
       '!document.getElementById("db-modal").hidden && document.getElementById("db-modal-title").textContent === "New Database"'
     ));
 
-    // The Settings menu is a dropdown → Preferences / About.
-    await evalJs('document.querySelector("[data-menu=\'settings\']").click()');
-    await evalJs('document.querySelector("[data-menu-panel=\'settings\'] [data-action=\'open-preferences\']").click()');
-    check('Settings menu opens Preferences modal', await evalJs(
+    // Settings is a single button, not a dropdown: one click, one modal.
+    await evalJs('document.querySelector("[data-action=\'open-settings\']").click()');
+    check('Settings button opens the settings modal', await evalJs(
       '!document.querySelector("[data-modal=\'preferences\']").hidden'
+      + ' && !document.querySelector("[data-menu-panel=\'settings\']")'
     ));
 
     // Picking a theme paints in place and fires 'themechange' for the charts —
@@ -247,9 +247,11 @@ app.whenReady().then(async () => {
     check('activation screen is not painted while licensed', await evalJs(
       'getComputedStyle(document.querySelector("[data-activation-screen]")).display === "none"'
     ));
-    // Licensing left Preferences when it stopped being a preference.
-    check('License is in About, not Preferences', await evalJs(
+    // Licensing has no tab of its own: it sits in the About tab, because it is
+    // a fact about the copy rather than a preference.
+    check('License is in the About tab, not a tab of its own', await evalJs(
       '!document.getElementById("settings-tab-license")'
+      + ' && !!document.getElementById("settings-tab-about")'
       + ' && document.querySelector("[data-about-license-section]").hidden === false'
     ));
     check('About names the licensee', await evalJs(

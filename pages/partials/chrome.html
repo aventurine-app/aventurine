@@ -5,7 +5,7 @@
         <img class="titlebar-icon" src="/static/icons/logo/logo.svg" alt="Aventurine" draggable="false">
         <div class="titlebar-menu">
             <button class="titlebar-menu-item" data-menu="file" tabindex="-1">File</button>
-            <button class="titlebar-menu-item" data-menu="settings" tabindex="-1">Settings</button>
+            <button class="titlebar-menu-item" data-action="open-settings" tabindex="-1">Settings</button>
         </div>
         <div class="titlebar-drag"></div>
         <!-- Name of the currently open database, centered over the bar.
@@ -98,11 +98,6 @@
         <button class="titlebar-dropdown-item" data-action="save-db-as">Save Database As</button>
     </div>
 
-    <div class="titlebar-dropdown" data-menu-panel="settings" hidden>
-        <button class="titlebar-dropdown-item" data-action="open-preferences">Preferences</button>
-        <button class="titlebar-dropdown-item" data-action="open-about">About</button>
-    </div>
-
 
     <div class="settings-modal-overlay" data-modal="preferences" hidden>
         <div class="settings-modal settings-modal-tabbed">
@@ -123,6 +118,9 @@
                 <button class="settings-tab" type="button" role="tab"
                         id="settings-tab-security" data-tab="security"
                         aria-selected="false" tabindex="-1" aria-controls="settings-panel-security">Security</button>
+                <button class="settings-tab" type="button" role="tab"
+                        id="settings-tab-about" data-tab="about" data-footer="hide"
+                        aria-selected="false" tabindex="-1" aria-controls="settings-panel-about">About</button>
             </div>
             <div class="settings-modal-body">
 
@@ -406,30 +404,25 @@
     </div>
 </div>
 
-            </div>
-            <div class="settings-modal-footer">
-                <button class="db-btn settings-restore-defaults" type="button">Restore Defaults</button>
-            </div>
-        </div>
-    </div>
 
+<!-- About. Shows the installed version and this copy's license. (Aventurine
+     has no in-app updater; the app never phones home - installs come from the
+     source-only releases.)
 
-    <!-- About. Shows the installed version and this copy's license. (Aventurine
-         has no in-app updater; the app never phones home — installs come from the
-         source-only releases.)
+     It is a tab of Preferences rather than a modal of its own: one Settings
+     surface, opened one way, with About as its last section. The Settings menu
+     still lists About, which opens this modal on this tab.
 
-         License lives HERE rather than in Preferences because it is not a
-         preference: there is nothing to choose. By the time this modal can be
-         opened the install is already activated — an unactivated one never gets
-         past the activation screen — so what is left is a fact about the copy,
-         which is exactly what About is for, next to the version number. -->
-    <div class="settings-modal-overlay" data-modal="about" hidden>
-        <div class="settings-modal">
-            <div class="settings-modal-header">
-                <span class="settings-modal-title">About</span>
-                <button class="settings-modal-close" aria-label="Close">×</button>
-            </div>
-            <div class="settings-modal-body">
+     License lives HERE rather than in the tabs beside it because it is not a
+     preference: there is nothing to choose. By the time this panel can be
+     opened the install is already activated - an unactivated one never gets
+     past the activation screen - so what is left is a fact about the copy,
+     which is exactly what About is for, next to the version number.
+
+     No Restore Defaults for this tab: the footer carries [data-footer="hide"]
+     from the tab button, since nothing here is a setting to restore. -->
+<div class="settings-tabpanel" data-tabpanel="about" role="tabpanel" hidden
+     id="settings-panel-about" aria-labelledby="settings-tab-about">
 
 <div class="settings-section">
     <div class="settings-section-header">Aventurine</div>
@@ -474,14 +467,20 @@
         </div>
     </div>
 </div>
+
+</div>
+
+            </div>
+            <div class="settings-modal-footer" data-settings-footer>
+                <button class="db-btn settings-restore-defaults" type="button">Restore Defaults</button>
             </div>
         </div>
     </div>
 
 
-    <!-- Deactivate confirmation (About → License → Deactivate).
+    <!-- Deactivate confirmation (Preferences → About → License → Deactivate).
 
-         Placed AFTER the About modal deliberately: both are
+         Placed AFTER the Preferences modal deliberately: both are
          .settings-modal-overlay at the same z-index, so DOM order is what puts
          this one over the modal it was opened from. -->
     <div class="settings-modal-overlay" data-modal="license-deactivate" hidden>
