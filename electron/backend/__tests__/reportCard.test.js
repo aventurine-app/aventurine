@@ -465,3 +465,4 @@ test('report-card API: renaming a charted category keeps its key and follows the
   assert.equal(auto.name, 'Getting Around');
   assert.equal(auto.amount, 3000);
 });
+

@@ -614,8 +614,15 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
     border-bottom-left-radius: 6px;
 }
 
-.stepper-joined > :last-child,
-.stepper-joined > :last-child .stepper-label {
+/* The right end is the last child THAT IS A CONTROL. UI.openMenu appends the
+ * picker menu (.p-table-dropdown) into the opener's parent, and in a stepper
+ * whose label has no .stepper-picker wrapper (Recurring, Statements) that
+ * parent is this cluster — so while the menu is open the menu is the last
+ * child, a plain :last-child stopped matching the › button, and its outer
+ * corners squared off until the menu closed. Dashboard never showed it only
+ * because its labels are wrapped and the menu lands inside the wrapper. */
+.stepper-joined > :nth-last-child(1 of :not(.p-table-dropdown)),
+.stepper-joined > :nth-last-child(1 of :not(.p-table-dropdown)) .stepper-label {
     border-top-right-radius: 6px;
     border-bottom-right-radius: 6px;
 }

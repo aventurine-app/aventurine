@@ -553,6 +553,20 @@
     '/api/forecast': forecastFixture,
     // static/js/pages/metrics.js — see reportCardFixture above.
     '/api/report-card': reportCardFixture,
+    // static/js/pages/dashboard.js — the Financial Freedom card. Mirrors
+    // financialFreedom() in electron/backend/services/reportCard.js: 25 x the
+    // average expenses of the complete years, and the latest net worth's share
+    // of it. Figures follow reportCardFixture's four complete years (43000,
+    // 45800, 47400, 46000 → 45550 average).
+    '/api/financial-freedom': {
+      ok: true,
+      avgExpenses: 45550,
+      yearsAveraged: [year - 4, year - 3, year - 2, year - 1],
+      number: 1138750,
+      netWorth: 115000,
+      netWorthAsOf: { year, month: 7 },
+      progress: 115000 / 1138750,
+    },
     // static/js/shell/settings.js — feature toggles read by the settings
     // panel; tx_auto_match configures the learned auto-categorization
     // matcher (electron/backend/services/matchRules.js on the real backend).

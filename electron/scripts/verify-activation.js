@@ -130,6 +130,7 @@ app.whenReady().then(async () => {
         apiFetch("/api/transfers"),
         apiFetch("/api/recurring"),
         apiFetch("/api/report-card"),
+        apiFetch("/api/financial-freedom"),
         apiFetch("/api/portfolio/data"),
         apiFetch("/api/predictions/upcoming"),
       ].map(p => p.then(r => r.status)))`);

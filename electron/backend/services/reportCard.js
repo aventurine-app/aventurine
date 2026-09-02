@@ -31,6 +31,57 @@ const INVESTED_GOAL = [0.15, 0.20];   // of which 15–20% goes to investing
 const NEAR_BAND = 0.05;   // ratio goals: 5 points past the bound
 const NEAR_TREND = 0.02;  // trend goals: a move under 2% the wrong way
 
+// ─── Financial Freedom ───────────────────────────────────────────────────────
+// The Financial Independence (FI) number: the sum a household is commonly said
+// to need before its yearly costs can be met from what it holds, taken as a
+// fixed multiple of those costs (the 4% rule's reciprocal). One constant, held
+// here so the tooltip, the tests and the figure agree on it.
+const FI_MULTIPLE = 25;
+
+/**
+ * The Dashboard's Financial Freedom card (GET /api/financial-freedom): ONE
+ * measurement of the whole ledger, not a per-year figure — it is what the
+ * Metrics tab's year picker would have made it, and a target that moved with a
+ * picker is not a target.
+ *
+ * `years` is every tracked year's { year, expenses }. The average is taken over
+ * the years with any expenses, so a year with no spending recorded is skipped
+ * rather than averaged in as a year of living for free. The CURRENT calendar
+ * year is left out while an earlier qualifying year exists: it is partial, and
+ * eight months of expenses averaged in as a full year lowers the number by a
+ * fifth for no reason the reader can see. When it is the only year with
+ * expenses it is used as it stands, since a number built on something beats an
+ * N/A built on nothing. `currentYear` is passed in so tests are deterministic.
+ *
+ * Progress is net worth over the number. Net worth can be negative (more owed
+ * than owned), and that is returned as a negative share rather than clamped:
+ * the renderer decides how to draw it, and a reader who owes more than they
+ * own is owed the real figure.
+ */
+function financialFreedom({ years, netWorth, netWorthAsOf, currentYear }) {
+  const cy = currentYear || new Date().getFullYear();
+  let pool = (years || []).filter((y) => y.expenses > 0);
+  const complete = pool.filter((y) => y.year !== cy);
+  if (complete.length) pool = complete;
+  pool = [...pool].sort((a, b) => a.year - b.year);
+
+  let avgExpenses = null;
+  let number = null;
+  if (pool.length) {
+    avgExpenses = round2(pool.reduce((sum, y) => sum + y.expenses, 0) / pool.length);
+    number = round2(avgExpenses * FI_MULTIPLE);
+  }
+  const nw = netWorth == null ? null : round2(netWorth);
+  return {
+    avgExpenses,
+    yearsAveraged: pool.map((y) => y.year),
+    number,
+    netWorth: nw,
+    netWorthAsOf: nw == null ? null : netWorthAsOf || null,
+    progress: number > 0 && nw != null ? nw / number : null,
+  };
+}
+
 // ─── Metric bands ────────────────────────────────────────────────────────────
 // Where each ratio's meter is coloured, and what tone it earns there. Shipped
 // to the renderer with the report (`bands` on the response) rather than copied
@@ -321,6 +372,8 @@ module.exports = {
   evaluateGoals,
   METRIC_BANDS,
   INFLATION_CATEGORIES,
+  FI_MULTIPLE,
+  financialFreedom,
   EXPENSE_RATIO_GOAL,
   DTI_GOAL,
   SAVINGS_GOAL,

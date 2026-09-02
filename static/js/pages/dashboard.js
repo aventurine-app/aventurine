@@ -1635,6 +1635,101 @@
         });
     }
 
+    // ─── Financial Freedom ───────────────────────────────────────────────────
+    // One measurement of the whole ledger (GET /api/financial-freedom): the FI
+    // number, 25 x average yearly expenses, and the share of it the Balance
+    // Sheet's latest net worth has reached. Two tiles in one card, in the
+    // Metrics tab's headline-figure idiom, since that is where the card came
+    // from: a per-year version there changed with the report's year picker, and
+    // a target that moves with a picker is not a target.
+    //
+    // Progress is a FILL, not one of the Metrics gauges: a gauge pre-colours the
+    // track into good/caution/bad ranges, and progress towards a target has no
+    // such ranges, only how much of the way is covered. The fill's length against
+    // the track's end IS that reading, so it wears one hue.
+
+    const FI_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    /** "Mar 2025" from the payload's { year, month } (month 1-12). */
+    function fmtAsOf(asOf) {
+        if (!asOf || !Number.isInteger(asOf.month) || asOf.month < 1 || asOf.month > 12) return '';
+        return `${FI_MONTHS[asOf.month - 1]} ${asOf.year}`;
+    }
+
+    /** A 0..1 share as a whole percent ("62%", "-5%"); null → "N/A". */
+    function fmtShare(r) {
+        return r == null || !Number.isFinite(r) ? 'N/A' : `${Math.round(r * 100)}%`;
+    }
+
+    function fiInfo(tip) {
+        const t = escapeHtml(tip);
+        return `<span class="fc-info" tabindex="0" role="note" aria-label="${t}" data-tip="${t}">i</span>`;
+    }
+
+    function fiTile(label, tip, value, extraHtml, sub, { na = false, negative = false } = {}) {
+        return `<div class="fi-tile${na ? ' fi-tile-na' : ''}">
+            <div class="fi-label">${escapeHtml(label)}${fiInfo(tip)}</div>
+            <span class="fi-value${negative ? ' fi-value-negative' : ''}">${escapeHtml(value)}</span>
+            ${extraHtml || ''}
+            ${sub ? `<span class="fi-sub">${escapeHtml(sub)}</span>` : ''}
+        </div>`;
+    }
+
+    function renderFreedom(fi) {
+        const host = document.getElementById('freedom-body');
+        if (!host) return;
+
+        const hasNumber = Number.isFinite(fi.number);
+        const n = Array.isArray(fi.yearsAveraged) ? fi.yearsAveraged.length : 0;
+        const numberTile = fiTile(
+            'FI Number',
+            'Your Financial Independence (FI) number: average yearly expenses across your tracked years, multiplied by 25, the amount commonly held to be enough to live on without working. The current year is left out of the average while an earlier full year exists, since it is not finished yet.',
+            hasNumber ? fmtValue(fi.number) : 'N/A',
+            '',
+            hasNumber ? `25 × ${fmtValue(fi.avgExpenses)} average yearly expenses over ${n} year${n === 1 ? '' : 's'}` : '',
+            { na: !hasNumber }
+        );
+
+        const hasProgress = Number.isFinite(fi.progress);
+        const filled = hasProgress ? Math.max(0, Math.min(1, fi.progress)) * 100 : 0;
+        const asOf = fmtAsOf(fi.netWorthAsOf);
+        const reading = hasProgress
+            ? `${fmtShare(fi.progress)} of the FI number reached, net worth ${fmtValue(fi.netWorth)}${asOf ? ` as of ${asOf}` : ''}`
+            : 'no value yet';
+        const track = `<div class="fi-track" role="img" aria-label="${escapeHtml(`Progress to FI: ${reading}`)}">
+            ${hasProgress ? `<span class="fi-fill" style="width:${filled.toFixed(3)}%"></span>` : ''}
+        </div>`;
+        const progressTile = fiTile(
+            'Progress to FI',
+            'Net worth from your Balance Sheet (everything you own minus everything you owe), at the latest month with a balance, divided by the FI number. Shows N/A until the Balance Sheet holds a balance and a year holds expenses.',
+            fmtShare(fi.progress),
+            track,
+            Number.isFinite(fi.netWorth) ? `Net worth ${fmtValue(fi.netWorth)}${asOf ? ` as of ${asOf}` : ''}` : '',
+            { na: !hasProgress, negative: hasProgress && fi.progress < 0 }
+        );
+
+        host.innerHTML = numberTile + progressTile;
+    }
+
+    // Requested only once the backend has confirmed the install is licensed.
+    // The route is paid, and a 402 raises the activation screen (core/api.js),
+    // which must never happen on the Dashboard at launch — so neither the
+    // pre-paint hint nor an unanswered check is enough to ask on.
+    let freedomLoaded = false;
+    async function loadFreedom() {
+        if (freedomLoaded || !document.getElementById('freedom-body')) return;
+        const tier = window.licenseActions && window.licenseActions.tier ? window.licenseActions.tier() : null;
+        if (tier !== 'full') return;
+        freedomLoaded = true;
+        try {
+            const r = await apiFetch('/api/financial-freedom');
+            if (!r.ok) { freedomLoaded = false; return; }
+            renderFreedom(await r.json());
+        } catch {
+            freedomLoaded = false;   // a failed card must not hide a working dashboard
+        }
+    }
+
     /** Fetch both datasets in parallel and render all dashboard sections. */
     async function init() {
         wireMonthStepper();
@@ -1700,6 +1795,14 @@
     document.addEventListener('DOMContentLoaded', () => {
         init();
         window.addEventListener('themechange', repaintCharts);
+        // Whichever comes first: the license check may have answered before this
+        // script ran (then the tier is already known) or may still be in flight
+        // (then the event says when).
+        loadFreedom();
+        window.addEventListener('aventurine:license-tier', loadFreedom);
+        window.addEventListener('currencychange', () => {
+            if (freedomLoaded) { freedomLoaded = false; loadFreedom(); }
+        });
         // Runs alongside the dashboard load, not before it: the hero appears once
         // the check resolves, and a database with data never waits on it. Bound
         // once per page load (init() is not re-entered — see above).

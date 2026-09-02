@@ -20,6 +20,7 @@ const routes = [
   ...require('./handlers/transfers').routes,
   ...require('./handlers/recurring').routes,
   ...require('./handlers/reportCard').routes,
+  ...require('./handlers/financialFreedom').routes,
   ...require('./handlers/appSettings').routes,
   ...require('./handlers/onboarding').routes,
   ...require('./handlers/database').routes,

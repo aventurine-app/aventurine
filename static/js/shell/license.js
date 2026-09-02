@@ -68,6 +68,9 @@
 
     let busy = false;
 
+    // null until the backend has answered once; then 'full' | 'free'.
+    let verifiedTier = null;
+
     function setError(msg) {
         errorEl.textContent = msg || '';
         errorEl.hidden = !msg;
@@ -88,6 +91,13 @@
         } catch {
             // Private-mode or quota failures only cause a pre-paint flash.
         }
+        // The <html> flag above may have been set pre-paint from the hint, which
+        // can be stale. This is the VERIFIED tier — what the backend just said —
+        // for a page that has to decide whether to request a paid route at all
+        // (the Dashboard's Financial Freedom card): asking on the hint alone
+        // would raise the gate on the Dashboard the one time the hint is wrong.
+        verifiedTier = licensed ? 'full' : 'free';
+        window.dispatchEvent(new CustomEvent('aventurine:license-tier', { detail: { tier: verifiedTier } }));
 
         // A user who HAS activated and is being asked again is owed the reason.
         leadEl.textContent = licensed ? DEFAULT_LEAD : (st.message || DEFAULT_LEAD);
@@ -392,5 +402,5 @@
     });
 
     refresh();
-    window.licenseActions = { refresh };
+    window.licenseActions = { refresh, tier: () => verifiedTier };
 }());

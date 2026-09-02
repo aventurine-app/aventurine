@@ -84,9 +84,15 @@
    router.js for why that was left out. */
 [data-license-tier="free"] #dashboard-section-overtime { display: none; }
 
-/* Year to Year is the first section on the page, so hiding it leaves Month to
-   Month as the second sibling and it keeps the 16px gap meant to separate two
-   sections from a heading that is no longer above it. */
+/* Financial Freedom is paid too, and unlike Year to Year it has its own route
+   (/api/financial-freedom, locked by the allowlist): this rule hides the frame,
+   and dashboard.js does not request the figures until the backend has said the
+   install is licensed, so the free tier never meets the 402. */
+[data-license-tier="free"] #dashboard-section-freedom { display: none; }
+
+/* Financial Freedom and Year to Year are the first two sections on the page, so
+   hiding both leaves Month to Month as a later sibling and it keeps the 16px gap
+   meant to separate two sections from a heading that is no longer above it. */
 [data-license-tier="free"] #dashboard-section-month { margin-top: 0; }
 
 /* Locked nav links keep their place in the list. Removing them would leave the

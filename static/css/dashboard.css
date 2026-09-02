@@ -164,6 +164,83 @@
 .dashboard-section + .dashboard-section { margin-top: 16px; }
 
 
+/* ─── 1b. Financial Freedom ──────────────────────────────────────────────── */
+/* One card, two tiles. Headline-figure tiles in the Metrics tab's idiom (all-caps
+   micro label, numeric headline, one line of figures under it), since the card
+   came from there and the reader will meet the same shapes on that tab.
+
+   Two across, never three: there are two of them, and a third column would be
+   an empty slot in a row of two. */
+.freedom-tiles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 28px;
+}
+@media (max-width: 700px) {
+    .freedom-tiles { grid-template-columns: minmax(0, 1fr); }
+}
+.fi-tile { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.fi-label {
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wide);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+}
+.fi-value {
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-h3);
+    font-weight: var(--weight-semibold);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+/* Progress can be negative (more owed than owned), and a minus sign in a
+   percentage is easy to miss, so it carries the loss colour too. */
+.fi-value-negative { color: var(--accent-negative); }
+.fi-sub {
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Progress is a FILL, where the Metrics ratios are gauges. The gauge argument is
+   that a fill hides the scale: the reader has to know what a good number is
+   before the tip of the fill says anything. Progress towards a target has no
+   good or bad range, only how much of the way is covered, and for that the fill
+   IS the scale, with the track's end being the target. One hue, since the
+   length is the reading and a colour would have nothing left to encode. Past
+   the target the fill is full and the printed share says by how much. */
+.fi-track {
+    position: relative;
+    height: 8px;
+    margin-top: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--frost-2);
+}
+.fi-tile-na .fi-track { opacity: 0.45; }
+.fi-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: 4px;
+    background: var(--accent-primary);
+    transform: scaleX(0);
+    transform-origin: left center;
+    animation: fi-fill-grow 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+@keyframes fi-fill-grow { to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) {
+    .fi-fill { animation: none; transform: scaleX(1); }
+}
+
+
 /* ─── 2. Card shell ──────────────────────────────────────────────────────── */
 /* Flex column so the chart/body inside can be pushed to the bottom of the
    card via margin-top: auto. When the grid row stretches a card taller than
