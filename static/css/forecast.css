@@ -158,6 +158,40 @@
    account label so switching accounts can't shove the horizon picker sideways. */
 #forecast-account { --stepper-label-min: 90px; }
 
+/* ─── Year + month as one joined control (Cash Flow) ─────────────────────────
+   Two .range-selector triggers abutting on a shared edge, so the pair reads as
+   one picker with a left half and a right half rather than two controls that
+   happen to sit next to each other. The year half narrows to its four digits,
+   the month half carries the longest caption ("Entire year", "September"), and
+   the inner corners drop their radius. The divider is the FIRST button's right
+   border and the second drops its left one — two borders on one seam would draw
+   a double line. The seam sits under whichever half is hovered or focused, so
+   its highlight is not cut in half by the neighbour's border. */
+.range-selector-pair { display: flex; }
+
+#cashflow-year { --stepper-label-min: 76px; }
+#cashflow-month { --stepper-label-min: 132px; }
+
+.range-selector-pair > .range-selector:first-child .range-selector-btn {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.range-selector-pair > .range-selector:last-child .range-selector-btn {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-left: none;
+}
+
+/* Both menus hang off their own half, so the year list opens under the year and
+   the month list under the month; the right-aligned default (ui.css) keeps each
+   inside the card. */
+.range-selector-pair .range-selector-btn:hover,
+.range-selector-pair .range-selector-btn:focus-visible {
+    position: relative;
+    z-index: 1;
+}
+
 #forecast-account .range-selector-btn:disabled {
     color: var(--text-tertiary);
     cursor: default;

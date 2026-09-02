@@ -8,8 +8,8 @@
 // category's yearly total; the pipes are colour-blended and animated.
 //
 // Pure renderer — no dedicated backend. It reuses GET /api/data (the Cash Flow
-// table payload) and aggregates each category across the 12 months of the
-// selected year on the client. Self-contained inline SVG, the same approach as
+// table payload) and aggregates each category on the client, over the span the
+// header's joined year+month picker names: a whole year, or one month of it. Self-contained inline SVG, the same approach as
 // forecast.js / dashboard.js (CSP-clean: no CDN library, no inline handlers). Styled
 // in forecast.css under the .cashflow-sankey namespace.
 //
@@ -88,7 +88,11 @@
     return Math.min(Math.max(boxW, MIN_CHART_W), stretched);
   }
 
-  const PAD = { l: 150, r: 150, t: 28, b: 16 };
+  const PAD = { t: 28, b: 16 };
+  const LABEL_OFFSET = 10;         // gap between a node's edge and its label text
+  const EDGE_PAD = 10;             // gap between the longest label and the container edge
+  const MIN_GUTTER = 60;           // floor, so a column of short names still has a margin
+  const MAX_GUTTER = 150;          // ceiling: past this the ribbons pay for one long name
   const NODE_W = 13;               // node-bar thickness
   const MIN_BAND = 1.5;            // floor so a tiny category is still visible
   const LABEL_GAP = 32;            // min vertical spacing between adjacent labels (name + amount)
@@ -100,10 +104,62 @@
                                    // at the very top or bottom still has room for its own label
   const CENTER_LABEL_GAP = 12;     // breathing room between the centre label group and the Net Inflow node
 
+  /* ─── Side gutters are MEASURED, not reserved ──────────────────────────────
+     The gutter either side used to be a flat 150 layout units, sized for the
+     longest category name that could turn up. Most ledgers have none that long,
+     so the strip between the labels and the card edge sat empty and the ribbons
+     ran narrow. The width each side actually needs is measured off the two label
+     lines it will draw — the name at 11px and the amount + share at 10px — and
+     the gutter is that, clamped between MIN_GUTTER and the old 150. */
+  let measureCtx;
+
+  /** Label faces, as canvas font strings. Layout units are CSS px before the
+   *  viewBox scale, so measuring at the stylesheet's own sizes gives the widths
+   *  the SVG lays out with. */
+  function labelFonts() {
+    const cs = getComputedStyle(document.documentElement);
+    const family = cs.getPropertyValue('--font-h3').trim() || 'sans-serif';
+    const semi = cs.getPropertyValue('--weight-semibold').trim() || '600';
+    const bold = cs.getPropertyValue('--weight-bold').trim() || '700';
+    return { name: `${semi} 11px ${family}`, amount: `${bold} 10px ${family}` };
+  }
+
+  /** Text width in layout units, or null where no 2D context is available. */
+  function textWidth(text, font) {
+    if (measureCtx === undefined) {
+      const c = document.createElement('canvas');
+      measureCtx = (c.getContext && c.getContext('2d')) || null;
+    }
+    if (!measureCtx) return null;
+    measureCtx.font = font;
+    const w = measureCtx.measureText(text).width;
+    return Number.isFinite(w) ? w : null;
+  }
+
+  /** Horizontal room one side column needs for its labels. */
+  function gutterFor(items, sideTotal, fonts) {
+    let widest = 0;
+    for (const c of items) {
+      const share = fmtShare(c.total, sideTotal);
+      const amount = fmtMoney(c.total) + (share ? ` ${share}` : '');
+      // .sankey-label carries letter-spacing: 0.03em, which measureText does not
+      // include — add it back so a long name is not measured short and clipped.
+      const name = textWidth(c.label, fonts.name);
+      const amt = textWidth(amount, fonts.amount);
+      if (name === null || amt === null) return MAX_GUTTER;
+      widest = Math.max(widest, name + c.label.length * 11 * 0.03, amt);
+    }
+    if (widest <= 0) return MAX_GUTTER;
+    return Math.max(MIN_GUTTER, Math.min(MAX_GUTTER, Math.ceil(widest) + LABEL_OFFSET + EDGE_PAD));
+  }
+
   const state = {
     data: null,   // last /api/data payload
     year: null,   // selected year (number)
+    month: null,  // selected month name, or null for the whole year
   };
+
+  const ENTIRE_YEAR = 'Entire year';
 
   let chartObserver = null;
   let firstPaint = true;
@@ -114,7 +170,10 @@
   // same slug both this diagram (GET /api/data columns) and the Transactions
   // category list share — so it survives renames.
   function categoryHref(key) {
-    return `/transactions?year=${state.year}&cat=${encodeURIComponent(key)}`;
+    // `month` narrows the ledger to the same span the diagram is drawing, so a
+    // band clicked while January is on screen does not open the whole year.
+    const month = state.month ? `&month=${MONTHS.indexOf(state.month) + 1}` : '';
+    return `/transactions?year=${state.year}${month}&cat=${encodeURIComponent(key)}`;
   }
 
   // ─── Currency helpers ──────────────────────────────────────────────────────
@@ -151,16 +210,20 @@
     render();
   }
 
-  /** Sum each category across the 12 months of `year`, split by income/expense.
-   *  Returns { income:[{key,label,total}], expense:[…], totalIncome, totalExpense },
-   *  zero categories dropped, sorted by total desc (largest bands lead). */
-  function aggregate(year) {
+  /** Sum each category over `year` — all 12 months, or the one named by
+   *  `month` — split by income/expense. Returns
+   *  { income:[{key,label,total}], expense:[…], totalIncome, totalExpense },
+   *  zero categories dropped, sorted by total desc (largest bands lead).
+   *  One month is the same sum over a one-element span, so the diagram, its
+   *  shares and the empty state all keep working with no second code path. */
+  function aggregate(year, month) {
     const cols = (state.data.columns || []);
     const months = ((state.data.entries || {})[String(year)]) || {};
+    const span = month ? [month] : MONTHS;
 
     const totals = new Map(); // key -> running sum
-    for (const month of MONTHS) {
-      const cells = months[month];
+    for (const m of span) {
+      const cells = months[m];
       if (!cells) continue;
       for (const [key, value] of Object.entries(cells)) {
         if (typeof value === 'number' && Number.isFinite(value)) {
@@ -197,7 +260,7 @@
     // Geometry below is in layout units; `k` maps them onto the box at the end.
     const W = layoutWidth(boxW);
     const k = boxW / W;   // 1 when the box was wide enough to lay out in directly
-    const { income, expense, totalIncome, totalExpense } = aggregate(state.year);
+    const { income, expense, totalIncome, totalExpense } = aggregate(state.year, state.month);
     if (totalIncome <= 0 && totalExpense <= 0) return null; // caller → empty state
 
     // Read fresh so an accent/theme swap retones the diagram.
@@ -235,8 +298,9 @@
       availH / maxTotal
     );
 
-    const incomeX = PAD.l;
-    const expenseX = W - PAD.r - NODE_W;
+    const fonts = labelFonts();
+    const incomeX = gutterFor(income, totalIncome, fonts);
+    const expenseX = W - gutterFor(expense, totalExpense, fonts) - NODE_W;
     const centerX = (W - NODE_W) / 2;
     const centerH = maxTotal * scale;
     const centerTop = TOP;
@@ -301,7 +365,7 @@
         const cy = n.y + n.h / 2;
         const ly = labelYs[i];
         const edgeX = dir < 0 ? n.x : n.x + NODE_W; // node edge facing the label
-        const labelX = edgeX + dir * 10;            // text anchor x
+        const labelX = edgeX + dir * LABEL_OFFSET;  // text anchor x
         const h = n.total * scale;                  // true height; slot stays exact
         // Income flows node→centre slot; expense flows centre slot→node.
         const d = isIncome
@@ -369,7 +433,9 @@
     if (show) {
       el.innerHTML = UI.emptyState({
         icon: 'chart',
-        title: state.year === null ? 'No data yet' : 'Nothing to chart for this year',
+        title: state.year === null
+          ? 'No data yet'
+          : `Nothing to chart for this ${state.month ? 'month' : 'year'}`,
         // Name the destination, not the statement: this empty state sits
         // directly under a tab also labelled "Cash Flow", so "the Cash Flow
         // page" would read as somewhere on this page rather than Statements.
@@ -415,27 +481,55 @@
     draw(target.clientWidth, target.clientHeight);
   }
 
-  // ─── Year picker (mirrors forecast.js's range picker) ────────────────────────
+  // ─── Span picker: year + month, one joined control ───────────────────────────
+  // Two .range-selector halves sharing a seam (.range-selector-pair in
+  // forecast.css). The left half picks the year, the right half picks how much
+  // of it to draw: "Entire year" — the option the report opened on before the
+  // month half existed — or one of the twelve months, which draws that month
+  // alone with the year still shown in the half to its left.
+  //
+  // All twelve months are listed whatever the ledger holds, so the list is the
+  // same twelve rows in the same order every time it opens and does not shuffle
+  // when the year changes; a month with no rows draws the card's empty state.
+  // The month choice SURVIVES a year change — "March, and now show me last
+  // March" is the comparison the pair is for.
 
   function buildYearMenu(years) {
     const btn = document.getElementById('cashflow-year-btn');
     const menu = document.getElementById('cashflow-year-menu');
     if (!btn || !menu) return;
 
+    const monthBtn = document.getElementById('cashflow-month-btn');
     if (!years.length) {
       btn.textContent = 'No data';
       btn.disabled = true;
       menu.innerHTML = '';
+      if (monthBtn) monthBtn.disabled = true;
       return;
     }
     btn.disabled = false;
+    if (monthBtn) monthBtn.disabled = false;
     btn.textContent = String(state.year);
     menu.innerHTML = years
       .map((y) => `<button type="button" data-year="${y}">${y}</button>`)
       .join('');
   }
 
-  function wireYearPicker() {
+  function buildMonthMenu() {
+    const menu = document.getElementById('cashflow-month-menu');
+    if (!menu) return;
+    // data-month is empty for the whole-year option, which is what state.month
+    // being null means — one attribute covers both cases with no sentinel.
+    menu.innerHTML = [`<button type="button" data-month="">${ENTIRE_YEAR}</button>`]
+      .concat(MONTHS.map((m) => `<button type="button" data-month="${m}">${m}</button>`))
+      .join('');
+    // Pin the half to its widest caption, so picking September does not widen
+    // the pair and shove the seam sideways under the year beside it.
+    UI.lockPickerWidth(document.getElementById('cashflow-month-btn'),
+      [ENTIRE_YEAR].concat(MONTHS));
+  }
+
+  function wirePickers() {
     UI.wirePicker('cashflow-year-btn', 'cashflow-year-menu', (b) => {
       const y = parseInt(b.dataset.year, 10);
       if (y === state.year) return;
@@ -443,11 +537,20 @@
       document.getElementById('cashflow-year-btn').textContent = String(y);
       render();
     });
+
+    UI.wirePicker('cashflow-month-btn', 'cashflow-month-menu', (b) => {
+      const m = b.dataset.month || null;
+      if (m === state.month) return;
+      state.month = m;
+      document.getElementById('cashflow-month-btn').textContent = m || ENTIRE_YEAR;
+      render();
+    });
   }
 
   document.addEventListener('DOMContentLoaded', () => {
     if (!document.getElementById('cashflow-chart')) return;
-    wireYearPicker();
+    buildMonthMenu();
+    wirePickers();
     load();
     // Retone amounts when the currency symbol changes in Settings, and repaint
     // when the theme does — the node/flow colours are CSS tokens read at draw time.

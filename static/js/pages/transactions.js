@@ -1192,6 +1192,7 @@
         try { params = new URLSearchParams(location.search); }
         catch { return; }
         const yearRaw = params.get('year');
+        const monthRaw = params.get('month');
         const catKey  = params.get('cat');
         const nameRaw = params.get('name');
         if (yearRaw == null && catKey == null && nameRaw == null) return;
@@ -1204,8 +1205,17 @@
 
         const year = parseInt(yearRaw, 10);
         if (Number.isInteger(year) && year > 0) {
-            txState.filters.dateFrom = `${year}-01-01`;
-            txState.filters.dateTo   = `${year}-12-31`;
+            // `month` (1-12) narrows the same link to one month — the Cash Flow
+            // Sankey sends it when a single month is on screen, so the band
+            // clicked and the rows listed cover the same span. Day 0 of the next
+            // month is the last day of this one, which covers February.
+            const month = parseInt(monthRaw, 10);
+            const scoped = Number.isInteger(month) && month >= 1 && month <= 12;
+            const pad = (n) => String(n).padStart(2, '0');
+            txState.filters.dateFrom = scoped ? `${year}-${pad(month)}-01` : `${year}-01-01`;
+            txState.filters.dateTo   = scoped
+                ? `${year}-${pad(month)}-${pad(new Date(year, month, 0).getDate())}`
+                : `${year}-12-31`;
         }
         if (catKey) {
             // Match on the stable category key the link carries; map it to the id the
