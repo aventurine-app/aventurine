@@ -47,10 +47,21 @@
 
     const _prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
 
-    // '' is light, 'dark' is dark, 'colorful' is light with an accent sidebar,
-    // 'system' follows the OS. resolveTheme turns the stored choice into the
+    // 'colorful' is light with an accent sidebar and is the default when nothing
+    // is stored (DEFAULT_THEME), '' is plain light, 'dark' is dark, 'system'
+    // follows the OS. resolveTheme turns the stored choice into the
     // data-theme value actually painted — only 'system' needs resolving, so a
     // new theme is a CSS block plus a picker button and nothing here.
+    // Matches the same fallback in shell/theme-init.js, which paints pre-load.
+    const DEFAULT_THEME = 'colorful';
+
+    // The stored choice, with the shipped default standing in for an absent key.
+    // '' is read straight through, so plain Light stays a remembered choice.
+    function savedTheme() {
+        const v = localStorage.getItem('color-theme');
+        return v === null ? DEFAULT_THEME : v;
+    }
+
     function resolveTheme(theme) {
         if (theme === 'system') return _prefersDark.matches ? 'dark' : '';
         return theme;
@@ -76,7 +87,7 @@
 
     // Reflect the stored choice on every picker instance (page + title-bar modal).
     function syncThemeButtons() {
-        const saved = localStorage.getItem('color-theme') ?? '';
+        const saved = savedTheme();
         document.querySelectorAll('.settings-theme-btn').forEach(btn => {
             btn.classList.toggle('active', (btn.dataset.theme ?? '') === saved);
         });
@@ -89,7 +100,7 @@
         });
         // Re-resolve live when the OS flips while 'system' is selected.
         _prefersDark.addEventListener('change', () => {
-            if ((localStorage.getItem('color-theme') ?? '') === 'system') applyTheme('system');
+            if (savedTheme() === 'system') applyTheme('system');
         });
     }
 

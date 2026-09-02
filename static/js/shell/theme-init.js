@@ -8,8 +8,11 @@
 // Sets the data-theme attribute on <html> from localStorage so the saved
 // theme is the FIRST paint, with no flash of the default theme on nav.
 //
-// Stored 'color-theme' values: '' (light, the default), 'dark', 'colorful'
-// (light, with an accent sidebar — see themes.css), or 'system' (follow the OS).
+// Stored 'color-theme' values: 'colorful' (light, with an accent sidebar — see
+// themes.css), '' (plain light), 'dark', or 'system' (follow the OS). With
+// NOTHING stored the value is 'colorful': that is the shipped default, and it is
+// read as an absent key rather than as a stored '' so that picking Light stays a
+// distinct, remembered choice.
 // 'system' is the only value that needs resolving; every other value IS the
 // data-theme, so adding a theme means adding a CSS block and a picker button,
 // not editing this file. The live picker (settings.js) updates 'system' when the
@@ -19,7 +22,8 @@
 // land on <html> as data-* before first paint to avoid a layout flash on nav.
 
 (function () {
-    const t = localStorage.getItem('color-theme');
+    const stored = localStorage.getItem('color-theme');
+    const t = stored === null ? 'colorful' : stored;
     const effective = t === 'system'
         ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : '')
         : t;
