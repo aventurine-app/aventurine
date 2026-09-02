@@ -2,8 +2,9 @@
 
 // ─── Metrics (Reports) ───────────────────────────────────────────────────────
 // A tab of the Reports page (pages/reports.html): the selected year's money,
-// broken down, as THREE CARDS: the four headline totals, each carrying a
-// sparkline of every tracked year; VITALS, the four ratios those totals imply,
+// broken down, as THREE CARDS: the five headline totals (income, expenses,
+// net, savings, invested), each carrying a sparkline of every tracked year
+// under the number; VITALS, the four ratios those totals imply,
 // each drawn as a gauge with its ranges coloured in; and INFLATION, what the
 // household's five big costs did against the year before, as five small-multiple
 // lines sharing one scale.
@@ -49,10 +50,13 @@
 // (escape.js), formatCurrency (currency.js), UI.emptyState (ui.js).
 
 (function () {
-  // Sparkline geometry, in user units. Drawn at this size 1:1 (no
-  // preserveAspectRatio stretching) so the marker dot stays a circle and the
-  // stroke keeps its width.
-  const SPARK = { w: 82, h: 26, pad: 3 };
+  // Sparkline padding, as a percent of the chart box. The line is drawn in a
+  // 0–100 box stretched to the tile's width (preserveAspectRatio="none", the
+  // Inflation charts' rule), so the geometry is in percent and the height is
+  // CSS (.met-spark). Vertical room is what keeps the marker dot on the
+  // highest or lowest year inside the box; horizontally the line runs edge to
+  // edge and overflow:visible lets the end dots overhang.
+  const SPARK = { padX: 0, padY: 8 };
 
   // How close two of a gauge's boundary labels may sit, as a percent of the
   // track, before they are drawn as one range label instead of two crowded ones.
@@ -116,20 +120,28 @@
     const min = Math.min(...values);
     const max = Math.max(...values);
     const span = max - min;
-    const innerW = SPARK.w - SPARK.pad * 2;
-    const innerH = SPARK.h - SPARK.pad * 2;
-    const x = (i) => SPARK.pad + (i / (values.length - 1)) * innerW;
+    const innerW = 100 - SPARK.padX * 2;
+    const innerH = 100 - SPARK.padY * 2;
+    const x = (i) => SPARK.padX + (i / (values.length - 1)) * innerW;
     // A flat series has no span to divide by; draw it down the middle.
-    const y = (v) => SPARK.pad + (span === 0 ? innerH / 2 : innerH - ((v - min) / span) * innerH);
-    const pts = values.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
-    // The same line closed to the floor. The fill is what stops 80px of pale
-    // stroke from reading as a stray mark next to the number it belongs to.
-    const area = `${SPARK.pad},${SPARK.h - SPARK.pad} ${pts} ${SPARK.w - SPARK.pad},${SPARK.h - SPARK.pad}`;
-    return `<svg class="met-spark" width="${SPARK.w}" height="${SPARK.h}"
-      viewBox="0 0 ${SPARK.w} ${SPARK.h}" aria-hidden="true" focusable="false">
-      <polygon class="met-spark-area" points="${area}" />
-      <polyline class="met-spark-line" points="${pts}" />
-      <circle class="met-spark-dot" cx="${x(activeIdx).toFixed(1)}" cy="${y(values[activeIdx]).toFixed(1)}" r="2.4" />
+    const y = (v) => SPARK.padY + (span === 0 ? innerH / 2 : innerH - ((v - min) / span) * innerH);
+    const pts = values.map((v, i) => `${x(i).toFixed(2)},${y(v).toFixed(2)}`).join(' ');
+    // The same line closed to the floor. The fill is what stops a run of pale
+    // stroke from reading as a stray mark under the number it belongs to.
+    const floor = (100 - SPARK.padY).toFixed(2);
+    const area = `${x(0).toFixed(2)},${floor} ${pts} ${x(values.length - 1).toFixed(2)},${floor}`;
+    // Two coordinate spaces in one picture: the line and its fill live in the
+    // stretched inner box (non-scaling stroke keeps the line at CSS pixels),
+    // and the marker sits in the outer, unstretched svg at percentage
+    // coordinates, so it stays a circle at any tile width.
+    const cx = x(activeIdx).toFixed(2);
+    const cy = y(values[activeIdx]).toFixed(2);
+    return `<svg class="met-spark" aria-hidden="true" focusable="false">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%">
+        <polygon class="met-spark-area" points="${area}" />
+        <polyline class="met-spark-line" points="${pts}" vector-effect="non-scaling-stroke" />
+      </svg>
+      <circle class="met-spark-dot" cx="${cx}%" cy="${cy}%" r="3" />
     </svg>`;
   }
 
@@ -178,11 +190,9 @@
     const s = seriesFor(field);
     return `<div class="met-figure${neg}">
     <span class="met-figure-label">${escapeHtml(label)}</span>
-    <div class="met-figure-row">
-      <span class="met-figure-value">${escapeHtml(fmtMoney(value))}</span>
-      ${sparkline(s.values, s.idx)}
-    </div>
+    <span class="met-figure-value">${escapeHtml(fmtMoney(value))}</span>
     ${changePill(change, goodWhenUp)}
+    ${sparkline(s.values, s.idx)}
   </div>`;
   }
 
@@ -317,20 +327,28 @@
   // question the section exists to answer — what got more expensive — becomes
   // unanswerable without reading five separate axes.
   //
-  // THE LINE IS THE ONLY MARK. No point dots, no end caps, no out-of-range
-  // arrowheads: at five charts by five years that is twenty-five symbols laid
-  // over the thing they are annotating, and the shape is what the chart is for.
-  // The per-year figures stay reachable through invisible full-height hover
-  // strips, so dropping the symbols costs no value.
+  // THE LINE PLUS ONE DOT. No point dots on every year, no end caps, no
+  // out-of-range arrowheads: at five charts by five years that is twenty-five
+  // symbols laid over the thing they are annotating, and the shape is what the
+  // chart is for. The one mark is the selected year's point, the same marker
+  // the headline sparklines carry, because the window no longer moves with the
+  // picker (below) and the dot is what says which year the card is about. The
+  // per-year figures stay reachable through invisible full-height hover
+  // strips, so dropping the other symbols costs no value.
   //
   // SVG for the line, HTML for everything around it. The plot is drawn in a
   // 0–100 box with preserveAspectRatio="none" so it fills whatever width the
   // grid gives it, which would stretch a stroke and squash a dot — so the stroke
-  // is `vector-effect="non-scaling-stroke"` and the dots are HTML positioned in
+  // is `vector-effect="non-scaling-stroke"` and the dot is HTML positioned in
   // the same percentage space, which also keeps every axis label crisp text
   // rather than type scaled by a viewBox.
 
-  // How many years of change each chart plots, ending with the selected one.
+  // How many years of change each chart plots. The window is the NEWEST tracked
+  // years, the same fixed x axis the headline sparklines draw, and the picker
+  // moves the dot along it rather than sliding the window: a chart that
+  // re-framed itself on every pick made two picks of the same category hard to
+  // compare. A selected year older than the window has no dot to place, and the
+  // category's own label still carries its figure.
   const INF_YEARS = 5;
 
   // The furthest the shared axis will reach, in percentage points. A category
@@ -352,7 +370,7 @@
    *  does not track are simply absent rather than drawn empty — the x axis is
    *  the years there ARE, not a calendar. */
   function inflationWindow() {
-    return state.asc.filter((r) => r.year <= state.year && r.year > state.year - INF_YEARS);
+    return state.asc.slice(-INF_YEARS);
   }
 
   /** A round bound at or above `m` percentage points, so the axis ends on a
@@ -419,7 +437,9 @@
       .join('');
 
     const charts = drawn.map((c) => {
-      const here = c.points.find((p) => p.year === state.year);
+      // The label's figure comes from the selected year's own row, not from the
+      // window, so it is printed even when that year is older than the chart.
+      const here = (y.inflation || []).find((x) => x.key === c.key);
       const arrow = (v) => (v > 0 ? '\u25b2' : v < 0 ? '\u25bc' : '\u25a0');
       const tone = (v) => (v > 0 ? 'up' : v < 0 ? 'down' : 'flat');
       const head = here && here.pct != null
@@ -473,6 +493,14 @@
           points="${run.map((pt) => `${pt.x.toFixed(2)},${pt.y.toFixed(2)}`).join(' ')}" />`)
         .join('');
 
+      // The selected year's point, as an HTML dot in the plot's percentage
+      // space (the svg is stretched, so a circle in it would squash). Absent
+      // when that year has no comparison or is outside the window.
+      const sel = plotted.find((pt) => pt && pt.year === state.year);
+      const dot = sel
+        ? `<span class="inf-dot" style="left:${sel.x.toFixed(2)}%;top:${sel.y.toFixed(2)}%"></span>`
+        : '';
+
       // Nothing is drawn for a point, so the values need a hover target that is
       // not a mark: one invisible strip per year, the full height of the plot.
       // Every figure stays reachable by pointer without putting a shape on a
@@ -508,7 +536,7 @@
               </defs>
               ${areas}${lines}
             </svg>
-            ${hits}
+            ${dot}${hits}
           </div>
           <div class="inf-x">${xs}</div>
         </div>
@@ -528,7 +556,8 @@
       ${figure('Income', y.income, y.changes.income, true, 'income')}
       ${figure('Expenses', y.expenses, y.changes.expenses, false, 'expenses')}
       ${figure('Net', y.net, y.changes.net, true, 'net')}
-      ${figure('Saved & Invested', y.transfers, y.changes.transfers, true, 'transfers')}
+      ${figure('Savings', y.saved, y.changes.saved, true, 'saved')}
+      ${figure('Invested', y.invested, y.changes.invested, true, 'invested')}
     </div>`;
   }
 

@@ -237,6 +237,7 @@ test('report-card API: aggregates a Cash Flow year by category cat_type', (t) =>
   // ...but transfers are still REPORTED, as a separate total and two ratios.
   assert.equal(y.transfers, 20000);   // savings + investing
   assert.equal(y.invested, 5000);     // the investing category alone
+  assert.equal(y.saved, 15000);       // everything put away that is not Investing
   assert.equal(y.metrics.savingsRate, 0.2);
   assert.equal(y.metrics.investedRate, 0.05);
   // 50% expenses → ratio goal met; no prior year → trends na.
@@ -338,6 +339,7 @@ test('report-card API: the savings rate counts every transfer category, invested
   // The custom category rides the savings rate but is not "invested" — only the
   // seeded investing key is.
   assert.equal(y.invested, 15000);
+  assert.equal(y.saved, 15000);       // the custom category lands in Savings
   assert.equal(y.metrics.investedRate, 0.15);
 });
 
@@ -388,6 +390,7 @@ test('report-card API: net and its YoY pill ignore transfers entirely', (t) => {
   assert.equal(y2025.net, 50000);
   assert.deepEqual(y2025.changes.net, { abs: 10000, pct: 0.25 });
   assert.deepEqual(y2025.changes.transfers, { abs: 25000, pct: null }); // grew from nothing
+  assert.deepEqual(y2025.changes.saved, { abs: 25000, pct: null });     // same money, Savings side
   assert.equal(years.find((y) => y.year === 2024).changes.net, null);
 });
 

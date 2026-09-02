@@ -735,16 +735,17 @@
             return;
         }
 
-        // Read the first chart stop so the net-worth line, gradient and nodes
-        // retone when the user swaps either palette. --chart-1, not
-        // --accent-primary: it resolves TO the accent under the default graph
-        // palette, and to the first colourful stop under the other one, so a
-        // single-series chart still belongs to the same set as every other.
-        // Net worth is a neutral metric, not a gain/loss figure, so it tracks
-        // the palette rather than the finance-positive green (which stays
-        // reserved for the +/- delta numbers and the income/asset indicators).
+        // Read the UI accent so the net-worth line, gradient and nodes retone
+        // with the colour theme. --accent-primary, NOT --chart-1: this is the
+        // Dashboard's headline figure and one single-series chart, so it wears
+        // the app's own colour on every graph palette rather than becoming
+        // lapis under Gemstone (--chart-1 resolves to the accent only under the
+        // default ramp). Net worth is a neutral metric, not a gain/loss figure,
+        // so it takes the accent and not the finance-positive green, which
+        // stays reserved for the +/- delta numbers and the income/asset
+        // indicators.
         const accentColor = getComputedStyle(document.documentElement)
-            .getPropertyValue('--chart-1').trim() || '#8fb088';
+            .getPropertyValue('--accent-primary').trim() || '#8fb088';
         const series = [{ label: 'Net Worth', color: accentColor, points: filtered }];
 
         observeChart('networth-chart', (W, animate) => buildChartSVG({ series, slots, W, animate }));

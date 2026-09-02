@@ -576,8 +576,17 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
    mechanisms are covered, because a .range-selector may use either: an in-page
    menu it toggles [hidden] on (Dashboard, Trends, the Forecast horizon), or one
    UI.openMenu builds and destroys (the stepper labels, the Forecast account
-   picker — which needs a list built from data rather than baked into markup). */
-.stepper:has(.p-table-dropdown) .stepper-label,
+   picker — which needs a list built from data rather than baked into markup).
+
+   The stepper half matches the label the menu was appended NEXT TO, not every
+   label under a stepper that holds one: UI.openMenu mounts the menu into the
+   opener's parent, so the open label is the one with the menu as a following
+   sibling. Keying off the .stepper flipped both carets on the Dashboard, whose
+   single stepper carries a year picker and a month picker. The sibling form
+   covers both markup shapes — a label wrapped in .stepper-picker (Dashboard)
+   and a bare label whose parent is the .stepper itself (Statements,
+   Recurring). */
+.stepper-label:has(~ .p-table-dropdown),
 .range-selector:has(.p-table-dropdown) .range-selector-btn,
 .range-selector:has(.range-selector-menu:not([hidden])) .range-selector-btn {
     background-image: conic-gradient(from 135deg at 50% 0%,

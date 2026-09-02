@@ -9,9 +9,13 @@
 // Transfers (money moved to savings/brokerage accounts) stay out of every
 // income/spend surface — they are not spending and not earning, so no goal is
 // graded on them and they do not reduce the cash-flow margin. They are still
-// REPORTED, as their own figure and as two ratios (savings rate, invested
-// share): the share of income put away can be derived only from the transfer
-// total, which the income/spend figures exclude.
+// REPORTED, as two figures and two ratios: `saved` (every transfer category
+// except Investing) and `invested` (the Investing category alone) are the
+// headline figures, and the savings rate / invested share grade the whole
+// transfer total and the investing slice of it against income. The share of
+// income put away can be derived only from the transfer total, which the
+// income/spend figures exclude. `transfers` stays on the row as the sum of the
+// two, since the ratios and the Financial Freedom figure read it.
 //
 // NEW behaviour (not a Python port) → no oracle fixture; pinned by the
 // deterministic unit tests in __tests__/reportCard.test.js.
@@ -321,11 +325,17 @@ function buildReportCards(rows) {
     // has no finite percentage).
     const net = round2(r.income - r.expenses);
     const prevNet = prev ? round2(prev.income - prev.expenses) : null;
+    // Saved is the transfer total with the investing slice taken out, so the
+    // Savings and Invested figures partition the money put away rather than
+    // counting the Investing category twice.
+    const saved = round2(r.transfers - r.invested);
+    const prevSaved = prev ? round2(prev.transfers - prev.invested) : null;
     return {
       year: r.year,
       income: r.income,
       expenses: r.expenses,
       transfers: r.transfers,
+      saved,
       invested: r.invested,
       net,
       topExpense: r.topExpense,
@@ -334,6 +344,8 @@ function buildReportCards(rows) {
         income: change(r.income, prev?.income ?? null),
         expenses: change(r.expenses, prev?.expenses ?? null),
         transfers: change(r.transfers, prev?.transfers ?? null),
+        saved: change(saved, prevSaved),
+        invested: change(r.invested, prev?.invested ?? null),
         net: change(net, prevNet),
       },
       metrics: {

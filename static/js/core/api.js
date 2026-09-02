@@ -317,9 +317,10 @@
       const ir = ratio(r.invested, r.income);
       const spend = prev && prev.expenses > 0 ? (r.expenses - prev.expenses) / prev.expenses : null;
       const inc = prev && prev.income > 0 ? (r.income - prev.income) / prev.income : null;
+      const saved = r2(r.transfers - r.invested);
       return {
         year: r.year, income: r.income, expenses: r.expenses, transfers: r.transfers,
-        invested: r.invested, net, debt: r.debt,
+        saved, invested: r.invested, net, debt: r.debt,
         topExpense: { key: 'housing', name: 'Housing', amount: r.top },
         inflation: INF.map(([key, name]) => {
           const amount = r.cats[key] || 0;
@@ -330,6 +331,8 @@
           income: change(r.income, prev && prev.income),
           expenses: change(r.expenses, prev && prev.expenses),
           transfers: change(r.transfers, prev && prev.transfers),
+          saved: change(saved, prev && r2(prev.transfers - prev.invested)),
+          invested: change(r.invested, prev && prev.invested),
           net: change(net, prevNet),
         },
         metrics: {
