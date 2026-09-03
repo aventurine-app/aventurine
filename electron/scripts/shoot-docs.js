@@ -873,7 +873,10 @@ app.whenReady().then(async () => {
       await sleep(2000);
       await unhover();
       await shotEl('spending-page', '.rep-panel:not([hidden]) .trends-card', 10);
-      await shotEl('spending-category-chips', '#trends-selector', 8);
+      // The chip row became the value rail (see static/js/pages/trends.js). The
+      // SHOT NAME is kept: ../aventurine-docs references this file by name, and
+      // renaming it here would break those pages before the docs are updated.
+      await shotEl('spending-category-chips', '#trends-rail', 8);
       await shotEl('reports-top-merchants', '.rep-panel:not([hidden]) .trends-card:last-of-type', 10);
 
       await click('#rep-tab-transfers');

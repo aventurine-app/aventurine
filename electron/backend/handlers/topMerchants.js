@@ -22,19 +22,53 @@
 // per-month trend line; a ranking has no per-month shape, and excluding
 // everything since the 1st would leave recent spending out of a "lately"
 // ranking. 'all' drops the date filter entirely.
+//
+// NOTHING HERE ANSWERS "IS THIS RISING". Two fields used to: a per-merchant
+// month series behind a 50px sparkline, and `prev` — the same merchant's total
+// over the immediately prior window — behind a change pill. Both cells are gone
+// from the card, so both are gone from here. The read is narrower for it: `prev`
+// is why the query's lower bound was a window EARLIER than the window being
+// ranked, so every request scanned twice the rows it reported on. Direction over
+// time is the sibling report's question (handlers/trends.js), which has a chart
+// for it rather than twenty marks in a margin.
+//
+// EACH BAR ALSO CARRIES A CATEGORY. `category` is the expense category the
+// merchant spent the most in over the window, which the card draws the bar in —
+// in the colour the Spending Trends rail above it gave that category, so one
+// hue names one category across both cards of the tab. A merchant is not a
+// category (a hardware store's rows sit in Home and in Automobile), so the bar
+// takes the dominant one and the tie is broken on the key, keeping two
+// identical requests the same colour. An uncategorized row answers to the
+// synthetic key Trends ships for the statement's uncategorized bucket.
+//
+// `total` is every expense in the window, named or not, ranked or not. It is
+// the denominator the card scales its bars against: a bar's length is its share
+// of what was actually spent, not its share of rank 1.
+//
+// THE CATEGORY FILTER (`?category=<key>`) narrows the ranking to one expense
+// category, which is what the Spending Trends rail beside it selects. It is a
+// filter on the SAME ledger read, not a different source: the two cards of this
+// tab still disagree wherever a statement cell was typed by hand (see
+// handlers/trends.js), and narrowing one of them does not change that.
 
 const { merchantKey, resolvedName } = require('../services/merchantKey');
 const { commonSearchTerm } = require('../services/merchantSearch');
 const { addMonthKey } = require('../services/forecast');
-const { round2 } = require('../validate');
+const { round2, bad } = require('../validate');
 
 // Allowed trailing windows, in months, plus the un-windowed 'all'.
-const ALLOWED_WINDOWS = new Set([3, 6, 12]);
+const ALLOWED_WINDOWS = new Set([3, 6, 12, 24, 60]);
 const DEFAULT_WINDOW = 12;
 
 // How many bars the chart draws. Fixed rather than a query param: the report is
 // "top merchants", and a list long enough to scroll past is a table's job.
 const TOP_N = 20;
+
+// The synthetic key Trends ships for the statement's uncategorized-expense
+// bucket (see handlers/trends.js). It is the wire key the rail selects with, so
+// this endpoint has to answer to the same string; the ledger side of it is
+// simply "no category".
+const UNCAT_KEY = '__uncategorized__';
 
 /** Current local 'YYYY-MM'. */
 function currentMonthKey() {
@@ -53,36 +87,77 @@ function topMerchantsGet(ctx, { query }) {
     const n = parseInt(raw, 10);
     window = ALLOWED_WINDOWS.has(n) ? n : DEFAULT_WINDOW;
   }
+  const thisMonth = currentMonthKey();
   // First month included: `window` months ending with the current one.
-  const from = window === 'all' ? null : addMonthKey(currentMonthKey(), -(window - 1));
+  const from = window === 'all' ? null : addMonthKey(thisMonth, -(window - 1));
+
+  // A category key narrows the ranking to that category. An unknown key is a
+  // 404 rather than an empty ranking: the only caller picks the key out of the
+  // Trends payload, so a key that resolves to nothing is a bug on the way in,
+  // and answering it with a plausible empty card would hide that.
+  const catRaw = String(query.category == null ? '' : query.category).trim();
+  let category = null;
+  let catSql = '';
+  const catParams = [];
+  if (catRaw) {
+    category = catRaw;
+    if (catRaw === UNCAT_KEY) {
+      catSql = 'AND t.category_id IS NULL';
+    } else {
+      const row = db.prepare('SELECT id FROM categories WHERE "key" = ?').get(catRaw);
+      if (!row) throw bad('Unknown category', 404);
+      catSql = 'AND t.category_id = ?';
+      catParams.push(row.id);
+    }
+  }
 
   // A categorized row takes its direction from its category (the direction rule
   // — a stored tx_type can lag a category re-type), an uncategorized row from
   // its own tx_type. Deleting a category requires its transactions be moved off
-  // it first, so the LEFT JOIN always matches on a categorized row.
+  // it first, so the LEFT JOIN always matches on a categorized row. The window
+  // is the whole read now: with `prev` gone there is nothing to fetch from
+  // before it.
   const rows = db
     .prepare(
       `SELECT t.description AS description, t.display_name AS display_name,
-              t.amount AS amount, t.date AS date
+              t.amount AS amount, t.date AS date, c."key" AS cat_key
          FROM transactions t
          LEFT JOIN categories c ON c.id = t.category_id
         WHERE (CASE WHEN t.category_id IS NULL THEN t.tx_type ELSE c.cat_type END) = 'expense'
           ${from ? 'AND substr(t.date, 1, 7) >= ?' : ''}
+          ${catSql}
         ORDER BY t.date`
     )
-    .all(...(from ? [from] : []));
+    .all(...(from ? [from] : []), ...catParams);
 
-  const groups = new Map(); // key -> { key, named, name, total, count, last_date }
+  const groups = new Map(); // key -> { key, named, name, total, count, last_date, cats }
+  // Every expense in the window, whether or not it named a merchant. This is
+  // the denominator the card states each bar's share against, and it has to
+  // count the rows no bar was built from — the unidentifiable ones and
+  // everything past rank 20 — or a "share of spending" would be a share of the
+  // chart, which reads as a much bigger number than it is.
+  let windowTotal = 0;
   for (const r of rows) {
+    windowTotal += Number(r.amount) || 0;
     const key = merchantKey(r);
     if (!key) continue;
     let g = groups.get(key);
     if (!g) {
-      g = { key, named: key.startsWith('n:'), name: '', total: 0, count: 0, last_date: null };
+      g = { key, named: key.startsWith('n:'), name: '', total: 0, count: 0, last_date: null, cats: new Map() };
       groups.set(key, g);
     }
-    g.total += Number(r.amount) || 0;
+    const amount = Number(r.amount) || 0;
+    g.total += amount;
     g.count += 1;
+    // Spend per category, for the ONE category the bar is drawn in. A merchant
+    // is not a category — a hardware store's rows can sit in Home and in
+    // Automobile — so the bar takes the category the merchant spent the most in
+    // over the window, and the tie is broken on the key so two identical
+    // requests colour the bar the same way. An uncategorized row answers to the
+    // synthetic key Trends ships for the statement's uncategorized bucket, so
+    // both cards of this tab colour it from the same entry in the ramp.
+    const catKey = r.cat_key || UNCAT_KEY;
+    g.cats.set(catKey, (g.cats.get(catKey) || 0) + amount);
     // Rows arrive date-ordered, so the newest label is kept — for an unnamed
     // group that is the most recent raw description, the same row the ledger
     // shows at the top of the merchant's history.
@@ -110,16 +185,20 @@ function topMerchantsGet(ctx, { query }) {
     }
   }
 
+  const dominantCategory = (g) =>
+    [...g.cats.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0];
+
   const merchants = ranked.map((g) => ({
     key: g.key,
     name: g.name,
     total: round2(g.total),
     count: g.count,
     last_date: g.last_date,
+    category: dominantCategory(g),
     search: g.named ? g.name : commonSearchTerm(wanted.get(g.key) || []),
   }));
 
-  return { ok: true, window, from, limit: TOP_N, merchants };
+  return { ok: true, window, from, category, limit: TOP_N, total: round2(windowTotal), merchants };
 }
 
 const routes = [['GET', '/api/top-merchants', topMerchantsGet]];

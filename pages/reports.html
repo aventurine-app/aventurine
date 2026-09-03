@@ -83,22 +83,36 @@
             <span class="dashboard-card-title">Spending Trends<span class="fc-info" tabindex="0" role="note"
                 aria-label="Each line is one expense category's spending per month over the selected window (the current, incomplete month is excluded). Toggle categories below to focus the view."
                 data-tip="Each line is one expense category's spending per month over the selected window (the current, incomplete month is excluded). Toggle categories below to focus the view.">i</span></span>
-            <div class="trends-controls">
+            <div class="trends-controls" id="trends-controls">
+                <!-- Chart form. Stacked answers "what makes up my spending",
+                     lines answer "did this one category move" — two readings of
+                     one payload, so the switch costs a re-render and no request.
+                     Controller: static/js/pages/trends.js. -->
+                <div class="trends-view" id="trends-view" role="group" aria-label="Chart form">
+                    <button type="button" class="trends-view-btn" data-view="stacked" aria-pressed="true">Stacked</button>
+                    <button type="button" class="trends-view-btn" data-view="lines" aria-pressed="false">Lines</button>
+                </div>
                 <div class="range-selector" id="trends-range">
-                    <button class="range-selector-btn" id="trends-range-btn" type="button">12 Months</button>
+                    <button class="range-selector-btn" id="trends-range-btn" type="button">1 Year</button>
                     <div class="range-selector-menu" id="trends-range-menu" hidden>
+                        <button data-window="3"  type="button">3 Months</button>
                         <button data-window="6"  type="button">6 Months</button>
-                        <button data-window="12" type="button">12 Months</button>
-                        <button data-window="36" type="button">3 Years</button>
+                        <button data-window="12" type="button">1 Year</button>
+                        <button data-window="24" type="button">2 Years</button>
                         <button data-window="60" type="button">5 Years</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div id="trends-selector" class="trends-selector"></div>
-        <div class="chart-area">
-            <div id="trends-chart"></div>
+        <!-- Chart and rail are one row: the rail is the legend AND the table
+             view, so every category's window total is on screen beside the
+             shape it made, rather than reachable only by hovering the chart. -->
+        <div class="trends-body">
+            <div class="chart-area">
+                <div id="trends-chart"></div>
+            </div>
+            <div class="trends-rail" id="trends-rail"></div>
         </div>
     </div>
 
@@ -113,13 +127,17 @@
                 aria-label="Top 20 merchants based on Expenses (excludes Income and Transfers). Click on merchant name to be taken to transaction list."
                 data-tip="Top 20 merchants based on Expenses (excludes Income and Transfers). Click on merchant name to be taken to transaction list.">i</span></span>
             <div class="trends-controls">
+                <!-- The category chip the Trends rail sets, when one is
+                     focused. Empty markup otherwise. -->
+                <div class="tm-filter" id="merchants-filter"></div>
                 <div class="range-selector" id="merchants-range">
-                    <button class="range-selector-btn" id="merchants-range-btn" type="button">12 Months</button>
+                    <button class="range-selector-btn" id="merchants-range-btn" type="button">1 Year</button>
                     <div class="range-selector-menu" id="merchants-range-menu" hidden>
-                        <button data-window="3"   type="button">3 Months</button>
-                        <button data-window="6"   type="button">6 Months</button>
-                        <button data-window="12"  type="button">12 Months</button>
-                        <button data-window="all" type="button">All Time</button>
+                        <button data-window="3"  type="button">3 Months</button>
+                        <button data-window="6"  type="button">6 Months</button>
+                        <button data-window="12" type="button">1 Year</button>
+                        <button data-window="24" type="button">2 Years</button>
+                        <button data-window="60" type="button">5 Years</button>
                     </div>
                 </div>
             </div>

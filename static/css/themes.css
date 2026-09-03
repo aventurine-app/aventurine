@@ -307,6 +307,10 @@ html[data-graph-theme="gemstone"],
                                                         in this palette's context
                                                         whether or not it is live */
     --chart-1: #1a49ae;   /* lapis */
+    /* Ink on a lapis fill. White in BOTH themes — this block matches whatever
+       data-theme is set, and the dark set's lapis (#3365cc) is still a midtone
+       blue, so the per-theme --button-text would flip to dark ink on it. */
+    --chart-1-ink: #fff;
     --chart-2: #0086a5;   /* tourmaline */
     --chart-3: #bd771d;   /* tiger's eye */
     --chart-4: #b00d14;   /* garnet */

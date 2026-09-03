@@ -275,7 +275,7 @@ test('top merchants: the window bounds which months are ranked', (t) => {
   assert.equal(c.get('/api/top-merchants?window=all').body.from, null);
 });
 
-test('top merchants: window clamps to {3,6,12,all}', (t) => {
+test('top merchants: window clamps to {3,6,12,24,60,all}', (t) => {
   const c = makeClient(t);
   assert.equal(c.get('/api/top-merchants').body.window, 12); // default
   assert.equal(c.get('/api/top-merchants?window=7').body.window, 12); // invalid → default
@@ -283,6 +283,8 @@ test('top merchants: window clamps to {3,6,12,all}', (t) => {
   assert.equal(c.get('/api/top-merchants?window=ALL').body.window, 'all'); // case-insensitive
   assert.equal(c.get('/api/top-merchants?window=3').body.window, 3);
   assert.equal(c.get('/api/top-merchants?window=6').body.window, 6);
+  assert.equal(c.get('/api/top-merchants?window=24').body.window, 24);
+  assert.equal(c.get('/api/top-merchants?window=60').body.window, 60);
 });
 
 test('top merchants: caps at 20 bars, ranked highest to lowest', (t) => {
@@ -320,4 +322,84 @@ test('top merchants: an empty ledger answers with an empty ranking', (t) => {
   const r = c.get('/api/top-merchants?window=all');
   assert.equal(r.status, 200);
   assert.deepEqual(r.body.merchants, []);
+});
+
+test('top merchants: each bar carries the category it spent the most in', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  const shopping = catId(c, 'shopping');
+  const m0 = monthsAgo(0);
+
+  // One merchant, two categories: the bar takes the dominant one, not the
+  // newest row's — a hardware store's rows really do land in two places.
+  insertTx(c, { date: m0.date, description: 'PINEHILL HARDWARE', amount: 300, category_id: shopping });
+  insertTx(c, { date: m0.date, description: 'PINEHILL HARDWARE', amount: 40, category_id: food });
+  // Uncategorized spend answers to the key Trends ships for the statement's
+  // uncategorized bucket, so both cards colour it from the same entry.
+  insertTx(c, { date: m0.date, description: 'CORNER KIOSK', amount: 25 });
+
+  const byName = Object.fromEntries(
+    c.get('/api/top-merchants?window=12').body.merchants.map((m) => [m.name, m.category])
+  );
+  assert.equal(byName['PINEHILL HARDWARE'], 'shopping');
+  assert.equal(byName['CORNER KIOSK'], '__uncategorized__');
+});
+
+test('top merchants: total is the whole window, not just the ranked bars', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  const m0 = monthsAgo(0);
+
+  insertTx(c, { date: m0.date, description: 'HILLTOP MARKET', amount: 60, category_id: food });
+  // No merchant key can be built from a bare reference code, so this row is on
+  // no bar — but it was still spent, and the bars are shares of what was spent.
+  insertTx(c, { date: m0.date, description: '4471', amount: 40, category_id: food });
+
+  const body = c.get('/api/top-merchants?window=12').body;
+  assert.equal(body.total, 100);
+  assert.equal(body.merchants.length, 1);
+  assert.equal(body.merchants[0].total, 60);
+});
+
+test('top merchants: a category narrows the ranking and the total with it', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  const shopping = catId(c, 'shopping');
+  const m0 = monthsAgo(0);
+
+  insertTx(c, { date: m0.date, description: 'HILLTOP MARKET', amount: 60, category_id: food });
+  insertTx(c, { date: m0.date, description: 'PINEHILL HARDWARE', amount: 300, category_id: shopping });
+  insertTx(c, { date: m0.date, description: 'CORNER KIOSK', amount: 25 });
+
+  const r = c.get('/api/top-merchants?window=12&category=food');
+  assert.equal(r.status, 200);
+  assert.equal(r.body.category, 'food');
+  assert.deepEqual(r.body.merchants.map((m) => m.name), ['HILLTOP MARKET']);
+  // The denominator narrows too, so a filtered bar is a share of what was spent
+  // in THAT category rather than of the whole window.
+  assert.equal(r.body.total, 60);
+
+  // Uncategorized spend answers to the synthetic key Trends ships for the
+  // statement's uncategorized bucket, since that is what the rail selects with.
+  const u = c.get('/api/top-merchants?window=12&category=__uncategorized__');
+  assert.deepEqual(u.body.merchants.map((m) => m.name), ['CORNER KIOSK']);
+  assert.equal(u.body.total, 25);
+});
+
+test('top merchants: an unknown category is a 404, not an empty ranking', (t) => {
+  const c = makeClient(t);
+  const r = c.get('/api/top-merchants?window=12&category=nope');
+  assert.equal(r.status, 404);
+  assert.equal(r.body.ok, false);
+});
+
+test('top merchants: no category means no filter', (t) => {
+  const c = makeClient(t);
+  const m0 = monthsAgo(0);
+  insertTx(c, { date: m0.date, description: 'HILLTOP MARKET', amount: 60 });
+
+  const r = c.get('/api/top-merchants?window=12&category=');
+  assert.equal(r.status, 200);
+  assert.equal(r.body.category, null);
+  assert.equal(r.body.merchants.length, 1);
 });

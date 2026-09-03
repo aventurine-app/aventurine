@@ -220,6 +220,12 @@
       another palette is the live one — without a second copy of the mixes here
       to drift out of step with these. */
    --chart-1: var(--chart-accent-1);
+   /* Ink for text sitting ON a --chart-1 fill (the Top Merchants bar prints its
+      amount inside the bar). Under the accent ramp --chart-1 IS --accent-primary,
+      so the token that already flips per theme to stay legible on the accent is
+      the right one; a palette that re-points --chart-1 to a hue of its own
+      re-points this with it (themes.css). */
+   --chart-1-ink: var(--button-text);
    --chart-2: var(--chart-accent-2);
    --chart-3: var(--chart-accent-3);
    --chart-4: var(--chart-accent-4);

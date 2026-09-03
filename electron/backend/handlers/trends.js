@@ -16,8 +16,10 @@ const { addMonthKey } = require('../services/forecast');
 const { computedCells, manualCells, blendCells } = require('./incomeExpenses');
 const { monthNumber } = require('../validate');
 
-// Allowed trailing windows, in months (6mo / 12mo / 3yr / 5yr).
-const ALLOWED_WINDOWS = new Set([6, 12, 36, 60]);
+// Allowed trailing windows, in months (3mo / 6mo / 1yr / 2yr / 5yr) — the same
+// set the Top Merchants card beside this one offers, so both cards of the
+// Spending tab cover the same spans.
+const ALLOWED_WINDOWS = new Set([3, 6, 12, 24, 60]);
 const DEFAULT_WINDOW = 12;
 
 // The statement keys uncategorized spend by its system bucket; the chart has

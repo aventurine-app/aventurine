@@ -96,12 +96,14 @@ test('trends: monthly per-expense-category sums over the trailing window', (t) =
   assert.equal(uncat.monthly[m1.ym], 60);
 });
 
-test('trends: window clamps to {6,12,36,60}', (t) => {
+test('trends: window clamps to {3,6,12,24,60}', (t) => {
   const c = makeClient(t);
   assert.equal(c.get('/api/trends').body.window, 12); // default
   assert.equal(c.get('/api/trends?window=7').body.window, 12); // invalid → default
+  assert.equal(c.get('/api/trends?window=36').body.window, 12); // no longer offered
+  assert.equal(c.get('/api/trends?window=3').body.months.length, 3);
   assert.equal(c.get('/api/trends?window=6').body.months.length, 6);
-  assert.equal(c.get('/api/trends?window=36').body.months.length, 36);
+  assert.equal(c.get('/api/trends?window=24').body.months.length, 24);
   assert.equal(c.get('/api/trends?window=60').body.months.length, 60);
 });
 

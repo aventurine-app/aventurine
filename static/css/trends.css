@@ -30,94 +30,287 @@
    which is always loaded on this page. */
 #trends-chart { width: 100%; }
 
-/* ─── Header controls: window picker ──────────────────────────────────────── */
-.trends-controls { display: flex; align-items: center; gap: 16px; }
+/* ─── Header controls: chart form + window picker ─────────────────────────── */
+.trends-controls { display: flex; align-items: center; gap: 12px; }
 
 /* Range selector lives in ui.css now (shared across Dashboard / Trends / Forecast). */
 
-/* ─── Category selector chips ────────────────────────────────────────────── */
-.trends-selector {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 18px;
+/* Chart-form switch. Local to this card rather than ui.css: it is the only
+   segmented control in the app, and a shared component with one caller is a
+   guess about the second one. Two mutually exclusive states, so it is a pair of
+   pressed buttons in one frame and not a pair of separate controls.
+
+   The frame takes --control-height and the picker's 6px radius, so the two
+   controls in this header sit as one row rather than as two boxes of different
+   heights. Its type matches the picker's too (micro / superbold / uppercase),
+   which is what makes them read as a pair despite one carrying the accent.
+
+   The accent is the state: the chosen form is FILLED and the other one is the
+   card's own surface with accent text. The unfilled half is --surface1 and not
+   a literal white, so it stays the "no fill" reading of the card it sits on in
+   either theme; on light that resolves to the near-white it looks like. */
+.trends-view {
+    display: inline-flex;
+    height: var(--control-height);
+    box-sizing: border-box;
+    border: var(--border-width) solid var(--accent-primary);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--surface1);
 }
-.trends-chip {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 5px 12px 5px 8px;
-    border-radius: 20px;
-    border: var(--border-width) solid var(--stroke-soft);
-    background: var(--frost-2);
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+.trends-view-btn {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--accent-primary);
     font-family: var(--font-menu);
     font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wider);
-    color: var(--text-secondary);
+    font-weight: var(--weight-superbold);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+    padding: 0 var(--space-16);
+    cursor: pointer;
     user-select: none;
+    transition: background 0.15s ease, color 0.15s ease;
 }
-.trends-chip.active {
-    background: var(--frost-3);
-    border-color: var(--stroke-strong);
-    color: var(--text-primary);
+.trends-view-btn:hover { background: color-mix(in srgb, var(--accent-primary) 12%, transparent); }
+.trends-view-btn.active {
+    background: var(--accent-primary);
+    /* The token for text sitting on a filled accent, which is what keeps this
+       legible if a theme ever ships a light accent. */
+    color: var(--button-text);
 }
-.trends-chip:hover {
-    border-color: var(--stroke-medium);
-    color: var(--text-primary);
+.trends-view-btn.active:hover { background: var(--accent-primary-hover); }
+/* Inset, because the frame clips: an outset ring on the outer edges would be
+   cut off by the parent's overflow. */
+.trends-view-btn:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -3px; }
+
+/* ─── Chart + rail ────────────────────────────────────────────────────────────
+   One row, fixed two columns folding to one — never auto-fit, which sizes by
+   available width and would leave the rail at a different width on every page.
+   The rail is the chart's legend, so it has to be beside it and not under it
+   for as long as the window allows.
+
+   The rail's width is the width of the header's CONTROL BLOCK (the form toggle
+   plus the window picker), measured by trends.js and written here as
+   --trends-rail-w. Both sit flush to the card's right padding, so matching the
+   width lines their left edges up too and the header's controls read as the
+   rail's own heading rather than as a separate strip floating above it. The
+   250px is only what the column falls back to before the measurement lands, or
+   if the header is not on the page at all.
+   ────────────────────────────────────────────────────────────────────────── */
+.trends-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--trends-rail-w, 250px);
+    gap: 22px;
+    /* Stretch, not start: the row is as tall as whichever column is taller, and
+       the chart is told to FILL the box it is given (see `fill` in chart.js). On
+       a narrow window the rail is the taller one, and a chart held at its
+       width-derived height left a slab of empty card under its x axis. */
+    align-items: stretch;
 }
-.trends-chip-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
+/* A grid item refuses to shrink below its content without this, which would
+   turn the fill into a one-way ratchet on the row height. */
+.trends-body .chart-area { min-height: 0; }
+@media (max-width: 1100px) {
+    .trends-body { grid-template-columns: 1fr; gap: 16px; }
+}
+
+/* ─── The rail: legend, table view, and the focus control ─────────────────────
+   Each row states its category's window total, so no figure on this card is
+   reachable only by hovering the chart (the Saved & Invested legend rule). Two
+   hit areas per row: the SWATCH shows or hides the band, the NAME focuses the
+   category — which dims the other bands and narrows the Top Merchants card
+   below.
+   ────────────────────────────────────────────────────────────────────────── */
+.trends-rail { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.tr-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 8px;
+    margin-bottom: 6px;
+    border-bottom: var(--border-width) solid var(--border);
+}
+.tr-head-label {
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+}
+.tr-head-value {
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-weight: var(--weight-bold);
+    font-variant-numeric: tabular-nums;
+}
+
+.tr-row {
+    display: grid;
+    grid-template-columns: 15px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 9px;
+    padding: 5px 7px;
+    border-radius: 5px;
+    border: var(--border-width) solid transparent;
+}
+.tr-row:hover { background: var(--frost-2); }
+/* A focused row keeps the hover fill and takes a border, so the state survives
+   the pointer leaving it. */
+.tr-row[data-focused="true"] { background: var(--frost-2); border-color: var(--stroke-medium); }
+
+.tr-sw {
+    width: 13px;
+    height: 13px;
+    padding: 0;
+    border-radius: 3px;
     border: 2px solid;
-    flex-shrink: 0;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.tr-name {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+    color: var(--text-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.tr-name:hover { text-decoration: underline; }
+.tr-row[data-focused="true"] .tr-name { font-weight: var(--weight-semibold); }
+.tr-amt {
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+/* A hidden category keeps its row (it is how it comes back) and steps every
+   part of it back at once, so "off" reads as one state rather than as a row
+   that half-loaded. */
+.tr-row[data-on="false"] .tr-name,
+.tr-row[data-on="false"] .tr-amt { color: var(--text-tertiary); opacity: 0.6; }
+
+.tr-sw:focus-visible,
+.tr-name:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+    border-radius: 3px;
 }
 
 
 /* ─── Top Merchants: a ranked horizontal bar chart ────────────────────────────
    Rows of HTML rather than an SVG plot (see topmerchants.js for why): each bar
    carries the merchant avatar and is a link into the ledger. The chart's frame
-   is the row grid — rank, merchant, one shared left baseline for every bar, and
-   a right-aligned amount column. Bars all wear ONE hue: length already encodes
-   the magnitude, and a colour per merchant would be encoding rank.
+   is the row grid — rank, merchant, and one shared left baseline for every bar,
+   with the amount printed inside the bar so the total and the length are one
+   column. A bar's hue is its merchant's dominant CATEGORY, taken from the
+   Spending Trends rail above (see .tm-fill): the ramp is categorical, so it
+   encodes identity and never rank, which the rank column already states.
    ────────────────────────────────────────────────────────────────────────── */
 
-/* The list bleeds out to the card's edges (--tm-bleed mirrors .trends-card's
+/* The category chip the Trends rail sets. It sits in the card header beside the
+   window picker, because both say what the bars below cover. */
+.tm-filter { display: flex; align-items: center; }
+.tm-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 4px 3px 11px;
+    border-radius: 20px;
+    border: var(--border-width) solid var(--stroke-medium);
+    background: var(--frost-3);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wide);
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+.tm-chip-x {
+    appearance: none;
+    border: 0;
+    width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.tm-chip-x:hover { background: var(--stroke-medium); color: var(--text-primary); }
+.tm-chip-x:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
+
+/* The table bleeds out to the card's edges (--tm-bleed mirrors .trends-card's
    horizontal padding) and each row pays that padding back on its own, so the
    row content sits exactly where it did while the hover band runs the full
    width of the card. */
-.tm-rows {
+.tm-table {
     --tm-bleed: 28px;
-    list-style: none;
     margin: 0 calc(-1 * var(--tm-bleed));
+}
+.tm-rows {
+    list-style: none;
+    margin: 0;
     padding: 0;
     display: flex;
     flex-direction: column;
     gap: 2px;
 }
 
+/* The column labels. Same grid as a row, so each label sits over its cell; the
+   rule under it separates the labels from the data without a filled band, which
+   at this size would read as a first row of the list. */
+/* .tm-row.tm-head, not .tm-head: the row rule below sets padding with a
+   shorthand, and at equal specificity the later rule would win. */
+.tm-row.tm-head {
+    padding-top: 0;
+    padding-bottom: 7px;
+    margin-bottom: 6px;
+    border-bottom: var(--border-width) solid var(--stroke-soft);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wide);
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+}
+/* Matches the amount's inset inside the bar, so the label sits over the number
+   it names rather than over the bar's left edge. */
+.tm-head .tm-h-total { padding-left: 9px; }
+
 /* The merchant column is capped, not sized to the longest name: a fixed
    baseline down the left edge of the bars is what makes twenty lengths
    comparable at a glance, and one long name must not shove it around.
-   The amount column is fixed too (--tm-amount-w, sized by the controller to
-   the longest amount in the list): every row is its own grid, so an `auto`
-   track let each row's amount size itself and the tracks stopped agreeing —
-   the bars ended at twenty different right edges, which turns the one thing
-   the reader compares into noise. Rank is left-aligned against the row's own
-   left edge so the column lines up with the card title above it. */
+   The bar column carries the amount inside it, so it is one column and not two,
+   and it has a floor wide enough for a formatted total to sit in. Rank is
+   left-aligned against the row's own left edge so the column lines up with the
+   card title above it. */
 .tm-row {
     display: grid;
-    grid-template-columns: 18px minmax(0, 190px) minmax(90px, 1fr) var(--tm-amount-w, 7ch);
+    grid-template-columns: 18px minmax(0, 172px) minmax(140px, 1fr);
     align-items: center;
-    gap: 12px;
-    padding: 4px var(--tm-bleed);
+    gap: 11px;
+    padding: 3px var(--tm-bleed);
 }
 /* Square, full-bleed band: a rounded pill floating inside the card read as a
    button, and the row is a row of a list, not a control. */
-.tm-row:hover { background: var(--frost-2); }
+.tm-row:not(.tm-head):hover { background: var(--frost-2); }
 
 .tm-rank {
     color: var(--text-tertiary);
@@ -151,8 +344,11 @@
     border-radius: 4px;
 }
 
+/* Tall enough to hold the amount: the number sits inside the bar at its left
+   end, which is what merges the total into this one column. */
 .tm-track {
-    height: 12px;
+    position: relative;
+    height: 22px;
     border-radius: 3px;
     background: var(--frost-2);
     overflow: hidden;
@@ -161,43 +357,96 @@
 /* Square where it meets the baseline, rounded at the data end — the bar's tip
    is the value, and rounding both ends would blunt it. */
 .tm-fill {
-    display: block;
-    height: 100%;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
     border-radius: 0 3px 3px 0;
-    /* The palette's first stop, not --accent-primary: this is a chart, so it
-       follows the Graphs setting. Under the accent ramp the two resolve to the
-       same colour, so the default bar is unchanged. One hue for all twenty bars
-       either way — length already encodes the magnitude, and colour here would
-       be encoding rank. */
-    background: var(--chart-1);
+    /* The category the merchant spent the most in, set on the row as --tm-bar
+       by topmerchants.js from the Spending Trends rail's own swatch colours, so
+       a band up in that chart and the bars under it name the same category with
+       the same hue. Colour here is IDENTITY, never rank — the ramp is
+       categorical and encoding an order in it is the one thing it must not do.
+       The fallback is the palette's first stop, not --accent-primary: this is a
+       chart, so it follows the Graphs setting, and it is what every bar wore
+       while they were all one hue. */
+    background: var(--tm-bar, var(--chart-1));
     transform: scaleX(0);
     transform-origin: left center;
     animation: tm-grow 0.55s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-/* Regular weight, not semibold: the bar beside it already carries the emphasis,
-   so bolding the number too made the column shout over the merchant names it is
-   read against. */
-.tm-amount {
-    color: var(--text-primary);
+/* The amount, printed twice in the same place. .tm-amount is the copy over the
+   bare track in body ink; .tm-amount-in is clipped to the fill's own width and
+   drawn in the ink that reads on the fill, painting over the first copy for as
+   far as the bar runs. Two copies rather than one, because a rank-20 bar is a
+   sliver: one copy inside the fill would be clipped to nothing, and one copy in
+   a single colour would land on the track for some rows and on the fill for
+   others. Regular weight, not semibold — the bar already carries the emphasis. */
+.tm-amount,
+.tm-amount-in {
+    position: absolute;
+    /* No global border-box in this stylesheet set, and .tm-amount-in carries an
+       inline width: without this the padding would push its clip 9px past the
+       fill's right edge. */
+    box-sizing: border-box;
+    top: 0;
+    left: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    padding-left: 9px;
     font-family: var(--font-numeric);
     font-size: var(--size-small);
     font-weight: var(--weight-regular);
     font-variant-numeric: tabular-nums;
-    text-align: right;
     white-space: nowrap;
+    pointer-events: none;
+}
+.tm-amount { color: var(--text-primary); }
+
+/* Hidden until the row is pointed at or holds focus: twenty amounts standing in
+   twenty bars is a column of numbers laid over the shape the column is drawn to
+   show, and the ranking is read by length. Focus counts as well as hover, since
+   the merchant name is a link and the number must be reachable without a mouse.
+   Opacity, not display: the amount stays in the accessibility tree, so a screen
+   reader reads every row's total whether or not it is on screen. */
+.tm-amount,
+.tm-amount-in { opacity: 0; transition: opacity 0.12s ease; }
+.tm-row:hover .tm-amount,
+.tm-row:hover .tm-amount-in,
+.tm-row:focus-within .tm-amount,
+.tm-row:focus-within .tm-amount-in { opacity: 1; }
+/* Inline width matches the fill's, and overflow clips the digits the bar does
+   not reach. The reveal is a clip rather than the fill's scaleX, which would
+   squash the glyphs; same duration, easing and delay, so the two edges move
+   together. */
+.tm-amount-in {
+    /* Ink for the bar this copy is clipped to, picked per row against that
+       bar's luminance (topmerchants.js): the ramp runs dark to light, so no one
+       ink reads on all eight. --chart-1-ink is the fallback for the fallback
+       fill above it. */
+    color: var(--tm-bar-ink, var(--chart-1-ink));
+    overflow: hidden;
+    clip-path: inset(0 100% 0 0);
+    animation: tm-reveal 0.55s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 @keyframes tm-grow { to { transform: scaleX(1); } }
+@keyframes tm-reveal { to { clip-path: inset(0 0 0 0); } }
 
-/* Narrow window: the amount keeps its column, the merchant name gives up width
-   first — it has an ellipsis and a tooltip, the bar has neither. */
-@media (max-width: 900px) {
-    .tm-row { grid-template-columns: 18px minmax(0, 130px) minmax(70px, 1fr) var(--tm-amount-w, 7ch); gap: 10px; }
+/* Narrow window: the merchant name gives up width, since it has an ellipsis
+   and a tooltip and the bar has neither. */
+@media (max-width: 1000px) {
+    .tm-row { grid-template-columns: 18px minmax(0, 150px) minmax(130px, 1fr); gap: 10px; }
+}
+@media (max-width: 820px) {
+    .tm-row { grid-template-columns: 18px minmax(0, 120px) minmax(120px, 1fr); gap: 9px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .tm-fill { animation: none; transform: scaleX(1); }
+    .tm-amount-in { animation: none; clip-path: inset(0 0 0 0); }
 }
 
 /* ─── Chart frame chrome (consumed by chart.js' .dashboard-chart SVG) ──────────── */
@@ -210,6 +459,55 @@
     font-weight: var(--weight-semibold);
     letter-spacing: 0.05em;
 }
+/* ─── The stacked-area form (FinanceChart.renderArea) ────────────────────────
+   No stroke: a band separated by a line in the card's colour reads as a bordered
+   shape, and on dark that line is near-black across the middle of the chart. The
+   separation is the fill's own gradient instead — every band runs full strength
+   at its top edge and fades toward its bottom, so each boundary is a strong edge
+   against a faint one (see buildAreaSVG in chart.js). The whole band grows from
+   the baseline, so the stack assembles the way it is read.
+   ────────────────────────────────────────────────────────────────────────── */
+/* Slightly transparent at rest and full under the pointer, the way the sankey's
+   ribbons sit at 0.42 and lift to 0.72. Two jobs at once: the grid reads through
+   the fill, so the chart keeps an axis behind it rather than six blocks of
+   paint, and "which band am I on" is answered by the band lighting up instead of
+   by reading the tooltip. The hover target is the group's clipped hit strips,
+   so the whole band responds wherever the pointer is inside it. */
+.dashboard-chart .chart-band {
+    stroke: none;
+    opacity: 0.6;
+    transition: opacity 0.15s ease;
+}
+.dashboard-chart .chart-band-group:hover .chart-band { opacity: 1; }
+
+/* The entrance is ONE clip rect widening, applied to every band path, so the
+   stack is revealed left to right along its own time axis — the same direction
+   the line form's stroke draws in. Growing the bands upward animated along the
+   VALUE axis instead, which read as the totals changing rather than as the
+   chart arriving. The clip is on the paths and not on a group wrapping the
+   whole plot: the transparent hit strips do not need revealing, and an
+   animating clip over them made the browser re-clip every one of them per
+   frame. */
+.dashboard-chart .chart-band-wipe {
+    transform: scaleX(0);
+    animation: chart-band-wipe 0.9s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+}
+.dashboard-chart.chart-no-anim .chart-band-wipe { animation: none; transform: none; }
+@keyframes chart-band-wipe { to { transform: scaleX(1); } }
+
+/* A series the page has stepped back (the rail's focus). !important because
+   every animated mark here ends on an opacity its animation holds with
+   `forwards`, so a plain rule would be overridden by the finished animation
+   rather than by anything in this file. */
+.dashboard-chart [data-dim="true"] { opacity: 0.16 !important; }
+
+/* The per-month hit strips carry the stack's whole reading as a native tooltip;
+   they are transparent and must not eat the cursor's meaning. The ones INSIDE a
+   band point instead: that band is its own swatch, and clicking it runs the same
+   toggle its rail row does. */
+.dashboard-chart .chart-hit { cursor: crosshair; }
+.dashboard-chart .chart-band-group .chart-hit { cursor: pointer; }
+
 .dashboard-chart .chart-line {
     stroke-dasharray: 1;
     stroke-dashoffset: 1;
@@ -230,6 +528,7 @@
 /* The .chart-no-anim opt-out is stated in forecast.css, loaded on this page too. */
 
 @media (prefers-reduced-motion: reduce) {
+    .dashboard-chart .chart-band-wipe { animation: none; transform: none; }
     .dashboard-chart .chart-line { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; }
     .dashboard-chart .chart-area-fill, .dashboard-chart .chart-dot { animation: none; opacity: 1; }
     .dashboard-chart .chart-pulse { display: none; }

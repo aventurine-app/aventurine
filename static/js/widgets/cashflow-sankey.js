@@ -113,7 +113,7 @@
   const LABEL_OFFSET = 10;         // gap between a node's inner edge and its label text
   const EDGE_PAD = 10;             // gap between a side column and the container edge
   const NODE_W = 13;               // node-bar thickness
-  const CAP_R = 3;                 // rounding on a side bar's OUTER corners only; the inner
+  const CAP_R = 4;                 // rounding on a side bar's OUTER corners only; the inner
                                    // face is square so the ribbon meets it flush
   const MIN_BAND = 1.5;            // floor so a tiny category is still visible
   const LABEL_GAP = 32;            // min vertical spacing between adjacent labels (name + amount)
