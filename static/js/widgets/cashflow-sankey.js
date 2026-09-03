@@ -3,9 +3,11 @@
 // ─── Cash Flow (Reports) — Sankey diagram ────────────────────────────────────
 // The Reports page's landing report (pages/reports.html), shown when the
 // "Cash Flow" tab is selected. Visualises a year's money movement as a
-// Sankey: income categories on the left feed a central Net Inflow node, which
-// fans out to expense categories on the right. Each band is sized by that
-// category's yearly total; the pipes are colour-blended and animated.
+// Sankey: income categories on the left gather into a Net Inflow bar, that
+// total crosses the middle as a channel of its own, and a second bar fans it
+// back out to the expense categories on the right. Each band is sized by that
+// category's total over the span on screen, and every ribbon is a gradient
+// running between the colours of the two bars it joins.
 //
 // Pure renderer — no dedicated backend. It reuses GET /api/data (the Cash Flow
 // table payload) and aggregates each category on the client, over the span the
@@ -20,28 +22,47 @@
   const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
 
-  // The two sides use DIFFERENT colour schemes, which is what separates inflow
-  // from outflow visually:
+  // COOL on the left, WARM on the right. The two sides of this diagram are not
+  // two sets of categories, they are money arriving and money leaving, and the
+  // temperature split is how that reads before a single label is:
   //
-  //   income (left)   — six shades of ONE colour (--chart-inflow-*). There are
-  //       few sources, usually one dominant one, so they do not need separate
-  //       hues; one colour leading into a hub of the same colour (--chart-net)
-  //       renders as a single stream. Which colour depends on the graph palette:
-  //       the UI accent under Aventurine, green under Gemstone (themes.css).
-  //   expenses (right)— the --cat-* ramp, one colour per category, the same
-  //       eight the Spending report uses. Under Gemstone that is eight distinct
-  //       hues; under Aventurine it is eight steps of the accent, in
-  //       size order, so the bands sort by lightness the way the amounts sort.
+  //   income (left)   — the cool --chart-inflow-* ramp, six steps deepest
+  //       first, walking indigo → blue → cyan. It stops SHORT of the green and
+  //       teal end of the cool range, which --chart-net holds alone: the hub is
+  //       then the only thing on the diagram wearing the palette's income
+  //       colour, and the sources read as feeding it rather than as already
+  //       being it. Same size-order rule as the outflow side, so the main
+  //       earner takes the strongest step.
+  //   expenses (right)— the warm --chart-outflow-* ramp, eight steps deepest
+  //       first, walking crimson → red → burnt orange → amber → gold. Bands are
+  //       laid out in size order, so the biggest spend takes the strongest
+  //       colour and the ramp grades MAGNITUDE rather than identity — which it
+  //       can afford to do because every band prints its own name and figure on
+  //       itself. (Eight separate warm HUES were measured against the dataviz
+  //       validator and cannot clear its adjacent-pair separation on either
+  //       surface: the warm span is too narrow to hold eight. A ramp is allowed
+  //       to step smoothly, and stepping in lightness and hue at once is what
+  //       buys back the separation. See the token block in style.css.)
   //
-  // The hub uses the inflow colour, since it is not a category and stays out of
-  // the category spectrum. Colours are read from the tokens at render time so an
-  // accent, theme or palette change re-colours the diagram; the arrays below are
-  // first-paint fallbacks matching the light theme.
+  // This is the one place the expense side stopped sharing --cat-* with the
+  // Spending report and the Saved & Invested stack. Those two rank and itemize
+  // categories, where a colour is a NAME; here it is a direction.
+  //
+  // The hub is neither ramp: --chart-net is the palette's income colour (the UI
+  // accent's teal under Aventurine, the emerald under Gemstone), which is why
+  // both ramps are held off that hue. Colours are read from the tokens at render
+  // time so a theme or palette change re-colours the diagram; the arrays below
+  // are first-paint fallbacks matching the light theme.
+  // Ribbons are GRADIENTS rather than flat fills: one starts in the colour of
+  // the bar it leaves and ends in the colour of the bar it meets - category to
+  // net on the income side, net to category on the expense side - so the middle
+  // channel's colour is what both halves hand off through. A flat ribbon had to
+  // take one end's colour, which left a seam at the other end.
   const NET_FALLBACK = '#497e74';
-  const INCOME_FALLBACK = ['#497e74', '#79b2a7', '#365e56', '#25413b', '#5b9f92', '#9bc5bd'];
-  const CAT_FALLBACK = [
-    '#1e2422', '#283a36', '#33514b', '#3e6860',
-    '#4b7f75', '#659188', '#80a29c', '#99b3ae',
+  const INCOME_FALLBACK = ['#4d4495', '#455ba7', '#3871b5', '#2888bd', '#1d9dc2', '#29b1c3'];
+  const OUTFLOW_FALLBACK = [
+    '#8e2932', '#9b392f', '#a6492c', '#b05929',
+    '#b8692a', '#c07a2d', '#c58b36', '#ca9d42',
   ];
 
   function readSankeyPalettes() {
@@ -50,7 +71,7 @@
     return {
       net: v('--chart-net', NET_FALLBACK),
       income: INCOME_FALLBACK.map((fb, i) => v(`--chart-inflow-${i + 1}`, fb)),
-      expense: CAT_FALLBACK.map((fb, i) => v(`--cat-${i + 1}`, fb)),
+      expense: OUTFLOW_FALLBACK.map((fb, i) => v(`--chart-outflow-${i + 1}`, fb)),
     };
   }
 
@@ -88,7 +109,7 @@
     return Math.min(Math.max(boxW, MIN_CHART_W), stretched);
   }
 
-  const PAD = { t: 28, b: 16 };
+  const PAD = { t: 12, b: 16 };
   const LABEL_OFFSET = 10;         // gap between a node's inner edge and its label text
   const EDGE_PAD = 10;             // gap between a side column and the container edge
   const NODE_W = 13;               // node-bar thickness
@@ -102,7 +123,6 @@
                                    // centreline and the leader lines below stay unused
   const LABEL_MARGIN = 16;         // height held back at each end of a side column, so a hairline band
                                    // at the very top or bottom still has room for its own label
-  const CENTER_LABEL_GAP = 12;     // breathing room between the centre label group and the Net Inflow node
 
   /* ─── Labels sit INSIDE, over the ribbons ─────────────────────────────────
      Each category's name and amount hang off the inner face of its bar, out
@@ -241,8 +261,8 @@
     // Every column hangs from ONE shared top edge — the diagram reads as a flat
     // lid with the bands growing downward off it, so the top ribbon on each side
     // runs straight across and the two sides are comparable from the same line.
-    // The edge sits below the centre node's two-line label (PAD.t + LABEL_MARGIN
-    // clears it), and only the space beneath it is available to the bands.
+    // Only the space beneath the edge is available to the bands; PAD.t +
+    // LABEL_MARGIN is the inset that keeps the topmost band's own label on screen.
     const TOP = PAD.t + LABEL_MARGIN;
     const availH = H - TOP - PAD.b - LABEL_MARGIN;
     const maxTotal = Math.max(totalIncome, totalExpense, 1);
@@ -256,9 +276,16 @@
       availH / maxTotal
     );
 
+    // FOUR columns, not three: the income bars, the bar their total gathers
+    // into, the bar the expenses leave from, and the expense bars. That gives
+    // the total a CHANNEL across the middle instead of a single bar the two
+    // fans meet at, so the diagram reads as three stages of one journey. The
+    // span between the side columns is split into three equal ribbon runs.
     const incomeX = EDGE_PAD;
     const expenseX = W - EDGE_PAD - NODE_W;
-    const centerX = (W - NODE_W) / 2;
+    const run = Math.max(0, (expenseX - incomeX - NODE_W * 3) / 3);
+    const hubInX = incomeX + NODE_W + run;      // where the income arrives
+    const hubOutX = hubInX + NODE_W + run;      // where the expenses leave
     const centerH = maxTotal * scale;
     const centerTop = TOP;
 
@@ -307,6 +334,24 @@
     };
 
     const r1 = (v) => Math.round(v * 10) / 10;
+
+    // A horizontal fill that starts at `from` where the ribbon leaves its bar
+    // and reaches `to` where it meets the next one. userSpaceOnUse so the stops
+    // sit at the ribbon's real x positions rather than at its bounding box -
+    // every ribbon on a side then turns colour across the same two verticals,
+    // and the fan reads as one blend instead of a set of separate ones. Two
+    // equal colours need no gradient, so the flat fill comes back as-is.
+    let gradDefs = '';
+    let gradSeq = 0;
+    const rampFill = (x1, x2, from, to) => {
+      if (from === to) return from;
+      const id = `sk-ramp-${gradSeq++}`;
+      gradDefs += `<linearGradient id="${id}" gradientUnits="userSpaceOnUse"`
+                + ` x1="${r1(x1)}" y1="0" x2="${r1(x2)}" y2="0">`
+                + `<stop offset="0" stop-color="${from}"/>`
+                + `<stop offset="1" stop-color="${to}"/></linearGradient>`;
+      return `url(#${id})`;
+    };
     // A side bar as a path: the two corners on the card-edge side are rounded,
     // the two on the ribbon side are square. outer: -1 → rounded on the left
     // (income), +1 → rounded on the right (expense).
@@ -339,10 +384,15 @@
         const edgeX = dir > 0 ? n.x + NODE_W : n.x; // inner node edge, facing the label
         const labelX = edgeX + dir * LABEL_OFFSET;  // text anchor x
         const h = n.total * scale;                  // true height; slot stays exact
-        // Income flows node→centre slot; expense flows centre slot→node.
+        // Income flows node→hub slot; expense flows hub slot→node, and the
+        // fill ramps between the two bars' colours over that same run.
+        const bh = Math.max(h, MIN_BAND);
         const d = isIncome
-          ? ribbon(n.x + NODE_W, n.y, centerX, slot, Math.max(h, MIN_BAND))
-          : ribbon(centerX + NODE_W, slot, n.x, n.y, Math.max(h, MIN_BAND));
+          ? ribbon(n.x + NODE_W, n.y, hubInX, slot, bh)
+          : ribbon(hubOutX + NODE_W, slot, n.x, n.y, bh);
+        const fill = isIncome
+          ? rampFill(n.x + NODE_W, hubInX, n.color, NET_COLOR)
+          : rampFill(hubOutX + NODE_W, n.x, NET_COLOR, n.color);
         const flow = isIncome
           ? `${escapeHtml(n.label)} → Net Inflow`
           : `Net Inflow → ${escapeHtml(n.label)}`;
@@ -352,7 +402,7 @@
         // a single hover tooltip.
         let g = `<a class="sankey-cat" href="${escapeHtml(categoryHref(n.key))}" tabindex="0" role="link" aria-label="${escapeHtml(aria)}">`
               + `<title>${flow}: ${fmtMoney(n.total)}</title>`
-              + `<path class="sankey-link" d="${d}" fill="${n.color}"></path>`;
+              + `<path class="sankey-link" d="${d}" fill="${fill}"></path>`;
         if (Math.abs(ly - cy) > 1) {
           g += `<path class="sankey-leader" d="M ${r1(edgeX)} ${r1(cy)} L ${r1(labelX)} ${r1(ly)}" fill="none"/>`;
         }
@@ -373,17 +423,28 @@
 
     const inc = sideMarkup(incomeNodes, 'start', 1, true);
     const exp = sideMarkup(expenseNodes, 'end', -1, false);
-    const waves = inc.waves + exp.waves;   // bottom layer: ribbons + labels (clickable)
-    let bars = inc.bars + exp.bars;        // top layer: bare node caps
+    // The middle stage: two bars sized to the larger side, with the Net Inflow
+    // channel running between them. None of it is a category, so none of it is
+    // a link; ribbons meet both bars on both faces, so neither bar has an outer
+    // corner to round. The channel sits in the waves layer, under the bars.
+    const netTitle = `<title>Net Inflow: ${fmtMoney(totalIncome)}</title>`;
+    const channel = `<path class="sankey-link sankey-link-net"`
+                  + ` d="${ribbon(hubInX + NODE_W, centerTop, hubOutX, centerTop, centerH)}"`
+                  + ` fill="${NET_COLOR}">${netTitle}</path>`;
 
-    // Centre node — sized to the larger side; label sits above it. Not a
-    // category, so it stays outside any link. Ribbons meet it on both faces,
-    // so it has no outer corners to round.
-    const cLabelX = centerX + NODE_W / 2;
-    bars += `<rect class="sankey-node sankey-node-center" x="${centerX}" y="${centerTop}" width="${NODE_W}" height="${centerH}" fill="${NET_COLOR}">`
-          + `<title>Net Inflow: ${fmtMoney(totalIncome)}</title></rect>`
-          + `<text class="sankey-label" x="${cLabelX}" y="${centerTop - CENTER_LABEL_GAP - 11}" text-anchor="middle">Net Inflow</text>`
-          + `<text class="sankey-amount" x="${cLabelX}" y="${centerTop - CENTER_LABEL_GAP}" text-anchor="middle">${escapeHtml(fmtMoney(totalIncome))}</text>`;
+    const waves = channel + inc.waves + exp.waves;  // bottom layer: ribbons + labels (clickable)
+    let bars = inc.bars + exp.bars;                 // top layer: bare node caps
+
+    for (const hx of [hubInX, hubOutX]) {
+      bars += `<rect class="sankey-node sankey-node-center" x="${r1(hx)}" y="${r1(centerTop)}"`
+            + ` width="${NODE_W}" height="${r1(centerH)}" fill="${NET_COLOR}">${netTitle}</rect>`;
+    }
+    // The label hangs off the inner face of the first hub bar and floats out
+    // over the channel, the same way a category's label floats over its ribbon.
+    const cLabelX = hubInX + NODE_W + LABEL_OFFSET;
+    const cLabelY = centerTop + centerH / 2;
+    bars += `<text class="sankey-label" x="${r1(cLabelX)}" y="${r1(cLabelY - 3)}" text-anchor="start">Net Inflow</text>`
+          + `<text class="sankey-amount" x="${r1(cLabelX)}" y="${r1(cLabelY + 13)}" text-anchor="start">${escapeHtml(fmtMoney(totalIncome))}</text>`;
 
     const cls = `cashflow-sankey${firstPaint ? ' sankey-enter' : ''}`;
     // Normally H*k IS boxH. It is larger only when the labels needed more room
@@ -394,7 +455,7 @@
     return `<svg width="${boxW}" height="${drawH}" viewBox="0 0 ${W} ${H}"`
          + ` preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"`
          + ` class="${cls}" style="display:block;">`
-         + `${waves}${bars}</svg>`;
+         + `<defs>${gradDefs}</defs>${waves}${bars}</svg>`;
   }
 
   // ─── Render + responsive redraw ──────────────────────────────────────────────

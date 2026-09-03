@@ -26,6 +26,28 @@ html[data-theme="dark"],
        SVG file, not a data: URI (blocked by the img-src 'self' CSP). */
     --calendar-icon: url('/static/icons/calendar-dark-theme.svg');
 
+    /* The Cash Flow Sankey's cool inflow ramp, re-picked against the dark
+       surface (style.css carries the light set and the reasoning). */
+    --chart-inflow-1: #5b53a5;
+    --chart-inflow-2: #4e64b2;
+    --chart-inflow-3: #3d76ba;
+    --chart-inflow-4: #2887bd;
+    --chart-inflow-5: #0f97bc;
+    --chart-inflow-6: #11a6b7;
+
+    /* The Cash Flow Sankey's warm outflow ramp, re-picked against the dark
+       surface (style.css carries the light set and the reasoning). A SELECTED
+       set, not a lightened copy: the dark surface's lightness band is narrower,
+       so the eight steps are re-stepped inside it rather than shifted. */
+    --chart-outflow-1: #9f393f;
+    --chart-outflow-2: #a64338;
+    --chart-outflow-3: #ad4e31;
+    --chart-outflow-4: #b25929;
+    --chart-outflow-5: #b66522;
+    --chart-outflow-6: #b9721e;
+    --chart-outflow-7: #ba7e1f;
+    --chart-outflow-8: #ba8b25;
+
     /* Background + surfaces.
        background  — the deepest layer (body / page bg).
        surface1-4  — opaque layers stacked from subtle to prominent, one
@@ -315,22 +337,37 @@ html[data-graph-theme="gemstone"],
     --chart-expense:  var(--chart-4);
     --chart-transfer: var(--chart-1);
 
-    /* Cash Flow Sankey. Money ARRIVING is green here — the same green the
-       income line and the income bar wear, so "green means coming in" holds
-       across every chart in the app — and the hub it arrives at is green too,
-       because Net Inflow is that same money, not a category. Six shades of the
-       one colour rather than six hues: the sources are usually one salary plus
-       scraps, and they are a stream, not a set of things to tell apart. The
-       mixes go toward --background and --text-primary, both of which flip per
-       theme, so this works on either surface with one definition (the same
-       construction the accent ramp uses in style.css). */
-    --chart-inflow-1: var(--chart-income);
-    --chart-inflow-2: color-mix(in srgb, var(--chart-income) 62%, var(--background));
-    --chart-inflow-3: color-mix(in srgb, var(--chart-income) 74%, var(--text-primary));
-    --chart-inflow-4: color-mix(in srgb, var(--chart-income) 45%, var(--text-primary));
-    --chart-inflow-5: color-mix(in srgb, var(--chart-income) 82%, var(--background));
-    --chart-inflow-6: color-mix(in srgb, var(--chart-income) 40%, var(--background));
+    /* Cash Flow Sankey. The HUB is green here — the same green the income line
+       and the income bar wear, so "green means coming in" holds across every
+       chart in the app — and it is the only thing on the diagram wearing it,
+       because Net Inflow is the one place all the arriving money is the same
+       money. The sources feeding it get a cool ramp of their own, indigo
+       through blue to cyan, held clear of the green and teal end so the hub is
+       never mistaken for one more source. Deepest first, matching the size
+       order the bands are laid out in. */
+    --chart-inflow-1: #5836a6;
+    --chart-inflow-2: #4a52bb;
+    --chart-inflow-3: #2f6dc9;
+    --chart-inflow-4: #0087ca;
+    --chart-inflow-5: #009dc6;
+    --chart-inflow-6: #00b3c5;
     --chart-net:      var(--chart-income);
+
+    /* Money LEAVING is warm here, opposite the green arriving: the same pairing
+       --chart-income / --chart-expense already states, spread over the eight
+       bands the outflow side needs. It runs from a garnet-adjacent crimson out
+       to a tiger's-eye gold, so it is built from this palette's own warm end
+       rather than from the accent ramp's, and it carries more chroma than the
+       accent set's does — which is the difference between the two palettes on
+       this side. Deepest first, since the bands are ordered by amount. */
+    --chart-outflow-1: #9c0034;
+    --chart-outflow-2: #b1031a;
+    --chart-outflow-3: #b73400;
+    --chart-outflow-4: #b85200;
+    --chart-outflow-5: #bc6800;
+    --chart-outflow-6: #bf7b00;
+    --chart-outflow-7: #c28e00;
+    --chart-outflow-8: #c3a200;
 
     /* The categorical ramp — the Spending report's per-category lines, the
        Sankey's outflow bands, the Saved & Invested stack. The SAME eight stones
@@ -372,4 +409,21 @@ html[data-theme="dark"] .settings-graph-swatch[data-graph-theme="gemstone"] {
     --chart-6: #c55f19;   /* amber */
     --chart-7: #a051aa;   /* rhodolite */
     --chart-8: #00a475;   /* emerald */
+
+    /* Both Sankey wings, re-stepped inside the dark surface's band. */
+    --chart-inflow-1: #6646b7;
+    --chart-inflow-2: #525cc6;
+    --chart-inflow-3: #3472ce;
+    --chart-inflow-4: #0086ca;
+    --chart-inflow-5: #0097bf;
+    --chart-inflow-6: #00a7b8;
+
+    --chart-outflow-1: #b20d3e;
+    --chart-outflow-2: #ba2529;
+    --chart-outflow-3: #c03803;
+    --chart-outflow-4: #bb5300;
+    --chart-outflow-5: #b76500;
+    --chart-outflow-6: #b57500;
+    --chart-outflow-7: #b38300;
+    --chart-outflow-8: #af9100;
 }

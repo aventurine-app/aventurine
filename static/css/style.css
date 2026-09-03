@@ -239,23 +239,54 @@
    --chart-expense:  var(--chart-4);
    --chart-transfer: var(--chart-2);
 
-   /* Cash Flow Sankey. Its two sides use different colour schemes (see
-      widgets/cashflow-sankey.js): the INFLOW is one stream in six shades of one
-      colour, the outflow is a hue per category from --cat-*. The six stops and
-      the hub are named for the same reason the three above are — under the
-      accent ramp they are the ramp's stops, unchanged, and a palette
-      with hues to spend can say something with them instead. */
-   --chart-inflow-1: var(--chart-1);
-   --chart-inflow-2: var(--chart-3);
-   --chart-inflow-3: var(--chart-5);
-   --chart-inflow-4: var(--chart-7);
-   --chart-inflow-5: var(--chart-2);
-   --chart-inflow-6: var(--chart-6);
+   /* Cash Flow Sankey. Its two sides carry a MEANING rather than an identity —
+      money coming in, money going out — so they are split the way that pair is
+      read everywhere: COOL on the inflow, WARM on the outflow, with the hub
+      between them holding the palette's own income colour. Both wings are ramps
+      built the same way (see the outflow block below for the full reasoning);
+      only the hue arc differs. (See widgets/cashflow-sankey.js.)
+
+      The INFLOW ramp — six cool steps, deepest first, walking a deep indigo
+      through blue to a light cyan. It stops SHORT of green and teal on purpose:
+      that end of the cool range belongs to --chart-net, so the hub stays the one
+      thing on the diagram wearing it and the arriving money reads as feeding a
+      colour rather than already being it. Deepest first because the bands are
+      laid out in size order, so the main earner takes the strongest step. */
+   --chart-inflow-1: #4d4495;
+   --chart-inflow-2: #455ba7;
+   --chart-inflow-3: #3871b5;
+   --chart-inflow-4: #2888bd;
+   --chart-inflow-5: #1d9dc2;
+   --chart-inflow-6: #29b1c3;
    --chart-net:      var(--accent-primary);
 
-   /* (A --chart-muted-* ramp lived here — greyed accent stops for the Sankey's
-      expense side, back when both sides were the accent and saturation was what
-      separated them. That side is categorical now, and nothing else used it.) */
+   /* The Sankey's OUTFLOW ramp — eight warm steps, deepest first, walking from
+      a crimson through red, burnt orange and amber to a gold.
+
+      Why a ramp and not eight warm hues: the outflow bands are sorted by
+      amount, and a Sankey band prints its own name and figure on itself, so
+      colour here grades MAGNITUDE and never has to carry identity. Eight
+      separate warm hues were measured against the dataviz validator and cannot
+      clear its adjacent-pair separation on any surface — the warm span is too
+      narrow to hold eight — whereas a ramp is allowed to step smoothly by
+      definition, and the biggest spender still lands on the strongest colour.
+      Each step advances in LIGHTNESS AND HUE at once, which is what buys the
+      separation a single-hue ramp of eight steps cannot.
+
+      Literal hexes rather than accent mixes, unlike --chart-accent-* above: the
+      UI accent is a cool teal, and mixing it can only ever produce more cool
+      steps. This is the one chart ramp that does not follow the accent, and the
+      reason is the same one that lets --chart-income be green — the colour here
+      IS the label. Stepped inside the LIGHT surface's lightness band; the dark
+      set is re-picked against the dark surface in themes.css, not flipped. */
+   --chart-outflow-1: #8e2932;
+   --chart-outflow-2: #9b392f;
+   --chart-outflow-3: #a6492c;
+   --chart-outflow-4: #b05929;
+   --chart-outflow-5: #b8692a;
+   --chart-outflow-6: #c07a2d;
+   --chart-outflow-7: #c58b36;
+   --chart-outflow-8: #ca9d42;
 
    /* ── Merchant spectrum ──────────────────────────────────────────────────
     * Eight desaturated hues, evenly spaced 45° apart. Originally the merchant

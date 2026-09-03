@@ -473,6 +473,11 @@
 
 .cashflow-sankey .sankey-link:hover { opacity: 0.72; }
 
+/* The Net Inflow channel is a stage of the diagram, not a category, so it opens
+   nothing. It holds its opacity under the pointer: brightening would offer a
+   click there is no destination for. Its tooltip still appears. */
+.cashflow-sankey .sankey-link-net:hover { opacity: 0.42; }
+
 /* Thin connector from a node to its label when the label was nudged to avoid
    overlapping a neighbour. */
 .cashflow-sankey .sankey-leader {
