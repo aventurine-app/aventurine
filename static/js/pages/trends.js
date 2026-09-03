@@ -28,11 +28,12 @@
 // COLOURS travel the same way, over `aventurine:category-colors`: this card
 // assigns them, and the bars below are painted from them.
 //
-// A BAND IS ITS OWN SWATCH. Clicking a band in the stacked view runs the same
-// toggle its rail swatch does, so the thing on screen is the control for itself
-// and the reader does not have to find its row first. The rail stays the
-// keyboard path: a band is a pointer convenience, and hiding a category is
-// always undone from the row it leaves behind.
+// A BAND IS ITS OWN NAME. Clicking a band in the stacked view runs the same
+// focus toggle its rail NAME does, so the thing on screen is the control for
+// itself and the reader does not have to find its row first. Focus, not
+// visibility: a click on a band asks about the band, and answering by removing
+// it from the chart takes away the thing that was pointed at. The rail stays
+// the keyboard path, and the swatch stays the only way to hide a category.
 //
 // Globals: apiFetch (api.js), escapeHtml (escape.js), formatCurrency (currency.js),
 // FinanceChart (chart.js), UI (ui.js).
@@ -168,20 +169,23 @@
       b.addEventListener('click', () => toggleCategory(b.dataset.toggle)));
 
     el.querySelectorAll('[data-focus]').forEach((b) =>
-      b.addEventListener('click', () => {
-        const key = b.dataset.focus;
-        if (state.focus === key) { setFocus(null); } else {
-          // Focusing a hidden category shows it: the click asked for that one
-          // category, and answering with a chart it isn't drawn on is a refusal.
-          state.enabled.add(key);
-          setFocus(key);
-        }
-        renderRail();
-        renderChart();
-      }));
+      b.addEventListener('click', () => toggleFocus(b.dataset.focus)));
   }
 
-  /** Show or hide one category, from the rail's swatch or from its own band. */
+  /** Focus one category or clear it, from the rail's name or from its own band. */
+  function toggleFocus(key) {
+    if (!state.enabled) return;
+    if (state.focus === key) { setFocus(null); } else {
+      // Focusing a hidden category shows it: the click asked for that one
+      // category, and answering with a chart it isn't drawn on is a refusal.
+      state.enabled.add(key);
+      setFocus(key);
+    }
+    renderRail();
+    renderChart();
+  }
+
+  /** Show or hide one category, from the rail's swatch. */
   function toggleCategory(key) {
     if (!state.enabled) return;
     // The last visible category cannot be switched off: an empty chart is not a
@@ -226,6 +230,7 @@
         label: c.name,
         color: state.colors.get(c.key),
         dim: Boolean(state.focus) && state.focus !== c.key,
+        active: state.focus === c.key,
         points: months.map((ym, i) => ({
           year: slots[i].year,
           monthIdx: slots[i].monthIdx,
@@ -293,15 +298,15 @@
     });
   }
 
-  /** Clicking a band runs its rail swatch's toggle. Delegated to the container,
-   *  which survives every repaint: the chart's SVG is replaced on each render
-   *  and on every resize, so a listener bound to the bands themselves would
-   *  have to be re-bound each time. Only the stacked form stamps data-series,
-   *  so the line form is unaffected. */
+  /** Clicking a band runs its rail name's focus toggle. Delegated to the
+   *  container, which survives every repaint: the chart's SVG is replaced on
+   *  each render and on every resize, so a listener bound to the bands
+   *  themselves would have to be re-bound each time. Only the stacked form
+   *  stamps data-series, so the line form is unaffected. */
   function wireChartClicks() {
     document.getElementById('trends-chart').addEventListener('click', (e) => {
       const band = e.target.closest('[data-series]');
-      if (band) toggleCategory(band.dataset.series);
+      if (band) toggleFocus(band.dataset.series);
     });
   }
 

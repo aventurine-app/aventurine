@@ -598,7 +598,9 @@
       // in the plot can be traced back to the series without the page having to
       // re-derive it from a position — the series list it handed in is already
       // filtered, so an index would mean two places agreeing on that filter.
-      svg += `<g class="chart-band-group"${s.id == null ? '' : ` data-series="${escapeHtml(String(s.id))}"`}>`
+      // `s.active` marks the one series the caller has singled out, so CSS can
+      // hold it at its hovered fill for as long as it is the selected one.
+      svg += `<g class="chart-band-group"${s.id == null ? '' : ` data-series="${escapeHtml(String(s.id))}"`}${s.active ? ' data-active="true"' : ''}>`
         + `<path class="chart-band" d="${d}" fill="url(#${gradId})" clip-path="url(#${clipId})"${s.dim ? ' data-dim="true"' : ''}/>`
         + `<g clip-path="url(#${bandClip})">${bandStrips}</g>`
         + `</g>`;

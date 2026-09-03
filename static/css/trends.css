@@ -479,6 +479,10 @@
     transition: opacity 0.15s ease;
 }
 .dashboard-chart .chart-band-group:hover .chart-band { opacity: 1; }
+/* The focused band holds that same lifted fill: it is the band being read, and
+   its own hover then changes nothing, which is the correct answer for a band
+   that is already at the front. */
+.dashboard-chart .chart-band-group[data-active="true"] .chart-band { opacity: 1; }
 
 /* The entrance is ONE clip rect widening, applied to every band path, so the
    stack is revealed left to right along its own time axis — the same direction
@@ -503,8 +507,8 @@
 
 /* The per-month hit strips carry the stack's whole reading as a native tooltip;
    they are transparent and must not eat the cursor's meaning. The ones INSIDE a
-   band point instead: that band is its own swatch, and clicking it runs the same
-   toggle its rail row does. */
+   band point instead: that band is its own name, and clicking it runs the same
+   focus toggle its rail row's name does. */
 .dashboard-chart .chart-hit { cursor: crosshair; }
 .dashboard-chart .chart-band-group .chart-hit { cursor: pointer; }
 
