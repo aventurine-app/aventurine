@@ -527,6 +527,7 @@
     // Geometry and tooltip text are built ONCE per month here and the markup is
     // assembled from them, rather than re-formatting every series' value for
     // every band the strips are repeated into.
+    const halfBand = CW / (N - 1 || 1) / 2;
     const strip = slots.map((sl, i) => {
       if (!(totals[i] > 0)) return null;
       const x0 = Math.max(PL, xScale(i) - halfBand);
