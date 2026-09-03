@@ -101,7 +101,7 @@
    because it is a banner over the real content, not the content itself. */
 .rec-empty {
     border: var(--border-width) solid var(--border);
-    border-radius: 8px;
+    border-radius: 12px;
     background: var(--surface1);
     box-shadow: var(--shadow-card);
 }
@@ -112,7 +112,7 @@
 .rec-calendar {
     min-width: 0;
     border: var(--border-width) solid var(--border);
-    border-radius: 8px;
+    border-radius: 12px;
     background: var(--surface1);
     box-shadow: var(--shadow-card);
     padding: 20px;

@@ -49,9 +49,9 @@
 
 .tx-wrapper {
     border: var(--table-border-width) solid var(--border);
-    /* 8px — shared with the action buttons (buttons.css) and the sidebar nav
-       items (.nav li a) so those three surfaces read the same. */
-    border-radius: 8px;
+    /* 12px — the card radius, shared with .db-wrapper and every other page
+       card, so the three table surfaces read the same. */
+    border-radius: 12px;
     background: var(--surface1);
     /* The shared card elevation (style.css), the same one .db-wrapper takes —
        the Statements and Portfolio tables are the same surface as this one and

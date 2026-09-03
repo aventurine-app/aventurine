@@ -411,12 +411,15 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
     /* The same 1px hairline as every other bordered control, so the track matches
        them rather than reading as an unbordered grey block. */
     border: 1px solid var(--segctl-stroke);
-    /* Pill — the app's 999px radius (the Transactions filter chips, the
-       onboarding progress bar), not 50%, which on a wide box draws an ellipse
-       rather than a capsule. A pill track needs no concentric radius
-       calculation: the pill segments inside it follow the same arc at any
-       height. */
-    border-radius: 999px;
+    /* Rounded rectangle, not a pill. The radius is concentric with the
+       segments inside it: 8px segment + the 4px track padding = 12px, so the
+       track's inner edge runs parallel to a segment's corner instead of
+       cutting across it. */
+    border-radius: 12px;
+    /* The card elevation, the same one .dashboard-card / .db-wrapper take — the
+       track is the one raised surface on the toolbar row, so it sits at the same
+       height as the cards below it rather than lying flat against the page. */
+    box-shadow: var(--shadow-card);
 }
 
 /* Type + box tokens mirror the action-button shape (buttons.css) — same
@@ -428,10 +431,9 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
     /* Transparent hairline reserves the active tab's border so the label never
        shifts when selection lands (buttons must stand still). */
     border: 1px solid transparent;
-    /* Pill, matching the track above. The fill/type tokens still mirror
-       .button-primary; only the corner differs, because a segment sits inside a
-       pill track and a button doesn't. */
-    border-radius: 999px;
+    /* 8px, the action-button radius (buttons.css) — the fill/type tokens
+       already mirror .button-primary, so the corner matches now too. */
+    border-radius: 8px;
     box-sizing: border-box;
     height: var(--control-height);
     color: var(--text-secondary);

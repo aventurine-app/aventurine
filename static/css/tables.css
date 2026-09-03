@@ -140,15 +140,16 @@
     flex: 1;
     min-width: 0;
     border: var(--table-border-width) solid var(--border);
-    /* 8px — shared with the action buttons (buttons.css) and the sidebar nav
-       items (.nav li a) so those three surfaces read the same. */
-    border-radius: 8px;
+    /* 12px — the card radius, shared with the tab track (.stmt-tabs /
+       .rep-tabs, ui.css) and every other page card, so the wrapper reads as one
+       of them rather than as a wide button. */
+    border-radius: 12px;
     background-color: var(--surface1);
     box-shadow: var(--shadow-card);
     overflow-x: auto;
 }
 
-/* == Wrapper scrollbar — inset pill, so the 8px corners survive ==
+/* == Wrapper scrollbar — inset pill, so the 12px corners survive ==
    Chromium paints a classic scrollbar inside the border box but does NOT clip
    it to border-radius, so a full-bleed square bar juts across the wrapper's two
    bottom corners and squares them off. There is no inner scroll element to move
@@ -158,8 +159,9 @@
      - track transparent, letting the wrapper's own rounded, radius-clipped
        background paint the whole channel including the corners;
      - thumb inset 3px on every side via a transparent border + background-clip,
-       which floats it inside the channel. At 3px above the bottom edge an 8px
-       arc is only ~1.8px in from the side, so the pill's ends clear the curve.
+       which floats it inside the channel. At 3px above the bottom edge a 12px
+       arc is ~4.1px in from the side, and the thumb's rounded end is ~6px in at
+       that height, so the pill's ends still clear the curve.
 
    That is why this bar is a rounded pill rather than the square full-bleed
    treatment on div.page (style.css) and .settings-modal-body — those scroll

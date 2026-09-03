@@ -403,3 +403,76 @@ test('top merchants: no category means no filter', (t) => {
   assert.equal(r.body.category, null);
   assert.equal(r.body.merchants.length, 1);
 });
+
+test('top merchants: an exclusion filters the list and leaves the figures alone', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  const shopping = catId(c, 'shopping');
+  const m0 = monthsAgo(0);
+
+  insertTx(c, { date: m0.date, description: 'HILLTOP MARKET', amount: 60, category_id: food });
+  insertTx(c, { date: m0.date, description: 'PINEHILL HARDWARE', amount: 300, category_id: shopping });
+  insertTx(c, { date: m0.date, description: 'CORNER KIOSK', amount: 25 });
+
+  const all = c.get('/api/top-merchants?window=12');
+  const r = c.get('/api/top-merchants?window=12&exclude=shopping');
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.deepEqual(r.body.exclude, ['shopping']);
+  assert.deepEqual(r.body.merchants.map((m) => m.name), ['HILLTOP MARKET', 'CORNER KIOSK']);
+  // The denominator is the whole window either way, so a bar is the same length
+  // whichever categories are switched off.
+  assert.equal(all.body.total, 385);
+  assert.equal(r.body.total, 385);
+  assert.equal(r.body.merchants[0].total, 60);
+
+  // Several keys at once, and the uncategorized bucket answers to the synthetic
+  // key the Trends rail selects with.
+  const both = c.get('/api/top-merchants?window=12&exclude=shopping,__uncategorized__');
+  assert.deepEqual(both.body.merchants.map((m) => m.name), ['HILLTOP MARKET']);
+  assert.equal(both.body.total, 385);
+
+  // Excluding the uncategorized bucket keeps the categorized rows.
+  const u = c.get('/api/top-merchants?window=12&exclude=__uncategorized__');
+  assert.deepEqual(u.body.merchants.map((m) => m.name), ['PINEHILL HARDWARE', 'HILLTOP MARKET']);
+  assert.equal(u.body.total, 385);
+});
+
+test('top merchants: a merchant leaves on its dominant category, whole', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  const shopping = catId(c, 'shopping');
+  const m0 = monthsAgo(0);
+
+  // One merchant across two categories, as a hardware store really is. It is
+  // dropped by the category its bar is drawn in, and while it is listed it
+  // carries every row it has — a bar is what the merchant cost, not what the
+  // merchant cost in the categories still switched on.
+  insertTx(c, { date: m0.date, description: 'PINEHILL HARDWARE', amount: 300, category_id: shopping });
+  insertTx(c, { date: m0.date, description: 'PINEHILL HARDWARE', amount: 40, category_id: food });
+
+  assert.equal(c.get('/api/top-merchants?window=12&exclude=shopping').body.merchants.length, 0);
+
+  const kept = c.get('/api/top-merchants?window=12&exclude=food').body.merchants;
+  assert.equal(kept.length, 1);
+  assert.equal(kept[0].total, 340);
+  assert.equal(kept[0].category, 'shopping');
+});
+
+test('top merchants: an unknown or empty exclusion excludes nothing', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  const m0 = monthsAgo(0);
+  insertTx(c, { date: m0.date, description: 'HILLTOP MARKET', amount: 60, category_id: food });
+
+  // Unlike `category`, an unknown key here is a no-op rather than a 404: it
+  // matches no merchant, so there is nothing misleading to show.
+  const r = c.get('/api/top-merchants?window=12&exclude=nope,,food');
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.exclude, ['nope', 'food']);
+  assert.equal(r.body.merchants.length, 0);
+  assert.equal(r.body.total, 60);
+
+  const none = c.get('/api/top-merchants?window=12&exclude=');
+  assert.deepEqual(none.body.exclude, []);
+  assert.equal(none.body.merchants.length, 1);
+});

@@ -20,13 +20,16 @@
 // only by hovering the chart. Each row states its category's window total, and
 // the rail heads with the total of the rows that are switched on.
 //
-// A ROW HAS TWO TARGETS. The swatch shows or hides the band (what the chip did);
-// the NAME focuses the category — the chart steps every other band back, and
-// the Top Merchants card below narrows to that category. Focus travels as the
-// `aventurine:category-focus` event so neither page script has to know the
+// A ROW HAS TWO TARGETS. The swatch shows or hides the band (what the chip did),
+// which also drops that category's transactions from the Top Merchants ranking
+// below — the rail is the tab's legend, so a category switched off is off both
+// cards. The NAME focuses the category — the chart steps every other band back,
+// and the Top Merchants card below narrows to that category. Focus travels as
+// the `aventurine:category-focus` event so neither page script has to know the
 // other exists, the same seam shell/license.js uses for its tier. The swatch
 // COLOURS travel the same way, over `aventurine:category-colors`: this card
-// assigns them, and the bars below are painted from them.
+// assigns them, and the bars below are painted from them; the switched-off keys
+// travel over `aventurine:category-hidden`.
 //
 // A BAND IS ITS OWN NAME. Clicking a band in the stacked view runs the same
 // focus toggle its rail NAME does, so the thing on screen is the control for
@@ -51,6 +54,14 @@
   // caller over a different window would hand the same category a different
   // hue and the two cards of this tab would disagree about what blue means.
   const COLORS_EVENT = 'aventurine:category-colors';
+  // The categories the swatches have switched off, published for the Top
+  // Merchants card below, which drops their transactions from its ranking. A
+  // swatch takes a band out of the chart and its figure out of the rail's
+  // period total, so leaving the bars beneath it untouched would put one
+  // category on half the tab and not the other half. The whole set travels on
+  // each change rather than a delta, so a card that starts listening late is
+  // still in step.
+  const HIDDEN_EVENT = 'aventurine:category-hidden';
 
   const state = {
     window: 12,
@@ -88,6 +99,14 @@
     window.dispatchEvent(new CustomEvent(COLORS_EVENT, { detail: { colors: state.colors } }));
   }
 
+  /** Hand the switched-off category keys to the rest of the tab. */
+  function publishHidden() {
+    const hidden = !state.data || !state.enabled
+      ? []
+      : state.data.categories.map((c) => c.key).filter((k) => !state.enabled.has(k));
+    window.dispatchEvent(new CustomEvent(HIDDEN_EVENT, { detail: { hidden } }));
+  }
+
   // ─── Data ────────────────────────────────────────────────────────────────────
 
   async function load() {
@@ -115,6 +134,9 @@
     // separation (see chart.js).
     state.colors = FinanceChart.colorMap(keys, 'categorical');
     publishColors();
+    // The window's own category set decides what "switched off" can mean, so
+    // this follows the load rather than only the swatch.
+    publishHidden();
 
     render();
   }
@@ -179,6 +201,9 @@
       // Focusing a hidden category shows it: the click asked for that one
       // category, and answering with a chart it isn't drawn on is a refusal.
       state.enabled.add(key);
+      // Before the focus goes out, or the card below would take a focus on a
+      // category it is still excluding and answer with an empty ranking.
+      publishHidden();
       setFocus(key);
     }
     renderRail();
@@ -198,6 +223,7 @@
     } else {
       state.enabled.add(key);
     }
+    publishHidden();
     renderRail();
     renderChart();
   }
@@ -345,7 +371,7 @@
       // Nothing to focus before the first response has built the category set.
       if (key && !state.enabled) return;
       setFocus(key, true);
-      if (key) state.enabled.add(key);
+      if (key) { state.enabled.add(key); publishHidden(); }
       renderRail();
       renderChart();
     });

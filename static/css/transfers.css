@@ -52,7 +52,7 @@
 .tfr-card {
     min-width: 0;
     border: var(--border-width) solid var(--border);
-    border-radius: 8px;
+    border-radius: 12px;
     background: var(--surface1);
     box-shadow: var(--shadow-card);
     padding: var(--space-24) 28px;

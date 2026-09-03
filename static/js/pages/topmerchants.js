@@ -63,6 +63,17 @@
 // THE CATEGORY CHIP mirrors the Trends rail's focus, over the
 // `aventurine:category-focus` event. Clearing it here clears it there.
 //
+// THE RAIL'S SWATCHES ALSO GOVERN THIS LIST, over `aventurine:category-hidden`:
+// a category switched off up there is dropped from the ranking down here, so
+// one legend covers both cards of the tab. It is a filter on the LIST and not
+// on the arithmetic — every bar keeps the length it had, because a merchant's
+// share is of what was spent and not of what is still listed, and switching a
+// swatch is a question about who is shown rather than about what anything cost.
+// The keys go back to the endpoint rather than being applied to the response,
+// because the ranking is capped at twenty in the backend: filtered here, a
+// hidden category would leave gaps in the twenty instead of the merchants below
+// them moving up.
+//
 // Globals: apiFetch (api.js), escapeHtml (escape.js), formatCurrency
 // (currency.js), merchantAvatarHtml (avatar.js), UI (ui.js).
 
@@ -74,19 +85,32 @@
   const ALLOWED_WINDOWS = ['3', '6', '12', '24', '60'];
   const FOCUS_EVENT = 'aventurine:category-focus';
   const COLORS_EVENT = 'aventurine:category-colors';
+  const HIDDEN_EVENT = 'aventurine:category-hidden';
 
   const state = {
     window: '12',
     category: null,     // { key, name } when the Trends rail has focused one
     data: null,         // { window, from, category, total, limit, merchants:[…] }
     colors: null,       // Map<categoryKey, hex> published by the Trends rail
+    hidden: [],         // categoryKeys the Trends rail's swatches have switched off
   };
 
   // ─── Data ──────────────────────────────────────────────────────────────────
 
+  /** One request per burst of events. The rail fires its hidden-set and focus
+   *  events back to back on a single click, and each is a different ranking, so
+   *  without this the card would fetch the intermediate one and paint it. */
+  let pending = false;
+  function scheduleLoad() {
+    if (pending) return;
+    pending = true;
+    Promise.resolve().then(() => { pending = false; load(); });
+  }
+
   async function load() {
     let url = `/api/top-merchants?window=${encodeURIComponent(state.window)}`;
     if (state.category) url += `&category=${encodeURIComponent(state.category.key)}`;
+    if (state.hidden.length) url += `&exclude=${encodeURIComponent(state.hidden.join(','))}`;
     const res = await apiFetch(url);
     if (!res.ok) return;
     state.data = await res.json();
@@ -243,12 +267,20 @@
       // Compact in both readings, and no CTA: on an empty ledger the Spending
       // Trends card directly above is already showing the full empty state
       // with the "Add transactions" button, and two of those stacked is a wall.
+      // Three readings, and the hidden one is its own: the ledger has spending
+      // in this time frame, it is all in categories the rail switched off, so
+      // pointing at a longer time frame would be wrong advice.
+      const hiding = state.hidden.length > 0 && !state.category;
       el.innerHTML = UI.emptyState({
         icon: 'chart', compact: true,
-        title: state.category ? `Nothing in ${state.category.name}` : 'No spending to rank yet',
+        title: state.category
+          ? `Nothing in ${state.category.name}`
+          : (hiding ? 'Nothing left to rank' : 'No spending to rank yet'),
         desc: state.category
           ? 'No merchants in this category over this time frame.'
-          : 'Nothing in this time frame. Try a longer one.',
+          : (hiding
+            ? 'Every merchant in this time frame is in a category switched off above.'
+            : 'Nothing in this time frame. Try a longer one.'),
       });
       return;
     }
@@ -295,13 +327,22 @@
       state.colors = (e.detail && e.detail.colors) || null;
       applyColors();
     });
+    // The rail's swatches decide which categories count here. A different set
+    // is a different ranking and a different total, so it costs a request; an
+    // unchanged set is dropped, since the rail republishes on every load.
+    window.addEventListener(HIDDEN_EVENT, (e) => {
+      const next = ((e.detail && e.detail.hidden) || []).slice().sort();
+      if (next.join(',') === state.hidden.join(',')) return;
+      state.hidden = next;
+      scheduleLoad();
+    });
     window.addEventListener(FOCUS_EVENT, (e) => {
       const next = e.detail ? { key: e.detail.key, name: e.detail.name } : null;
       const same = (state.category && state.category.key) === (next && next.key);
       if (same) return;
       state.category = next;
       renderFilter();
-      load();
+      scheduleLoad();
     });
     load();
   });

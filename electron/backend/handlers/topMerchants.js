@@ -50,6 +50,21 @@
 // filter on the SAME ledger read, not a different source: the two cards of this
 // tab still disagree wherever a statement cell was typed by hand (see
 // handlers/trends.js), and narrowing one of them does not change that.
+//
+// THE EXCLUSIONS (`?exclude=<key>,<key>`) drop categories the Trends rail's
+// swatches have switched off, so one card's legend governs both. They filter
+// the RANKING and nothing else: the ledger read, `total`, every merchant's
+// `total` and `count`, and the dominant `category` each bar is coloured from
+// are all computed over the whole window first, and the excluded merchants are
+// removed afterwards. A merchant's bar is therefore the same length whichever
+// categories are switched off — its share is of what was spent, not of what is
+// still listed — and hiding a category promotes the merchants below rank 20
+// into the places it vacated. A merchant is dropped on its DOMINANT category
+// (the one the bar is drawn in), so a hardware store whose rows sit in Home and
+// in Automobile leaves with Home and keeps its whole total while it stays. An
+// unknown key matches no merchant and so excludes nothing, unlike the 404 on
+// `category`: filtering to a key that matches nothing yields a plausible-looking
+// empty card, while excluding one is a no-op with nothing misleading to show.
 
 const { merchantKey, resolvedName } = require('../services/merchantKey');
 const { commonSearchTerm } = require('../services/merchantSearch');
@@ -111,6 +126,15 @@ function topMerchantsGet(ctx, { query }) {
     }
   }
 
+  // The categories the rail has switched off. Comma-separated because the whole
+  // set travels on every request — the rail's state, not a delta — and one key
+  // per parameter would make an empty list and a missing one two shapes to read.
+  // These stay out of the SQL: the figures are read over the whole window and
+  // the ranking is filtered at the end, so nothing here narrows the ledger.
+  const excludeRaw = String(query.exclude == null ? '' : query.exclude).trim();
+  const exclude = [...new Set(excludeRaw.split(',').map((s) => s.trim()).filter(Boolean))];
+  const excluded = new Set(exclude);
+
   // A categorized row takes its direction from its category (the direction rule
   // — a stored tx_type can lag a category re-type), an uncategorized row from
   // its own tx_type. Deleting a category requires its transactions be moved off
@@ -133,9 +157,10 @@ function topMerchantsGet(ctx, { query }) {
   const groups = new Map(); // key -> { key, named, name, total, count, last_date, cats }
   // Every expense in the window, whether or not it named a merchant. This is
   // the denominator the card states each bar's share against, and it has to
-  // count the rows no bar was built from — the unidentifiable ones and
-  // everything past rank 20 — or a "share of spending" would be a share of the
-  // chart, which reads as a much bigger number than it is.
+  // count the rows no bar was built from — the unidentifiable ones, everything
+  // past rank 20, and everything in a switched-off category — or a "share of
+  // spending" would be a share of the chart, which reads as a much bigger
+  // number than it is, and would move every bar each time a swatch is clicked.
   let windowTotal = 0;
   for (const r of rows) {
     windowTotal += Number(r.amount) || 0;
@@ -165,10 +190,18 @@ function topMerchantsGet(ctx, { query }) {
     g.last_date = r.date;
   }
 
+  // The ONE category each bar is drawn in, resolved before the ranking because
+  // the exclusions are read off it.
+  const dominantCategory = (g) =>
+    [...g.cats.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0];
+  for (const g of groups.values()) g.category = dominantCategory(g);
+
   // Name is the tiebreak so an equal-spend pair does not swap places between
-  // two identical requests.
+  // two identical requests. The switched-off categories are dropped here, after
+  // every figure is settled and before the cap, so the twenty places are filled
+  // by whoever is left rather than left standing empty.
   const ranked = [...groups.values()]
-    .filter((g) => g.total > 0)
+    .filter((g) => g.total > 0 && !excluded.has(g.category))
     .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
     .slice(0, TOP_N);
 
@@ -185,20 +218,17 @@ function topMerchantsGet(ctx, { query }) {
     }
   }
 
-  const dominantCategory = (g) =>
-    [...g.cats.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0];
-
   const merchants = ranked.map((g) => ({
     key: g.key,
     name: g.name,
     total: round2(g.total),
     count: g.count,
     last_date: g.last_date,
-    category: dominantCategory(g),
+    category: g.category,
     search: g.named ? g.name : commonSearchTerm(wanted.get(g.key) || []),
   }));
 
-  return { ok: true, window, from, category, limit: TOP_N, total: round2(windowTotal), merchants };
+  return { ok: true, window, from, category, exclude, limit: TOP_N, total: round2(windowTotal), merchants };
 }
 
 const routes = [['GET', '/api/top-merchants', topMerchantsGet]];
