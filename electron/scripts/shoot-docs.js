@@ -1037,6 +1037,15 @@ app.whenReady().then(async () => {
       await shotPage('frame-transactions', '.tx-wrapper', 20);
 
       // Cash Flow is the Reports page's first tab, so the nav lands on it.
+      //
+      // HEIGHT is load-bearing for this one shot. The Sankey sizes itself to its
+      // container, which fills the window, so it is the one page here with no
+      // natural bottom for shotPage to trim to — at SHOT_H=1400 the capture is
+      // the whole 1400 and the diagram stretches to fill it, leaving a field of
+      // empty background under the smaller expense bands (the two sides scale
+      // against the same total, and expenses are ~65% of net inflow). The
+      // website's copy is shot at SHOT_H=1200, which is a normal window shape
+      // and still leaves room for all eleven category labels.
       await nav('/reports', 3200);
       await unhover();
       await shotPage('frame-cash-flow', '.rep-panel:not([hidden]) .forecast-card', 20);
