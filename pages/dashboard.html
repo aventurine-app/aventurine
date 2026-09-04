@@ -42,31 +42,12 @@
     </div>
 
 
-    <!-- The dashboard is three stacked sections, all on the page at once:
-         Financial Freedom first (one measurement of the whole ledger), then
-         Year to Year and Month to Month (they used to be two tabs of one panel).
-         Broad to narrow down the page. The two time sections each own a heading
-         row — title left, the one control that scopes that section's three
-         cards right — and a 3×1 card grid. Layout in dashboard.css §1. -->
-
-    <!-- Financial Freedom: the FI number (25 x average yearly expenses) and how
-         far the Balance Sheet's latest net worth has got towards it. It has NO
-         scope control because it is not scoped: it first lived on the Metrics
-         tab and moved here because a target that changed with that report's
-         year picker was not a target. One card, no card title (the heading is
-         the title), two tiles that carry their own labels and method tooltips.
-         Paid, like the Reports it came from: license.css hides the section for
-         the free tier and dashboard.js only requests it once the backend has
-         said the install is licensed. Controller: dashboard.js §Financial
-         Freedom. -->
-    <section class="dashboard-section" id="dashboard-section-freedom" aria-labelledby="dashboard-heading-freedom">
-        <div class="dashboard-section-header">
-            <h2 class="dashboard-section-title" id="dashboard-heading-freedom">Financial Freedom</h2>
-        </div>
-        <div class="dashboard-card freedom-card">
-            <div class="freedom-tiles" id="freedom-body"></div>
-        </div>
-    </section><!-- /#dashboard-section-freedom -->
+    <!-- The dashboard is three stacked sections, all on the page at once: Year
+         to Year and Month to Month (they used to be two tabs of one panel),
+         then Financial Freedom at the foot of the page. The two time sections
+         each own a heading row — title left, the one control that scopes that
+         section's three cards right — and a 3×1 card grid. Layout in
+         dashboard.css §1. -->
 
     <section class="dashboard-section" id="dashboard-section-overtime" aria-labelledby="dashboard-heading-overtime">
         <div class="dashboard-section-header">
@@ -187,6 +168,25 @@
     </div>
 
     </section><!-- /#dashboard-section-month -->
+
+    <!-- Financial Freedom: the FI number (25 x average yearly expenses) and how
+         far the Balance Sheet's latest net worth has got towards it. It has NO
+         scope control because it is not scoped: it first lived on the Metrics
+         tab and moved here because a target that changed with that report's
+         year picker was not a target. One card, no card title (the heading is
+         the title), two tiles that carry their own labels and method tooltips.
+         Paid, like the Reports it came from: license.css hides the section for
+         the free tier and dashboard.js only requests it once the backend has
+         said the install is licensed. Controller: dashboard.js §Financial
+         Freedom. -->
+    <section class="dashboard-section" id="dashboard-section-freedom" aria-labelledby="dashboard-heading-freedom">
+        <div class="dashboard-section-header">
+            <h2 class="dashboard-section-title" id="dashboard-heading-freedom">Financial Freedom</h2>
+        </div>
+        <div class="dashboard-card freedom-card">
+            <div class="freedom-tiles" id="freedom-body"></div>
+        </div>
+    </section><!-- /#dashboard-section-freedom -->
 
 </div>
         </div>

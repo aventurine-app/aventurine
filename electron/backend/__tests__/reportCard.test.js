@@ -7,7 +7,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 
-const { buildReportCards, evaluateGoals, INFLATION_CATEGORIES } = require('../services/reportCard');
+const { buildReportCards, evaluateGoals } = require('../services/reportCard');
 const { makeClient } = require('./helpers');
 
 // ── service: every card shows all six goals, status met/near/miss/na ──────────
@@ -392,80 +392,5 @@ test('report-card API: net and its YoY pill ignore transfers entirely', (t) => {
   assert.deepEqual(y2025.changes.transfers, { abs: 25000, pct: null }); // grew from nothing
   assert.deepEqual(y2025.changes.saved, { abs: 25000, pct: null });     // same money, Savings side
   assert.equal(years.find((y) => y.year === 2024).changes.net, null);
-});
-
-// ── Inflation series ─────────────────────────────────────────────────────────
-
-test('buildReportCards: the inflation series is always all five categories, in order', () => {
-  const [card] = buildReportCards([
-    { year: 2025, income: 100000, expenses: 20000, debt: null, expenseByCat: { food: 4000 } },
-  ]);
-  assert.deepEqual(card.inflation.map((c) => c.key), INFLATION_CATEGORIES);
-  // A category with no spend holds its place at zero rather than dropping out —
-  // the section draws a fixed set of small multiples.
-  assert.equal(card.inflation.find((c) => c.key === 'rent').amount, 0);
-  assert.equal(card.inflation.find((c) => c.key === 'food').amount, 4000);
-});
-
-test('buildReportCards: inflation pct is per category against the immediately prior year', () => {
-  const cards = buildReportCards([
-    { year: 2024, income: 100000, expenses: 20000, debt: null, expenseByCat: { rent: 12000, food: 5000 } },
-    { year: 2025, income: 100000, expenses: 22000, debt: null, expenseByCat: { rent: 13200, food: 4000 } },
-  ]);
-  const pct = (card, key) => card.inflation.find((c) => c.key === key).pct;
-  // The earliest year has nothing to compare against.
-  assert.equal(pct(cards[0], 'rent'), null);
-  assert.equal(pct(cards[1], 'rent'), 0.1);   // 12000 → 13200
-  assert.equal(pct(cards[1], 'food'), -0.2);  // 5000 → 4000, a fall
-});
-
-test('buildReportCards: a rise from nothing has no percentage (null, not Infinity)', () => {
-  const cards = buildReportCards([
-    { year: 2024, income: 100000, expenses: 0, debt: null, expenseByCat: {} },
-    { year: 2025, income: 100000, expenses: 900, debt: null, expenseByCat: { utilities: 900 } },
-  ]);
-  const u = cards[1].inflation.find((c) => c.key === 'utilities');
-  assert.equal(u.amount, 900);
-  assert.equal(u.pct, null);
-});
-
-test('buildReportCards: a gap year breaks the inflation chain too', () => {
-  const cards = buildReportCards([
-    { year: 2024, income: 100000, expenses: 12000, debt: null, expenseByCat: { rent: 12000 } },
-    { year: 2026, income: 100000, expenses: 13000, debt: null, expenseByCat: { rent: 13000 } },
-  ]);
-  assert.equal(cards.find((c) => c.year === 2026).inflation.find((c) => c.key === 'rent').pct, null);
-});
-
-test('report-card API: the inflation series carries each category its display name', (t) => {
-  const c = makeClient(t);
-  c.post('/api/year', { year: 2024 });
-  c.post('/api/year', { year: 2025 });
-  const entry = (year, category, value) =>
-    c.post('/api/entry', { year, month: 'March', category, value });
-
-  entry(2024, 'income', 50000);
-  entry(2024, 'rent', 12000);
-  entry(2025, 'income', 50000);
-  entry(2025, 'rent', 15000);
-
-  const y = c.get('/api/report-card').body.years.find((yr) => yr.year === 2025);
-  const rent = y.inflation.find((row) => row.key === 'rent');
-  assert.equal(rent.name, 'Rent / Mortgage');
-  assert.equal(rent.amount, 15000);
-  assert.equal(rent.pct, 0.25);
-});
-
-test('report-card API: renaming a charted category keeps its key and follows the name', (t) => {
-  const c = makeClient(t);
-  c.post('/api/year', { year: 2025 });
-  c.post('/api/entry', { year: 2025, month: 'March', category: 'automobile', value: 3000 });
-  const ids = categoryIds(c);
-  c.put(`/api/categories/${ids.automobile}`, { name: 'Getting Around' });
-
-  const y = c.get('/api/report-card').body.years.find((yr) => yr.year === 2025);
-  const auto = y.inflation.find((row) => row.key === 'automobile');
-  assert.equal(auto.name, 'Getting Around');
-  assert.equal(auto.amount, 3000);
 });
 

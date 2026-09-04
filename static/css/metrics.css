@@ -4,9 +4,8 @@
    Loads only alongside forecast.css (pages/reports.html), which owns the .rep-*
    tab shell, the card header chrome (.dashboard-card-header / -title), the
    "i" info badge and the page padding. What lives here is the report's own
-   column: one shell holding three sub-cards — the headline figure tiles and their
-   sparklines, the Vitals grid of range-coloured gauges, and the Inflation
-   card's five small multiples.
+   column: one shell holding two sub-cards — the headline figure tiles and their
+   sparklines, and the Vitals grid of range-coloured gauges.
 
    Every mark on this card is drawn from a number that is also printed beside
    it — the gauges have their percentages, the sparklines have the year
@@ -78,8 +77,7 @@
    number and five fit where four used to.
    Both grids are FIXED at each breakpoint rather than auto-fit, because
    auto-fit sizes by available width and would leave a ragged last row that
-   moves as the window does. Folding 5 → 2 → 1 is the Inflation grid's rule for
-   five items. Breakpoints match dashboard.css: the sidebar and page padding
+   moves as the window does. Breakpoints match dashboard.css: the sidebar and page padding
    take ~280px off the viewport. */
 .met-figures {
     display: grid;
@@ -149,205 +147,6 @@
 .met-change-flat { color: var(--text-tertiary); }
 .met-change-none { color: var(--text-tertiary); font-style: italic; font-weight: var(--weight-regular); }
 
-/* ─── Card-level figure ───────────────────────────────────────────────────────
-   The one figure a whole card reports, sitting in its header where the other
-   cards on this page put their range pickers. It reuses the YoY pill the
-   headline figures carry — same arrow, same three tones — at the size a card
-   title can sit beside, because it IS the same reading, just about the card. */
-.met-section-figure .met-change { font-size: var(--size-h3); }
-
-.met-section-empty {
-    margin: 0 0 var(--space-8);
-    color: var(--text-tertiary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-}
-
-/* ─── Inflation ───────────────────────────────────────────────────────────────
-   The third card. Five small multiples: per category, a line across the years
-   over and under a 0% line. They SHARE ONE Y SCALE — set once from every category's points — so a
-   higher line is a bigger rise wherever it appears. Scaled per chart, a 3% rise
-   in Utilities and a 60% rise in Rent draw the same line, and the comparison the
-   section exists for is gone.
-
-   Same three-column grid as the ratios above, at the same breakpoints: five
-   charts across one row would be ~190px each, and a five-year x axis of
-   four-digit labels does not read at that width. */
-.met-inflation {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--space-16);
-}
-
-/* Each chart sits in its own bordered tile. Five plots on one shared card
-   surface ran into one another, since a chart has no edge of its own until
-   its x labels; the frame is the card's own border and radius, so a tile
-   reads as a part of the card rather than a card floating on a card. Flex
-   column so the plot stays at the bottom whatever the head wraps to. */
-.met-inflation .inf-cat {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-12);
-    padding: var(--space-16);
-    border: var(--border-width) solid var(--border);
-    border-radius: 8px;
-}
-
-.inf-cat-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--space-8);
-    min-width: 0;
-}
-.inf-cat-name {
-    min-width: 0;
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wide);
-    text-transform: uppercase;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-/* The selected year's change for this category — the number the chart's last
-   column draws. Arrowed as well as coloured, the way the YoY pills are: a cost
-   going up is the bad direction here, and that must not be carried by hue
-   alone. */
-.inf-cat-pct {
-    flex: none;
-    font-family: var(--font-numeric);
-    font-size: var(--size-small);
-    font-weight: var(--weight-semibold);
-    font-variant-numeric: tabular-nums;
-}
-.inf-up   { color: var(--accent-negative); }
-.inf-down { color: var(--accent-positive); }
-.inf-flat { color: var(--text-tertiary); }
-
-/* Two rows: the axis gutter beside the plot, then the year labels under the
-   plot only — so a label lines up with the column it names rather than with the
-   chart's left edge. */
-.inf-chart {
-    display: grid;
-    grid-template-columns: 46px minmax(0, 1fr);
-    column-gap: var(--space-8);
-    padding-top: var(--space-12);
-}
-
-.inf-y { position: relative; height: 96px; }
-.inf-y-tick {
-    position: absolute;
-    right: 0;
-    transform: translateY(-50%);
-    color: var(--text-tertiary);
-    font-family: var(--font-numeric);
-    font-size: var(--size-micro);
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-/* 0% is the line every bar is measured from, so it is the one tick that reads
-   as part of the chart rather than as a bound on it. */
-.inf-y-zero { color: var(--text-secondary); }
-
-.inf-plot { position: relative; height: 96px; }
-/* The baseline. Solid, unlike a gridline, because the bars start here — it is
-   the chart's origin, not a reference mark. */
-.inf-zero {
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 1px;
-    margin-top: -0.5px;
-    background: color-mix(in srgb, var(--text-tertiary) 55%, transparent);
-}
-
-/* The line and its fill. Drawn in a 0–100 box stretched to whatever width the
-   grid gives the cell (preserveAspectRatio="none"), which is why the stroke is
-   non-scaling and the dots are HTML rather than SVG circles — both would
-   otherwise be squashed by the same transform that makes the plot fill its
-   cell. */
-.inf-svg {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    overflow: visible;
-}
-
-/* The sign, carried by the geometry: the part of the fill ABOVE the 0% line is
-   a cost that rose, the part below it one that fell. Two clipped copies of one
-   polygon, so a line that crosses zero changes colour exactly where it crosses
-   rather than at a point somebody had to pick. */
-.inf-area-up   { fill: color-mix(in srgb, var(--accent-negative) 20%, transparent); }
-.inf-area-down { fill: color-mix(in srgb, var(--accent-positive) 20%, transparent); }
-
-/* The chart's ONE mark, so it is drawn to be seen: a solid, near-body-weight
-   line over the pale fills, not the hairline it was when point dots shared the
-   job of showing where the values sat.
-
-   It is deliberately NOT dashed and carries no draw-on animation. A
-   stroke-dasharray here is measured in DEVICE pixels rather than user units,
-   because vector-effect="non-scaling-stroke" moves the stroke into screen
-   space — so the "draw the line in" animation this had left a 1px-on, 1px-off
-   dotted line that all but vanished against the fill. Nothing animates: the
-   chart redraws on every year pick, and a fade there would flash a card whose
-   only change is where the dot sits.
-
-   Neutral, because the fill under it already says which way the cost went and a
-   coloured line over a coloured area is one hue too many at this size. */
-.inf-stroke {
-    fill: none;
-    stroke: color-mix(in srgb, var(--text-primary) 85%, transparent);
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-/* A hover target per year, carrying that year's figure. Invisible on purpose:
-   the chart holds no symbols, so this is how a pointer still reaches a value
-   without a dot being drawn to aim at. */
-.inf-hit {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    cursor: default;
-}
-/* The selected year's point: the headline sparklines' marker at the same
-   size, in the text colour rather than the accent, since the line under it is
-   already near-black and an accent dot on a neutral line read as a second
-   series. Centred on its coordinates by the negative margins; sits under the
-   hover strips so the year's tooltip still answers over it. */
-.inf-dot {
-    position: absolute;
-    width: 6px;
-    height: 6px;
-    margin: -3px 0 0 -3px;
-    border-radius: 50%;
-    background: var(--text-primary);
-    pointer-events: none;
-}
-
-/* No gap: each label owns an equal slice of the plot's width and is centred in
-   it, which is exactly where its year's point is drawn. */
-.inf-x {
-    grid-column: 2;
-    display: flex;
-    margin-top: var(--space-8);
-}
-.inf-x-label {
-    flex: 1;
-    min-width: 0;
-    text-align: center;
-    color: var(--text-tertiary);
-    font-family: var(--font-numeric);
-    font-size: var(--size-micro);
-    font-variant-numeric: tabular-nums;
-}
-.inf-x-current { color: var(--text-primary); font-weight: var(--weight-semibold); }
-
 /* ─── Ratio grid ──────────────────────────────────────────────────────────── */
 .met-metrics {
     display: grid;
@@ -357,14 +156,12 @@
 
 @media (max-width: 1100px) {
     .met-figures,
-    .met-metrics,
-    .met-inflation { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .met-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 700px) {
     .met-figures,
-    .met-metrics,
-    .met-inflation { grid-template-columns: minmax(0, 1fr); }
+    .met-metrics { grid-template-columns: minmax(0, 1fr); }
 }
 .met-metric { min-width: 0; display: flex; flex-direction: column; gap: var(--space-4); }
 .met-metric-label {

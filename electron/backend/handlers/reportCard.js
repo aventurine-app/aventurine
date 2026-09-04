@@ -16,7 +16,7 @@
 // unless a stored Entry overrides it (see incomeExpenses.dataGet).
 
 const { computedCells, manualCells, blendCells } = require('./incomeExpenses');
-const { buildReportCards, METRIC_BANDS, INFLATION_CATEGORIES } = require('../services/reportCard');
+const { buildReportCards, METRIC_BANDS } = require('../services/reportCard');
 
 // cat_type → which headline bucket a category feeds. Transfers get their own
 // bucket rather than being dropped: they stay out of income and spend (the two
@@ -35,8 +35,8 @@ const BUCKET_BY_CAT_TYPE = {
 const INVESTING_KEY = 'investing';
 
 /**
- * Per-year { income, expenses, transfers, invested, topExpense, byKey } from the
- * Cash Flow statement, plus the key→name map the charted categories print with. Mirrors incomeExpenses.dataGet's sourcing exactly: every
+ * Per-year { income, expenses, transfers, invested, topExpense } from the Cash
+ * Flow statement. Mirrors incomeExpenses.dataGet's sourcing exactly: every
  * active year is seeded
  * (so empty years still get a card), and each cell contributes its blended
  * value — the transaction sum unless a manual Entry overrides that cell. A
@@ -87,33 +87,19 @@ function yearlyTotals(db) {
     }
   }
 
-  // Resolve each year's biggest expense category once the sums are complete, and
-  // keep the charted categories' own sums — the Inflation section plots those
-  // five as a series, so unlike topExpense they cannot be reduced to one winner
-  // here.
-  const charted = new Set(INFLATION_CATEGORIES);
+  // Resolve each year's biggest expense category once the sums are complete.
   for (const t of totals.values()) {
     let top = null;
-    const byKey = {};
     for (const [key, amount] of t.expenseByCat) {
       if (amount > 0 && (!top || amount > top.amount)) {
         top = { key, name: nameByKey.get(key) || key, amount };
       }
-      if (charted.has(key)) byKey[key] = amount;
     }
     t.topExpense = top;
-    t.byKey = byKey;
     delete t.expenseByCat;
   }
 
-  // key → the name to print, for the charted categories only. Resolved here for
-  // the same reason topExpense's name is: the service takes plain totals and has
-  // no way to turn a category key into a name. A key the user deleted keeps its
-  // key as its label rather than vanishing from the series.
-  const categoryNames = {};
-  for (const key of INFLATION_CATEGORIES) categoryNames[key] = nameByKey.get(key) || key;
-
-  return { totals, categoryNames };
+  return { totals };
 }
 
 /**
@@ -148,7 +134,7 @@ function debtByYear(db) {
 
 function reportCardGet(ctx) {
   const db = ctx.db();
-  const { totals, categoryNames } = yearlyTotals(db);
+  const { totals } = yearlyTotals(db);
   const debt = debtByYear(db);
 
   const rows = [...totals.entries()].map(([year, t]) => ({
@@ -159,8 +145,6 @@ function reportCardGet(ctx) {
     invested: t.invested,
     topExpense: t.topExpense,
     debt: debt.has(year) ? debt.get(year) : null,
-    expenseByCat: t.byKey,
-    categoryNames,
   }));
 
   // Newest year first.

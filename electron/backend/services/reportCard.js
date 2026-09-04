@@ -3,8 +3,7 @@
 // Metrics (Reports) — pure metrics/goals logic, no DB handle.
 // Given each year's income / expense / transfer / debt totals it derives the
 // headline figures, year-over-year changes, the ratios, the met/missed outcome
-// of four money goals, and the per-category spend series the Inflation section
-// charts.
+// of four money goals.
 //
 // Transfers (money moved to savings/brokerage accounts) stay out of every
 // income/spend surface — they are not spending and not earning, so no goal is
@@ -111,26 +110,6 @@ function financialFreedom({ years, netWorth, netWorthAsOf, currentYear }) {
 // response — they are figures, and other readers may want them — but they have
 // no bands, because Vitals no longer draws a gauge for either and a band exists
 // only to colour a gauge.
-// ─── Inflation ───────────────────────────────────────────────────────────────
-// The expense categories the Inflation section charts, in the order it draws
-// them. A DELIBERATELY SHORT list of the costs that move a household budget,
-// not every expense category: the section asks "what got more expensive", and
-// five small multiples answer that where thirteen would be a wall nobody reads.
-//
-// Keyed, not named. A user renaming "Auto & Transport" keeps the key, so the
-// section follows the rename; the name shown comes from the categories table at
-// read time (the handler resolves it), never from this list.
-const INFLATION_CATEGORIES = ['rent', 'food', 'utilities', 'automobile', 'shopping'];
-
-/** Year-over-year change of one category's spend, as a fraction. null when
- *  there is no prior year or the prior year had no spend in it — a rise from
- *  nothing has no finite percentage, and calling it +100% would be inventing a
- *  baseline the ledger does not have. */
-function categoryChange(curr, prev) {
-  if (prev == null || !(prev > 0)) return null;
-  return (curr - prev) / prev;
-}
-
 const METRIC_BANDS = {
   expenseToIncome: [
     { from: 0, to: EXPENSE_RATIO_GOAL, tone: 'good' },
@@ -285,10 +264,9 @@ function evaluateGoals({ income, expenses, debt, transfers, invested, prev }) {
 
 /**
  * Build the per-year report cards from raw yearly totals. `rows` is an array of
- * { year, income, expenses, transfers, invested, topExpense, debt,
- *   expenseByCat, categoryNames } (debt null when the year has no Balance-Sheet
- * debt data, topExpense null when the year has no spending; the last two are a
- * key→amount and a key→name map, from which the Inflation series is cut).
+ * { year, income, expenses, transfers, invested, topExpense, debt } (debt null
+ * when the year has no Balance-Sheet debt data, topExpense null when the year
+ * has no spending).
  * Returns the cards in ascending year order; the handler re-sorts for display.
  */
 function buildReportCards(rows) {
@@ -303,16 +281,7 @@ function buildReportCards(rows) {
         ? { key: r.topExpense.key, name: r.topExpense.name, amount: round2(r.topExpense.amount) }
         : null,
       debt: r.debt == null ? null : round2(r.debt),
-      // The charted categories, always all of them and always in order, so a
-      // year that spent nothing on one still holds its place in the series
-      // rather than shifting the others along.
-      inflation: INFLATION_CATEGORIES.map((key) => ({
-        key,
-        name: (r.categoryNames && r.categoryNames[key]) || key,
-        amount: round2((r.expenseByCat && r.expenseByCat[key]) || 0),
-      })),
     }))
-    .map((r) => ({ ...r, inflationByKey: new Map(r.inflation.map((c) => [c.key, c.amount])) }))
     .sort((a, b) => a.year - b.year);
 
   const byYear = new Map(sorted.map((r) => [r.year, r]));
@@ -366,16 +335,6 @@ function buildReportCards(rows) {
         topExpenseShare: r.topExpense ? ratio(r.topExpense.amount, r.expenses) : null,
       },
       goals: evaluateGoals({ ...r, prev }),
-      // What each charted category cost this year and how that moved. Computed
-      // per year rather than only for the selected one, because the Inflation
-      // charts plot five years at once and the renderer picks a window out of
-      // them without asking the backend again.
-      inflation: r.inflation.map((c) => ({
-        key: c.key,
-        name: c.name,
-        amount: c.amount,
-        pct: categoryChange(c.amount, prev ? (prev.inflationByKey.get(c.key) ?? null) : null),
-      })),
     };
   });
 }
@@ -384,7 +343,6 @@ module.exports = {
   buildReportCards,
   evaluateGoals,
   METRIC_BANDS,
-  INFLATION_CATEGORIES,
   FI_MULTIPLE,
   financialFreedom,
   EXPENSE_RATIO_GOAL,

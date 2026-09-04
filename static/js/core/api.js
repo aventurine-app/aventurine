@@ -284,26 +284,12 @@
   // electron/backend/services/reportCard.js — the same derivations off raw
   // yearly totals, so fixture mode and the real backend agree on shape.
   const reportCardFixture = (() => {
-    // `cats` are the five categories the Inflation section charts, moving year to
-    // year at different rates (and not all upward), so the small multiples have
-    // a mix of rises and falls to draw and their shared scale has a spread.
     const raw = [
-      { year: year - 4, income: 52000, expenses: 43000, transfers: 2400, invested: 900,  debt: 24000, top: 15480,
-        cats: { rent: 14400, food: 6200, utilities: 2400, automobile: 4100, shopping: 3300 } },
-      { year: year - 3, income: 57500, expenses: 45800, transfers: 3600, invested: 1800, debt: 20000, top: 16000,
-        cats: { rent: 15120, food: 6820, utilities: 2520, automobile: 4510, shopping: 3100 } },
-      { year: year - 2, income: 61000, expenses: 47400, transfers: 5400, invested: 3000, debt: 15500, top: 16600,
-        cats: { rent: 15876, food: 7160, utilities: 2898, automobile: 4330, shopping: 3565 } },
-      { year: year - 1, income: 66000, expenses: 46000, transfers: 7200, invested: 4800, debt: 12000, top: 15840,
-        cats: { rent: 16352, food: 6874, utilities: 2840, automobile: 4763, shopping: 3850 } },
-      { year,           income: 72000, expenses: 45000, transfers: 9600, invested: 6000, debt: 9000,  top: 16200,
-        cats: { rent: 17170, food: 7560, utilities: 2960, automobile: 4620, shopping: 3580 } },
-    ];
-    // Mirrors INFLATION_CATEGORIES + categoryChange in
-    // electron/backend/services/reportCard.js.
-    const INF = [
-      ['rent', 'Rent / Mortgage'], ['food', 'Food'], ['utilities', 'Utilities'],
-      ['automobile', 'Auto & Transport'], ['shopping', 'Shopping'],
+      { year: year - 4, income: 52000, expenses: 43000, transfers: 2400, invested: 900,  debt: 24000, top: 15480 },
+      { year: year - 3, income: 57500, expenses: 45800, transfers: 3600, invested: 1800, debt: 20000, top: 16000 },
+      { year: year - 2, income: 61000, expenses: 47400, transfers: 5400, invested: 3000, debt: 15500, top: 16600 },
+      { year: year - 1, income: 66000, expenses: 46000, transfers: 7200, invested: 4800, debt: 12000, top: 15840 },
+      { year,           income: 72000, expenses: 45000, transfers: 9600, invested: 6000, debt: 9000,  top: 16200 },
     ];
     const r2 = (n) => Math.round(n * 100) / 100;
     const ratio = (a, b) => (b > 0 ? a / b : null);
@@ -331,11 +317,6 @@
         year: r.year, income: r.income, expenses: r.expenses, transfers: r.transfers,
         saved, invested: r.invested, net, debt: r.debt,
         topExpense: { key: 'housing', name: 'Housing', amount: r.top },
-        inflation: INF.map(([key, name]) => {
-          const amount = r.cats[key] || 0;
-          const was = prev ? (prev.cats[key] || 0) : null;
-          return { key, name, amount, pct: was > 0 ? (amount - was) / was : null };
-        }),
         changes: {
           income: change(r.income, prev && prev.income),
           expenses: change(r.expenses, prev && prev.expenses),

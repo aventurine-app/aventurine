@@ -2,14 +2,12 @@
 
 // ─── Metrics (Reports) ───────────────────────────────────────────────────────
 // A tab of the Reports page (pages/reports.html): the selected year's money,
-// broken down, as THREE CARDS: the five headline totals (income, expenses,
+// broken down, as TWO CARDS: the five headline totals (income, expenses,
 // net, savings, invested), each carrying a sparkline of every tracked year
-// under the number; VITALS, the four ratios those totals imply,
-// each drawn as a gauge with its ranges coloured in; and INFLATION, what the
-// household's five big costs did against the year before, as five small-multiple
-// lines sharing one scale.
+// under the number; and VITALS, the four ratios those totals imply, each drawn
+// as a gauge with its ranges coloured in.
 //
-// Three cards rather than three sections of one: they answer three separate
+// Two cards rather than two sections of one: they answer two separate
 // questions, and the card border is the separator this page already uses (the
 // Spending and Saved & Invested tabs are each two cards). The frames, titles and
 // tooltips are static markup in pages/reports.html — this file fills them — so
@@ -51,8 +49,8 @@
 
 (function () {
   // Sparkline padding, as a percent of the chart box. The line is drawn in a
-  // 0–100 box stretched to the tile's width (preserveAspectRatio="none", the
-  // Inflation charts' rule), so the geometry is in percent and the height is
+  // 0–100 box stretched to the tile's width (preserveAspectRatio="none"), so
+  // the geometry is in percent and the height is
   // CSS (.met-spark). Vertical room is what keeps the marker dot on the
   // highest or lowest year inside the box; horizontally the line runs edge to
   // edge and overflow:visible lets the end dots overhang.
@@ -309,245 +307,8 @@
   </div>`;
   }
 
-  // ─── Inflation ─────────────────────────────────────────────────────────────
-  // What each of the household's big costs did, year on year. Five small
-  // multiples of the same chart — a line across the years, over and under a 0%
-  // line — plus the whole year's expense change as the section's headline.
-  //
-  // A LINE, not columns. Five bars per chart times five charts is twenty-five
-  // filled rectangles plus their two-tone colouring, and at ~90px tall that
-  // reads as texture rather than as five trends. A line states the shape with
-  // one mark, and the fill between it and 0% carries the sign — above the line
-  // the cost rose, below it fell — so the colour is a consequence of the
-  // geometry rather than a second thing to decode.
-  //
-  // THE FIVE CHARTS SHARE ONE SCALE, which is the point of drawing them as small
-  // multiples rather than five independent charts. Scaled to its own data, a 3%
-  // rise in Utilities and a 60% rise in Rent draw the identical line, and the one
-  // question the section exists to answer — what got more expensive — becomes
-  // unanswerable without reading five separate axes.
-  //
-  // THE LINE PLUS ONE DOT. No point dots on every year, no end caps, no
-  // out-of-range arrowheads: at five charts by five years that is twenty-five
-  // symbols laid over the thing they are annotating, and the shape is what the
-  // chart is for. The one mark is the selected year's point, the same marker
-  // the headline sparklines carry, because the window no longer moves with the
-  // picker (below) and the dot is what says which year the card is about. The
-  // per-year figures stay reachable through invisible full-height hover
-  // strips, so dropping the other symbols costs no value.
-  //
-  // SVG for the line, HTML for everything around it. The plot is drawn in a
-  // 0–100 box with preserveAspectRatio="none" so it fills whatever width the
-  // grid gives it, which would stretch a stroke and squash a dot — so the stroke
-  // is `vector-effect="non-scaling-stroke"` and the dot is HTML positioned in
-  // the same percentage space, which also keeps every axis label crisp text
-  // rather than type scaled by a viewBox.
-
-  // How many years of change each chart plots. The window is the NEWEST tracked
-  // years, the same fixed x axis the headline sparklines draw, and the picker
-  // moves the dot along it rather than sliding the window: a chart that
-  // re-framed itself on every pick made two picks of the same category hard to
-  // compare. A selected year older than the window has no dot to place, and the
-  // category's own label still carries its figure.
-  const INF_YEARS = 5;
-
-  // The furthest the shared axis will reach, in percentage points. A category
-  // that barely existed one year and is normal the next produces a change in the
-  // hundreds — and on a SHARED scale that one point flattens every other line to
-  // the floor, which is the exact failure the shared scale was chosen to avoid.
-  // So the axis stops at a doubling and a point past it is PINNED to the edge;
-  // its real figure is still on the category's own label and in the year's
-  // tooltip, so nothing is lost but the unreadable height.
-  const INF_CLAMP = 100;
-
-  // How far apart two axis labels must sit, as a percent of the plot's height,
-  // before both are drawn. A lopsided scale (a 40% rise against a 0.5% dip) puts
-  // its bound within a pixel or two of the 0% label; the bound is the one to
-  // drop, since 0% is what every bar is measured from.
-  const INF_TICK_GAP = 18;
-
-  /** The tracked years in the chart's window, oldest first. Years the ledger
-   *  does not track are simply absent rather than drawn empty — the x axis is
-   *  the years there ARE, not a calendar. */
-  function inflationWindow() {
-    return state.asc.slice(-INF_YEARS);
-  }
-
-  /** A round bound at or above `m` percentage points, so the axis ends on a
-   *  number worth printing. */
-  function niceBound(m) {
-    if (!(m > 0)) return 0;
-    const pow = Math.pow(10, Math.floor(Math.log10(m)));
-    for (const step of [1, 1.5, 2, 2.5, 3, 4, 5, 7.5]) if (m <= step * pow) return step * pow;
-    return 10 * pow;
-  }
-
-  /** An axis tick, in percentage points ("+20%", "0%", "\u22125%"). */
-  function fmtTick(pp) {
-    const n = Math.round(Math.abs(pp) * 10) / 10;
-    return `${pp > 0 ? '+' : pp < 0 ? '\u2212' : ''}${n}%`;
-  }
-
-  function inflation(y) {
-    const rows = inflationWindow();
-
-    // Order and names come from the SELECTED year's row, so a renamed category
-    // is charted under the name it has now.
-    const cats = (y.inflation || []).map((c) => ({
-      key: c.key,
-      name: c.name,
-      points: rows.map((r) => {
-        const hit = (r.inflation || []).find((x) => x.key === c.key);
-        return { year: r.year, pct: hit ? hit.pct : null };
-      }),
-    }));
-
-    // A category the ledger has never charged anything to has no rise to report,
-    // so it is left out rather than drawn empty.
-    const drawn = cats.filter((c) => c.points.some((p) => p.pct != null));
-    if (!drawn.length) {
-      return '<p class="met-section-empty">Needs a second year of expenses to compare.</p>';
-    }
-
-    const vals = drawn
-      .flatMap((c) => c.points.map((p) => p.pct))
-      .filter((v) => v != null)
-      .map((v) => v * 100);
-    let hi = Math.min(niceBound(Math.max(0, ...vals)), INF_CLAMP);
-    const lo = Math.max(-niceBound(Math.max(0, -Math.min(0, ...vals))), -INF_CLAMP);
-    // Every change was exactly zero: there is no span to divide by, so give the
-    // axis a nominal one and let every bar sit flat on the line.
-    if (hi - lo === 0) hi = 1;
-
-    const span = hi - lo;
-    const frac = (v) => (v - lo) / span;
-    // 0% sits at the ORIGIN whenever nothing fell — it only lifts off the floor
-    // to make room for the years a cost came down.
-    const topPct = (v) => (1 - frac(v)) * 100;
-
-    // 0% is always drawn; a bound joins it only when there is room for both, and
-    // only when it is not 0% under another name (an all-rises year has lo = 0).
-    const zTop = topPct(0);
-    const ticks = [];
-    if (hi > 0 && Math.abs(topPct(hi) - zTop) >= INF_TICK_GAP) ticks.push([topPct(hi), fmtTick(hi)]);
-    ticks.push([zTop, '0%']);
-    if (lo < 0 && Math.abs(topPct(lo) - zTop) >= INF_TICK_GAP) ticks.push([topPct(lo), fmtTick(lo)]);
-    const yAxis = ticks
-      .map(([at, text]) => `<span class="inf-y-tick${text === '0%' ? ' inf-y-zero' : ''}" style="top:${at.toFixed(3)}%">${escapeHtml(text)}</span>`)
-      .join('');
-
-    const charts = drawn.map((c) => {
-      // The label's figure comes from the selected year's own row, not from the
-      // window, so it is printed even when that year is older than the chart.
-      const here = (y.inflation || []).find((x) => x.key === c.key);
-      const arrow = (v) => (v > 0 ? '\u25b2' : v < 0 ? '\u25bc' : '\u25a0');
-      const tone = (v) => (v > 0 ? 'up' : v < 0 ? 'down' : 'flat');
-      const head = here && here.pct != null
-        ? `<span class="inf-cat-pct inf-${tone(here.pct)}">${escapeHtml(`${arrow(here.pct)} ${fmtSignedPct(here.pct)}`)}</span>`
-        : '<span class="inf-cat-pct inf-flat">\u2014</span>';
-
-      const n = c.points.length;
-      // A year sits at the middle of its share of the width, which is also where
-      // its label sits under the plot — the two are laid out in the same
-      // percentage space so they cannot drift apart.
-      const xAt = (i) => ((i + 0.5) / n) * 100;
-
-      const plotted = c.points.map((p, i) => {
-        if (p.pct == null) return null;
-        // Past the shared axis' bound the line is pinned to the edge. Nothing
-        // marks the point — the chart carries no symbols at all — so a pinned
-        // line reads as "at or past the top", and the exact figure is on the
-        // category's label and in the year's tooltip.
-        const v = Math.max(lo, Math.min(hi, p.pct * 100));
-        return { year: p.year, pct: p.pct, x: xAt(i), y: topPct(v) };
-      });
-
-      // The line breaks over a year with no comparison rather than leaping it,
-      // so a gap in the ledger reads as a gap.
-      const runs = [];
-      plotted.forEach((pt) => {
-        if (!pt) { runs.push(null); return; }
-        const last = runs[runs.length - 1];
-        if (Array.isArray(last)) last.push(pt);
-        else runs.push([pt]);
-      });
-      const segs = runs.filter((r) => Array.isArray(r));
-
-      // Two clipped copies of the same area, split at the 0% line: what is above
-      // it is a cost that rose, what is below it is one that fell. Ids are keyed
-      // by category, which is unique within the section.
-      const upId = `inf-up-${c.key}`;
-      const downId = `inf-down-${c.key}`;
-      const areas = segs
-        .filter((run) => run.length > 1)
-        .map((run) => {
-          const pts = run.map((pt) => `${pt.x.toFixed(2)},${pt.y.toFixed(2)}`).join(' ');
-          const back = `${run[run.length - 1].x.toFixed(2)},${zTop.toFixed(2)} ${run[0].x.toFixed(2)},${zTop.toFixed(2)}`;
-          return `<polygon class="inf-area inf-area-up" clip-path="url(#${upId})" points="${pts} ${back}" />
-            <polygon class="inf-area inf-area-down" clip-path="url(#${downId})" points="${pts} ${back}" />`;
-        })
-        .join('');
-      const lines = segs
-        .filter((run) => run.length > 1)
-        .map((run) => `<polyline class="inf-stroke" vector-effect="non-scaling-stroke"
-          points="${run.map((pt) => `${pt.x.toFixed(2)},${pt.y.toFixed(2)}`).join(' ')}" />`)
-        .join('');
-
-      // The selected year's point, as an HTML dot in the plot's percentage
-      // space (the svg is stretched, so a circle in it would squash). Absent
-      // when that year has no comparison or is outside the window.
-      const sel = plotted.find((pt) => pt && pt.year === state.year);
-      const dot = sel
-        ? `<span class="inf-dot" style="left:${sel.x.toFixed(2)}%;top:${sel.y.toFixed(2)}%"></span>`
-        : '';
-
-      // Nothing is drawn for a point, so the values need a hover target that is
-      // not a mark: one invisible strip per year, the full height of the plot.
-      // Every figure stays reachable by pointer without putting a shape on a
-      // chart that is meant to carry only the line.
-      const hits = c.points
-        .map((p, i) => `<span class="inf-hit" style="left:${(i / n) * 100}%;width:${(100 / n)}%"
-          title="${escapeHtml(`${p.year}: ${p.pct == null ? 'no comparison' : fmtSignedPct(p.pct)}`)}"></span>`)
-        .join('');
-
-      const xs = c.points
-        .map((p) => `<span class="inf-x-label${p.year === state.year ? ' inf-x-current' : ''}">${p.year}</span>`)
-        .join('');
-
-      // One label for the whole chart: read out mark by mark it would be a list
-      // of coordinates.
-      const spoken = c.points
-        .map((p) => `${p.year} ${p.pct == null ? 'no comparison' : fmtSignedPct(p.pct)}`)
-        .join(', ');
-
-      return `<div class="inf-cat">
-        <div class="inf-cat-head">
-          <span class="inf-cat-name">${escapeHtml(c.name)}</span>
-          ${head}
-        </div>
-        <div class="inf-chart" role="img" aria-label="${escapeHtml(`${c.name}, year-on-year change: ${spoken}`)}">
-          <div class="inf-y">${yAxis}</div>
-          <div class="inf-plot">
-            <span class="inf-zero" style="top:${zTop.toFixed(3)}%"></span>
-            <svg class="inf-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-              <defs>
-                <clipPath id="${upId}"><rect x="0" y="0" width="100" height="${Math.max(0, zTop).toFixed(3)}" /></clipPath>
-                <clipPath id="${downId}"><rect x="0" y="${zTop.toFixed(3)}" width="100" height="${Math.max(0, 100 - zTop).toFixed(3)}" /></clipPath>
-              </defs>
-              ${areas}${lines}
-            </svg>
-            ${dot}${hits}
-          </div>
-          <div class="inf-x">${xs}</div>
-        </div>
-      </div>`;
-    }).join('');
-
-    return `<div class="met-inflation">${charts}</div>`;
-  }
-
   // ─── Bodies ────────────────────────────────────────────────────────────────
-  // One per card. The card frames, their titles and the two info tooltips are
+  // One per card. The card frames, their titles and the info tooltip are
   // static markup in pages/reports.html — only the contents are rendered here,
   // so the year picker keeps the listener UI.wirePicker bound to it once.
 
@@ -584,14 +345,12 @@
     const host = document.getElementById('metrics-body');
     if (!host) return;
     const vitals = document.getElementById('metrics-vitals-card');
-    const infl = document.getElementById('metrics-inflation-card');
     const y = state.years.find((row) => row.year === state.year);
 
-    // Nothing to report: the first card carries the empty state and the other
-    // two stay down, so an untouched database shows one invitation rather than
-    // three empty frames.
+    // Nothing to report: the first card carries the empty state and the second
+    // stays down, so an untouched database shows one invitation rather than two
+    // empty frames.
     if (vitals) vitals.hidden = !y;
-    if (infl) infl.hidden = !y;
     if (!y) {
       host.innerHTML = UI.emptyState({
         icon: 'target',
@@ -605,13 +364,6 @@
     host.innerHTML = figuresBody(y);
     const vitalsHost = document.getElementById('metrics-vitals');
     if (vitalsHost) vitalsHost.innerHTML = vitalsBody(y);
-    const inflHost = document.getElementById('metrics-inflation');
-    if (inflHost) inflHost.innerHTML = inflation(y);
-    // The Inflation card's own figure: the year's whole expense change, in the
-    // same pill the headline figures carry, sitting where the other cards' range
-    // pickers do.
-    const inflFig = document.getElementById('metrics-inflation-figure');
-    if (inflFig) inflFig.innerHTML = `<span class="met-section-figure">${changePill(y.changes.expenses, false)}</span>`;
   }
 
   // ─── Year picker (mirrors the Cash Flow tab's) ─────────────────────────────

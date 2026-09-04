@@ -90,9 +90,9 @@
    install is licensed, so the free tier never meets the 402. */
 [data-license-tier="free"] #dashboard-section-freedom { display: none; }
 
-/* Financial Freedom and Year to Year are the first two sections on the page, so
-   hiding both leaves Month to Month as a later sibling and it keeps the 16px gap
-   meant to separate two sections from a heading that is no longer above it. */
+/* Year to Year sits above Month to Month, so hiding it leaves Month to Month as
+   a later sibling and it keeps the 16px gap meant to separate two sections from a
+   heading that is no longer above it. */
 [data-license-tier="free"] #dashboard-section-month { margin-top: 0; }
 
 /* Locked nav links keep their place in the list. Removing them would leave the

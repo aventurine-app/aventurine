@@ -300,11 +300,11 @@
 
     <!-- The old standalone "Yearly Report Card" page, which nothing linked to,
          living here as a report instead. ONE year at a time, chosen from the
-         picker: every other report on this page is read that way, and six
+         picker: every other report on this page is read that way, and the
          ratios drawn as gauges need the width that stacking every year side by
          side was spending. The whole report is ONE container (.met-shell): the
          chosen year as its heading top-left, the picker top-right, and the
-         three sections below as flat sub-cards, so the year reads as the
+         two sections below as flat sub-cards, so the year reads as the
          title of everything under it. Controller: static/js/pages/metrics.js. -->
     <div class="met-shell">
     <div class="met-shell-header">
@@ -326,27 +326,17 @@
         <div id="metrics-body"></div>
     </div>
 
-    <!-- Vitals and Inflation are their own sub-cards, not sections of the one
-         above. Three questions — what the year totalled, what its ratios say,
-         what got more expensive — read as three answers, and the card border is
-         the separator this page already uses everywhere else. Both start
-         hidden: metrics.js reveals them once there is a year to fill them, so a
-         database with nothing in it shows one empty state rather than three. -->
+    <!-- Vitals is its own sub-card, not a section of the one above. Two
+         questions — what the year totalled, what its ratios say — read as two
+         answers, and the card border is the separator this page already uses
+         everywhere else. It starts hidden: metrics.js reveals it once there is
+         a year to fill it, so a database with nothing in it shows one empty
+         state rather than two. -->
     <div class="met-card" id="metrics-vitals-card" hidden>
         <div class="dashboard-card-header">
             <span class="dashboard-card-title">Vitals</span>
         </div>
         <div id="metrics-vitals"></div>
-    </div>
-
-    <div class="met-card" id="metrics-inflation-card" hidden>
-        <div class="dashboard-card-header">
-            <span class="dashboard-card-title">Inflation<span class="fc-info" tabindex="0" role="note"
-                aria-label="What each cost did against the year before it. All five charts share one scale, so a higher line is a bigger rise wherever it appears. The axis stops at a doubling — a point past that is pinned to the edge as an arrowhead, and its real figure is on the label. A category with no spend in the earlier year has no percentage to give, and the line breaks there."
-                data-tip="What each cost did against the year before it. All five charts share one scale, so a higher line is a bigger rise wherever it appears. The axis stops at a doubling — a point past that is pinned to the edge as an arrowhead, and its real figure is on the label. A category with no spend in the earlier year has no percentage to give, and the line breaks there.">i</span></span>
-            <div class="met-controls" id="metrics-inflation-figure"></div>
-        </div>
-        <div id="metrics-inflation"></div>
     </div>
 
     </div><!-- /.met-shell -->

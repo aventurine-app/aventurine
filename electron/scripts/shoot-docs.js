@@ -894,9 +894,8 @@ app.whenReady().then(async () => {
       await click('#rep-tab-metrics');
       await sleep(2500);
       await unhover();
-      // The whole column, not one card: the report is three stacked cards now
-      // (totals, Vitals, Inflation) and cropping to .met-card catches only the
-      // first of them.
+      // The whole column, not one card: the report is two stacked cards
+      // (totals, Vitals) and cropping to .met-card catches only the first.
       await shotEl('reports-metrics', '.rep-panel:not([hidden]) .metrics-page', 10);
     }
 
