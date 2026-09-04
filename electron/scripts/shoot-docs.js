@@ -996,8 +996,8 @@ app.whenReady().then(async () => {
     // ═══ Opt-in: full-frame app shots ════════════════════════════════
     // Whole-window captures — title bar, sidebar and page in one picture — for
     // the website, where the site crops above deliberately drop all of that.
-    // Shot in the same light theme and gemstone palette, so the two sets read
-    // as one app. Opt in by naming it, like `site`:
+    // Shot in the COLORFUL surface theme (the site crops use the light one) on
+    // the same gemstone palette. Opt in by naming it, like `site`:
     //
     //   SHOT_ONLY=frames SHOT_W=1900 SHOT_H=1400 SHOT_OUT=… \
     //     electron --no-sandbox --force-device-scale-factor=2 scripts/shoot-docs.js
@@ -1006,12 +1006,18 @@ app.whenReady().then(async () => {
     // ledger's Notes column falls off the right edge, and the dashboard's
     // second band needs the height. Full WIDTH always, but each shot is
     // trimmed to where its own page ends — the window is sized for the longest
-    // of the three, and on the shorter pages that would otherwise leave a field
+    // of the four, and on the shorter pages that would otherwise leave a field
     // of empty background under the content, which reads as a mistake rather
     // than as an app.
     if (ONLY && ONLY.has('frames')) {
       console.log('\n— frames —');
-      await setTheme('');
+      // COLORFUL surface theme, not the light one the `site` crops use. These
+      // shots carry the title bar and the sidebar, which is where that theme
+      // does most of its work, so a light frame would show the chrome the crops
+      // deliberately drop and then paint it in the one theme that makes it
+      // plainest. Set once here; both axes live in localStorage on a fixed
+      // origin, so they survive every nav below.
+      await setTheme('colorful');
       await setGraphTheme('gemstone');
 
       // Stepped back one month for the reason the site dashboard is: the seeded
@@ -1035,7 +1041,35 @@ app.whenReady().then(async () => {
       await unhover();
       await shotPage('frame-cash-flow', '.rep-panel:not([hidden]) .forecast-card', 20);
 
+      // The Recurring calendar, shot with one schedule's card pinned open for
+      // the reason the `site` crop is: a chip carries only a name and an amount,
+      // so a bare calendar shows the shape of the feature and none of its data.
+      // Same STREAMBOX chip too — the card is a fixed 460px centred on its chip
+      // and clamped to the window, so an edge column overhangs and gets cut, and
+      // a short merchant name keeps the card free of an ellipsis.
+      await adoptRecurring();
+      await nav('/recurring', 3200);
+      if (!(await js(`(() => document.querySelectorAll('.rec-occ').length)()`))) {
+        throw new Error('recurring calendar showed no occurrences');
+      }
+      await unhover();
+      const framePinned = await js(`(() => {
+        const chip = [...document.querySelectorAll('.rec-occ')].find((el) =>
+          (el.querySelector('.rec-occ-name')?.textContent || '').includes('STREAMBOX'));
+        if (chip) chip.click();
+        return !!chip;
+      })()`);
+      if (!framePinned) throw new Error('no STREAMBOX chip to pin the card on');
+      await sleep(400);
+      if (!(await js(`(() => { const p = document.getElementById('rec-pop'); return p && !p.hidden; })()`))) {
+        throw new Error('recurring card did not open');
+      }
+      await shotPage('frame-recurring', '.rec-page', 20);
+      await esc();
+      await sleep(200);
+
       // Back to the defaults for any docs phase sharing the pass.
+      await setTheme('');
       await setGraphTheme('');
     }
 
