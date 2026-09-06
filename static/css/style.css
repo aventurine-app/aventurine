@@ -1052,10 +1052,12 @@ div.page::-webkit-scrollbar-thumb:hover {
     color: var(--danger-text);
 }
 
-/* ⋮ menu trigger — a circle button anchoring UI.openMenu's dropdown. The
-   glyph is centred by the flex box, so no padding/margin. focus-visible and
+/* ⋮ menu trigger — a rounded-square button anchoring UI.openMenu's dropdown.
+   The glyph is centred by the flex box, so no padding/margin. focus-visible and
    :active states live in buttons.css (grouped with the other eyebrow
-   controls); only the resting/hover circle is here. */
+   controls); only the resting/hover shape is here. The 6px radius is the one
+   the stepper and range-selector controls beside it already use (ui.css), so a
+   toolbar row reads as one set of controls rather than a pill among boxes. */
 .p-menu-btn {
     display: inline-flex;
     align-items: center;
@@ -1064,7 +1066,7 @@ div.page::-webkit-scrollbar-thumb:hover {
     height: var(--control-height);
     padding: 0;
     margin: 0;
-    border-radius: 50%;
+    border-radius: 6px;
     background: var(--surface1);
     border: var(--border-width) solid var(--border);
     color: var(--text-secondary);
