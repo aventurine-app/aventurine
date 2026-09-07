@@ -41,8 +41,19 @@
 // states the value, the range it fell in, and that range's verdict in words.
 //
 // All computation is server-side (GET /api/report-card, newest year first);
-// this script picks a year out of the response and formats it. The picker
-// mirrors the Cash Flow tab's year picker (widgets/cashflow-sankey.js).
+// this script picks a span out of the response and formats it. The picker is
+// the Cash Flow tab's, markup and wiring both (widgets/cashflow-sankey.js): a
+// joined pair whose left half picks the year and whose right half picks how
+// much of it to report on — "Entire year", or one month of it. The payload
+// carries both spans (`years` and `months`), so switching either half is a
+// re-render rather than a re-fetch.
+//
+// A month reports the same five figures and the same gauges over that month
+// alone, with its YoY pills comparing against the SAME month a year earlier and
+// its sparklines plotting that month across every tracked year. Debt-to-Income
+// is the one tile that goes N/A: debt is a balance carried, not a flow, so the
+// backend sends no debt for a month rather than measuring it against a twelfth
+// of the income servicing it.
 //
 // Globals (loaded before this script): apiFetch (api.js), escapeHtml
 // (escape.js), formatCurrency (currency.js), UI.emptyState (ui.js).
@@ -69,12 +80,34 @@
   // one grading threshold the renderer has to hold a copy of.
   const NEAR_TREND = 0.02;
 
+  // The month half's options, and the caption for having picked none. All
+  // twelve are listed whatever the ledger holds, so the list is the same twelve
+  // rows in the same order every time it opens; a month with no activity reads
+  // as zeroes, which is what the year scope already does with an empty year.
+  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'];
+  const ENTIRE_YEAR = 'Entire year';
+
   const state = {
-    years: [],    // the /api/report-card rows, newest first
+    years: [],    // the /api/report-card year rows, newest first
+    months: {},   // month name → that month's rows across the years, newest first
     year: null,   // selected year (number)
-    asc: [],      // the same rows oldest-first — the sparklines' x axis
+    month: null,  // selected month name, or null for the whole year
+    asc: [],      // the selected span's rows oldest-first — the sparklines' x axis
     bands: {},    // metric key → the gauge's coloured ranges (from the payload)
   };
+
+  /** The cards for the span the picker names: one month across every tracked
+   *  year, or the years themselves. */
+  function spanRows() {
+    return state.month ? (state.months[state.month] || []) : state.years;
+  }
+
+  /** Re-derive the sparklines' x axis after either half of the picker moves.
+   *  Made once per span change rather than per figure per render. */
+  function setSpan() {
+    state.asc = [...spanRows()].sort((a, b) => a.year - b.year);
+  }
 
   // ─── Formatting ────────────────────────────────────────────────────────────
 
@@ -345,7 +378,7 @@
     const host = document.getElementById('metrics-body');
     if (!host) return;
     const vitals = document.getElementById('metrics-vitals-card');
-    const y = state.years.find((row) => row.year === state.year);
+    const y = spanRows().find((row) => row.year === state.year);
 
     // Nothing to report: the first card carries the empty state and the second
     // stays down, so an untouched database shows one invitation rather than two
@@ -366,41 +399,78 @@
     if (vitalsHost) vitalsHost.innerHTML = vitalsBody(y);
   }
 
-  // ─── Year picker (mirrors the Cash Flow tab's) ─────────────────────────────
+  // ─── Span picker (the Cash Flow tab's, both halves) ────────────────────────
 
-  // The chosen year is printed twice: in the picker button and as the shell's
-  // heading, so the report's title and its control never disagree.
-  function showYear(y) {
+  // The chosen span is printed twice: across the two picker buttons and as the
+  // shell's heading, so the report's title and its control never disagree. The
+  // heading carries both halves ("March 2025"), since it is the title of
+  // everything under it and a month alone would not say which year's.
+  function showSpan() {
     const btn = document.getElementById('metrics-year-btn');
+    const monthBtn = document.getElementById('metrics-month-btn');
     const heading = document.getElementById('metrics-year-heading');
-    if (btn) btn.textContent = y == null ? 'No data' : String(y);
-    if (heading) heading.textContent = y == null ? '' : String(y);
+    const none = state.year == null;
+    if (btn) btn.textContent = none ? 'No data' : String(state.year);
+    if (monthBtn) monthBtn.textContent = state.month || ENTIRE_YEAR;
+    if (heading) {
+      heading.textContent = none ? ''
+        : state.month ? `${state.month} ${state.year}` : String(state.year);
+    }
   }
 
   function buildYearMenu() {
     const btn = document.getElementById('metrics-year-btn');
     const menu = document.getElementById('metrics-year-menu');
+    const monthBtn = document.getElementById('metrics-month-btn');
     if (!btn || !menu) return;
 
     if (!state.years.length) {
-      showYear(null);
+      showSpan();
       btn.disabled = true;
+      if (monthBtn) monthBtn.disabled = true;
       menu.innerHTML = '';
       return;
     }
     btn.disabled = false;
-    showYear(state.year);
+    if (monthBtn) monthBtn.disabled = false;
+    showSpan();
     menu.innerHTML = state.years
       .map((row) => `<button type="button" data-year="${row.year}">${row.year}</button>`)
       .join('');
   }
 
-  function wireYearPicker() {
+  function buildMonthMenu() {
+    const menu = document.getElementById('metrics-month-menu');
+    if (!menu) return;
+    // data-month is empty for the whole-year option, which is what state.month
+    // being null means — one attribute covers both cases with no sentinel.
+    menu.innerHTML = [`<button type="button" data-month="">${ENTIRE_YEAR}</button>`]
+      .concat(MONTHS.map((m) => `<button type="button" data-month="${m}">${m}</button>`))
+      .join('');
+    // Pin the half to its widest caption, so picking September does not widen
+    // the pair and shove the seam sideways under the year beside it.
+    UI.lockPickerWidth(document.getElementById('metrics-month-btn'),
+      [ENTIRE_YEAR].concat(MONTHS));
+  }
+
+  function wirePickers() {
     UI.wirePicker('metrics-year-btn', 'metrics-year-menu', (b) => {
       const y = parseInt(b.dataset.year, 10);
       if (y === state.year) return;
       state.year = y;
-      showYear(y);
+      showSpan();
+      render();
+    });
+
+    // The month choice SURVIVES a year change, and the year choice survives a
+    // month change — "March, and now show me last March" is the comparison the
+    // pair is for.
+    UI.wirePicker('metrics-month-btn', 'metrics-month-menu', (b) => {
+      const m = b.dataset.month || null;
+      if (m === state.month) return;
+      state.month = m;
+      setSpan();
+      showSpan();
       render();
     });
   }
@@ -409,24 +479,27 @@
     const res = await apiFetch('/api/report-card');
     if (!res.ok) return;
     const data = await res.json();
-    // The endpoint sorts newest-first, which the picker and the default selection
-    // both rely on. The sparklines need ascending order, so that copy is made once
-    // here rather than per figure per render.
+    // The endpoint sorts both spans newest-first, which the picker and the
+    // default selection both rely on. The sparklines need ascending order, so
+    // setSpan makes that copy once per span change rather than per figure per
+    // render.
     state.years = data.years || [];
-    state.asc = [...state.years].sort((a, b) => a.year - b.year);
-    // The coloured ranges are a constant of the report, not of a year, so they
+    state.months = data.months || {};
+    // The coloured ranges are a constant of the report, not of a span, so they
     // ride once on the response rather than on every card.
     state.bands = data.bands || {};
     if (state.year === null || !state.years.some((row) => row.year === state.year)) {
       state.year = state.years.length ? state.years[0].year : null;
     }
+    setSpan();
     buildYearMenu();
     render();
   }
 
   document.addEventListener('DOMContentLoaded', () => {
     if (!document.getElementById('metrics-body')) return;
-    wireYearPicker();
+    buildMonthMenu();
+    wirePickers();
     window.addEventListener('currencychange', render);
     load();
   });

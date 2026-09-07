@@ -394,3 +394,68 @@ test('report-card API: net and its YoY pill ignore transfers entirely', (t) => {
   assert.equal(years.find((y) => y.year === 2024).changes.net, null);
 });
 
+
+// ─── The month scope (the picker's right half) ───────────────────────────────
+
+test('report-card API: months carry every month of every active year', (t) => {
+  const c = makeClient(t);
+  c.post('/api/year', { year: 2025 });
+  const body = c.get('/api/report-card').body;
+
+  assert.equal(Object.keys(body.months).length, 12);
+  // A month with no cells reports zeroes rather than going missing — the rule
+  // the year scope already applies to an active year with no activity.
+  const june = body.months.June.find((m) => m.year === 2025);
+  assert.ok(june, 'expected a June 2025 card');
+  assert.equal(june.income, 0);
+  assert.equal(june.expenses, 0);
+});
+
+test('report-card API: a month reports its own cells, and no debt', (t) => {
+  const c = makeClient(t);
+  c.post('/api/year', { year: 2025 });
+  c.post('/api/entry', { year: 2025, month: 'January', category: 'income', value: 5000 });
+  c.post('/api/entry', { year: 2025, month: 'January', category: 'rent',   value: 2000 });
+  c.post('/api/entry', { year: 2025, month: 'January', category: 'savings', value: 1000 });
+  c.post('/api/entry', { year: 2025, month: 'March',   category: 'income', value: 9000 });
+  // Debt on the Balance Sheet: the year grades against it, a month does not.
+  const key = c.post('/api/balance/columns', { label: 'Credit Card', type: 'debt' }).body.column.key;
+  c.post('/api/balance/entry', { year: 2025, month: 'January', category: key, value: 4000 });
+
+  const body = c.get('/api/report-card').body;
+  const jan = body.months.January.find((m) => m.year === 2025);
+  assert.equal(jan.income, 5000);
+  assert.equal(jan.expenses, 2000);
+  assert.equal(jan.net, 3000);
+  assert.equal(jan.transfers, 1000);
+  assert.equal(jan.metrics.expenseToIncome, 0.4);
+  assert.equal(jan.metrics.savingsRate, 0.2);
+  // Debt is a balance carried, not a flow: measuring it against one month's
+  // income would grade every month against a twelfth of the income servicing
+  // it, so the month scope reports none and the ratio is N/A.
+  assert.equal(jan.debt, null);
+  assert.equal(jan.metrics.debtToIncome, null);
+  // The year scope still grades against it.
+  assert.equal(body.years.find((y) => y.year === 2025).debt, 4000);
+  // March keeps its own cells, untouched by January's.
+  assert.equal(body.months.March.find((m) => m.year === 2025).income, 9000);
+});
+
+test('report-card API: a month compares against the same month a year earlier', (t) => {
+  const c = makeClient(t);
+  c.post('/api/year', { year: 2024 });
+  c.post('/api/year', { year: 2025 });
+  c.post('/api/entry', { year: 2024, month: 'January', category: 'income', value: 4000 });
+  c.post('/api/entry', { year: 2024, month: 'July',    category: 'income', value: 9999 });
+  c.post('/api/entry', { year: 2025, month: 'January', category: 'income', value: 5000 });
+
+  const jans = c.get('/api/report-card').body.months.January;
+  // Newest first, the order the picker and the default selection both rely on
+  // (the seeded current year sorts ahead of both tracked ones).
+  const asked = jans.map((m) => m.year).filter((y) => y === 2025 || y === 2024);
+  assert.deepEqual(asked, [2025, 2024]);
+  // +25% on January 2024, not on any figure from July.
+  assert.deepEqual(jans.find((m) => m.year === 2025).changes.income, { abs: 1000, pct: 0.25 });
+  // Earliest year of the series: nothing to compare against.
+  assert.equal(jans.find((m) => m.year === 2024).changes.income, null);
+});

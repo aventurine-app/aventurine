@@ -302,12 +302,12 @@
     const trend = (v, ok) =>
       (v == null || v === 0 ? 'na' : ok ? 'met' : Math.abs(v) <= 0.02 ? 'near' : 'miss');
 
-    const cards = raw.map((r, i) => {
-      const prev = i ? raw[i - 1] : null;
+    const buildCards = (rows) => rows.map((r, i) => {
+      const prev = i ? rows[i - 1] : null;
       const net = r2(r.income - r.expenses);
       const prevNet = prev ? r2(prev.income - prev.expenses) : null;
       const er = ratio(r.expenses, r.income);
-      const dti = ratio(r.debt, r.income);
+      const dti = r.debt == null ? null : ratio(r.debt, r.income);
       const sr = ratio(r.transfers, r.income);
       const ir = ratio(r.invested, r.income);
       const spend = prev && prev.expenses > 0 ? (r.expenses - prev.expenses) / prev.expenses : null;
@@ -316,7 +316,7 @@
       return {
         year: r.year, income: r.income, expenses: r.expenses, transfers: r.transfers,
         saved, invested: r.invested, net, debt: r.debt,
-        topExpense: { key: 'housing', name: 'Housing', amount: r.top },
+        topExpense: r.top > 0 ? { key: 'housing', name: 'Housing', amount: r.top } : null,
         changes: {
           income: change(r.income, prev && prev.income),
           expenses: change(r.expenses, prev && prev.expenses),
@@ -331,7 +331,7 @@
           cashFlowMargin: (r.income - r.expenses) / r.income,
           savingsRate: sr,
           investedRate: ir,
-          topExpenseShare: ratio(r.top, r.expenses),
+          topExpenseShare: r.top > 0 ? ratio(r.top, r.expenses) : null,
         },
         goals: [
           { key: 'expense_ratio',  label: 'Expenses under 70% of income',    value: er,    target: 0.70, range: null,         status: under(er, 0.70) },
@@ -343,6 +343,32 @@
         ],
       };
     });
+
+    const cards = buildCards(raw);
+    // The month half of the picker: each of the twelve months as its own series
+    // across the same years, so switching either half of the pair is a
+    // re-render off this one payload. Mirrors the backend's month scope — one
+    // twelfth of the year's figures, wobbled a little so a sparkline has a
+    // shape, and NO debt, which is what puts the Debt-to-Income gauge at N/A
+    // for a single month.
+    const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'];
+    const months = {};
+    MONTH_NAMES.forEach((name, m) => {
+      // A repeating 0.85–1.15 factor: deterministic, so the fixture is the same
+      // on every load, and enough spread that the month-over-month lines differ.
+      const wob = 1 + 0.15 * Math.sin(((m + 1) * 2 * Math.PI) / 12);
+      const slice = (n) => r2((n / 12) * wob);
+      months[name] = buildCards(raw.map((r) => ({
+        year: r.year,
+        income: slice(r.income),
+        expenses: slice(r.expenses),
+        transfers: slice(r.transfers),
+        invested: slice(r.invested),
+        top: slice(r.top),
+        debt: null,
+      }))).reverse();
+    });
     // Newest year first — the year picker and the default selection both rely
     // on that order. `bands` mirrors METRIC_BANDS in
     // electron/backend/services/reportCard.js: the coloured ranges each ratio's
@@ -350,6 +376,7 @@
     return {
       ok: true,
       years: cards.reverse(),
+      months,
       bands: {
         expenseToIncome: [
           { from: 0, to: 0.70, tone: 'good' },

@@ -309,10 +309,21 @@
     <div class="met-shell">
     <div class="met-shell-header">
         <h2 class="met-year" id="metrics-year-heading" aria-live="polite"></h2>
-        <div class="range-selector" id="metrics-year">
-            <button class="range-selector-btn" id="metrics-year-btn" type="button"
-                aria-haspopup="menu" title="Year shown by every section below">Year</button>
-            <div class="range-selector-menu" id="metrics-year-menu" hidden></div>
+        <!-- The Cash Flow tab's joined year+month picker, same markup and same
+             UI.wirePicker wiring: the left half picks the year, the right half
+             picks how much of it to report on — "Entire year", or one month of
+             it with the year still shown beside it. -->
+        <div class="range-selector-pair">
+            <div class="range-selector" id="metrics-year">
+                <button class="range-selector-btn" id="metrics-year-btn" type="button"
+                    aria-haspopup="menu" title="Year shown by every section below">Year</button>
+                <div class="range-selector-menu" id="metrics-year-menu" hidden></div>
+            </div>
+            <div class="range-selector" id="metrics-month">
+                <button class="range-selector-btn" id="metrics-month-btn" type="button"
+                    aria-haspopup="menu" title="Span shown by every section below">Entire year</button>
+                <div class="range-selector-menu" id="metrics-month-menu" hidden></div>
+            </div>
         </div>
     </div>
 
