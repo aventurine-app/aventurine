@@ -1,9 +1,8 @@
 'use strict';
 
-// Year-table feature factory — port of year_table.py. Three tables share an
-// identical shape (a years table, an entries table, a columns table); this
-// produces the 11 standard routes for one such feature. Currently used by
-// Balance Sheet only, exactly like the Python factory.
+// Year-table feature factory. Three tables share an identical shape (a years
+// table, an entries table, a columns table); this produces the 11 standard
+// routes for one such feature. Currently used by Balance Sheet only.
 //
 // Table names come from this module's config, never from user input, so they
 // are safe to interpolate into the SQL strings.
@@ -28,7 +27,7 @@ function yearTableRoutes({
   // the one surface whose job is to offer a not-yet-adopted account.
   const visibleClause = hasHidden ? ' WHERE hidden = 0' : '';
 
-  /** Position where a newly added column should land (mirror of _insert_pos):
+  /** Position where a newly added column should land:
    *  typeless append; typed lands at the end of its type group, falling back
    *  through earlier types so same-type columns stay contiguous.
    *
@@ -219,8 +218,9 @@ function yearTableRoutes({
       if (hasTypes && 'type' in body && body.type !== col.col_type) {
         const newType = body.type;
         if (!validTypes.has(newType)) bad('invalid type');
-        // Park at -1, close the gap, then re-insert at the new group's tail —
-        // same intermediate-state dance as the Python factory.
+        // Park at -1, close the gap, then re-insert at the new group's tail.
+        // The parking slot keeps the UNIQUE position constraint satisfied while
+        // the rows either side of the gap shuffle.
         const oldPos = col.position;
         db.prepare(`UPDATE ${colTable} SET position = -1 WHERE id = ?`).run(col.id);
         db.prepare(`UPDATE ${colTable} SET position = position - 1 WHERE position > ?`).run(

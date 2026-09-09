@@ -1,10 +1,8 @@
 'use strict';
 
-// Parity tests against Python-generated oracles (fixtures/*.json) for the
-// ported pure services, plus semantic tests for applyTxFields / parseEntry.
-// The oracles were produced by the OLD backend (services/predictions.py,
-// round()) so the port is checked against the real thing, not against my
-// reading of it.
+// Tests for the pure services, plus semantic tests for applyTxFields /
+// parseEntry. The fixtures under fixtures/ are golden values: they pin
+// behaviour that is expensive to re-derive and easy to change by accident.
 
 const test = require('node:test');
 const assert = require('node:assert');
@@ -22,7 +20,7 @@ const { seedDefaults } = require('../seed');
 const FIXTURES = path.join(__dirname, 'fixtures');
 const load = (name) => JSON.parse(fs.readFileSync(path.join(FIXTURES, name), 'utf8'));
 
-test('detectRecurringExpenses matches the Python oracle exactly', () => {
+test('detectRecurringExpenses holds its pinned values', () => {
   const cases = load('predictions-oracle.json');
   assert.ok(cases.length >= 10, 'enough cases');
   let kept = 0;
@@ -37,9 +35,43 @@ test('detectRecurringExpenses matches the Python oracle exactly', () => {
   assert.ok(kept >= 10, 'oracle exercises kept rows, not only drops');
 });
 
-test('round2 matches Python round(x, 2) including ties-to-even', () => {
-  for (const { x, expected } of load('round2-oracle.json')) {
-    assert.strictEqual(round2(x), expected, `round2(${x})`);
+test('round2: half away from zero, on the decimal the user typed', () => {
+  // The cases that separate a decimal-domain shift from `x * 100`. Each of
+  // these is stored as a double slightly BELOW the half-cent it reads as
+  // (2.675 is really 2.674999999999999822), so a binary multiply rounds them
+  // for the wrong reason, in whichever direction its own error happens to fall.
+  const cases = [
+    [2.675, 2.68], [0.125, 0.13], [1.115, 1.12], [1.005, 1.01],
+    [8.835, 8.84], [10.075, 10.08], [1234.565, 1234.57], [0.005, 0.01],
+  ];
+  for (const [x, want] of cases) {
+    assert.strictEqual(round2(x), want, `round2(${x})`);
+    assert.strictEqual(round2(-x), -want, `round2(${-x})`); // symmetric
+  }
+});
+
+test('round2: already-rounded values are untouched, and it is idempotent', () => {
+  // The re-save path. A value that has already been through round2 must come
+  // back bit-identical, or every write would nudge stored money.
+  for (let cents = -5000; cents <= 5000; cents++) {
+    const v = cents / 100;
+    assert.strictEqual(round2(v), v, `round2(${v})`);
+    assert.strictEqual(round2(round2(v)), round2(v));
+  }
+});
+
+test('round2: non-finite input passes through, -0 keeps its sign', () => {
+  assert.ok(Number.isNaN(round2(NaN)));
+  assert.strictEqual(round2(Infinity), Infinity);
+  assert.strictEqual(round2(-Infinity), -Infinity);
+  assert.ok(Object.is(round2(-0), -0));
+  assert.strictEqual(round2(0), 0);
+});
+
+test('round2: output never carries more than two decimals', () => {
+  for (let i = 0; i < 2000; i++) {
+    const v = round2(Math.random() * 2e5 - 1e5);
+    assert.strictEqual(v, Number(v.toFixed(2)), `round2 left fraction on ${v}`);
   }
 });
 
@@ -105,7 +137,7 @@ test('applyTxFields: direction owned by category; explicit tx_type only when unc
   );
   assert.equal(u.tx_type, 'transfer');
 
-  // validation failures return the exact Flask error strings
+  // validation failures return the exact documented error strings
   assert.equal(applyTxFields(db, newTx(), { date: 'nope' }, { requireAll: true }),
     'invalid date (expected YYYY-MM-DD)');
   assert.equal(applyTxFields(db, newTx(),

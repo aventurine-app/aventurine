@@ -2,9 +2,7 @@
 
 The desktop app. Electron with an **in-process Node backend** (`backend/`):
 the renderer talks to it over a single IPC channel — there is no HTTP server,
-no socket, and no port. (The former Python/Flask backend was ported to Node
-in June 2026; the port map lived in `MIGRATION.md`, since deleted — see git
-history.)
+no socket, and no port.
 
 ## First-time setup
 

@@ -118,7 +118,7 @@
         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
     /** Today as 'YYYY-MM-DD', built from the LOCAL calendar fields — the same
-     *  "today" services/predictions.js uses on the backend (Python's
+     *  "today" services/predictions.js uses on the backend (the
      *  date.today()), so a chip the renderer calls "due today" and a row the
      *  backend calls "due today" always mean the same day. */
     function todayIso() {

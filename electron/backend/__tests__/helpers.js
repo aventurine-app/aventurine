@@ -1,9 +1,9 @@
 'use strict';
 
-// Shared test client — the Node counterpart of tests/conftest.py. Each
+// Shared test client. Each
 // makeClient() builds an isolated conn against a fresh tempfile DB selected
 // via AVENTURINE_DB_PATH (which also suppresses pointer-file writes), and
-// returns HTTP-shaped helpers so the ported Python tests read 1:1.
+// returns HTTP-shaped helpers so a test reads like a request.
 
 const crypto = require('node:crypto');
 const fs = require('node:fs');

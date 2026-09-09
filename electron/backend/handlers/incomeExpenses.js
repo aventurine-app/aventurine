@@ -1,6 +1,6 @@
 'use strict';
 
-// Cash Flow (Income & Expenses) blueprint. Shares its validation helpers with
+// Cash Flow (Income & Expenses) routes. Shares its validation helpers with
 // the year-table factory via validate.js.
 //
 // Data-source rule (per cell): every (year, month, category) cell of an active

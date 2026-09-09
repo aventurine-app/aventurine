@@ -1,8 +1,7 @@
 'use strict';
 
-// Request-validation helpers shared by every handler — port of utils.py (plus
-// parseIsoDate from services/transactions.py). One copy of each rule; the
-// handlers import from here. Don't re-implement these locally.
+// Request-validation helpers shared by every handler. One copy of each rule;
+// the handlers import from here. Don't re-implement these locally.
 
 const VALID_MONTHS = [
   'January', 'February', 'March',     'April',   'May',      'June',
@@ -13,7 +12,7 @@ const VALID_MONTHS = [
 // chronologically for anyone querying the DB directly). The API contract — and
 // every request/response payload — uses the English month NAME; these two
 // helpers convert at the storage boundary. parseEntry still returns the name
-// (mirroring the Python validator); callers convert with monthNumber() at the
+// callers convert with monthNumber() at the
 // INSERT and monthName() when shaping a response.
 const _MONTH_TO_NUM = new Map(VALID_MONTHS.map((name, i) => [name, i + 1]));
 
@@ -27,8 +26,8 @@ function monthName(num) {
   return VALID_MONTHS[num - 1] ?? null;
 }
 
-/** Error carrying an HTTP-ish status; the IPC router turns it into the same
- *  { ok:false, error, ...extra } + status envelope Flask's _bad() produced.
+/** Error carrying an HTTP-ish status; the IPC router turns it into the
+ *  { ok:false, error, ...extra } + status envelope every failed route returns.
  *  `extra` covers bodies with fields beyond the message (e.g. the category
  *  delete 409 ships transactions/entries counts). */
 class ApiError extends Error {
@@ -46,7 +45,7 @@ function bad(message, status = 400, extra = null) {
 
 /**
  * Normalise a user-supplied label: trimmed string, or null when empty/too
- * long/not a string (mirror of _clean_label).
+ * long, or not a string.
  */
 function cleanLabel(raw) {
   if (typeof raw !== 'string') return null;
@@ -56,64 +55,58 @@ function cleanLabel(raw) {
 }
 
 /**
- * True only for real, finite numbers (mirror of _is_finite_number — Python
- * rejected bool there because bool subclasses int; JS booleans fail the
- * typeof check naturally). One stored NaN would corrupt every reader.
+ * True only for real, finite numbers. Booleans are rejected by the typeof
+ * check, and NaN/Infinity by Number.isFinite. One stored NaN would corrupt
+ * every reader of that column.
  */
 function isFiniteNumber(v) {
   return typeof v === 'number' && Number.isFinite(v);
 }
 
-/** Mirror of _validate_year: integer (not bool) in [1000, 9999]. */
+/** Integer (not bool) in [1000, 9999]. */
 function validateYear(year) {
   return typeof year === 'number' && Number.isInteger(year) && year >= 1000 && year <= 9999;
 }
 
 /**
- * Round to 2 decimals exactly like Python's round(x, 2), so the cents stored
- * at the write boundary stay identical across the port.
+ * Round to 2 decimals (cents), half away from zero.
  *
- * Python rounds on the EXACT decimal value of the double (ties to even), so
- * naive `x * 100` scaling diverges on boundary values (2.675 stores as
- * 2.67499999..., must give 2.67; the float multiply drags it to 2.68). This
- * decomposes the double into its exact mantissa×2^exponent with BigInt and
- * does the half-even division exactly. Verified against a Python oracle in
- * __tests__ — don't replace with Math.round/toFixed without re-running it.
+ * The shift is done in the DECIMAL domain via exponent notation, not by
+ * multiplying by 100. `x * 100` is a binary float multiply that introduces its
+ * own error on top of the value's: 2.675 is stored as 2.674999999999999822, and
+ * multiplying drags it to 267.50000000000003, which then rounds UP for the
+ * wrong reason. Re-exponentiating the number's own shortest round-trip form
+ * (what `toExponential` gives) shifts the point without touching the digits, so
+ * what rounds is the decimal the user actually typed.
+ *
+ * Half away from zero is the ordinary commercial rule and the one a person
+ * typing an amount expects: 2.675 -> 2.68, and -2.675 -> -2.68 by symmetry.
+ * `Math.round` alone cannot do this, since it breaks ties toward +Infinity and
+ * would send -2.675 to -2.67.
  */
-const _F64 = new DataView(new ArrayBuffer(8));
+function shiftExp(x, places) {
+  // toExponential always yields "<mantissa>e<+|-><exp>", so this is a pure
+  // decimal-point move with no arithmetic on the mantissa.
+  const [mantissa, exp] = x.toExponential().split('e');
+  return Number(`${mantissa}e${Number(exp) + places}`);
+}
+
 function round2(x) {
   if (!Number.isFinite(x)) return x;
-  const neg = x < 0 || Object.is(x, -0); // Python preserves -0.0's sign
-  _F64.setFloat64(0, Math.abs(x));
-  const bits = _F64.getBigUint64(0);
-  const expBits = Number((bits >> 52n) & 0x7ffn);
-  let mantissa = bits & 0xfffffffffffffn;
-  let exp;
-  if (expBits === 0) {
-    exp = -1074; // subnormal
-  } else {
-    mantissa |= 0x10000000000000n;
-    exp = expBits - 1075;
-  }
-  // |x| = mantissa * 2^exp exactly; we need round-half-even(|x| * 100).
-  let cents;
-  if (exp >= 0) {
-    cents = (mantissa * 100n) << BigInt(exp);
-  } else {
-    const num = mantissa * 100n;
-    const den = 1n << BigInt(-exp);
-    const q = num / den;
-    const r2 = (num % den) * 2n;
-    if (r2 > den) cents = q + 1n;
-    else if (r2 < den) cents = q;
-    else cents = q % 2n === 0n ? q : q + 1n; // exact tie → even
-  }
-  const result = Number(cents) / 100;
+  const neg = x < 0 || Object.is(x, -0); // keep -0's sign, as Math.round does
+  const abs = Math.abs(x);
+
+  const shifted = shiftExp(abs, 2);
+  // Past 2^53 there are no fractional cents left to round, and the shift would
+  // overflow to Infinity. The value is already whole; hand it back untouched.
+  if (!Number.isFinite(shifted)) return x;
+
+  const result = shiftExp(Math.round(shifted), -2);
   return neg ? -result : result;
 }
 
 /** Strict 'YYYY-MM-DD' -> the same string, or null on any parse failure
- *  (mirror of _parse_iso_date; dates stay ISO strings throughout Node). */
+ *  (dates stay ISO strings end to end). */
 function parseIsoDate(s) {
   if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
   const [y, m, d] = s.split('-').map(Number);
@@ -125,7 +118,7 @@ function parseIsoDate(s) {
 }
 
 /**
- * Validate a (year, month, category[, value]) payload — mirror of _parse_entry.
+ * Validate a (year, month, category[, value]) payload.
  * Returns the parsed object or throws ApiError. Values are rounded to cents at
  * this write boundary so float artifacts never persist.
  */

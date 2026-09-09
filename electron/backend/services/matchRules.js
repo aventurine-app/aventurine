@@ -1,13 +1,17 @@
 'use strict';
 
-// Learned auto-categorization — port of services/match_rules.py.
+// Learned auto-categorization.
 //
-// The fuzzy thresholds (0.92 here for unattended matches, 0.85 for the
-// interactive Categorize Similar) were tuned against Python's
-// difflib.SequenceMatcher.ratio(), so `sequenceRatio` below is a faithful
-// port of that exact algorithm (Ratcliff/Obershelp with autojunk, isjunk=None).
-// Its numeric output is verified equal to Python's across a fixture oracle in
-// __tests__/matchRules.test.js — do not simplify it without re-checking parity.
+// `sequenceRatio` below is the app's string-similarity measure: Ratcliff and
+// Obershelp, with the autojunk heuristic that ignores elements repeated often
+// enough in a long sequence to be noise rather than signal.
+//
+// BOTH fuzzy thresholds (0.92 for unattended matches, 0.85 for the interactive
+// Categorize Similar) were tuned against THIS function's output. Swapping in a
+// different similarity measure re-scales every score, so the same two numbers
+// would then mean something else and rows would silently start or stop
+// auto-categorizing. Its values are pinned by a fixture in
+// __tests__/matchRules.test.js; change either together or not at all.
 
 const AUTO_FUZZY_THRESHOLD = 0.92;
 
@@ -18,11 +22,11 @@ const AUTO_FUZZY_THRESHOLD = 0.92;
 const FUZZY_THRESHOLD_MIN = 0.5;
 const FUZZY_THRESHOLD_MAX = 1.0;
 
-// ─── difflib.SequenceMatcher.ratio() port ────────────────────────────────────
+// ─── Ratcliff/Obershelp similarity ───────────────────────────────────────────
 
-/** Build b2j (element -> sorted index list), applying difflib's autojunk:
+/** Build b2j (element -> sorted index list), applying the autojunk heuristic:
  *  for b of length >= 200, elements occurring more than n/100+1 times are
- *  dropped so they cannot seed matches (isjunk is always None here). */
+ *  dropped so they cannot seed matches. Nothing is treated as junk a priori. */
 function buildB2J(b) {
   const n = b.length;
   const b2j = new Map();
@@ -70,10 +74,11 @@ function findLongestMatch(a, b, b2j, alo, ahi, blo, bhi) {
   return { i: besti, j: bestj, size: bestsize };
 }
 
-/** 2.0*M/T over the matching blocks — identical to difflib's ratio(). */
+/** 2.0*M/T over the matching blocks: twice the matched elements over the two
+ *  sequences' combined length. */
 function sequenceRatio(a, b) {
   const la = a.length, lb = b.length;
-  if (la + lb === 0) return 1.0; // difflib: ratio of two empty sequences is 1.0
+  if (la + lb === 0) return 1.0; // two empty sequences are identical
   const b2j = buildB2J(b);
   let matches = 0;
   const queue = [[0, la, 0, lb]];

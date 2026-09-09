@@ -85,7 +85,7 @@ app.whenReady().then(async () => {
     const listed = await evalJs('apiFetch("/api/transactions").then(r => r.json())');
     check('IPC tx visible in list', listed.transactions.some((t) => t.description === 'e2e probe'));
 
-    // The page must be parsed as UTF-8 (no Flask header declares it anymore;
+    // The page must be parsed as UTF-8 (no server header declares it;
     // a windows-1252 fallback renders every em-dash as mojibake).
     check('document parsed as UTF-8', (await evalJs('document.characterSet')) === 'UTF-8');
 

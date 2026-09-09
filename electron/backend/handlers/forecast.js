@@ -1,6 +1,6 @@
 'use strict';
 
-// Balance Forecast (Reports) blueprint. Read endpoint projects a running
+// Balance Forecast (Reports) routes. Read endpoint projects a running
 // weekly balance; the planned-items endpoints are plain CRUD over the
 // forecast_planned table (schema v2). Projection logic lives in
 // services/forecast.js; this handler only gathers inputs and validates writes.

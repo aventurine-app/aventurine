@@ -1,6 +1,6 @@
 'use strict';
 
-// Port of tests/test_database.py — create / open / unlock, the filesystem
+// Database management: create / open / unlock, the filesystem
 // browser, data isolation across switches, and the 423 lock gate when an
 // encrypted DB is restored at startup.
 

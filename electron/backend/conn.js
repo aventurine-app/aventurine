@@ -1,13 +1,11 @@
 'use strict';
 
 // Connection manager — holds the live database handle and the runtime switch
-// logic. This is the Node counterpart of dbstate.rebind_engine + the
-// routes/database.py _switch_to helper, with the same rollback guarantee: if
-// migrating or seeding a candidate database fails, the previous database stays
-// active and unmodified.
+// logic, with a rollback guarantee: if migrating or seeding a candidate
+// database fails, the previous database stays active and unmodified.
 //
-// Factory, not singleton, so tests build isolated instances (the way each Python
-// test built a fresh app via create_app()).
+// Factory, not singleton, so tests build isolated instances (the way each
+// test built a fresh app).
 
 const crypto = require('node:crypto');
 const fs = require('fs');
@@ -51,9 +49,9 @@ function secureChmod(p) {
  * such argument, from a scanner or a reader.
  *
  * The cost is that an unequal LENGTH returns early, so the passphrase's length
- * leaks while its content does not. That is the same guarantee the canonical
- * primitive gives — Python's hmac.compare_digest documents that it leaks input
- * lengths — and a length is not what an oracle attack is after.
+ * leaks while its content does not. That is the same guarantee every canonical
+ * constant-time compare gives (they all document leaking input length), and a
+ * length is not what an oracle attack is after.
  */
 function sameSecret(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string') return false;
@@ -173,7 +171,7 @@ function createConn() {
     }
   }
 
-  /** The live handle. Locked/missing -> the same 423 the Flask gate gave. */
+  /** The live handle. Locked or missing -> 423. */
   function db() {
     if (state.locked || !handle) throw new ApiError('db_locked', 423);
     return handle;

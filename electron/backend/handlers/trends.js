@@ -1,6 +1,6 @@
 'use strict';
 
-// Spending Trends (Reports) blueprint. Read-only: returns monthly spending per
+// Spending Trends (Reports) routes. Read-only: returns monthly spending per
 // EXPENSE category over a trailing window of complete months, for the chart +
 // "biggest movers" panel. The movers math is client-side (services/trends has
 // no state); this handler only aggregates.

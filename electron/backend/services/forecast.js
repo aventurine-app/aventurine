@@ -6,7 +6,7 @@
 // intra-month cash crunches (a big bill landing before payday) stay visible
 // instead of being averaged into a single month-end point.
 //
-// This is NEW behaviour (not a Python port), so there is no oracle fixture; it
+// There is no golden fixture for this; it
 // is pinned by ordinary deterministic unit tests in __tests__/forecast.test.js.
 //
 // HYBRID model — each week's net is the sum of:

@@ -1,9 +1,8 @@
 'use strict';
 
-// Recurring-expense detection for the Dashboard page "Upcoming Expenses" card —
-// faithful port of services/predictions.py. Pure functions over already-loaded
-// rows; only .date (ISO string) / .description / .amount are touched. DB access
-// stays in the handler.
+// Recurring-expense detection for the Dashboard's "Upcoming Expenses" card.
+// Pure functions over already-loaded rows; only .date (ISO string) /
+// .description / .amount are touched. DB access stays in the handler.
 
 // (name, nominal gap in days, per-gap tolerance in days) — tolerances are tight
 // enough that the windows do not overlap.
@@ -34,7 +33,7 @@ const MIN_REGULARITY = 0.7; // fraction of gaps that must sit within tolerance
 // (oracle-pinned, must not change).
 const LAPSED_GRACE_DAYS = 90;
 
-/** Canonical grouping key for a merchant string (mirror of _normalise_desc):
+/** Canonical grouping key for a merchant string:
  *  lowercase, digits dropped, every non-[a-z] run collapsed to one space. */
 function normaliseDesc(desc) {
   const lowered = String(desc == null ? '' : desc).toLowerCase().replace(/\d+/g, '');
@@ -56,7 +55,7 @@ function fromUTC(ms) {
 
 const DAY_MS = 86400000;
 
-/** Today as a LOCAL-timezone ISO date — mirror of Python's date.today(). This
+/** Today as a LOCAL-timezone ISO date. This
  *  is the default `today` for detection; UTC would shift the date by a day for
  *  users west of Greenwich in the evening. */
 function localTodayIso() {
@@ -73,8 +72,7 @@ function addDays(iso, n) {
   return fromUTC(toUTC(iso) + n * DAY_MS);
 }
 
-/** iso plus n calendar months, clamping the day (Jan 31 + 1mo -> Feb 28).
- *  Mirror of _add_months. */
+/** iso plus n calendar months, clamping the day (Jan 31 + 1mo -> Feb 28). */
 function addMonths(iso, n) {
   const [y0, m0, d0] = iso.split('-').map(Number);
   const total = m0 - 1 + n;
@@ -102,13 +100,13 @@ function classifyCycle(gaps) {
   return null;
 }
 
-// Python-equivalent round(x, 2) — the one exact implementation lives in
+// Round to cents — the one implementation lives in
 // validate.js (BigInt-exact, oracle-verified); do not duplicate it.
 const { round2 } = require('../validate');
 
 /**
  * Find likely subscriptions/bills in expense transactions and project the next
- * charge of each (mirror of detect_recurring_expenses). `today` is an ISO
+ * charge of each. `today` is an ISO
  * string (defaults to the current date). Returns up to `limit` predictions,
  * soonest due first: {description, amount, cycle, next_date, due_in_days,
  * last_date, occurrences, confidence}.

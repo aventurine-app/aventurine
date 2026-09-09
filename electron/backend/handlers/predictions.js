@@ -1,6 +1,6 @@
 'use strict';
 
-// Predictions blueprint — port of routes/predictions.py.
+// Predictions routes.
 
 const { detectRecurringExpenses } = require('../services/predictions');
 

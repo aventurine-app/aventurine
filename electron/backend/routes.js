@@ -1,9 +1,9 @@
 'use strict';
 
-// The full route table — the Node counterpart of create_app()'s blueprint
-// registration plus the year-table factory call. Order matters only where
-// Flask's converters disambiguated (e.g. /api/transactions/similar vs
-// <int:tx_id> — the int pattern can't match 'similar', same as Flask).
+// The full route table, plus the year-table factory call. Order matters only
+// where a typed converter disambiguates two patterns that would otherwise both
+// match: '/api/transactions/similar' vs '/api/transactions/<int:tx_id>', where
+// the int pattern cannot match the literal 'similar'.
 
 const { buildRouter } = require('./router');
 const { yearTableRoutes } = require('./handlers/yearTable');
@@ -24,8 +24,7 @@ const routes = [
   ...require('./handlers/onboarding').routes,
   ...require('./handlers/database').routes,
   ...require('./handlers/license').routes,
-  // Balance Sheet — the one remaining year-table feature (mirrors the
-  // register_year_table_feature call in app.py).
+  // Balance Sheet — the one remaining year-table feature.
   ...yearTableRoutes({
     prefix: '/api/balance',
     yearTable: 'balance_active_years',

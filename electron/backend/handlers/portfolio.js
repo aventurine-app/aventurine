@@ -1,6 +1,6 @@
 'use strict';
 
-// Portfolio blueprint — port of routes/portfolio.py.
+// Portfolio routes.
 
 const { bad, cleanLabel, isFiniteNumber } = require('../validate');
 
@@ -97,7 +97,7 @@ function addEntry(ctx, { body }) {
   if (!db.prepare('SELECT 1 FROM portfolio_accounts WHERE id = ?').get(accountId)) {
     bad('account not found', 404);
   }
-  // Model defaults: empty strings + zeros (mirror of PortfolioEntry()).
+  // Column defaults: empty strings + zeros.
   const info = db
     .prepare(
       `INSERT INTO portfolio_entries (account_id, ticker, asset_name, amount, price, market_price)

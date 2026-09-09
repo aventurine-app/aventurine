@@ -1,7 +1,6 @@
 'use strict';
 
-// Transactions blueprint — port of routes/transactions.py, plus the
-// post-migration export endpoint (no Python ancestor).
+// Transactions routes, plus the export endpoint.
 
 const fs = require('fs');
 const path = require('path');
@@ -145,7 +144,7 @@ function similar(ctx, { query }) {
   const needle = rawDesc.toLowerCase();
   let rows;
   if (threshold < 1) {
-    // Pull the candidate rows and filter in JS — same as the Python difflib
+    // Pull the candidate rows and filter in JS — the similarity measure
     // pass; the candidate set is small at personal-ledger scale.
     rows = db
       .prepare(

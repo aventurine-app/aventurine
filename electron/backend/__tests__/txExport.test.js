@@ -1,6 +1,6 @@
 'use strict';
 
-// Export feature (no Python predecessor): serialiser coverage for
+// Export feature: serialiser coverage for
 // services/txExport.js and the chunked POST /api/transactions/export protocol —
 // header/append/footer over <path>.part, overwrite guard, and the
 // rename-into-place on the final chunk.

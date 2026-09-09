@@ -1,6 +1,6 @@
 'use strict';
 
-// Runtime database selection — port of dbstate.py. Tracks which file is active,
+// Runtime database selection. Tracks which file is active,
 // whether it's SQLCipher-encrypted, and the in-memory passphrase (never on
 // disk). Persists path + encrypted flag to <dataDir>/active-db.json so the same
 // DB reopens on restart; an encrypted database therefore starts LOCKED until
@@ -10,7 +10,7 @@
 // never persisted, so tests cannot overwrite a real pointer.
 //
 // Factory, not singleton: each createDbState() holds its own state, so tests can
-// build isolated instances the way create_app() did for Flask.
+// build isolated instances.
 
 const fs = require('fs');
 const os = require('os');

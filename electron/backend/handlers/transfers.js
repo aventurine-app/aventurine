@@ -1,6 +1,6 @@
 'use strict';
 
-// Saved & Invested (Reports → Saved & Invested) blueprint. Read-only: how much
+// Saved & Invested (Reports → Saved & Invested) routes. Read-only: how much
 // moved into the user's savings and brokerage accounts each month over a
 // trailing window, and which account it moved into. Both charts come from one
 // payload so their totals cannot differ.

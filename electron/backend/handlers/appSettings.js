@@ -1,6 +1,6 @@
 'use strict';
 
-// App-settings blueprint — port of routes/app_settings.py. Keys the API may
+// App-settings routes. Keys the API may
 // read/write are allowlisted so unrelated rows are never exposed or corrupted.
 
 const { bad } = require('../validate');

@@ -1,6 +1,6 @@
 'use strict';
 
-// Categories blueprint — port of routes/categories.py. Handlers are plain
+// Categories routes. Handlers are plain
 // functions (ctx, {params, query, body}); ctx is the conn manager.
 
 const { bad, cleanLabel } = require('../validate');
@@ -48,8 +48,8 @@ function create(ctx, { body }) {
       )
       .run('__tmp__', name, data.cat_type, pos);
     const id = info.lastInsertRowid;
-    // Stable key derived from the new row's id, so renames never orphan
-    // Entry rows (mirror of the Flask flush-then-set-key dance).
+    // Stable key derived from the new row's id, so renames never orphan Entry
+    // rows. Two steps because the id only exists after the insert.
     db.prepare('UPDATE categories SET "key" = ? WHERE id = ?').run(`cat_${id}`, id);
     return getCat(db, id);
   })();

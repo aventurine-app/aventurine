@@ -16,7 +16,7 @@
 // income/spend figures exclude. `transfers` stays on the row as the sum of the
 // two, since the ratios read it.
 //
-// NEW behaviour (not a Python port) → no oracle fixture; pinned by the
+// No golden fixture; pinned by the
 // deterministic unit tests in __tests__/reportCard.test.js.
 
 const { round2 } = require('../validate');

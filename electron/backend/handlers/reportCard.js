@@ -1,6 +1,6 @@
 'use strict';
 
-// Yearly Report Card (Reports) blueprint. Read-only: aggregates each year's
+// Yearly Report Card (Reports) routes. Read-only: aggregates each year's
 // Cash Flow (Income & Expenses) activity into income / expense totals, plus the
 // latest Balance-Sheet debt snapshot, then hands the per-year totals to
 // services/reportCard.js for the year-over-year changes, ratios, and goal

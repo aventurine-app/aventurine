@@ -11,7 +11,7 @@
 const Database = require('better-sqlite3-multiple-ciphers');
 
 /** SQL string literal: the only escape inside a single-quoted SQLite string
- *  is a doubled quote. Same rule the Python code used; correct for any value. */
+ *  is a doubled quote. Correct for any value. */
 function sqlQuote(s) {
   return "'" + String(s).replace(/'/g, "''") + "'";
 }
@@ -25,8 +25,8 @@ function connect(path, key = null) {
   const db = new Database(path);
   if (key != null) {
     // Reject a NUL byte: it truncates the C string SQLCipher receives, turning
-    // a wrong passphrase into a *different* wrong key (mirrors the Python
-    // guard). Every other character, spaces included, is allowed.
+    // a wrong passphrase into a *different* wrong key. Every other character,
+    // spaces included, is allowed.
     if (typeof key !== 'string' || key.indexOf('\u0000') !== -1) {
       db.close();
       throw new Error('invalid database passphrase');

@@ -1,8 +1,7 @@
 'use strict';
 
-// Port of tests/test_transactions.py, tests/test_match_rules.py and
-// tests/test_predictions.py (API half — the pure helpers are covered in
-// services.test.js).
+// Transactions, learned match rules, and the API half of predictions. The
+// pure helpers behind them are covered in services.test.js.
 
 const test = require('node:test');
 const assert = require('node:assert');
@@ -10,7 +9,7 @@ const assert = require('node:assert');
 const { makeClient } = require('./helpers');
 const { addMonths, localTodayIso } = require('../services/predictions');
 
-// ── Shared helpers (mirrors of the Python test helpers) ──────────────────────
+// ── Shared helpers ───────────────────────────────────────────────────────────
 
 const getCategories = (c) => c.get('/api/transactions').body.categories;
 const firstCat = (c, catType) => getCategories(c).find((x) => x.cat_type === catType);
@@ -49,7 +48,7 @@ function setSetting(c, key, value) {
   assert.equal(r.status, 200);
 }
 
-// ── test_transactions.py ──────────────────────────────────────────────────────
+// ── Transactions ─────────────────────────────────────────────────────────────
 
 test('tx_type derived from category', (t) => {
   const c = makeClient(t);
@@ -147,7 +146,7 @@ test('amount stored as rounded magnitude', (t) => {
   assert.equal(tx.amount, 12.35);
 });
 
-// ── Clean display names (no Python ancestor) ─────────────────────────────────
+// ── Clean display names ──────────────────────────────────────────────────────
 // Imports get a curated display_name when the MERCHANT lexicon recognizes the
 // row — dictionary lookup only, never a string generated from the description.
 // The stored description is never touched (matching, dedup, search and export
@@ -226,7 +225,7 @@ test('rows categorized by a learned rule still get the merchant name', (t) => {
   assert.equal(rows[0].category_id, cat);
 });
 
-// ── test_match_rules.py ───────────────────────────────────────────────────────
+// ── Learned match rules ──────────────────────────────────────────────────────
 
 test('import auto-categorizes exact match', (t) => {
   const c = makeClient(t);
@@ -544,7 +543,7 @@ test('built-in categorization respects the direction guard and the on/off settin
   assert.equal(txByDesc(c, 'NETFLIX.COM')[0].category_id, null);
 });
 
-// ── test_predictions.py (API half) ────────────────────────────────────────────
+// ── Predictions (API half) ───────────────────────────────────────────────────
 
 const TODAY = localTodayIso();
 

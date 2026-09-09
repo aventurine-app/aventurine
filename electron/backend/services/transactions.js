@@ -1,15 +1,15 @@
 'use strict';
 
-// Transaction field application + serialisation — port of
-// services/transactions.py. Rows are plain objects mirroring the
-// `transactions` table columns; dates are ISO 'YYYY-MM-DD' strings end-to-end.
+// Transaction field application + serialisation. Rows are plain objects
+// mirroring the `transactions` table columns; dates are ISO 'YYYY-MM-DD'
+// strings end-to-end.
 
 const { isFiniteNumber, parseIsoDate, round2 } = require('../validate');
 
 const TX_TYPES = ['income', 'expense', 'transfer'];
 
 /**
- * Shape a transaction row for JSON output (mirror of _serialise_tx).
+ * Shape a transaction row for JSON output.
  * Direction comes from the category: when the row is categorized and a
  * {category_id -> cat_type} Map is supplied, tx_type is derived from it, so
  * rows written before a category was re-typed still render correctly.
@@ -141,7 +141,7 @@ function updateTx(db, t) {
   ).run(t.date, t.description, t.display_name ?? null, t.category_id, t.tx_type, t.amount, t.notes, t.account_key ?? null, t.id);
 }
 
-/** Fresh tx object with the model's column defaults (mirror of Transaction()). */
+/** Fresh tx object carrying the table's column defaults. */
 function newTx() {
   return {
     id: null,

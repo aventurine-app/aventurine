@@ -1,6 +1,6 @@
 'use strict';
 
-// Category serialisation — port of services/categories.py.
+// Category serialisation.
 
 const VALID_CAT_TYPES = ['income', 'expense', 'transfer'];
 

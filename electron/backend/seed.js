@@ -1,7 +1,6 @@
 'use strict';
 
-// Idempotent default seeding — port of bootstrap.seed_defaults + the seed
-// tuples from config.py. Safe to run on every startup and after a New Database
+// Idempotent default seeding. Safe to run on every startup and after a New Database
 // reset: each tracker is only seeded when still empty, and categories are
 // filled in by key so a partially-populated DB is completed, not duplicated.
 

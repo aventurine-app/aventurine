@@ -1,12 +1,13 @@
 'use strict';
 
 // Route table + dispatcher. The IPC layer carries ordinary HTTP-shaped
-// requests ({method, path, body}) so the frontend's fetch() call sites port
-// 1:1; this module is the (much smaller) stand-in for Flask's URL map.
+// requests ({method, path, body}), so every call site reads like a fetch();
+// this module is the URL map.
 //
-// Patterns use Flask's syntax — '/api/transactions/<int:tx_id>' — so the route
-// table in routes.js matches the Python blueprints it replaced and the two
-// grep side by side.
+// Patterns name their typed params inline: '/api/transactions/<int:tx_id>'.
+// The type is load-bearing, not decoration — it is what keeps a literal
+// segment like '/api/transactions/similar' from being swallowed by an id
+// pattern sitting next to it in the table.
 //
 // Dispatch contract (what api.js's fetch-mimic relies on):
 //   dispatch(ctx, method, url, body) -> { status, body }

@@ -1,8 +1,8 @@
 'use strict';
 
-// Database management blueprint — port of routes/database.py: status, the
-// in-modal filesystem browser, create / open / unlock with the same error
-// strings and status codes (dbactions.js keys its UI off them).
+// Database management routes: status, the in-modal filesystem browser, and
+// create / open / unlock. The error strings and status codes here are a
+// contract — dbactions.js keys its UI off them.
 
 const fs = require('fs');
 const os = require('os');
@@ -24,7 +24,7 @@ function status(ctx) {
   return ctx.statusPayload();
 }
 
-/** Directory listing for the in-modal file browser (mirror of browse_fs):
+/** Directory listing for the in-modal file browser:
  *  directories plus database-looking files only, dotfiles skipped. Reachable
  *  while locked on purpose (the unlock prompt's "open a different database"
  *  flow needs it). On Windows the parent of a drive root is the sentinel
@@ -85,7 +85,7 @@ function browse(ctx, { query }) {
   return { ok: true, path: p, parent, sep: path.sep, dirs, files };
 }
 
-/** Expand ~ and resolve to an absolute path (mirror of _normalise_path). */
+/** Expand ~ and resolve to an absolute path. */
 function normalisePath(raw) {
   if (typeof raw !== 'string' || !raw.trim()) bad('No file path provided');
   const p = path.resolve(expandUser(raw.trim()));
@@ -100,7 +100,7 @@ function normalisePath(raw) {
 }
 
 /** PRAGMA quick_check + core-table presence over an already-keyed connection
- *  factory (mirror of _validate_finance_db). Returns error string or null. */
+ *  factory. Returns an error string, or null when the file is usable. */
 function validateFinanceDb(openFn) {
   let tables;
   try {

@@ -1,6 +1,6 @@
 'use strict';
 
-// Top Merchants (Reports → Spending) blueprint. Read-only: ranks the merchants
+// Top Merchants (Reports → Spending) routes. Read-only: ranks the merchants
 // the user spent the most with over a trailing window, for the bar chart that
 // sits under Spending Trends. Trends breaks spending down by category, month by
 // month; this breaks the same ledger down by merchant, totalled.

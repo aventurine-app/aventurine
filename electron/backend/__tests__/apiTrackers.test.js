@@ -1,9 +1,8 @@
 'use strict';
 
-// Port of tests/test_year_table.py (Balance Sheet via the year-table factory)
-// plus the cross-cutting non-finite-value rejections from tests/test_security.py
-// that still apply in the IPC world. (The host/origin/CSP middleware tests are
-// retired along with the HTTP server; there is no socket any more.)
+// Balance Sheet via the year-table factory, plus the cross-cutting
+// non-finite-value rejections. (There are no host/origin/CSP middleware tests:
+// there is no HTTP server and no socket to defend.)
 
 const test = require('node:test');
 const assert = require('node:assert');
@@ -300,7 +299,7 @@ test('hidden: unadopted accounts stay out of reorder and move', (t) => {
   assert.ok(keys.includes('checking'));
 });
 
-// ─── Non-finite / non-numeric value rejection (from test_security.py) ─────────
+// ─── Non-finite / non-numeric value rejection ────────────────────────────────
 // In the IPC world these arrive as real JS values (no JSON parsing layer), but
 // one stored NaN would still corrupt every reader — the validators must hold.
 

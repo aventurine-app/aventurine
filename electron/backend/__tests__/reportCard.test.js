@@ -1,6 +1,6 @@
 'use strict';
 
-// Metrics (Reports). NEW behaviour (not a Python port) → no oracle fixture:
+// Metrics (Reports). No golden fixture:
 // the metrics/goals service is pinned by the deterministic unit tests below,
 // and the aggregation endpoint by API tests over a seeded DB.
 

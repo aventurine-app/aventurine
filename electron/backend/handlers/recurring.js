@@ -1,6 +1,6 @@
 'use strict';
 
-// Recurring (Reports) blueprint. Surfaces detectRecurringSeries
+// Recurring (Reports) routes. Surfaces detectRecurringSeries
 // (services/predictions.js) as a full listing rather than the top-N "due
 // soon" slice /api/predictions/upcoming returns, plus a per-month calendar of
 // occurrences (actual past charges + projected ones) for the

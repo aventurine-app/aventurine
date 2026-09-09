@@ -1,6 +1,6 @@
 'use strict';
 
-// Balance Forecast (Reports). This feature is NEW (not a Python port), so
+// Balance Forecast (Reports). There is no golden fixture here, so
 // there is no oracle fixture — the WEEKLY hybrid projection is pinned by the
 // deterministic unit tests below (a fixed `today` removes the only time
 // dependency), and the endpoints + planned-items CRUD by API tests. The v1→v2
