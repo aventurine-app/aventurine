@@ -122,8 +122,7 @@
     // path, so the name shows behind the unlock prompt too.
     const titleEl = bar.querySelector('.titlebar-title');
     if (titleEl) {
-        apiFetch('/api/db/status')
-            .then(r => r.json())
+        dbStatus()
             .then(s => {
                 const p = s && typeof s.path === 'string' ? s.path : '';
                 titleEl.textContent = dbDisplayName(p);

@@ -343,8 +343,7 @@
     // Encryption: reflect current state, gate the auto-lock rows on it, and open
     // the manage modal (encryption.js, resolved lazily since it loads after this
     // file).
-    apiFetch('/api/db/status')
-        .then(r => r.json())
+    dbStatus()
         .then(s => {
             dbEncrypted = !!s.encrypted;
             applyAutolockState();

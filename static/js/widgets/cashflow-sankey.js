@@ -22,48 +22,52 @@
   const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
 
-  // COOL on the left, WARM on the right. The two sides of this diagram are not
-  // two sets of categories, they are money arriving and money leaving, and the
-  // temperature split is how that reads before a single label is:
+  // GREEN on the left, GOLD on the right, GREY in the middle. The two sides of
+  // this diagram are not two sets of categories, they are money arriving and
+  // money leaving, and the colour split is how that reads before a single label
+  // is:
   //
-  //   income (left)   — the cool --chart-inflow-* ramp, six steps deepest
-  //       first, walking indigo → blue → cyan. It stops SHORT of the green and
-  //       teal end of the cool range, which --chart-net holds alone: the hub is
-  //       then the only thing on the diagram wearing the palette's income
-  //       colour, and the sources read as feeding it rather than as already
-  //       being it. Same size-order rule as the outflow side, so the main
-  //       earner takes the strongest step.
-  //   expenses (right)— the warm --chart-outflow-* ramp, eight steps deepest
-  //       first, walking crimson → red → burnt orange → amber → gold. Bands are
-  //       laid out in size order, so the biggest spend takes the strongest
-  //       colour and the ramp grades MAGNITUDE rather than identity — which it
-  //       can afford to do because every band prints its own name and figure on
-  //       itself. (Eight separate warm HUES were measured against the dataviz
-  //       validator and cannot clear its adjacent-pair separation on either
-  //       surface: the warm span is too narrow to hold eight. A ramp is allowed
-  //       to step smoothly, and stepping in lightness and hue at once is what
-  //       buys back the separation. See the token block in style.css.)
+  //   income (left)   — the green --chart-inflow-* ramp, six steps deepest
+  //       first. Green is what money arriving means on any bank statement, and
+  //       it is the app's income colour everywhere else too — the Dashboard's
+  //       Income line and the income half of its Monthly Cash Flow bars read
+  //       these same tokens. Same size-order rule as the outflow side, so the
+  //       main earner takes the strongest step.
+  //   expenses (right)— the --chart-outflow-* ramp, deepest first, starting at
+  //       --chart-expense rather than at the ramp's own first step, so the
+  //       biggest band wears the gold the Dashboard's Expenses line wears
+  //       (core/chartramp.js carries that rule, which this shares with the
+  //       Dashboard's two gold cards).
+  //       Under Aventurine that walks a deep gold out to a pale yellow; under
+  //       Gemstone it keeps the crimson → red → orange → gold walk it always
+  //       had. Bands are laid out in size order, so the biggest spend takes the
+  //       strongest colour and the ramp grades MAGNITUDE rather than identity —
+  //       which it can afford to do because every band prints its own name and
+  //       figure on itself. (Eight separate HUES were measured against the
+  //       dataviz validator and cannot clear its adjacent-pair separation on
+  //       either surface: the warm span is too narrow to hold eight. A ramp is
+  //       allowed to step smoothly, and stepping in lightness and hue at once is
+  //       what buys back the separation. See the token block in style.css.)
   //
   // This is the one place the expense side stopped sharing --cat-* with the
   // Spending report and the Saved & Invested stack. Those two rank and itemize
   // categories, where a colour is a NAME; here it is a direction.
   //
-  // The hub is neither ramp: --chart-net is the palette's income colour (the UI
-  // accent's teal under Aventurine, the emerald under Gemstone), which is why
-  // both ramps are held off that hue. Colours are read from the tokens at render
-  // time so a theme or palette change re-colours the diagram; the arrays below
-  // are first-paint fallbacks matching the light theme.
+  // The hub is neither ramp: --chart-net is the deepest step of the BALANCE
+  // family (--chart-balance-1), which the Dashboard's Balances donut is drawn in
+  // too — grey under Aventurine, blue under Gemstone. Net Inflow is the one place
+  // all the arriving money has landed as a single amount, which makes it
+  // something held rather than something flowing, and a hub from a third family
+  // cannot be read as one more source. Colours are read from the tokens at render time so a theme or
+  // palette change re-colours the diagram; the arrays below are first-paint
+  // fallbacks matching the light theme.
   // Ribbons are GRADIENTS rather than flat fills: one starts in the colour of
   // the bar it leaves and ends in the colour of the bar it meets - category to
   // net on the income side, net to category on the expense side - so the middle
   // channel's colour is what both halves hand off through. A flat ribbon had to
   // take one end's colour, which left a seam at the other end.
-  const NET_FALLBACK = '#497e74';
-  const INCOME_FALLBACK = ['#4d4495', '#455ba7', '#3871b5', '#2888bd', '#1d9dc2', '#29b1c3'];
-  const OUTFLOW_FALLBACK = [
-    '#8e2932', '#9b392f', '#a6492c', '#b05929',
-    '#b8692a', '#c07a2d', '#c58b36', '#ca9d42',
-  ];
+  const NET_FALLBACK = '#4e5153';
+  const INCOME_FALLBACK = ['#0a5b47', '#10744c', '#1a8b52', '#2ba25b', '#48b76b', '#72c983'];
 
   function readSankeyPalettes() {
     const cs = getComputedStyle(document.documentElement);
@@ -71,7 +75,7 @@
     return {
       net: v('--chart-net', NET_FALLBACK),
       income: INCOME_FALLBACK.map((fb, i) => v(`--chart-inflow-${i + 1}`, fb)),
-      expense: OUTFLOW_FALLBACK.map((fb, i) => v(`--chart-outflow-${i + 1}`, fb)),
+      expense: ChartRamp.outflow(),
     };
   }
 

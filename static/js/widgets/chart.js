@@ -12,8 +12,10 @@
 // time), renderStacked() draws stacked columns (a part-to-whole breakdown over
 // time, for Reports → Investing), and renderArea() draws a stacked AREA (the
 // same breakdown as one continuous shape, for Reports → Spending). They share
-// niceTicks, the axis, the padding, the label stride and the responsive mount,
-// which would otherwise be duplicated in a second widget file.
+// the axis, the padding, the label stride and the responsive mount, which would
+// otherwise be duplicated in a second widget file. The tick maths and the curve
+// itself are shared wider still, with the other two chart engines — see
+// core/chartmath.js.
 //
 // STACKED COLUMNS vs STACKED AREA is a question about the months, not a style
 // choice. Columns suit months that are separate deposits — a month with nothing
@@ -108,54 +110,16 @@
   }
   const observers = new Map();
 
-  function niceTicks(min, max, target = 4) {
-    if (max <= min) return [min];
-    const rough = (max - min) / target;
-    const mag = Math.pow(10, Math.floor(Math.log10(rough)));
-    const norm = rough / mag;
-    let step;
-    if (norm < 2) step = 2 * mag;
-    else if (norm < 5) step = 5 * mag;
-    else step = 10 * mag;
-    const niceMin = Math.floor(min / step) * step;
-    const niceMax = Math.ceil(max / step) * step;
-    const ticks = [];
-    for (let v = niceMin; v <= niceMax + step / 2; v += step) ticks.push(Math.round(v * 1e6) / 1e6);
-    return ticks;
-  }
-
+  // Gridlines and the smoothed curve come from ChartMath (core/chartmath.js),
+  // shared with widgets/forecast.js and pages/dashboard.js so all three engines
+  // draw the same geometry.
+  //
   // Axis labels come from axisFormatter (currency.js), which is handed the whole
   // tick set: formatting ticks one at a time made distinct gridlines share a
   // label whenever the step wasn't a round thousand (step 200 → "$9K, $9K, $9K").
 
   function fmtTooltip(n) {
     return formatCurrency(n, true);
-  }
-
-  function smoothPath(pts) {
-    const f = (n) => Math.round(n * 100) / 100;
-    if (pts.length < 3) return pts.map((p, i) => `${i ? 'L' : 'M'} ${f(p.x)} ${f(p.y)}`).join(' ');
-    // Catmull-Rom tangents let a segment OVERSHOOT the two points it connects: a
-    // run of equal values followed by a rise bows the curve past the flat part
-    // first. On a chart whose axis is fitted to the data that shows as extra
-    // curvature; on a zero-based one (Reports → Investing) it draws the line
-    // BELOW zero between two months of zero. Clamping each control point to its
-    // segment's y-range reduces the curvature at a peak slightly and keeps the
-    // curve within its endpoints' range.
-    const clamp = (v, a, b) => Math.min(Math.max(v, Math.min(a, b)), Math.max(a, b));
-    let d = `M ${f(pts[0].x)} ${f(pts[0].y)}`;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p0 = pts[i - 1] || pts[i];
-      const p1 = pts[i];
-      const p2 = pts[i + 1];
-      const p3 = pts[i + 2] || p2;
-      const c1y = clamp(p1.y + (p2.y - p0.y) / 6, p1.y, p2.y);
-      const c2y = clamp(p2.y - (p3.y - p1.y) / 6, p1.y, p2.y);
-      d += ` C ${f(p1.x + (p2.x - p0.x) / 6)} ${f(c1y)},`
-        + ` ${f(p2.x - (p3.x - p1.x) / 6)} ${f(c2y)},`
-        + ` ${f(p2.x)} ${f(p2.y)}`;
-    }
-    return d;
   }
 
   // A chart is normally as tall as its width says (CHART_RATIO, floored at 170),
@@ -188,7 +152,7 @@
     // needs both halves on the same floor, or the same months look volatile
     // above and steady below.
     const lo = Math.min(...allValues);
-    const yTicks = niceTicks(zeroBase ? Math.min(0, lo) : lo, Math.max(...allValues), 4);
+    const yTicks = ChartMath.niceTicks(zeroBase ? Math.min(0, lo) : lo, Math.max(...allValues), 4);
     const minVal = yTicks[0];
     const maxVal = yTicks[yTicks.length - 1];
     const valRange = maxVal - minVal || 1;
@@ -232,7 +196,7 @@
 
       if (linePts.length > 1) {
         const baseY = H - PB;
-        const lineD = smoothPath(linePts);
+        const lineD = ChartMath.smoothPath(linePts);
         const areaD = `${lineD} L ${linePts[linePts.length - 1].x} ${baseY} L ${linePts[0].x} ${baseY} Z`;
         const lineTopY = Math.min(...linePts.map((p) => p.y));
         const gradId = `areagrad-${rnd}-${si}`;
@@ -366,7 +330,7 @@
     const { r: PR, t: PT, b: PB } = CHART_PAD;
     const CH = H - PT - PB;
 
-    const yTicks = niceTicks(0, maxTotal, 4);
+    const yTicks = ChartMath.niceTicks(0, maxTotal, 4);
     const maxVal = yTicks[yTicks.length - 1] || 1;
     const baseY = PT + CH;
     const yScale = (v) => baseY - (v / maxVal) * CH;
@@ -438,7 +402,7 @@
   //
   // Geometry notes:
   //   - Boundaries are STRAIGHT, not smoothed. Every other line in this file
-  //     runs through smoothPath, but a stacked area is a set of CUMULATIVE
+  //     runs through ChartMath.smoothPath, but a stacked area is a set of CUMULATIVE
   //     boundaries whose only guarantee is that each sits at or above the one
   //     under it. Two clamped Catmull-Rom curves hold that at their endpoints
   //     and not in between, so a thin band under a steep one can cross its own
@@ -492,7 +456,7 @@
     const { r: PR, t: PT, b: PB } = CHART_PAD;
     const CH = H - PT - PB;
 
-    const yTicks = niceTicks(0, maxTotal, 4);
+    const yTicks = ChartMath.niceTicks(0, maxTotal, 4);
     const maxVal = yTicks[yTicks.length - 1] || 1;
     const baseY = PT + CH;
     const yScale = (v) => baseY - (v / maxVal) * CH;

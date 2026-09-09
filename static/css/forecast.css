@@ -158,7 +158,7 @@
    account label so switching accounts can't shove the horizon picker sideways. */
 #forecast-account { --stepper-label-min: 90px; }
 
-/* ─── Year + month as one joined control (Cash Flow) ─────────────────────────
+/* ─── Year + month as one joined control (Cash Flow, Metrics) ────────────────
    Two .range-selector triggers abutting on a shared edge, so the pair reads as
    one picker with a left half and a right half rather than two controls that
    happen to sit next to each other. The year half narrows to its four digits,
@@ -166,11 +166,16 @@
    the inner corners drop their radius. The divider is the FIRST button's right
    border and the second drops its left one — two borders on one seam would draw
    a double line. The seam sits under whichever half is hovered or focused, so
-   its highlight is not cut in half by the neighbour's border. */
+   its highlight is not cut in half by the neighbour's border.
+
+   The two floors hang off the POSITION in the pair, not off the ids of one
+   report's halves: the Cash Flow tab and the Metrics tab carry the same
+   control, and per-id floors left the Metrics pair on the 118px default, so
+   the same picker was two different widths on two tabs of one page. */
 .range-selector-pair { display: flex; }
 
-#cashflow-year { --stepper-label-min: 76px; }
-#cashflow-month { --stepper-label-min: 132px; }
+.range-selector-pair > .range-selector:first-child { --stepper-label-min: 76px; }
+.range-selector-pair > .range-selector:last-child { --stepper-label-min: 132px; }
 
 .range-selector-pair > .range-selector:first-child .range-selector-btn {
     border-top-right-radius: 0;

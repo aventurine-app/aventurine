@@ -73,8 +73,7 @@
     }
 
     // Read whether the active DB can be auto-locked, then start the timer.
-    apiFetch('/api/db/status')
-        .then(r => r.json())
+    dbStatus()
         .then(s => { armed = !!s.encrypted && !s.locked; schedule(); })
         .catch(() => { /* status unavailable — stay disarmed */ });
 

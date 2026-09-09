@@ -44,7 +44,8 @@ li {
     margin-bottom: var(--space-4);  /* Spacing between each menu item */
 }
 
-/* Color comes from --text-secondary (style.css). Each SVG icon in navbar.html uses
+/* Color comes from --text-secondary (style.css). Each SVG icon in
+   pages/partials/sidebar.html uses
    currentColor for its stroke/fill, so it inherits this same color
    automatically — one variable controls both the label and the icon. */
 .nav li a {

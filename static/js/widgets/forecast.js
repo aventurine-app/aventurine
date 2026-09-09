@@ -51,13 +51,9 @@
 
   // Same drawings (and the same 20-box, 1.5-stroke language) as the Recurring
   // card's actions and the ledger's row actions — these are the same verbs.
-  const ICONS = {
-    pencil: '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M14.5 3.5l2 2-9.5 9.5-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
-    check:  '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 10.5l3.5 3.5L15 6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    cross:  '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
-    trash:  '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2M6 6l1 10h6l1-10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    plus:   '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
-  };
+  // The card glyphs and the card chrome below come from UI (shell/ui.js),
+  // shared with the Recurring calendar's chip cards.
+  const ICONS = UI.CARD_ICONS;
 
   const state = {
     months: 3,
@@ -300,22 +296,6 @@
     return v || '#8fb088';
   }
 
-  function niceTicks(min, max, target = 4) {
-    if (max <= min) return [min];
-    const rough = (max - min) / target;
-    const mag = Math.pow(10, Math.floor(Math.log10(rough)));
-    const norm = rough / mag;
-    let step;
-    if      (norm < 2) step = 2  * mag;
-    else if (norm < 5) step = 5  * mag;
-    else               step = 10 * mag;
-    const niceMin = Math.floor(min / step) * step;
-    const niceMax = Math.ceil(max / step) * step;
-    const ticks = [];
-    for (let v = niceMin; v <= niceMax + step / 2; v += step) ticks.push(Math.round(v * 1e6) / 1e6);
-    return ticks;
-  }
-
   /**
    * The value axis. Zero is pulled into the domain when the projection actually
    * gets near it — that is when "how close to broke" is the question the chart
@@ -328,78 +308,14 @@
     const hi = Math.max(...values);
     const span = (hi - lo) || Math.abs(hi) || 1;
     const nearZero = lo <= 0 || lo < span * 0.5;
-    return niceTicks(nearZero ? Math.min(0, lo) : lo, Math.max(0, hi), 4);
+    return ChartMath.niceTicks(nearZero ? Math.min(0, lo) : lo, Math.max(0, hi), 4);
   }
 
-  /** Catmull-Rom → bezier control points (same construction as dashboard.js), as
-   *  one cubic segment per gap. Kept as data rather than only as path text so the
-   *  drawn line and a pin's height are read off the SAME geometry — see curveYAt.
-   *
-   *  Control points are CLAMPED to their segment's y-range, the same as
-   *  widgets/chart.js:smoothPath. An unclamped tangent lets a segment dip below
-   *  both of its endpoints, and on a BALANCE line that draws the account going
-   *  negative in a week where it does not — contradicting summary.belowZero,
-   *  which is computed from the real values and is what the
-   *  card's one sentence reports. The clamp lives here rather than in
-   *  smoothPath so curveYAt evaluates the same curve the user is looking at. */
-  const clampSeg = (v, a, b) => Math.min(Math.max(v, Math.min(a, b)), Math.max(a, b));
-
-  function bezierSegments(pts) {
-    const segs = [];
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p0 = pts[i - 1] || pts[i];
-      const p1 = pts[i];
-      const p2 = pts[i + 1];
-      const p3 = pts[i + 2] || p2;
-      segs.push({
-        p1,
-        p2,
-        c1: { x: p1.x + (p2.x - p0.x) / 6, y: clampSeg(p1.y + (p2.y - p0.y) / 6, p1.y, p2.y) },
-        c2: { x: p2.x - (p3.x - p1.x) / 6, y: clampSeg(p2.y - (p3.y - p1.y) / 6, p1.y, p2.y) },
-      });
-    }
-    return segs;
-  }
-
-  function smoothPath(pts) {
-    const f = (n) => Math.round(n * 100) / 100;
-    if (pts.length < 3) return pts.map((p, i) => `${i ? 'L' : 'M'} ${f(p.x)} ${f(p.y)}`).join(' ');
-    let d = `M ${f(pts[0].x)} ${f(pts[0].y)}`;
-    for (const s of bezierSegments(pts)) {
-      d += ` C ${f(s.c1.x)} ${f(s.c1.y)}, ${f(s.c2.x)} ${f(s.c2.y)}, ${f(s.p2.x)} ${f(s.p2.y)}`;
-    }
-    return d;
-  }
-
-  const bezierAt = (a, b, c, e, t) => {
-    const u = 1 - t;
-    return u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c + t * t * t * e;
-  };
-
-  /** The y the DRAWN line carries at a given x, so a pin sits on the curve.
-   *
-   *  Reading the y off the week's balance instead (the week a date falls in) put
-   *  a pin a whole week's net away from the line: the chart plots each week at
-   *  its weekEnd and curves between those points, so mid-week the line is still
-   *  changing — and the larger the planned expense, the further the pin sat from
-   *  the drop it caused. Straight-line interpolation would close most of that but
-   *  not the smoothing's curve, so the bezier is solved instead:
-   *  x(t) is monotonic within a segment (points step forward in date and the
-   *  control offsets are a sixth of a neighbour gap), so bisect for the t whose
-   *  x matches and read that t's y. 24 halvings is well under a pixel. */
-  function curveYAt(segs, x) {
-    if (!segs.length) return null;
-    const seg = segs.find((s) => x >= s.p1.x && x <= s.p2.x)
-      || (x < segs[0].p1.x ? segs[0] : segs[segs.length - 1]);
-    let lo = 0;
-    let hi = 1;
-    for (let i = 0; i < 24; i++) {
-      const mid = (lo + hi) / 2;
-      if (bezierAt(seg.p1.x, seg.c1.x, seg.c2.x, seg.p2.x, mid) < x) lo = mid;
-      else hi = mid;
-    }
-    return bezierAt(seg.p1.y, seg.c1.y, seg.c2.y, seg.p2.y, (lo + hi) / 2);
-  }
+  // The tick maths, the clamped Catmull-Rom curve and curveYAt all live in
+  // ChartMath (core/chartmath.js), shared with widgets/chart.js and
+  // pages/dashboard.js. curveYAt travels with the curve deliberately: a pin's
+  // height is only right while it is solved against the same control points the
+  // line was drawn from, so the two must not be able to drift apart.
 
   /**
    * Two halves meeting at today, which sits dead centre: real weekly balances on
@@ -456,14 +372,14 @@
     const toXY = (pts) => pts.map((p) => ({ x: xScale(p.date), y: yScale(p.balance) }));
     const pastXY = toXY(pastPts);
     const futureXY = toXY(futurePts);
-    const futureSegs = bezierSegments(futureXY);
+    const futureSegs = ChartMath.bezierSegments(futureXY);
 
     // Published for the overlay + pins. `todayX` is where planning starts.
     plot = {
       W, H, PL, PR, PT, PB, CW, CH,
       first, last: domain.end, totalDays, xScale, yScale,
       today: anchor.date, todayX: xScale(anchor.date),
-      curveY: (x) => curveYAt(futureSegs, x),
+      curveY: (x) => ChartMath.curveYAt(futureSegs, x),
     };
 
     const color = readAccent();
@@ -516,7 +432,7 @@
 
     const draw = (xy, { projected }) => {
       if (xy.length < 2) return '';
-      const lineD = smoothPath(xy);
+      const lineD = ChartMath.smoothPath(xy);
       const areaD = `${lineD} L ${xy[xy.length - 1].x} ${baseY} L ${xy[0].x} ${baseY} Z`;
       // pathLength on the ACTUAL line only: it normalises the path to 1 unit so
       // the draw animation can sweep it with dashoffset — which would also
@@ -662,27 +578,12 @@
   // Parked on <body> and fixed-positioned so the page's scroll container can't
   // clip it. Mirrors #rec-pop on the Recurring page.
 
-  function popEl() {
-    let el = document.getElementById('fc-pop');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'fc-pop';
-      el.className = 'fc-pop';
-      el.hidden = true;
-      el.setAttribute('role', 'dialog');
-      el.setAttribute('aria-label', 'Planned item');
-      document.body.appendChild(el);
-    }
-    return el;
-  }
+  const popEl = () => UI.floatingCard('fc-pop', 'fc-pop', 'Planned item');
 
   const pinFor = (id) =>
     (id == null ? null : document.querySelector(`.fc-pin[data-id="${CSS.escape(String(id))}"]`));
 
-  function actionBtn(action, id, icon, label, extraCls = '') {
-    return `<button type="button" class="fc-action-btn ${extraCls}" data-action="${action}"
-      data-id="${id}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${ICONS[icon]}</button>`;
-  }
+  const actionBtn = UI.cardActions('fc', 'id');
 
   /** Display mode: label · date · amount, then the actions — one flat line, the
    *  same rhythm as the Recurring card. */
@@ -738,18 +639,9 @@
     return `${yy}-${p(mm)}-${p(Math.min(d, lastDay))}`;
   }
 
-  function positionCard(anchor) {
-    const pop = popEl();
-    const a = anchor.getBoundingClientRect();
-    const r = pop.getBoundingClientRect();
-    const gap = 10;
-    let top = a.bottom + gap;
-    if (top + r.height > window.innerHeight - 8) top = Math.max(8, a.top - r.height - gap);
-    let left = a.left + a.width / 2 - r.width / 2;
-    left = Math.min(Math.max(8, left), Math.max(8, window.innerWidth - r.width - 8));
-    pop.style.top = `${Math.round(top)}px`;
-    pop.style.left = `${Math.round(left)}px`;
-  }
+  // 10px rather than the Recurring card's 8: a pin sits ON the line rather than
+  // inside a day cell, so the card needs to clear the stroke as well as the mark.
+  const positionCard = (anchor) => UI.positionFloatingCard(popEl(), anchor, 10);
 
   function renderCard() {
     const pop = popEl();
@@ -763,11 +655,8 @@
   }
 
   function applyActiveHighlight() {
-    document.querySelectorAll('.fc-pin').forEach((el) => {
-      const on = state.activeId != null && el.dataset.id === String(state.activeId);
-      el.classList.toggle('fc-pin-active', on);
-      el.setAttribute('aria-expanded', on ? 'true' : 'false');
-    });
+    UI.markActive('.fc-pin', 'fc-pin-active',
+      (el) => state.activeId != null && el.dataset.id === String(state.activeId));
   }
 
   function openCard(id, { pin = false } = {}) {

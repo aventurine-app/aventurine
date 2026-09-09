@@ -29,18 +29,70 @@
     // escapeHtml is a global from escape.js (loaded by pages/partials/scripts.html). All
     // user-controlled label values go through it before innerHTML interpolation.
 
-    // Chart series palette — read from the accent-derived --chart-* tokens (style.css)
-    // at use time so every graph follows the UI accent and retones on a palette/theme
-    // swap. The fallbacks mirror the light-theme accent ramp for the rare first paint
-    // before styles resolve.
-    const CHART_PALETTE_FALLBACK = [
-        '#8fb088', '#5c7152', '#a9c1a4', '#33402d',
-        '#7c9670', '#b6c8b2', '#647a59', '#5a6f50',
+    // The BALANCE ramp — eight grey steps (style.css). Every account surface on
+    // this page reads it: the Balances donut takes three of the eight, and the
+    // Year to Year Account Balances chart walks all of them, one per account.
+    // Read at use time so both retone on a theme or palette swap; the array is a
+    // first-paint fallback for the rare frame before styles resolve.
+    //
+    // It used to be the accent-derived --chart-* ramp, which followed the UI
+    // accent and meant nothing beyond being eight of something. Grey is what an
+    // account BALANCE is in this app now — money held still, with no direction in
+    // it, as against green arriving and gold leaving — so a line in this chart is
+    // the same family of colour as its slice in the donut above it.
+    const BALANCE_FALLBACK = [
+        '#4e5153', '#5c5f61', '#6a6d70', '#787b7e',
+        '#878a8d', '#989b9e', '#a9acaf', '#bcbfc2',
     ];
-    function readChartPalette() {
+
+    // ─── Flow ramps: one colour per category, shared across the month cards ──────
+    // The Month to Month section draws the same expense category twice — as a
+    // segment of the Monthly Cash Flow card's Expenses bar, and as a bar of its
+    // own in the Spending card. Those two used to be painted from different
+    // ramps (a fade of one colour on the left, the accent ramp's slot number on
+    // the right), so nothing tied the two pictures of one month together.
+    //
+    // They now share one map, keyed by category. The colours come from the same
+    // ramps the Cash Flow report's Sankey uses, so the pairing that report states
+    // — green arriving, gold leaving — is the pairing the Dashboard states too.
+    // Every graph palette re-picks both ramps (themes.css), so this follows a
+    // palette swap without knowing one happened.
+    const INFLOW_FALLBACK = ['#0a5b47', '#10744c', '#1a8b52', '#2ba25b', '#48b76b', '#72c983'];
+
+    function readRamp(prefix, fallbacks) {
         const cs = getComputedStyle(document.documentElement);
-        return CHART_PALETTE_FALLBACK.map((fb, i) =>
-            cs.getPropertyValue(`--chart-${i + 1}`).trim() || fb);
+        return fallbacks.map((fb, i) => cs.getPropertyValue(`${prefix}${i + 1}`).trim() || fb);
+    }
+
+    /**
+     * Category key → colour, for one month's flow segments.
+     *
+     * Expenses take the gold ramp and income the green one, both assigned by
+     * AMOUNT rank rather than by the order the categories sit in on the
+     * statement. That is the rule the Sankey's bands already follow, and it is
+     * what the outflow ramp was stepped for: the ramp grades magnitude, so the
+     * month's biggest spend lands on the deepest step in both cards at once. The
+     * alternative, colour by column position, would hand a category a different
+     * step every time a neighbouring category happens to be empty.
+     *
+     * Transfers get no entry. They are neither ramp's business, and their bar is
+     * drawn in the neutral --chart-transfer with the shade fade below.
+     *
+     * More categories than steps wraps the ramp, so two of them share a colour —
+     * the same wrap every other categorical chart in the app takes. The bars are
+     * labelled and the segments carry a tooltip, so colour is never the only
+     * thing separating them.
+     */
+    function buildFlowColorMap(segments) {
+        const map = new Map();
+        const assign = (list, ramp) => {
+            [...(list || [])]
+                .sort((a, b) => b.value - a.value)
+                .forEach((seg, i) => map.set(seg.key, ramp[i % ramp.length]));
+        };
+        assign(segments && segments.expense, ChartRamp.outflow());
+        assign(segments && segments.income,  readRamp('--chart-inflow-',  INFLOW_FALLBACK));
+        return map;
     }
 
     /**
@@ -91,20 +143,39 @@
     // area; its distinct accent shade and the legend label mark it as a
     // liability rather than an asset.
 
-    /** Pull the four slice colours from the accent-derived --chart-* tokens so the
-     *  Balances pie follows the UI accent and retones on a palette/theme swap.
-     *  Four well-separated stops keep the slices distinguishable within the single-hue
-     *  accent family; the green/red tokens stay reserved for the numeric figures. */
+    /** The four slice colours.
+     *
+     *  Assets take steps 1, 4 and 7 of the grey --chart-balance-* ramp: spaced
+     *  two apart, so the donut's three are the three furthest apart the family
+     *  can offer, while the Account Balances chart below still has all eight to
+     *  walk. Grey rather than the accent because a balance is a standing amount,
+     *  held still rather than arriving or leaving, which is the distinction the
+     *  app's colour families draw; the four accent slots this used to take
+     *  carried no meaning beyond being four.
+     *
+     *  Debt takes --chart-debt, the app's expense gold, so the one gold slice
+     *  sits against three grey ones and a liability never reads as one more
+     *  shade of savings.
+     *
+     *  Colour is fixed BY TYPE, not by slice size, so an account type keeps its
+     *  colour as the section's stepper walks the months. */
     function getAccountsPieColors() {
         const cs = getComputedStyle(document.documentElement);
         const v  = (name, fallback) => cs.getPropertyValue(name).trim() || fallback;
         return {
-            investment: v('--chart-1', '#8fb088'),
-            cash:       v('--chart-2', '#5c7152'),
-            retirement: v('--chart-3', '#a9c1a4'),
-            debt:       v('--chart-4', '#33402d'),
+            cash:       v('--chart-balance-1', '#4e5153'),
+            investment: v('--chart-balance-4', '#787b7e'),
+            retirement: v('--chart-balance-7', '#a9acaf'),
+            debt:       v('--chart-debt',      '#b28a06'),
         };
     }
+
+    /* The donut's own destination. Its slices are Balance Sheet totals per account
+       type, not transactions, so they cannot open a ledger search the way the
+       month's two category charts do — a slice covers several accounts and a
+       balance is a level, not a list of rows. The Balance Sheet is where those
+       numbers are entered, and where this card's empty states already point. */
+    const BALANCE_SHEET_HREF = '/statements#balance-sheet';
 
     function renderAccountsPie(data) {
         const pieEl    = document.getElementById('accounts-pie');
@@ -183,13 +254,15 @@
             // data-dash after insertion — a staggered clockwise sweep. The
             // transition is inline because the per-arc stagger delay must only
             // apply to the dash, never to the opacity hover (dashboard.css §6).
-            return `<circle class="donut-arc" cx="${cx}" cy="${cy}" r="${r}" fill="none"
+            return `<a class="donut-link" href="${BALANCE_SHEET_HREF}" tabindex="0" role="link"
+            aria-label="${escapeHtml(`${s.label}: ${fmtValue(s.signed)} — open the Balance Sheet`)}">
+            <circle class="donut-arc" cx="${cx}" cy="${cy}" r="${r}" fill="none"
             stroke="${s.color}" stroke-width="${sw}"
             stroke-dasharray="0 ${f2(C)}" data-dash="${f2(len)} ${f2(C - len)}"
             stroke-dashoffset="${f2(-start)}"
             style="transition: stroke-dasharray 0.9s cubic-bezier(0.25, 0.1, 0.25, 1) ${i * 110}ms, opacity 0.15s ease 0s">
             <title>${escapeHtml(s.label)}: ${fmtValue(s.signed)}</title>
-        </circle>`;
+        </circle></a>`;
         }).join('');
 
         // Centre readout: assets minus debt at the displayed month — the same
@@ -218,7 +291,7 @@
             // so the figure below it gets the legend's full width — in a
             // third-width card a percent column would truncate the dollar
             // amounts.
-            return `<div class="accounts-legend-item">
+            return `<a class="accounts-legend-item" href="${BALANCE_SHEET_HREF}">
             <span class="accounts-legend-dot" style="background:${s.color}"></span>
             <div class="accounts-legend-text">
                 <div class="accounts-legend-head">
@@ -227,7 +300,7 @@
                 </div>
                 <div class="accounts-legend-value">${fmtValue(s.signed)}</div>
             </div>
-        </div>`;
+        </a>`;
         }).join('');
     }
 
@@ -281,37 +354,11 @@
         return { points, years: allYears };
     }
 
-    /**
-     * Pick 3-5 "nice" tick values that cover [min, max] using only 2, 5, or 10
-     * times a power of ten as the step. Used for Y-axis labels so a chart of
-     * $73K-$128K labels at $80K, $100K, $120K instead of $73,456 and $128,902.
-     *
-     * The returned range from ticks[0] to ticks[last] is the snapped chart
-     * range — wider than [min, max] by at most one step on each side, so the
-     * grid lines line up with the labels.
-     */
-    function niceTicks(min, max, target = 3) {
-        if (max <= min) return [min];
-        const rough = (max - min) / target;
-        const mag = Math.pow(10, Math.floor(Math.log10(rough)));
-        const norm = rough / mag;
-        // Only 2, 5, or 10 × power of ten as steps — keeps the labels to even
-        // round numbers ($20K, $50K, $100K), no awkward $30K or $15K. Target
-        // of 3 lands at 3-4 ticks for typical ranges.
-        let step;
-        if      (norm < 2) step = 2  * mag;
-        else if (norm < 5) step = 5  * mag;
-        else               step = 10 * mag;
-        const niceMin = Math.floor(min / step) * step;
-        const niceMax = Math.ceil(max  / step) * step;
-        const ticks = [];
-        // Round each tick to suppress floating-point fuzz from accumulated +=.
-        for (let v = niceMin; v <= niceMax + step / 2; v += step) {
-            ticks.push(Math.round(v * 1e6) / 1e6);
-        }
-        return ticks;
-    }
-
+    // Y-axis gridlines come from ChartMath.niceTicks (core/chartmath.js), shared
+    // with widgets/chart.js and widgets/forecast.js. The range it returns —
+    // ticks[0] to ticks[last] — is the snapped chart range, wider than the data
+    // by at most one step each side, so the gridlines line up with the labels.
+    //
     // Axis labels come from axisFormatter (currency.js), which is handed the whole
     // tick set. Formatting ticks one at a time made distinct gridlines share a
     // label whenever the nice-tick step wasn't a round thousand — a 9,000-9,400
@@ -336,43 +383,6 @@
     // Frame shared by every chart: left gutter sized for the widest Y label,
     // identical top/right/bottom margins, so all charts line up across cards.
     const CHART_PAD = { l: 56, r: 20, t: 18, b: 30 };
-
-    /**
-     * Catmull-Rom → cubic-bezier smoothing. Produces a curve that passes
-     * through every data point (no value is misrepresented) while reading as
-     * a flowing line instead of a jagged polyline. Falls back to straight
-     * segments below 3 points, where smoothing is meaningless.
-     */
-    const clampSeg = (v, a, b) => Math.min(Math.max(v, Math.min(a, b)), Math.max(a, b));
-
-    function smoothPath(pts) {
-        const f = (n) => Math.round(n * 100) / 100;
-        if (pts.length < 3) {
-            return pts.map((p, i) => `${i ? 'L' : 'M'} ${f(p.x)} ${f(p.y)}`).join(' ');
-        }
-        let d = `M ${f(pts[0].x)} ${f(pts[0].y)}`;
-        for (let i = 0; i < pts.length - 1; i++) {
-            const p0 = pts[i - 1] || pts[i];
-            const p1 = pts[i];
-            const p2 = pts[i + 1];
-            const p3 = pts[i + 2] || p2;
-            // Tension 1/6 — the standard Catmull-Rom pass-through conversion,
-            // with each control point CLAMPED to its segment's y-range.
-            // Unclamped, a tangent lets a segment overshoot the two points it
-            // connects: a run of equal values followed by a rise bows the curve
-            // past the flat part first, and between two months of zero it draws
-            // below zero, a value neither endpoint has. The cost is slightly less
-            // curvature at a peak. Same fix as widgets/chart.js:smoothPath and
-            // widgets/forecast.js:bezierSegments; the three chart engines each
-            // hold a copy of this curve, so a change here applies to all three.
-            const c1y = clampSeg(p1.y + (p2.y - p0.y) / 6, p1.y, p2.y);
-            const c2y = clampSeg(p2.y - (p3.y - p1.y) / 6, p1.y, p2.y);
-            d += ` C ${f(p1.x + (p2.x - p0.x) / 6)} ${f(c1y)},`
-               + ` ${f(p2.x - (p3.x - p1.x) / 6)} ${f(c2y)},`
-               + ` ${f(p2.x)} ${f(p2.y)}`;
-        }
-        return d;
-    }
 
     /**
      * Build one inline SVG line chart from a list of series.
@@ -429,7 +439,7 @@
         const mid    = (dataLo + dataHi) / 2;
         const span   = Math.max(dataHi - dataLo, Math.abs(mid) * 0.25, 1);
         const pad    = span * 0.1;
-        const yTicks = niceTicks(mid - span / 2 - pad, mid + span / 2 + pad, 4);
+        const yTicks = ChartMath.niceTicks(mid - span / 2 - pad, mid + span / 2 + pad, 4);
         const minVal = yTicks[0];
         const maxVal = yTicks[yTicks.length - 1];
         const valRange = maxVal - minVal || 1;
@@ -491,7 +501,7 @@
 
             if (linePts.length > 1) {
                 const baseY = H - PB;
-                const lineD = smoothPath(linePts);
+                const lineD = ChartMath.smoothPath(linePts);
                 const areaD = `${lineD} L ${linePts[linePts.length - 1].x} ${baseY}`
                             + ` L ${linePts[0].x} ${baseY} Z`;
 
@@ -735,18 +745,22 @@
             return;
         }
 
-        // Read the UI accent so the net-worth line, gradient and nodes retone
-        // with the colour theme. --accent-primary, NOT --chart-1: this is the
-        // Dashboard's headline figure and one single-series chart, so it wears
-        // the app's own colour on every graph palette rather than becoming
-        // lapis under Gemstone (--chart-1 resolves to the accent only under the
-        // default ramp). Net worth is a neutral metric, not a gain/loss figure,
-        // so it takes the accent and not the finance-positive green, which
-        // stays reserved for the +/- delta numbers and the income/asset
-        // indicators.
-        const accentColor = getComputedStyle(document.documentElement)
-            .getPropertyValue('--accent-primary').trim() || '#8fb088';
-        const series = [{ label: 'Net Worth', color: accentColor, points: filtered }];
+        // The net-worth line, its gradient and its nodes take --chart-networth,
+        // read at use time so they retone on a theme or palette swap.
+        //
+        // It is the GREEN one, off the income ramp, and it is the one place this
+        // palette spends a flow colour on something that is not a flow. Net worth
+        // is a balance, and balances wear the greys — but grey is the family that
+        // deliberately recedes, and this is the single number the whole Dashboard
+        // is pointed at. So the hero line takes the colour of money arriving and
+        // the greys stay with the accounts underneath it, in the Balances donut
+        // and the Account Balances chart.
+        //
+        // A named token, not a ramp slot: reading --chart-1 here would pin the
+        // line to whatever slot 1 happens to be in each palette.
+        const lineColor = getComputedStyle(document.documentElement)
+            .getPropertyValue('--chart-networth').trim() || '#1a8b52';
+        const series = [{ label: 'Net Worth', color: lineColor, points: filtered }];
 
         observeChart('networth-chart', (W, animate) => buildChartSVG({ series, slots, W, animate }));
     }
@@ -754,46 +768,30 @@
     /** Wire the toolbar range-picker button + dropdown. `onSelect` receives the
      *  chosen range key and re-renders the Year to Year charts. The outer click
      *  handler closes the dropdown when the user clicks anywhere else. */
-    function wireRangePicker(btnId, menuId, onSelect) {
-        const btn  = document.getElementById(btnId);
-        const menu = document.getElementById(menuId);
-        if (!btn || !menu) return;
-
-        btn.addEventListener('click', e => {
-            e.stopPropagation();
-            menu.hidden = !menu.hidden;
-        });
-
-        menu.addEventListener('click', e => {
-            const item = e.target.closest('[data-range]');
-            if (!item) return;
-            menu.hidden = true;
-            onSelect(item.dataset.range);
-        });
-
-        document.addEventListener('click', e => {
-            if (menu.hidden) return;
-            if (!menu.contains(e.target) && !btn.contains(e.target)) {
-                menu.hidden = true;
-            }
-        });
-    }
+    // The range picker is UI.wirePicker (shell/ui.js), the same helper every
+    // report header's range and year control uses. This page held its own copy
+    // — open on click, delegate off the menu, close on an outside click — which
+    // is where the app's picker copies had already drifted once: this one was
+    // missing the btn.disabled check that stops a picker with nothing in it
+    // from opening.
+    const wireRangePicker = (btnId, menuId, onSelect) =>
+        UI.wirePicker(btnId, menuId, (item) => onSelect(item.dataset.range));
 
     // ─── Income & Expenses + Account Balances charts ─────────────────────────────
 
     /** Pull income/expense line colours from the two NAMED chart tokens
      *  (--chart-income / --chart-expense, style.css) so the chart retones on a
      *  palette/theme swap. Named rather than numbered because these two series
-     *  mean something: under the accent ramp they resolve to the base accent and
-     *  a high-contrast shade of it (income leading, expenses apart from it within
-     *  the single-hue family), and under a palette with hues to spend they resolve
-     *  to green and red. Reading a slot number here would pin them to the former. */
+     *  mean something: they resolve to a step of the green income ramp and a step
+     *  of the gold spending ramp, the same split the Cash Flow Sankey and the
+     *  Monthly Cash Flow bars are drawn on. Reading a slot number here would pin
+     *  the pair to the accent ramp and make both lines one hue. */
     function getIEColors() {
         const cs = getComputedStyle(document.documentElement);
         const v  = (name, fallback) => cs.getPropertyValue(name).trim() || fallback;
         return {
-            income:   v('--chart-income', '#8fb088'),
-            expenses: v('--chart-expense', '#33402d'),
+            income:   v('--chart-income', '#10744c'),
+            expenses: v('--chart-expense', '#b28a06'),
         };
     }
 
@@ -838,6 +836,70 @@
     // holds labels the user has switched off.
     const ieHidden = new Set();
 
+    // ─── Selector chips ──────────────────────────────────────────────────────────
+    // Both selectors (Income & Expenses, Account Balances) paint each chip in
+    // its series colour: a fixed border in that colour, and the same colour as
+    // the fill once the series is switched on.
+
+    /** [r, g, b] from a `#rgb`/`#rrggbb`/`rgb()` colour, else null. Chart colours
+     *  are read off computed CSS tokens, so either form can arrive. */
+    function pillRgb(color) {
+        const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(color || '').trim());
+        if (hex) {
+            let h = hex[1];
+            if (h.length === 3) h = h.split('').map(c => c + c).join('');
+            return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16));
+        }
+        const rgb = /^rgba?\(([^)]+)\)$/i.exec(String(color || '').trim());
+        if (rgb) {
+            const parts = rgb[1].split(/[\s,/]+/).filter(Boolean).slice(0, 3).map(Number);
+            if (parts.length === 3 && parts.every(Number.isFinite)) return parts;
+        }
+        // A theme token built with color-mix() computes to `color(srgb r g b)`
+        // with 0–1 channels rather than to an rgb() triple.
+        const srgb = /^color\(\s*srgb\s+([^)]+)\)$/i.exec(String(color || '').trim());
+        if (srgb) {
+            const parts = srgb[1].split(/[\s/]+/).filter(Boolean).slice(0, 3).map(Number);
+            if (parts.length === 3 && parts.every(Number.isFinite)) return parts.map(v => v * 255);
+        }
+        return null;
+    }
+
+    /** The colour a value paints as. The chart tokens are not all literals —
+     *  --chart-income is `var(--chart-inflow-2)`, and getPropertyValue hands back
+     *  that text rather than a colour — so the value is put on a probe element
+     *  and read back resolved. */
+    let pillProbe = null;
+    function pillResolve(color) {
+        if (!pillProbe) {
+            pillProbe = document.createElement('span');
+            pillProbe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none';
+            document.body.appendChild(pillProbe);
+        }
+        pillProbe.style.color = '';
+        pillProbe.style.color = color;
+        return getComputedStyle(pillProbe).color || color;
+    }
+
+    /** Inline custom properties for one chip: the fill colour, plus the ink that
+     *  reads on it once filled. Same WCAG-luminance cut the Top Merchants bars
+     *  use — the chart ramp runs dark to light, so a single fixed ink would be
+     *  unreadable at one end of it. */
+    function pillStyle(color) {
+        if (!color) return '';
+        const rgb = pillRgb(pillResolve(color));
+        let ink = '';
+        if (rgb) {
+            const lin = rgb.map(v => {
+                const c = v / 255;
+                return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+            });
+            const L = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+            ink = `--pill-ink:${L > 0.4 ? 'var(--text-primary)' : '#fff'};`;
+        }
+        return escapeHtml(`--pill-color:${color};${ink}`);
+    }
+
     /**
      * Render the Income/Expenses legend as toggle buttons (same chrome as the
      * Account Balances selector). Clicks flip the series in/out of `ieHidden`
@@ -849,8 +911,7 @@
 
         container.innerHTML = series.map(s => {
             const active = ieHidden.has(s.label) ? '' : 'active';
-            return `<button class="account-toggle ${active}" data-series="${escapeHtml(s.label)}">
-            <span class="account-toggle-dot" style="background:${s.color}"></span>
+            return `<button class="account-toggle ${active}" data-series="${escapeHtml(s.label)}" style="${pillStyle(s.color)}">
             ${escapeHtml(s.label)}
         </button>`;
         }).join('');
@@ -921,8 +982,13 @@
     let appData = null;
     const selectedAccounts = new Set();
 
+    /** Account key → line/chip colour, walking the balance ramp in COLUMN order
+     *  and wrapping past the eighth. Column order rather than size rank, because
+     *  unlike the flow ramps this one is not grading magnitude: an account is an
+     *  identity, and a line that changed colour whenever another account grew
+     *  past it would be unreadable across a range switch. */
     function buildColorMap(columns) {
-        const palette = readChartPalette();
+        const palette = readRamp('--chart-balance-', BALANCE_FALLBACK);
         return new Map((columns || []).map((c, i) => [c.key, palette[i % palette.length]]));
     }
 
@@ -1009,8 +1075,7 @@
         container.innerHTML = columns.map(col => {
             const active = selectedAccounts.has(col.key) ? 'active' : '';
             const color = colorMap.get(col.key);
-            return `<button class="account-toggle ${active}" data-key="${escapeHtml(col.key)}">
-            <span class="account-toggle-dot" style="background:${color}"></span>
+            return `<button class="account-toggle ${active}" data-key="${escapeHtml(col.key)}" style="${pillStyle(color)}">
             ${escapeHtml(col.label)}
         </button>`;
         }).join('');
@@ -1056,15 +1121,43 @@
         return `${MONTHS[dashboardMonth.monthIdx]} ${dashboardMonth.year}`;
     }
 
+    // Deep-link a category to the Transactions ledger, scoped to the month on
+    // screen — the Cash Flow Sankey's link (cashflow-sankey.js categoryHref),
+    // applied to this section's two category charts. `cat` is the stable
+    // category key, so the link survives a rename; txApplyUrlFilters on the
+    // Transactions page reads year/month/cat back into its filter chips.
+    function monthCategoryHref(key) {
+        return `/transactions?year=${dashboardMonth.year}`
+             + `&month=${dashboardMonth.monthIdx + 1}`
+             + `&cat=${encodeURIComponent(key)}`;
+    }
+
+    /** Wrap one chart shape in that link when the datum carries a category key
+     *  (a bare bar — the transfer fallback row — carries none and stays inert).
+     *  `aria` names the destination, since the shape's own <title> reads as a
+     *  value tooltip rather than as a link. */
+    function linkShape(key, label, value, markup) {
+        if (!key) return markup;
+        const aria = `${label}: ${fmtTooltip(value)} — view transactions for ${dashboardMonthLabel()}`;
+        return `<a class="chart-link" href="${escapeHtml(monthCategoryHref(key))}"`
+             + ` tabindex="0" role="link" aria-label="${escapeHtml(aria)}">${markup}</a>`;
+    }
+
     // Monthly Cash Flow rows, in display order, on the three named chart tokens —
     // the same two getIEColors reads plus transfers, so this card and the Income
-    // & Expenses line chart use identical colours for income.
-    // Under the accent ramp that is the base accent, its high-contrast shade and
-    // an intermediate stop; under a palette with hues to spend, green/red/blue.
+    // & Expenses line chart use identical colours for income and for expenses.
+    // Green in, gold out, grey for money that only moved between the user's own
+    // accounts (style.css carries the reasoning for the trio).
+    //
+    // The row colour is what a BARE bar is drawn in. A bar with categories under
+    // it takes its segment colours from buildFlowColorMap instead, which is what
+    // ties each segment to its bar in the Spending card next door; the row colour
+    // is still what the transfer bar's shade fade is built from, since transfers
+    // are on neither ramp.
     const MCF_ROWS = [
-        { key: 'income',   label: 'Income',    token: '--chart-income',   fallback: '#8fb088' },
-        { key: 'expense',  label: 'Expenses',  token: '--chart-expense',  fallback: '#33402d' },
-        { key: 'transfer', label: 'Transfers', token: '--chart-transfer', fallback: '#5c7152' },
+        { key: 'income',   label: 'Income',    token: '--chart-income',   fallback: '#10744c' },
+        { key: 'expense',  label: 'Expenses',  token: '--chart-expense',  fallback: '#b28a06' },
+        { key: 'transfer', label: 'Transfers', token: '--chart-transfer', fallback: '#7a8085' },
     ];
 
     /**
@@ -1088,8 +1181,14 @@
      * per-category bars within the flow-type bar. Each segment carries a value
      * tooltip; the row's total is annotated at the end.
      *
-     *   rows: [{ label, color, value, segments: [{ name, value }] }]
+     *   rows: [{ label, color, value, segments: [{ key, name, value }] }]
      *         — values ≥ 0; segments optional (a bare bar is drawn without them).
+     *
+     * A segment carrying a category `key` is wrapped in a link to that
+     * category's transactions for the month on screen (linkShape). The bare-bar
+     * fallback segment has no key and stays inert, so the transfer row is
+     * clickable per category and not as a whole — a flow type is not something
+     * the ledger filters on.
      *
      * SECURITY: segment names are user-controlled category labels — escaped in
      * the <title> tooltip.
@@ -1108,7 +1207,7 @@
         const CW = W - PL - PR;
         const f2 = (n) => Math.round(n * 100) / 100;
 
-        const xTicks = niceTicks(0, Math.max(...rows.map(r => r.value)), 4);
+        const xTicks = ChartMath.niceTicks(0, Math.max(...rows.map(r => r.value)), 4);
         const maxVal = xTicks[xTicks.length - 1] || 1;
         const xScale = v => PL + (v / maxVal) * CW;
         const plotBottom = PT + rows.length * BAND;
@@ -1156,7 +1255,13 @@
                     // the DOM and in hit-testing), so the joint is solid.
                     const xd = last ? xe : xe + 0.5;
                     if (w >= 0.5) {
-                        const fill  = segmentShade(r.color, j, segs.length);
+                        // The category's own step of the flow ramp where the row
+                        // has one (income and expenses), so the segment matches
+                        // the Spending card's bar for the same category. The
+                        // shade fade is what is left for the transfer row and for
+                        // the single-segment fallback below, neither of which is
+                        // on a ramp.
+                        const fill  = seg.color || segmentShade(r.color, j, segs.length);
                         const round = last && w > RR;
                         const d = round
                             ? `M ${f2(x0)} ${f2(y)} L ${f2(xd - RR)} ${f2(y)}`
@@ -1166,9 +1271,10 @@
                               + ` L ${f2(x0)} ${f2(y + BAR)} Z`
                             : `M ${f2(x0)} ${f2(y)} L ${f2(xd)} ${f2(y)}`
                               + ` L ${f2(xd)} ${f2(y + BAR)} L ${f2(x0)} ${f2(y + BAR)} Z`;
-                        svg += `<path class="chart-hbar" d="${d}" fill="${fill}" style="animation-delay:${i * 80 + j * 40}ms">
+                        svg += linkShape(seg.key, seg.name, seg.value,
+                            `<path class="chart-hbar" d="${d}" fill="${fill}" style="animation-delay:${i * 80 + j * 40}ms">
                 <title>${escapeHtml(seg.name)}: ${fmtTooltip(seg.value)}</title>
-            </path>`;
+            </path>`);
                     }
                     x0 = xe;
                 });
@@ -1221,9 +1327,16 @@
     /** Shade for the j-th of n category segments within one flow-type bar: the
      *  type's base colour at full strength for the segment nearest the axis,
      *  fading toward the page background outward, so the bar reads as one colour
-     *  subdivided into category segments. Nested color-mix is valid — the base
-     *  token may itself be a color-mix expression, as it is under the accent ramp,
-     *  where --chart-income and friends resolve to accent mixes. */
+     *  subdivided into category segments.
+     *
+     *  Only the TRANSFER row reaches this now — the income and expense rows paint
+     *  their segments from the flow ramps instead, so that a segment can be
+     *  matched to a bar in the Spending card. Transfers are on neither ramp, and a
+     *  fade of the neutral is the right amount of attention for a row the rest of
+     *  the app leaves out of every income and spending figure.
+     *
+     *  Nested color-mix is valid, so a base token that is itself a color-mix
+     *  expression still works here. */
     function segmentShade(base, j, n) {
         if (n <= 1) return base;
         const pct = Math.round(100 - (j / (n - 1)) * 45);   // 100% (axis) → 55% (outer)
@@ -1231,8 +1344,11 @@
     }
 
     /** Render the Monthly Cash Flow card from the month's per-type totals, each
-     *  bar split into its categories (`segments`, keyed by flow type). */
-    function renderMonthlyCashflow(totals, segments) {
+     *  bar split into its categories (`segments`, keyed by flow type).
+     *  `colors` is the shared category → colour map (buildFlowColorMap); the same
+     *  map paints the Spending card, which is what makes one expense the same
+     *  colour in both. */
+    function renderMonthlyCashflow(totals, segments, colors) {
         const container = document.getElementById('mcf-chart');
         if (!container) return;
 
@@ -1241,7 +1357,8 @@
             label: r.label,
             color: cs.getPropertyValue(r.token).trim() || r.fallback,
             value: (totals && totals[r.key]) || 0,
-            segments: (segments && segments[r.key]) || [],
+            segments: ((segments && segments[r.key]) || [])
+                .map(seg => ({ ...seg, color: colors && colors.get(seg.key) })),
         }));
 
         if (!rows.some(r => r.value > 0)) {
@@ -1270,7 +1387,10 @@
      * typography) so the Spending card lines up with everything else; the bars'
      * grow-in entrance lives in dashboard.css §11.
      *
-     *   bars: [{ label, color, value }] — in user category order, values > 0.
+     *   bars: [{ key, label, color, value }] — in user category order, values > 0.
+     *
+     * Each bar is a link to that category's transactions for the month on
+     * screen (linkShape).
      *
      * SECURITY: bar labels are user-controlled category names — escaped both in
      * the axis label and the <title> tooltip.
@@ -1320,7 +1440,7 @@
 
         // Spending is always ≥ 0, so the axis is anchored at zero and snapped to
         // nice ticks above the tallest bar.
-        const yTicks = niceTicks(0, Math.max(...bars.map(b => b.value)), 4);
+        const yTicks = ChartMath.niceTicks(0, Math.max(...bars.map(b => b.value)), 4);
         const maxVal = yTicks[yTicks.length - 1] || 1;
         const yScale = v => PT + CH - (v / maxVal) * CH;
         const baseY  = PT + CH;
@@ -1348,9 +1468,10 @@
                      + ` L ${f2(x + barW - r)} ${f2(y)}`
                      + ` Q ${f2(x + barW)} ${f2(y)} ${f2(x + barW)} ${f2(y + r)}`
                      + ` L ${f2(x + barW)} ${f2(baseY)} Z`;
-            svg += `<path class="chart-bar" d="${d}" fill="${b.color}" style="animation-delay:${i * 60}ms">
+            svg += linkShape(b.key, b.label, b.value,
+                `<path class="chart-bar" d="${d}" fill="${b.color}" style="animation-delay:${i * 60}ms">
             <title>${escapeHtml(b.label)}: ${fmtTooltip(b.value)}</title>
-        </path>`;
+        </path>`);
 
             // Category name under the bar (the tooltip carries the full one when
             // even the tilted label has to be cut).
@@ -1365,8 +1486,10 @@
         return svg;
     }
 
-    /** Render the Spending card from the month's per-category totals. */
-    function renderSpendingChart(cats) {
+    /** Render the Spending card from the month's per-category totals, painted
+     *  from the shared category → colour map so each bar matches its segment in
+     *  the Monthly Cash Flow card's Expenses bar. */
+    function renderSpendingChart(cats, colors) {
         const container = document.getElementById('spending-chart');
         if (!container) return;
 
@@ -1385,10 +1508,11 @@
             return;
         }
 
-        const palette = readChartPalette();
+        const ramp = ChartRamp.outflow();
         const bars = cats.map((c, i) => ({
+            key: c.key,
             label: c.name,
-            color: palette[i % palette.length],
+            color: (colors && colors.get(c.key)) || ramp[i % ramp.length],
             value: c.total,
         }));
         observeChart(
@@ -1459,8 +1583,10 @@
         }
 
         const month = sliceStatementMonth(data);
-        renderMonthlyCashflow(month.totals, month.segments);
-        renderSpendingChart(month.categories);
+        // Built once and handed to both cards: the whole point is that they agree.
+        const flowColors = buildFlowColorMap(month.segments);
+        renderMonthlyCashflow(month.totals, month.segments, flowColors);
+        renderSpendingChart(month.categories, flowColors);
         // The Balances donut is month-scoped too. Balance data has not arrived on
         // the first call from init(); that path renders the pie once the fetch
         // completes.
@@ -1636,101 +1762,6 @@
         });
     }
 
-    // ─── Financial Freedom ───────────────────────────────────────────────────
-    // One measurement of the whole ledger (GET /api/financial-freedom): the FI
-    // number, 25 x average yearly expenses, and the share of it the Balance
-    // Sheet's latest net worth has reached. Two tiles in one card, in the
-    // Metrics tab's headline-figure idiom, since that is where the card came
-    // from: a per-year version there changed with the report's year picker, and
-    // a target that moves with a picker is not a target.
-    //
-    // Progress is a FILL, not one of the Metrics gauges: a gauge pre-colours the
-    // track into good/caution/bad ranges, and progress towards a target has no
-    // such ranges, only how much of the way is covered. The fill's length against
-    // the track's end IS that reading, so it wears one hue.
-
-    const FI_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    /** "Mar 2025" from the payload's { year, month } (month 1-12). */
-    function fmtAsOf(asOf) {
-        if (!asOf || !Number.isInteger(asOf.month) || asOf.month < 1 || asOf.month > 12) return '';
-        return `${FI_MONTHS[asOf.month - 1]} ${asOf.year}`;
-    }
-
-    /** A 0..1 share as a whole percent ("62%", "-5%"); null → "N/A". */
-    function fmtShare(r) {
-        return r == null || !Number.isFinite(r) ? 'N/A' : `${Math.round(r * 100)}%`;
-    }
-
-    function fiInfo(tip) {
-        const t = escapeHtml(tip);
-        return `<span class="fc-info" tabindex="0" role="note" aria-label="${t}" data-tip="${t}">i</span>`;
-    }
-
-    function fiTile(label, tip, value, extraHtml, sub, { na = false, negative = false } = {}) {
-        return `<div class="fi-tile${na ? ' fi-tile-na' : ''}">
-            <div class="fi-label">${escapeHtml(label)}${fiInfo(tip)}</div>
-            <span class="fi-value${negative ? ' fi-value-negative' : ''}">${escapeHtml(value)}</span>
-            ${extraHtml || ''}
-            ${sub ? `<span class="fi-sub">${escapeHtml(sub)}</span>` : ''}
-        </div>`;
-    }
-
-    function renderFreedom(fi) {
-        const host = document.getElementById('freedom-body');
-        if (!host) return;
-
-        const hasNumber = Number.isFinite(fi.number);
-        const n = Array.isArray(fi.yearsAveraged) ? fi.yearsAveraged.length : 0;
-        const numberTile = fiTile(
-            'FI Number',
-            'Your Financial Independence (FI) number: average yearly expenses across your tracked years, multiplied by 25, the amount commonly held to be enough to live on without working. The current year is left out of the average while an earlier full year exists, since it is not finished yet.',
-            hasNumber ? fmtValue(fi.number) : 'N/A',
-            '',
-            hasNumber ? `25 × ${fmtValue(fi.avgExpenses)} average yearly expenses over ${n} year${n === 1 ? '' : 's'}` : '',
-            { na: !hasNumber }
-        );
-
-        const hasProgress = Number.isFinite(fi.progress);
-        const filled = hasProgress ? Math.max(0, Math.min(1, fi.progress)) * 100 : 0;
-        const asOf = fmtAsOf(fi.netWorthAsOf);
-        const reading = hasProgress
-            ? `${fmtShare(fi.progress)} of the FI number reached, net worth ${fmtValue(fi.netWorth)}${asOf ? ` as of ${asOf}` : ''}`
-            : 'no value yet';
-        const track = `<div class="fi-track" role="img" aria-label="${escapeHtml(`Progress to FI: ${reading}`)}">
-            ${hasProgress ? `<span class="fi-fill" style="width:${filled.toFixed(3)}%"></span>` : ''}
-        </div>`;
-        const progressTile = fiTile(
-            'Progress to FI',
-            'Net worth from your Balance Sheet (everything you own minus everything you owe), at the latest month with a balance, divided by the FI number. Shows N/A until the Balance Sheet holds a balance and a year holds expenses.',
-            fmtShare(fi.progress),
-            track,
-            Number.isFinite(fi.netWorth) ? `Net worth ${fmtValue(fi.netWorth)}${asOf ? ` as of ${asOf}` : ''}` : '',
-            { na: !hasProgress, negative: hasProgress && fi.progress < 0 }
-        );
-
-        host.innerHTML = numberTile + progressTile;
-    }
-
-    // Requested only once the backend has confirmed the install is licensed.
-    // The route is paid, and a 402 raises the activation screen (core/api.js),
-    // which must never happen on the Dashboard at launch — so neither the
-    // pre-paint hint nor an unanswered check is enough to ask on.
-    let freedomLoaded = false;
-    async function loadFreedom() {
-        if (freedomLoaded || !document.getElementById('freedom-body')) return;
-        const tier = window.licenseActions && window.licenseActions.tier ? window.licenseActions.tier() : null;
-        if (tier !== 'full') return;
-        freedomLoaded = true;
-        try {
-            const r = await apiFetch('/api/financial-freedom');
-            if (!r.ok) { freedomLoaded = false; return; }
-            renderFreedom(await r.json());
-        } catch {
-            freedomLoaded = false;   // a failed card must not hide a working dashboard
-        }
-    }
-
     /** Fetch both datasets in parallel and render all dashboard sections. */
     async function init() {
         wireMonthStepper();
@@ -1796,14 +1827,6 @@
     document.addEventListener('DOMContentLoaded', () => {
         init();
         window.addEventListener('themechange', repaintCharts);
-        // Whichever comes first: the license check may have answered before this
-        // script ran (then the tier is already known) or may still be in flight
-        // (then the event says when).
-        loadFreedom();
-        window.addEventListener('aventurine:license-tier', loadFreedom);
-        window.addEventListener('currencychange', () => {
-            if (freedomLoaded) { freedomLoaded = false; loadFreedom(); }
-        });
         // Runs alongside the dashboard load, not before it: the hero appears once
         // the check resolves, and a database with data never waits on it. Bound
         // once per page load (init() is not re-entered — see above).

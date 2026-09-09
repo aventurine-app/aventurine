@@ -164,83 +164,6 @@
 .dashboard-section + .dashboard-section { margin-top: 16px; }
 
 
-/* ─── 1b. Financial Freedom ──────────────────────────────────────────────── */
-/* One card, two tiles. Headline-figure tiles in the Metrics tab's idiom (all-caps
-   micro label, numeric headline, one line of figures under it), since the card
-   came from there and the reader will meet the same shapes on that tab.
-
-   Two across, never three: there are two of them, and a third column would be
-   an empty slot in a row of two. */
-.freedom-tiles {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 20px 28px;
-}
-@media (max-width: 700px) {
-    .freedom-tiles { grid-template-columns: minmax(0, 1fr); }
-}
-.fi-tile { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.fi-label {
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wide);
-    text-transform: uppercase;
-    display: flex;
-    align-items: center;
-}
-.fi-value {
-    color: var(--text-primary);
-    font-family: var(--font-numeric);
-    font-size: var(--size-h3);
-    font-weight: var(--weight-semibold);
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-/* Progress can be negative (more owed than owned), and a minus sign in a
-   percentage is easy to miss, so it carries the loss colour too. */
-.fi-value-negative { color: var(--accent-negative); }
-.fi-sub {
-    color: var(--text-tertiary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    font-variant-numeric: tabular-nums;
-}
-
-/* Progress is a FILL, where the Metrics ratios are gauges. The gauge argument is
-   that a fill hides the scale: the reader has to know what a good number is
-   before the tip of the fill says anything. Progress towards a target has no
-   good or bad range, only how much of the way is covered, and for that the fill
-   IS the scale, with the track's end being the target. One hue, since the
-   length is the reading and a colour would have nothing left to encode. Past
-   the target the fill is full and the printed share says by how much. */
-.fi-track {
-    position: relative;
-    height: 8px;
-    margin-top: 8px;
-    border-radius: 4px;
-    overflow: hidden;
-    background: var(--frost-2);
-}
-.fi-tile-na .fi-track { opacity: 0.45; }
-.fi-fill {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    border-radius: 4px;
-    background: var(--accent-primary);
-    transform: scaleX(0);
-    transform-origin: left center;
-    animation: fi-fill-grow 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-@keyframes fi-fill-grow { to { transform: scaleX(1); } }
-@media (prefers-reduced-motion: reduce) {
-    .fi-fill { animation: none; transform: scaleX(1); }
-}
-
-
 /* ─── 2. Card shell ──────────────────────────────────────────────────────── */
 /* Flex column so the chart/body inside can be pushed to the bottom of the
    card via margin-top: auto. When the grid row stretches a card taller than
@@ -443,6 +366,13 @@
 .accounts-pie-svg:hover .donut-arc { opacity: 0.5; }
 .accounts-pie-svg .donut-arc:hover { opacity: 1; }
 
+/* Each arc, and each legend row beside it, opens the Balance Sheet. The
+   spotlight above is the hover feedback; the link adds the cursor and a
+   keyboard focus ring drawn on the arc itself. */
+.accounts-pie-svg .donut-link { cursor: pointer; }
+.accounts-pie-svg .donut-link:focus { outline: none; }
+.accounts-pie-svg .donut-link:focus-visible .donut-arc { opacity: 1; }
+
 /* Centre readout inside the ring — assets minus debt for the shown month. */
 .donut-center-label {
     fill: var(--text-tertiary);
@@ -469,13 +399,20 @@
     min-width: 0;
 }
 
+/* A legend row is an <a> to the Balance Sheet, so it resets the link ink and
+   underline and keeps the row layout it had as a <div>. */
 .accounts-legend-item {
     display: flex;
     align-items: center;
     gap: 14px;
     padding-bottom: 14px;
     border-bottom: var(--border-width) solid var(--stroke-divider);
+    color: inherit;
+    text-decoration: none;
 }
+
+.accounts-legend-item .accounts-legend-label { transition: color 0.15s ease; }
+.accounts-legend-item:hover .accounts-legend-label { color: var(--accent-primary); }
 
 .accounts-legend-item:last-child {
     padding-bottom: 0;
@@ -559,16 +496,23 @@
    card's empty state off centre by half a gap. */
 .account-selector:empty { display: none; }
 
+/* The chip wears its own series colour: the border is that colour whether the
+   series is on or off, so the swatch is always readable, and switching it on
+   fills the pill with the same colour. That makes on/off a fill rather than a
+   dot's opacity, which is why there is no dot inside the chip any more — under
+   a filled pill it would sit invisibly on its own colour. --pill-color and
+   --pill-ink are set per chip in dashboard.js; --pill-ink is picked from the
+   fill's luminance (the ramp runs dark to light, so no one ink reads on all of
+   it — the Top Merchants bar rule). */
 .account-toggle {
     display: flex;
     align-items: center;
-    gap: 7px;
-    padding: 5px 12px 5px 8px;
+    padding: 5px 12px;
     border-radius: 20px;
-    border: var(--border-width) solid var(--stroke-soft);
-    background: var(--frost-2);
+    border: var(--border-width) solid var(--pill-color, var(--stroke-soft));
+    background: transparent;
     cursor: pointer;
-    transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+    transition: background 0.15s, color 0.15s, opacity 0.15s;
     font-family: var(--font-menu);
     font-size: var(--size-micro);
     font-weight: var(--weight-semibold);
@@ -578,26 +522,12 @@
 }
 
 .account-toggle.active {
-    background: var(--frost-3);
-    border-color: var(--stroke-strong);
-    color: var(--text-primary);
+    background: var(--pill-color, var(--frost-3));
+    color: var(--pill-ink, var(--text-primary));
 }
 
-.account-toggle:hover {
-    border-color: var(--stroke-medium);
-    color: var(--text-primary);
-}
-
-.account-toggle-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    opacity: 0.4;
-    transition: opacity 0.15s;
-}
-
-.account-toggle.active .account-toggle-dot { opacity: 1; }
+.account-toggle:hover { color: var(--text-primary); }
+.account-toggle.active:hover { color: var(--pill-ink, var(--text-primary)); }
 
 
 /* Range-selector dropdown moved to ui.css (shared across Dashboard / Trends /
@@ -748,6 +678,20 @@
    specificity above a plain :hover override, leaving the hovered bar greyed. */
 .dashboard-chart:has(.chart-bar:hover) .chart-bar:not(:hover) { opacity: 0.55; }
 .dashboard-chart:has(.chart-hbar:hover) .chart-hbar:not(:hover) { opacity: 0.55; }
+
+/* Every bar — and every category segment of a Monthly Cash Flow bar — is an
+   <a> into the Transactions ledger, filtered to that category and the month on
+   screen. The spotlight above is already the hover feedback, so the link adds
+   the cursor and a keyboard focus ring; the ring is drawn as a stroke on the
+   bar's own contour, since an outline box around a segment inside a bar would
+   cover its neighbours. */
+.dashboard-chart .chart-link { cursor: pointer; }
+.dashboard-chart .chart-link:focus { outline: none; }
+.dashboard-chart .chart-link:focus-visible .chart-bar,
+.dashboard-chart .chart-link:focus-visible .chart-hbar {
+    stroke: var(--accent-primary);
+    stroke-width: 1.5;
+}
 
 @keyframes chart-bar-grow  { to { transform: scaleY(1); } }
 @keyframes chart-hbar-grow { to { transform: scaleX(1); } }

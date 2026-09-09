@@ -53,13 +53,6 @@
     width: 100%;
 }
 
-/* == Page header == */
-.db-page-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
 /* .button-primary / .button-secondary (the eyebrow action buttons) now live in
    buttons.css — they were duplicated across several page stylesheets. */
 .db-actions {

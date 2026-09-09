@@ -482,8 +482,7 @@
      *  Called on every page load, and again if a New Database modal opens before
      *  the response arrives. */
     function fetchStatus() {
-        return apiFetch('/api/db/status')
-            .then(r => r.json())
+        return dbStatus()
             .then(s => {
                 _encryptionAvailable = !!s.encryption_available;
                 if (typeof s.sep === 'string' && s.sep) browserSep = s.sep;

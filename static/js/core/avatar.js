@@ -1,9 +1,11 @@
 'use strict';
 
 // ─── avatar.js ──────────────────────────────────────────────────────────────
-// Shared merchant avatar. Loaded globally (pages/partials/scripts.html) so
-// every consumer — transactions.js, recurring.js — renders the SAME merchant
-// the SAME way everywhere in the app.
+// Shared merchant avatar, so every consumer — transactions.js, recurring.js,
+// topmerchants.js — renders the SAME merchant the SAME way everywhere in the
+// app. Loaded by the three PAGE files those live on (transactions, recurring,
+// reports), after merchant-icons.js, rather than by the shared script block:
+// the manifest is 70KB and the other three pages draw no avatars.
 //
 // Two tiers, precision-first like the rest of the merchant matching:
 //   1. A BUNDLED BRAND ICON, when the label matches a merchant with a shipped

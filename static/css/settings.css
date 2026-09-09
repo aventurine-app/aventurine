@@ -350,62 +350,25 @@
   color: var(--text-primary);
 }
 
-/* ── Transaction match mode toggle ─────────────────────────────────────
-   Two-option pill toggle (Exact / Fuzzy). Rendered beside the row label.
-   Uses radio inputs hidden behind styled labels so the browser handles
-   keyboard navigation automatically. */
+/* ── Two-option settings switch ────────────────────────────────────────
+   The frame and both halves are the shared .seg-switch / .seg-switch-btn pair
+   (ui.css) — the same switch the Spending report's Stacked/Lines control draws.
+   Radio inputs sit hidden behind the labels, so the checked half is filled by
+   ui.css' `input:checked + .seg-switch-btn` rule and nothing here repeats it.
+   What stays is the settings-row fit: the switch must not shrink beside a long
+   description, and each option is a flex item that fills the frame's height. */
 .settings-match-toggle {
-  display: flex;
-  gap: 4px;
-  align-items: center;
   flex-shrink: 0;
 }
 
 .settings-match-option {
+  display: inline-flex;
+  align-items: stretch;
   cursor: pointer;
 }
 
 .settings-match-option input[type="radio"] {
   display: none;
-}
-
-.settings-match-label {
-  display: inline-block;
-  padding: 6px 16px;
-  border-radius: 5px;
-  border: var(--border-width) solid var(--border);
-  font-size: var(--size-small);
-  font-weight: var(--weight-medium);
-  color: var(--text-secondary);
-  background: transparent;
-  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
-  user-select: none;
-}
-
-/* Selected takes the .button-primary triple (buttons.css) — solid accent fill,
-   accent border, --button-text ink — rather than the 20%-accent wash it used to
-   draw. That wash was this file's own one-off: nothing else in the app used it,
-   and the app's other selected-segment control (.stmt-tab / .rep-tab, ui.css)
-   already resolves --segctl-active / --segctl-active-text to exactly these two
-   tokens. One idiom for "this segment is chosen" instead of two. */
-.settings-match-option input[type="radio"]:checked + .settings-match-label {
-  background: var(--accent-primary);
-  border-color: var(--accent-primary);
-  color: var(--button-text);
-}
-
-.settings-match-option:hover .settings-match-label {
-  border-color: var(--text-tertiary);
-  color: var(--text-primary);
-}
-
-/* The checked rule above outranks the hover rule (it carries an extra class and
-   attribute), so without this a selected option was the one control on the page
-   that went dead under the pointer. Same lift every other accent fill takes. */
-.settings-match-option:hover input[type="radio"]:checked + .settings-match-label {
-  background: var(--accent-primary-hover);
-  border-color: var(--accent-primary-hover);
-  color: var(--button-text);
 }
 
 /* ── Fuzzy match strength slider ───────────────────────────────────────

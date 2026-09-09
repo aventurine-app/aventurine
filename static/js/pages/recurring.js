@@ -52,13 +52,9 @@
   // sprite. pencil/check/cross/trash are the same drawings (and the same 20-box,
   // 1.5-stroke style) the Transactions ledger uses for its row actions, since the
   // actions are the same; `plus` is the day cell's add button, drawn to match.
-  const ICONS = {
-    pencil: '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M14.5 3.5l2 2-9.5 9.5-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
-    check:  '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 10.5l3.5 3.5L15 6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    cross:  '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
-    trash:  '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2M6 6l1 10h6l1-10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    plus:   '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
-  };
+  // The card glyphs and the card chrome below come from UI (shell/ui.js),
+  // shared with the Balance Forecast's pin cards.
+  const ICONS = UI.CARD_ICONS;
 
   function currentMonthKey() {
     const d = new Date();
@@ -206,19 +202,7 @@
   // occurrence now. Parked on <body> and fixed-positioned so the calendar's
   // scroll container can't clip it.
 
-  function popEl() {
-    let el = document.getElementById('rec-pop');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'rec-pop';
-      el.className = 'rec-pop';
-      el.hidden = true;
-      el.setAttribute('role', 'dialog');
-      el.setAttribute('aria-label', 'Recurring schedule');
-      document.body.appendChild(el);
-    }
-    return el;
-  }
+  const popEl = () => UI.floatingCard('rec-pop', 'rec-pop', 'Recurring schedule');
 
   function chipFor(ref) {
     if (!ref) return null;
@@ -244,10 +228,7 @@
     ).join('');
   }
 
-  function actionBtn(action, key, icon, label, extraCls = '') {
-    return `<button type="button" class="rec-action-btn ${extraCls}" data-action="${action}"
-      data-key="${escapeHtml(key)}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${ICONS[icon]}</button>`;
-  }
+  const actionBtn = UI.cardActions('rec', 'key');
 
   /** The schedule's category, as the ledger draws it (transactions.js's
    *  txRenderDisplayRow): the category NAME in a pill tinted by direction —
@@ -334,20 +315,9 @@
     </div>`;
   }
 
-  function positionCard(anchor) {
-    const pop = popEl();
-    const a = anchor.getBoundingClientRect();
-    const p = pop.getBoundingClientRect();
-    const gap = 8;
-    // Below the chip by default, flipped above when the month's last rows would
-    // otherwise push the card off-screen.
-    let top = a.bottom + gap;
-    if (top + p.height > window.innerHeight - 8) top = Math.max(8, a.top - p.height - gap);
-    let left = a.left + a.width / 2 - p.width / 2;
-    left = Math.min(Math.max(8, left), Math.max(8, window.innerWidth - p.width - 8));
-    pop.style.top = `${Math.round(top)}px`;
-    pop.style.left = `${Math.round(left)}px`;
-  }
+  // Below the chip by default, flipped above when the month's last rows would
+  // otherwise push the card off-screen.
+  const positionCard = (anchor) => UI.positionFloatingCard(popEl(), anchor, 8);
 
   /** Draw (or redraw) the card for the active occurrence, anchored to its chip.
    *  Closes if that occurrence is gone — deleted, or the month changed. */
@@ -363,18 +333,11 @@
     positionCard(chip);
   }
 
-  /** Light up every chip of the active schedule — a monthly bill's whole run
-   *  across the grid, not just the one under the pointer. Done by toggling
-   *  classes rather than re-rendering: the pointer is sitting on one of these
-   *  nodes, and replacing them mid-hover would restart the mouseover/mouseout
-   *  cycle underneath it. */
+  /** Light up every chip of the active SCHEDULE — a monthly bill's whole run
+   *  across the grid, not just the one under the pointer. */
   function applyActiveHighlight() {
     const key = activeOcc ? activeOcc.key : null;
-    document.querySelectorAll('.rec-occ').forEach((el) => {
-      const on = key !== null && el.dataset.key === key;
-      el.classList.toggle('rec-occ-active', on);
-      el.setAttribute('aria-expanded', on ? 'true' : 'false');
-    });
+    UI.markActive('.rec-occ', 'rec-occ-active', (el) => key !== null && el.dataset.key === key);
   }
 
   function openCard(ref, { pin = false } = {}) {

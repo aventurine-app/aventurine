@@ -9,7 +9,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { sequenceRatio, normalise, autoMatchCategory } = require('../services/matchRules');
+const { sequenceRatio, normalise } = require('../services/matchRules');
 
 test('sequenceRatio matches Python difflib across the oracle', () => {
   const oracle = JSON.parse(
@@ -32,28 +32,7 @@ test('normalise lowercases and collapses whitespace', () => {
   assert.equal(normalise('A\tB\nC'), 'a b c');
 });
 
-test('autoMatchCategory: exact wins whether or not fuzzy is enabled', () => {
-  const rules = [{ pattern: 'netflix', category_id: 7 }];
-  assert.equal(autoMatchCategory('NETFLIX', rules, false), 7);
-  assert.equal(autoMatchCategory('netflix', rules, true), 7);
-  assert.equal(autoMatchCategory('hulu', rules, false), null);
-});
-
-test('autoMatchCategory: fuzzy pass only when enabled, and only when unambiguous', () => {
-  const rules = [
-    { pattern: 'netflix subscription', category_id: 7 },
-    { pattern: 'netflix subscriptionx', category_id: 7 },
-  ];
-  // close to both rules, both pointing at 7 -> 7 with fuzzy on, null with fuzzy
-  // off
-  assert.equal(autoMatchCategory('netflix subscription', rules, false), 7); // exact hit
-  assert.equal(autoMatchCategory('netflix subscriptionnn', rules, true), 7);
-  assert.equal(autoMatchCategory('netflix subscriptionnn', rules, false), null);
-
-  const conflict = [
-    { pattern: 'coffee shop downtown', category_id: 5 },
-    { pattern: 'coffee shop downtoxn', category_id: 9 },
-  ];
-  // both clear the 0.92 threshold but point at different categories -> null
-  assert.equal(autoMatchCategory('coffee shop downtown!', conflict, true), null);
-});
+// The auto-match RULES (exact wins, the fixed 0.92 fuzzy bar, ambiguity leaves
+// the row alone) are asserted against the shipped path — applyAutoMatch, via
+// import — in apiTransactions.test.js. They are not re-tested here: this file
+// covers the pure pieces those rules are built from.

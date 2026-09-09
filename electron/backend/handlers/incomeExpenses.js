@@ -40,10 +40,13 @@ function txKey(t, keyById) {
  * cell of every ACTIVE year — the computed layer every cell shows unless a
  * manual Entry overrides it. Years without a year-table contribute nothing
  * (deleting a year-table is how a user opts a year out of the statement).
+ *
+ * `years` (a Set of year strings) lets a caller that has already read
+ * active_years hand it over instead of having it read a second time.
  */
-function computedCells(db) {
+function computedCells(db, years = null) {
   const sums = {};
-  const activeYears = new Set(
+  const activeYears = years || new Set(
     db.prepare('SELECT year FROM active_years').all().map((y) => String(y.year))
   );
   if (!activeYears.size) return sums;
@@ -52,7 +55,15 @@ function computedCells(db) {
     db.prepare('SELECT id, "key" FROM categories').all().map((c) => [c.id, c.key])
   );
 
-  for (const t of db.prepare('SELECT * FROM transactions').all()) {
+  // The four named columns, not SELECT *: this runs on /api/data, /api/trends,
+  // /api/report-card and /api/transfers, and the row's description, notes,
+  // display_name and account_key are the bulk of it and are read by none of
+  // them.
+  const rows = db.prepare(
+    'SELECT date, amount, category_id, tx_type FROM transactions'
+  ).all();
+
+  for (const t of rows) {
     if (!t.date) continue;
     const yearStr = t.date.slice(0, 4);
     if (!activeYears.has(yearStr)) continue;
@@ -71,7 +82,7 @@ function computedCells(db) {
  *  the hand-entered bookkeeping). */
 function manualCells(db) {
   const manual = {};
-  for (const e of db.prepare('SELECT * FROM entries').all()) {
+  for (const e of db.prepare('SELECT year, month, category, value FROM entries').all()) {
     const months = (manual[String(e.year)] ??= {});
     // Stored as 1-12; the response (and the renderer) key cells by month name.
     (months[monthName(e.month)] ??= {})[e.category] = e.value;
@@ -98,10 +109,13 @@ function blendCells(computed, manual) {
 
 function dataGet(ctx) {
   const db = ctx.db();
-  const computed = computedCells(db);
-  const manual = manualCells(db);
 
+  // Read once and use for both: the payload's `years` list and the year filter
+  // computedCells applies.
   const years = db.prepare('SELECT year FROM active_years').all().map((y) => y.year);
+
+  const computed = computedCells(db, new Set(years.map(String)));
+  const manual = manualCells(db);
 
   // `entries` is the blended view (what every consumer renders); `computed`
   // and `manual` are the layers, shipped so the statement UI can style a

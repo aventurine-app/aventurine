@@ -126,22 +126,6 @@ function forgetMatch(db, description) {
   if (pattern) db.prepare('DELETE FROM match_rules WHERE pattern = ?').run(pattern);
 }
 
-/**
- * Confidently-matching category_id for a description, or null. `rules` is the
- * full rule list (loaded once by the caller); `fuzzy` is whether the fuzzy pass
- * is enabled (match strength below 100%). Pure.
- */
-function autoMatchCategory(description, rules, fuzzy) {
-  const pattern = normalise(description);
-  if (!pattern) return null;
-
-  for (const r of rules) {
-    if (r.pattern === pattern) return r.category_id; // exact — certain
-  }
-  if (!fuzzy) return null;
-  return fuzzyMatchCategory(pattern, rules);
-}
-
 /** Fuzzy half of the rule match: every rule over the threshold must point at
  *  the same category, otherwise the match is ambiguous and nothing is applied. */
 function fuzzyMatchCategory(pattern, rules) {
@@ -197,6 +181,5 @@ module.exports = {
   autoMatchEnabled,
   recordMatch,
   forgetMatch,
-  autoMatchCategory,
   applyAutoMatch,
 };

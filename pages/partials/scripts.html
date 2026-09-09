@@ -4,11 +4,19 @@
      here - it must block in <head> (partials/head.html). -->
     <script src="/static/js/core/escape.js"></script>
     <script src="/static/js/core/format.js"></script>
-    <script src="/static/js/core/merchant-icons.js"></script>
-    <script src="/static/js/core/avatar.js"></script>
+    <!-- merchant-icons.js (70KB, generated) + avatar.js are NOT here: only
+         /transactions, /recurring and /reports draw merchant avatars, and the
+         other three pages were parsing the manifest for nothing. They load from
+         those three page files instead, manifest first. The Settings toggle
+         that repaints avatars in place guards its call (shell/settings.js), so
+         it still stores the preference on a page that has no avatars. -->
     <script src="/static/js/shell/ui.js"></script>
     <script src="/static/js/core/api.js"></script>
     <script src="/static/js/core/currency.js"></script>
+    <!-- The gold spending ramp as the charts draw it. Core rather than a
+         widget: the Dashboard's cards and the Cash Flow Sankey read it from
+         two different pages, so it cannot live in either. -->
+    <script src="/static/js/core/chartramp.js"></script>
     <!-- store.js loads BEFORE dbactions.js: dbactions reads GET /api/db/status
          at load and hands the answer to Store.setPersistence / Store.clearAll,
          so window.Store has to exist by then. It depends only on api.js. -->

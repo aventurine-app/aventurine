@@ -67,9 +67,6 @@
     flex-direction: column;
 }
 
-/* ─── Header controls: year picker ────────────────────────────────────────── */
-.met-controls { display: flex; align-items: center; gap: var(--space-16); }
-
 /* ─── Headline figures ────────────────────────────────────────────────────── */
 /* Five money totals in the first card (income, expenses, net, savings,
    invested), four ratios in the second. Each tile stacks label, value, YoY

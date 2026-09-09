@@ -35,55 +35,14 @@
 
 /* Range selector lives in ui.css now (shared across Dashboard / Trends / Forecast). */
 
-/* Chart-form switch. Local to this card rather than ui.css: it is the only
-   segmented control in the app, and a shared component with one caller is a
-   guess about the second one. Two mutually exclusive states, so it is a pair of
-   pressed buttons in one frame and not a pair of separate controls.
-
-   The frame takes --control-height and the picker's 6px radius, so the two
-   controls in this header sit as one row rather than as two boxes of different
-   heights. Its type matches the picker's too (micro / superbold / uppercase),
-   which is what makes them read as a pair despite one carrying the accent.
-
-   The accent is the state: the chosen form is FILLED and the other one is the
-   card's own surface with accent text. The unfilled half is --surface1 and not
-   a literal white, so it stays the "no fill" reading of the card it sits on in
-   either theme; on light that resolves to the near-white it looks like. */
-.trends-view {
-    display: inline-flex;
-    height: var(--control-height);
-    box-sizing: border-box;
-    border: var(--border-width) solid var(--accent-primary);
-    border-radius: 6px;
-    overflow: hidden;
-    background: var(--surface1);
-}
-.trends-view-btn {
-    appearance: none;
-    border: 0;
-    background: transparent;
-    color: var(--accent-primary);
-    font-family: var(--font-menu);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-superbold);
-    letter-spacing: var(--track-widest);
-    text-transform: uppercase;
-    padding: 0 var(--space-16);
-    cursor: pointer;
-    user-select: none;
-    transition: background 0.15s ease, color 0.15s ease;
-}
-.trends-view-btn:hover { background: color-mix(in srgb, var(--accent-primary) 12%, transparent); }
-.trends-view-btn.active {
-    background: var(--accent-primary);
-    /* The token for text sitting on a filled accent, which is what keeps this
-       legible if a theme ever ships a light accent. */
-    color: var(--button-text);
-}
-.trends-view-btn.active:hover { background: var(--accent-primary-hover); }
-/* Inset, because the frame clips: an outset ring on the outer edges would be
-   cut off by the parent's overflow. */
-.trends-view-btn:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -3px; }
+/* Chart-form switch. Two mutually exclusive states, so it is a pair of pressed
+   buttons in one frame and not a pair of separate controls, and the frame is
+   the shared .seg-switch / .seg-switch-btn pair (ui.css) — the same switch the
+   Preferences rows draw. It takes --control-height and the picker's 6px radius,
+   so the two controls in this header sit as one row rather than as two boxes of
+   different heights; its type matches the picker's too (micro / superbold /
+   uppercase), which is what makes them read as a pair despite one carrying the
+   accent. Nothing card-specific is left, so this file styles neither half. */
 
 /* ─── Chart + rail ────────────────────────────────────────────────────────────
    One row, fixed two columns folding to one — never auto-fit, which sizes by

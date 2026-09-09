@@ -40,6 +40,7 @@ const appGlobals = {
   merchantIconSlug: 'readonly',
   // core/api.js
   apiFetch: 'readonly',
+  dbStatus: 'readonly',
   // core/store.js
   Store: 'readonly',
   // core/currency.js
@@ -55,6 +56,10 @@ const appGlobals = {
   setNegativeStyle: 'readonly',
   setNumberFormat: 'readonly',
   setDateFormat: 'readonly',
+  // core/chartramp.js
+  ChartRamp: 'readonly',
+  // core/chartmath.js
+  ChartMath: 'readonly',
   // core/encryption.js
   securityActions: 'readonly',
   // shell/ui.js

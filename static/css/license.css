@@ -84,12 +84,6 @@
    router.js for why that was left out. */
 [data-license-tier="free"] #dashboard-section-overtime { display: none; }
 
-/* Financial Freedom is paid too, and unlike Year to Year it has its own route
-   (/api/financial-freedom, locked by the allowlist): this rule hides the frame,
-   and dashboard.js does not request the figures until the backend has said the
-   install is licensed, so the free tier never meets the 402. */
-[data-license-tier="free"] #dashboard-section-freedom { display: none; }
-
 /* Year to Year sits above Month to Month, so hiding it leaves Month to Month as
    a later sibling and it keeps the 16px gap meant to separate two sections from a
    heading that is no longer above it. */

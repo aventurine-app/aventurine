@@ -17,11 +17,14 @@
 //   - Loaded as a plain <script> (no bundler — see the "no build step"
 //     guardrail in PRODUCT.md) and attaches window.apiFetch as a global.
 //     Nearly every page and widget module calls window.apiFetch(...) instead of
-//     window.fetch(...): static/js/pages/*.js (home, transactions, trends,
-//     reportcard, portfolio), static/js/widgets/*.js
-//     (txfileimport, txexport, forecast, cashflow-sankey, tables), and
-//     static/js/shell/*.js (nav, dbactions, autolock, titlebar, settings,
-//     settingsCategories), plus core/store.js and core/encryption.js.
+//     window.fetch(...): static/js/pages/*.js (dashboard, transactions,
+//     portfolio, recurring, trends, topmerchants, transfers, metrics),
+//     static/js/widgets/*.js (txfileimport, txexport, forecast,
+//     cashflow-sankey, tables, onboarding), and static/js/shell/*.js
+//     (dbactions, autolock, settings, settingsCategories, license), plus
+//     core/store.js and core/encryption.js. titlebar.js reads the database
+//     name through window.dbStatus() below rather than calling apiFetch
+//     itself.
 //   - electron/preload.js exposes window.financeApi.request(method, url,
 //     body), which is the Electron-mode backend this file forwards to over
 //     IPC (channel 'api:request'). On the main-process side that IPC call is
@@ -578,20 +581,6 @@
     '/api/forecast': forecastFixture,
     // static/js/pages/metrics.js — see reportCardFixture above.
     '/api/report-card': reportCardFixture,
-    // static/js/pages/dashboard.js — the Financial Freedom card. Mirrors
-    // financialFreedom() in electron/backend/services/reportCard.js: 25 x the
-    // average expenses of the complete years, and the latest net worth's share
-    // of it. Figures follow reportCardFixture's four complete years (43000,
-    // 45800, 47400, 46000 → 45550 average).
-    '/api/financial-freedom': {
-      ok: true,
-      avgExpenses: 45550,
-      yearsAveraged: [year - 4, year - 3, year - 2, year - 1],
-      number: 1138750,
-      netWorth: 115000,
-      netWorthAsOf: { year, month: 7 },
-      progress: 115000 / 1138750,
-    },
     // static/js/shell/settings.js — feature toggles read by the settings
     // panel; tx_auto_match configures the learned auto-categorization
     // matcher (electron/backend/services/matchRules.js on the real backend).
@@ -676,9 +665,38 @@
     return fixtureResponse(method, url);
   }
 
+  // ── Shared GET /api/db/status ───────────────────────────────────────────
+  // Four shell modules need this answer at load — dbactions.js (lock state,
+  // Store persistence, default dir), autolock.js (whether to arm), settings.js
+  // (the encryption row) and titlebar.js (the database name) — and each used to
+  // issue its own request, so every page load made four identical IPC round
+  // trips. They share one here instead.
+  //
+  // Caching it is safe because nothing changes the answer without a reload:
+  // every New / Open / Save As / Unlock and every rekey ends in
+  // location.reload(). `{ fresh: true }` drops the cached read for a caller
+  // that cannot rely on that.
+  //
+  // A FAILED read is not cached — the promise is cleared on rejection so the
+  // next caller retries rather than inheriting the first one's error. Each
+  // caller attaches its own .catch; an uncaught one here would surface as an
+  // unhandled rejection.
+  let _dbStatus = null;
+
+  function dbStatus(opts) {
+    if (opts && opts.fresh) _dbStatus = null;
+    if (!_dbStatus) {
+      _dbStatus = apiFetch('/api/db/status')
+        .then((r) => r.json())
+        .catch((err) => { _dbStatus = null; throw err; });
+    }
+    return _dbStatus;
+  }
+
   // Global attachment (no ES module export — this is a plain <script>, part
   // of the app's no-build-step design). Every caller listed at the top of
   // this file references window.apiFetch directly; there is no import
   // graph to trace beyond "is api.js's <script> tag loaded before mine."
   window.apiFetch = apiFetch;
+  window.dbStatus = dbStatus;
 }());

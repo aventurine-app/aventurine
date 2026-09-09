@@ -9,7 +9,7 @@
      1. Theme — colour tokens
      2. Typography — font families + size/weight/line-height/tracking scale
      3. Component tokens — spacing & filter values used across the app
-     4. Page title / subtitle — the two shared page-header heading rules
+     4. Info tooltip — the shared "i" badge and its hover/focus card
      5. Status colours — direction-of-change indicators
      6. Base layout — body, page shell, scrollbars
      7. Shared modal primitives — frame/header/close/title/body shared by the
@@ -197,7 +197,10 @@
     * category-shaped surfaces use --cat-* instead; see below.) They are separate
     * from the green/red gain-loss tokens (--accent-positive / --accent-negative),
     * which are reserved for NUMERIC figures: +/- deltas, ROI, and ledger amounts.
-    * Charts = accent; numbers = green/red.
+    * Charts = accent; numbers = green/red. The exception is the three semantic
+    * families below (income / outflow / balance), which carry a meaning rather
+    * than an identity and so are painted in the colours those meanings already
+    * have — green, warm and cool — on every palette.
     *
     * Each stop is a mix of the accent with --text-primary (the high-contrast
     * direction in EITHER theme — dark on light, light on dark) or with
@@ -237,62 +240,205 @@
    /* Income / expense / transfer — the one place a chart series carries a
       MEANING rather than just an identity, so the three get names instead of
       slot numbers (the Dashboard's Income & Expenses lines and its Monthly Cash
-      Flow bars). Under the accent ramp they are three stops of it, exactly as
-      they were before the names existed: nothing about the default palette
-      changes. A graph palette that has real hues to spend can re-point them at
-      the colours those words already mean (themes.css). */
-   --chart-income:   var(--chart-1);
-   --chart-expense:  var(--chart-4);
-   --chart-transfer: var(--chart-2);
+      Flow bars).
 
-   /* Cash Flow Sankey. Its two sides carry a MEANING rather than an identity —
-      money coming in, money going out — so they are split the way that pair is
-      read everywhere: COOL on the inflow, WARM on the outflow, with the hub
-      between them holding the palette's own income colour. Both wings are ramps
-      built the same way (see the outflow block below for the full reasoning);
-      only the hue arc differs. (See widgets/cashflow-sankey.js.)
+      These used to be three stops of the accent ramp, which made them retone
+      with the UI accent and made all three the same hue. They now sit on the
+      SAME three-family split the Cash Flow Sankey uses two blocks below, so one
+      pairing runs across the app: green arriving, gold leaving, grey for what is
+      held (--chart-balance-*) and for money that only moved. That is the
+      Sankey's exception applied wider — here too the colour IS the label — and
+      the cost is that these three no longer follow the accent picker. Every
+      graph palette re-points the two ramps, so the names follow a palette swap
+      for free and no palette needs its own copy of this trio.
 
-      The INFLOW ramp — six cool steps, deepest first, walking a deep indigo
-      through blue to a light cyan. It stops SHORT of green and teal on purpose:
-      that end of the cool range belongs to --chart-net, so the hub stays the one
-      thing on the diagram wearing it and the arriving money reads as feeding a
-      colour rather than already being it. Deepest first because the bands are
-      laid out in size order, so the main earner takes the strongest step. */
-   --chart-inflow-1: #4d4495;
-   --chart-inflow-2: #455ba7;
-   --chart-inflow-3: #3871b5;
-   --chart-inflow-4: #2888bd;
-   --chart-inflow-5: #1d9dc2;
-   --chart-inflow-6: #29b1c3;
-   --chart-net:      var(--accent-primary);
+      Income takes the income ramp's step 2 and expenses the spending ramp's step
+      4: a deep green against a mid gold, separated by lightness as much as by hue
+      (1.8:1 on the light surface, 1.6:1 on the dark), which is what keeps the
+      pair apart for a reader to whom green and gold converge. Both cards that
+      draw the pair also label every series. The slots differ per palette — see
+      the spending ramp's block below and the Gemstone pin in themes.css.
 
-   /* The Sankey's OUTFLOW ramp — eight warm steps, deepest first, walking from
-      a crimson through red, burnt orange and amber to a gold.
+      TRANSFERS ARE DELIBERATELY GREY. Money moved between the user's own
+      accounts is neither earned nor spent, and every income/spend surface in the
+      app drops it; a neutral says that on sight, where a fourth hue would put it
+      on the same footing as the two flows it is not. One value serves both
+      themes — it clears 4:1 against the light page and 4.8:1 against the dark
+      one, which is what a mid grey between two page colours buys. */
+   --chart-income:   var(--chart-inflow-2);
+   --chart-expense:  var(--chart-outflow-4);
+   --chart-transfer: #7a8085;
 
-      Why a ramp and not eight warm hues: the outflow bands are sorted by
-      amount, and a Sankey band prints its own name and figure on itself, so
-      colour here grades MAGNITUDE and never has to carry identity. Eight
-      separate warm hues were measured against the dataviz validator and cannot
-      clear its adjacent-pair separation on any surface — the warm span is too
-      narrow to hold eight — whereas a ramp is allowed to step smoothly by
-      definition, and the biggest spender still lands on the strongest colour.
-      Each step advances in LIGHTNESS AND HUE at once, which is what buys the
-      separation a single-hue ramp of eight steps cannot.
+   /* Net worth — the Dashboard's Year to Year hero line, and the fourth named
+      series. GREEN, on the income ramp, which is the one place this palette
+      spends a flow colour on something that is not a flow: net worth is a
+      balance and the greys above are what balances wear, but it is also the
+      single number the whole app is pointed at, and grey is the family that
+      deliberately recedes. So it takes the colour of money arriving instead, and
+      the greys stay with the accounts it is made of.
 
-      Literal hexes rather than accent mixes, unlike --chart-accent-* above: the
-      UI accent is a cool teal, and mixing it can only ever produce more cool
-      steps. This is the one chart ramp that does not follow the accent, and the
-      reason is the same one that lets --chart-income be green — the colour here
-      IS the label. Stepped inside the LIGHT surface's lightness band; the dark
-      set is re-picked against the dark surface in themes.css, not flipped. */
-   --chart-outflow-1: #8e2932;
-   --chart-outflow-2: #9b392f;
-   --chart-outflow-3: #a6492c;
-   --chart-outflow-4: #b05929;
-   --chart-outflow-5: #b8692a;
-   --chart-outflow-6: #c07a2d;
-   --chart-outflow-7: #c58b36;
-   --chart-outflow-8: #ca9d42;
+      NOT --chart-net, which is the Cash Flow Sankey's hub and takes a grey.
+      Similar names, opposite families: one is the biggest thing you have, the
+      other is one node in a diagram of a year's flows. */
+   --chart-networth: var(--chart-inflow-3);   /* one step brighter than the income line */
+
+   /* THE INCOME RAMP — six greens, deepest first. Named for the Cash Flow
+      Sankey's inflow wing, which is where it started, but it is the app's money-
+      arriving ramp wherever money arrives: the Sankey's income bands and the
+      Dashboard's Monthly Cash Flow income segments both read it. Deepest first
+      because both of those lay their bands out in size order, so the main earner
+      takes the strongest step.
+
+      GREEN, because green is what money arriving already means to anyone who has
+      ever looked at a bank statement, and because the app has somewhere better
+      for cool now: --chart-balance-* holds what you HAVE. That split is the whole
+      colour rule — green arriving, gold leaving, grey held — and it is why this
+      ramp is not the indigo-through-cyan set it used to be.
+
+      Green and gold converge under deuteranopia, so this ramp and the gold one
+      below are separated by LIGHTNESS as well as hue — the gold's deep end sits
+      well below the green's middle — and every chart that draws them also labels
+      its bands, so colour is never the only thing carrying the meaning.
+
+      Contrast on white runs 8.0:1 down to 2.0:1 with adjacent pairs at 1.26-1.36
+      — the pale end dips under the 3:1 fill guideline exactly as the warm ramp's
+      gold end does, and for the same reason: six steps do not fit above it in
+      the light surface's band. Steps 5 and 6 are only reached by a household
+      with five-plus income categories. */
+   --chart-inflow-1: #0a5b47;
+   --chart-inflow-2: #10744c;
+   --chart-inflow-3: #1a8b52;
+   --chart-inflow-4: #2ba25b;
+   --chart-inflow-5: #48b76b;
+   --chart-inflow-6: #72c983;
+
+   /* The Sankey's hub. Net Inflow is the one place all the arriving money has
+      landed as a single amount, which makes it a BALANCE rather than a flow — so
+      it takes the balance family's deepest step and the diagram reads green in,
+      grey held, gold out. It used to be the UI accent, a teal that sat close
+      enough to the greens now feeding it to be mistaken for one more source. */
+   --chart-net:      var(--chart-balance-1);
+
+   /* THE SPENDING RAMP — eight GOLDS, deepest first, walking a dark bronze out
+      to a pale gold. Named for the Cash Flow Sankey's outflow wing, where it
+      started, but it is the app's money-leaving ramp wherever money leaves: the
+      Sankey's expense bands, the Dashboard's Expenses line, its Monthly Cash
+      Flow expense segments and its Spending bars all read it, as does
+      --chart-debt.
+
+      GOLD is the Aventurine palette's own answer to "spent". It used to be a
+      crimson-through-gold walk, and the crimson had to go for two reasons: red
+      is spoken for by --accent-negative on every numeric figure the ledger
+      prints, so a chart wearing it read as a verdict rather than a category; and
+      this palette is built from the stone it is named after, whose range is
+      green, gold and grey. Gemstone keeps the crimson walk — it has hues to
+      spend and no such range to honour (themes.css).
+
+      Why a ramp and not eight separate hues: the bands are sorted by amount, and
+      every surface that draws them prints its own name and figure, so colour
+      here grades MAGNITUDE and never has to carry identity. The biggest spender
+      lands on the strongest colour. Each step advances in LIGHTNESS AND HUE at
+      once — bronze through amber to gold — which is what buys the separation a
+      single-hue ramp of eight steps cannot; adjacent pairs land at 1.20-1.33.
+
+      WHY THE BLUE CHANNEL IS AT OR NEAR ZERO. A yellow hue darkens into brown,
+      not into a deep gold, and what separates the two at the same lightness is
+      chroma: the first cut of this ramp carried 11-24 points of blue and read as
+      bronze all the way up. Every step here sits at hue 46-47° with blue between
+      0 and 8, which is the most saturated gold sRGB has at that lightness, and
+      the ramp starts at L 0.14 rather than 0.05 — a dark gold is a brown however
+      it is mixed, so the fix is partly to not go that dark.
+
+      WHICH STEPS THE NAMED PAIR TAKES. --chart-expense is step 4 and
+      --chart-income the green ramp's step 2, and those two are drawn as a pair on
+      two different cards. Green and gold converge under deuteranopia, which hue
+      cannot fix, so the pair has to separate by LIGHTNESS: a deep green against a
+      mid gold, 1.8:1 apart on the light surface and 1.6:1 on the dark. Reaching
+      further apart than that would mean either a browner gold or a paler one, and
+      both cards label every series on top of the colour. Gemstone pins the pair
+      to different slots (themes.css) because its ramp is a crimson walk that
+      starts deep, so the slot that reads as "the expense colour" is not the same
+      one — the SLOT is a palette decision just as the values are.
+
+      Contrast on white runs 5.6:1 down to 1.5:1. That is a lighter ramp than the
+      other two families and deliberately so; the cost is that the top two steps
+      are pale on a white card, which is the price of a gold that is gold rather
+      than brown, and they are only reached by a household with seven-plus
+      spending categories. Literal hexes rather than accent mixes, unlike
+      --chart-accent-* above: mixing the accent can only ever produce more of the
+      accent, and the colour here IS the label. Stepped inside the LIGHT surface's
+      lightness band; the dark set is re-picked against the dark surface in
+      themes.css, not flipped. */
+   --chart-outflow-1: #826400;
+   --chart-outflow-2: #916f00;
+   --chart-outflow-3: #a17c02;
+   --chart-outflow-4: #b28a06;
+   --chart-outflow-5: #c39a0e;
+   --chart-outflow-6: #d3ab1e;
+   --chart-outflow-7: #e2bd3c;
+   --chart-outflow-8: #eed168;
+
+   /* ── Balances: what is HELD, not what flowed ─────────────────────────────
+    * The third family beside the two flow ramps above. A balance is a standing
+    * amount rather than a direction, so it is COOL — held still, neither
+    * arriving nor leaving. GREY says that on sight: it is the one family on the
+    * page with no direction in it, which is what leaves green free to mean money
+    * arriving and gold to mean money spent. Both of the Dashboard's balance
+    * cards are drawn from it — the Balances donut and the Year to Year Account
+    * Balances chart — and so is the Sankey's Net Inflow hub, which takes step 1.
+    * --chart-transfer is the same idea in one fixed value: money that only moved
+    * between the user's own accounts has no direction either.
+    *
+    * EIGHT steps, because those two cards need different amounts of the family.
+    * The donut has three fixed slices and takes steps 1, 4 and 7, spaced two
+    * apart so its three are the three furthest apart the ramp can offer; they are
+    * fixed by ACCOUNT TYPE rather than by slice size, so a type keeps its colour
+    * as the months step. The balances chart draws one line per account and walks
+    * all eight in column order, wrapping past the eighth the way every
+    * categorical ramp here does.
+    *
+    * One grey family rather than eight hues, because these are all one thing —
+    * money you hold — and both cards label every series (the donut has a legend,
+    * the chart has its selector chips, each carrying its own swatch). Literal
+    * hexes for the same reason the flow ramps are literal: mixing the accent can
+    * only produce more of the accent, and the whole point is that this family
+    * reads as neutral whatever accent is picked.
+    *
+    * A grey ramp can only step in LIGHTNESS, where the other two also step in
+    * hue, so this is the family with the least separation to spend and the steps
+    * are placed on an even perceptual walk rather than by eye: adjacent pairs
+    * land at 1.22-1.25 across all eight. The steps carry a faint cool cast (two
+    * or three points of blue over red) so they read as grey rather than as a
+    * washed-out sibling of the golds beside them.
+    *
+    * Contrast on white runs 8.0:1 down to 1.87:1; the top three steps sit under
+    * the 3:1 guideline, which is where every eight-step ramp in this file ends up
+    * (see --cat-* and the spending ramp's pale end) and is why the chips carry
+    * swatches. The dark theme re-picks all eight against its own band
+    * (themes.css) rather than lightening these. */
+   --chart-balance-1: #4e5153;   /* donut: cash */
+   --chart-balance-2: #5c5f61;
+   --chart-balance-3: #6a6d70;
+   --chart-balance-4: #787b7e;   /* donut: investments */
+   --chart-balance-5: #878a8d;
+   --chart-balance-6: #989b9e;
+   --chart-balance-7: #a9acaf;   /* donut: retirement */
+   --chart-balance-8: #bcbfc2;
+
+   /* Debt is the balance family's opposite number, so it leaves the greys
+      entirely and takes a gold, since a debt is spending that has not been paid
+      for yet. In the Balances donut that puts one gold slice against three grey
+      ones, which is the whole point: a liability is not one more shade of
+      savings.
+
+      It takes --chart-expense, the named token every gold surface in the app
+      now starts at (core/chartramp.js trims the charts' ramp to it), rather than
+      the ramp's own first step. The donut sits in the Dashboard's Month to Month
+      section with the Spending bars beside it and the Expenses line one section
+      up, and on the deepest step it was a browner gold than either of them.
+      An alias rather than a copy of the hex, so debt follows a palette swap for
+      free and stays the app's expense colour in whatever set is live. */
+   --chart-debt:      var(--chart-expense);
 
    /* ── Merchant spectrum ──────────────────────────────────────────────────
     * Eight desaturated hues, evenly spaced 45° apart. Originally the merchant
@@ -405,14 +551,8 @@
    --stroke-medium:    rgba(0,0,0, 0.16);
    --stroke-strong:    rgba(0,0,0, 0.22);
 
-   /* Dialog chrome — opaque surface/border rather than translucent tints.
-      --dialog-surface-raised is one shade lighter than the dialog itself: the
-      fill for a panel grouping controls INSIDE a modal, where --surface2/3
-      cannot serve because they step DARKER on light and the panel has to read
-      as raised on both themes. Light's surface ramp bottoms out at base-050
-      (the dialog's own fill), so the rung above it is white. */
+   /* Dialog chrome — opaque surface/border rather than translucent tints. */
    --dialog-surface:        var(--surface1);
-   --dialog-surface-raised: #ffffff;
    --dialog-stroke:         var(--border);
 
    /* Segmented control (Statements/Dashboard/Reports tabs) — a grey track holding
@@ -662,19 +802,10 @@
 }
 
 
-/* ─── 4. Page title / info tooltip ─────────────────────────────────────────
- * The page-level h1 rule shared across every page template, plus the global
- * "i" badge tooltip chrome (formerly duplicated in home/forecast/trends/
- * reportcard CSS — consolidated here so it works on all pages). */
-.page-title {
-    color: var(--text-primary);
-    font-family: var(--font-h1);
-    font-size: var(--size-h1);
-    font-weight: var(--weight-medium);
-    line-height: var(--lh-tight);
-    letter-spacing: var(--track-tight);
-    margin: 0;
-}
+/* ─── 4. Info tooltip ──────────────────────────────────────────────────────
+ * The global "i" badge tooltip chrome, formerly duplicated in the forecast /
+ * trends / report-card stylesheets and consolidated here so it works on every
+ * page. */
 
 /* ─── Info tooltip ("i" badge + CSS hover/focus card) ─────────────────────── */
 .fc-info {

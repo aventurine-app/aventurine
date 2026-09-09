@@ -132,15 +132,6 @@ function collectTotals(db) {
 }
 
 /**
- * Per-year { income, expenses, transfers, invested, topExpense } from the Cash
- * Flow statement — the year half of collectTotals, kept under its own name for
- * the Financial Freedom handler, which has no use for the month half.
- */
-function yearlyTotals(db) {
-  return { totals: collectTotals(db).years };
-}
-
-/**
  * Per-year total debt = the sum of debt-type Balance-Sheet columns at the most
  * recent month that has any debt entry in that year. A year with no debt data
  * is absent from the map (→ null debt, an N/A debt-to-income metric). Mirrors
@@ -213,4 +204,4 @@ function reportCardGet(ctx) {
 
 const routes = [['GET', '/api/report-card', reportCardGet]];
 
-module.exports = { routes, yearlyTotals, debtByYear };
+module.exports = { routes, debtByYear };

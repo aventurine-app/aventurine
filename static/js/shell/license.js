@@ -93,9 +93,9 @@
         }
         // The <html> flag above may have been set pre-paint from the hint, which
         // can be stale. This is the VERIFIED tier — what the backend just said —
-        // for a page that has to decide whether to request a paid route at all
-        // (the Dashboard's Financial Freedom card): asking on the hint alone
-        // would raise the gate on the Dashboard the one time the hint is wrong.
+        // for a page that has to decide whether to request a paid route at all:
+        // asking on the hint alone would raise the gate the one time the hint
+        // is wrong.
         verifiedTier = licensed ? 'full' : 'free';
         window.dispatchEvent(new CustomEvent('aventurine:license-tier', { detail: { tier: verifiedTier } }));
 

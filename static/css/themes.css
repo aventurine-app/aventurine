@@ -26,27 +26,50 @@ html[data-theme="dark"],
        SVG file, not a data: URI (blocked by the img-src 'self' CSP). */
     --calendar-icon: url('/static/icons/calendar-dark-theme.svg');
 
-    /* The Cash Flow Sankey's cool inflow ramp, re-picked against the dark
-       surface (style.css carries the light set and the reasoning). */
-    --chart-inflow-1: #5b53a5;
-    --chart-inflow-2: #4e64b2;
-    --chart-inflow-3: #3d76ba;
-    --chart-inflow-4: #2887bd;
-    --chart-inflow-5: #0f97bc;
-    --chart-inflow-6: #11a6b7;
+    /* The income ramp, re-picked against the dark surface (style.css carries the
+       light set and the reasoning). Going lighter is the only direction with
+       room here, so every step clears 3:1 — 3.7:1 up to 12.4:1, with adjacent
+       pairs at 1.21-1.33 — where the light set's palest two could not. */
+    --chart-inflow-1: #147a5a;
+    --chart-inflow-2: #1a9163;
+    --chart-inflow-3: #23a86c;
+    --chart-inflow-4: #3fbe7c;
+    --chart-inflow-5: #64d194;
+    --chart-inflow-6: #8ee0b0;
 
-    /* The Cash Flow Sankey's warm outflow ramp, re-picked against the dark
-       surface (style.css carries the light set and the reasoning). A SELECTED
-       set, not a lightened copy: the dark surface's lightness band is narrower,
-       so the eight steps are re-stepped inside it rather than shifted. */
-    --chart-outflow-1: #9f393f;
-    --chart-outflow-2: #a64338;
-    --chart-outflow-3: #ad4e31;
-    --chart-outflow-4: #b25929;
-    --chart-outflow-5: #b66522;
-    --chart-outflow-6: #b9721e;
-    --chart-outflow-7: #ba7e1f;
-    --chart-outflow-8: #ba8b25;
+    /* The gold spending ramp, re-picked against the dark surface (style.css
+       carries the light set, the near-zero blue channel and the rest of the
+       reasoning). A SELECTED set, not a lightened copy: the whole ramp sits
+       higher here than the light one, because a dark surface has the room and a
+       gold only reads as gold above a certain lightness. Every step clears 3:1
+       (4.4:1 up to 15.5:1) and adjacent pairs land at 1.15-1.23. Step 4 stays far
+       enough above the income ramp's step 2 for the named pair to separate by
+       lightness, 1.6:1 here against the light theme's 1.8:1. */
+    --chart-outflow-1: #957400;
+    --chart-outflow-2: #a68201;
+    --chart-outflow-3: #b79106;
+    --chart-outflow-4: #c8a110;
+    --chart-outflow-5: #d7b227;
+    --chart-outflow-6: #e4c449;
+    --chart-outflow-7: #efd777;
+    --chart-outflow-8: #f7e6a8;
+
+    /* The balance greys, re-picked against the dark surface (style.css carries
+       the light set, the eight-step reasoning and which three the donut takes).
+       A SELECTED set, not a lightened copy: going lighter is the only direction
+       with room here, so every step clears 3:1 where the light set's top three
+       could not. Adjacent pairs land at 1.20-1.24 — an even perceptual walk,
+       since a grey ramp has only lightness to step in. --chart-debt is an alias
+       of the gold ramp above and --chart-net an alias of step 1, so both follow
+       with nothing to restate. */
+    --chart-balance-1: #5f6265;   /* donut: cash */
+    --chart-balance-2: #6c6f72;
+    --chart-balance-3: #7a7d80;
+    --chart-balance-4: #8a8d90;   /* donut: investments */
+    --chart-balance-5: #9a9da0;
+    --chart-balance-6: #acafb2;
+    --chart-balance-7: #bfc2c5;   /* donut: retirement */
+    --chart-balance-8: #d4d7da;
 
     /* Background + surfaces.
        background  — the deepest layer (body / page bg).
@@ -139,9 +162,6 @@ html[data-theme="dark"],
     /* Dialog chrome — separate from frost because light theme sets these
      * to opaque surface tokens rather than translucent rgba values. */
     --dialog-surface:        rgb(38, 38, 40);
-    /* One rung lighter, on the dialog's hand-tuned scale rather than the base
-       ramp: raised means lighter here, the same direction as --surface1-4. */
-    --dialog-surface-raised: rgb(48, 48, 51);
     --dialog-stroke:         rgba(255,255,255, 0.12);
 
     /* Segmented control — only hover needs a dark value. The track follows
@@ -319,43 +339,52 @@ html[data-graph-theme="gemstone"],
     --chart-7: #9645a0;   /* rhodolite */
     --chart-8: #099e71;   /* emerald */
 
-    /* The three named series (style.css). With eight real hues to spend, the
-       flow types get the colours those words already mean to anyone who has
-       ever looked at a bank statement: green in, red out, blue moved between
-       your own accounts. This is the ONE place the app paints a chart in
-       green/red — everywhere else those stay reserved for the numeric figures
-       (--accent-positive / --accent-negative) — and it earns the exception
-       because here the colour IS the label, not decoration.
+    /* The three named series are NOT re-pointed here any more. They used to be
+       emerald / garnet / lapis — green in, red out, blue moved — which put this
+       palette's green on income at the same time as the app was giving green to
+       balances, and put a cool blue on transfers at the same time as cool became
+       the income side. Both collisions go away by letting the :root aliases
+       stand: --chart-income and --chart-expense point at --chart-inflow-3 and
+       --chart-outflow-2, which this block re-picks below, so the trio follows
+       this palette with nothing to restate — and --chart-transfer stays the one
+       neutral it is everywhere.
 
-       Green-vs-red is also the worst pair in existence for the ~8% of men with
-       red-green colour blindness, so the two are separated by LIGHTNESS as well
-       as hue, and here the EMERALD is the lighter of the pair. Getting that
-       round the right way is what the whole trio turns on: with the garnet
-       lighter, as the bright set had it, the pair sat at ΔE 4.7. This way it
-       reaches 14.3 on light and 10.8 on dark, and both stops stay on the ramp —
-       the bright set had to take its dark-theme red off the ramp entirely to
-       clear the target. Both charts additionally label every series in the
-       legend, so colour is never the only thing carrying the meaning.
-       Re-tinting either one means re-running the validator on the trio. */
-    --chart-income:   var(--chart-8);
-    --chart-expense:  var(--chart-4);
-    --chart-transfer: var(--chart-1);
+       The emerald is still on the ramp as --chart-8 / --cat-8, and it is what
+       the income ramp below is built from.
 
-    /* Cash Flow Sankey. The HUB is green here — the same green the income line
-       and the income bar wear, so "green means coming in" holds across every
-       chart in the app — and it is the only thing on the diagram wearing it,
-       because Net Inflow is the one place all the arriving money is the same
-       money. The sources feeding it get a cool ramp of their own, indigo
-       through blue to cyan, held clear of the green and teal end so the hub is
-       never mistaken for one more source. Deepest first, matching the size
-       order the bands are laid out in. */
-    --chart-inflow-1: #5836a6;
-    --chart-inflow-2: #4a52bb;
-    --chart-inflow-3: #2f6dc9;
-    --chart-inflow-4: #0087ca;
-    --chart-inflow-5: #009dc6;
-    --chart-inflow-6: #00b3c5;
-    --chart-net:      var(--chart-income);
+       What this palette DOES re-point is which SLOT each of the two takes. The
+       :root pair is tuned for Aventurine's ramps, where the golds start at a mid
+       lightness and the pair has to be pulled apart as a deep green against a mid
+       gold. This palette's outflow ramp is a crimson walk that starts deep, so
+       its deepest steps already sit well clear of its emeralds and the pair reads
+       best at step 3 and step 2 — where it has always been. The slot is a palette
+       decision the same way the values are.
+
+       Kept from the old note, because it still governs the two flow ramps:
+       green-vs-red is the worst pair in existence for the ~8% of men with
+       red-green colour blindness, so the inflow and outflow sets are separated
+       by LIGHTNESS as well as hue, and both charts label every series in the
+       legend so colour is never the only thing carrying the meaning. */
+
+    /* The income ramp, six steps of this palette's own emerald so the greens
+       belong to the stones rather than being the default set dropped in. The
+       Sankey's income bands and the Dashboard's income segments both read it,
+       deepest first, matching the size order those bands are laid out in.
+
+       The Sankey's HUB leaves this ramp entirely and takes the balance family's
+       deepest step below: Net Inflow is where all the arriving money has landed
+       as a single amount, which makes it something held rather than something
+       flowing, and it also stops the hub being read as one more green source. */
+    --chart-income:   var(--chart-inflow-3);
+    --chart-expense:  var(--chart-outflow-2);
+
+    --chart-inflow-1: #045540;
+    --chart-inflow-2: #06724f;
+    --chart-inflow-3: #099e71;   /* the ramp's own emerald */
+    --chart-inflow-4: #1fa87d;
+    --chart-inflow-5: #3cb994;
+    --chart-inflow-6: #5cc7a2;
+    --chart-net:      var(--chart-balance-1);
 
     /* Money LEAVING is warm here, opposite the green arriving: the same pairing
        --chart-income / --chart-expense already states, spread over the eight
@@ -372,6 +401,22 @@ html[data-graph-theme="gemstone"],
     --chart-outflow-6: #bf7b00;
     --chart-outflow-7: #c28e00;
     --chart-outflow-8: #c3a200;
+
+    /* The balance family, walking this palette's lapis up through its tourmaline
+       so the blues belong to the stones rather than being the default set
+       dropped in. Eight steps, deepest first, with the donut taking 1, 4 and 7
+       for cash / investments / retirement and step 1 doubling as the Sankey's
+       hub (style.css carries the full reasoning). --chart-debt is an alias of
+       --chart-outflow-1 above, so debt takes this palette's crimson with nothing
+       to restate. */
+    --chart-balance-1: #13307f;   /* donut: cash */
+    --chart-balance-2: #16409c;
+    --chart-balance-3: #1355b2;
+    --chart-balance-4: #0f6cb6;   /* donut: investments */
+    --chart-balance-5: #0d82b8;
+    --chart-balance-6: #1096bd;
+    --chart-balance-7: #3fadcd;   /* donut: retirement */
+    --chart-balance-8: #6ec5da;
 
     /* The categorical ramp — the Spending report's per-category lines, the
        Sankey's outflow bands, the Saved & Invested stack. The SAME eight stones
@@ -414,13 +459,13 @@ html[data-theme="dark"] .settings-graph-swatch[data-graph-theme="gemstone"] {
     --chart-7: #a051aa;   /* rhodolite */
     --chart-8: #00a475;   /* emerald */
 
-    /* Both Sankey wings, re-stepped inside the dark surface's band. */
-    --chart-inflow-1: #6646b7;
-    --chart-inflow-2: #525cc6;
-    --chart-inflow-3: #3472ce;
-    --chart-inflow-4: #0086ca;
-    --chart-inflow-5: #0097bf;
-    --chart-inflow-6: #00a7b8;
+    /* Both flow ramps, re-stepped inside the dark surface's band. */
+    --chart-inflow-1: #00674a;
+    --chart-inflow-2: #008560;
+    --chart-inflow-3: #00a475;   /* the ramp's own emerald */
+    --chart-inflow-4: #2bbb90;
+    --chart-inflow-5: #57cfa8;
+    --chart-inflow-6: #83e2c2;
 
     --chart-outflow-1: #b20d3e;
     --chart-outflow-2: #ba2529;
@@ -430,4 +475,15 @@ html[data-theme="dark"] .settings-graph-swatch[data-graph-theme="gemstone"] {
     --chart-outflow-6: #b57500;
     --chart-outflow-7: #b38300;
     --chart-outflow-8: #af9100;
+
+    /* The balance blues re-picked against the dark surface, from this palette's
+       dark lapis and tourmaline. Step 1 is the Sankey's hub here too. */
+    --chart-balance-1: #2a4fae;   /* donut: cash */
+    --chart-balance-2: #3365cc;
+    --chart-balance-3: #2b7ed2;
+    --chart-balance-4: #2094ca;   /* donut: investments */
+    --chart-balance-5: #16a8c4;
+    --chart-balance-6: #45bcd4;
+    --chart-balance-7: #74cee0;   /* donut: retirement */
+    --chart-balance-8: #a0dfec;
 }

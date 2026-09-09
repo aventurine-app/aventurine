@@ -88,9 +88,9 @@
                      lines answer "did this one category move" — two readings of
                      one payload, so the switch costs a re-render and no request.
                      Controller: static/js/pages/trends.js. -->
-                <div class="trends-view" id="trends-view" role="group" aria-label="Chart form">
-                    <button type="button" class="trends-view-btn" data-view="stacked" aria-pressed="true">Stacked</button>
-                    <button type="button" class="trends-view-btn" data-view="lines" aria-pressed="false">Lines</button>
+                <div class="trends-view seg-switch" id="trends-view" role="group" aria-label="Chart form">
+                    <button type="button" class="trends-view-btn seg-switch-btn" data-view="stacked" aria-pressed="true">Stacked</button>
+                    <button type="button" class="trends-view-btn seg-switch-btn" data-view="lines" aria-pressed="false">Lines</button>
                 </div>
                 <div class="range-selector" id="trends-range">
                     <button class="range-selector-btn" id="trends-range-btn" type="button">1 Year</button>
@@ -362,6 +362,17 @@
     </div>
 
     <!-- @include scripts -->
+    <!-- Merchant avatars: the generated slug→icon manifest, then the renderer
+         that reads it. Page-level rather than shared chrome — see the note in
+         pages/partials/scripts.html. Manifest first: avatar.js reads
+         window.MERCHANT_ICONS. -->
+    <script src="/static/js/core/merchant-icons.js"></script>
+    <script src="/static/js/core/avatar.js"></script>
+    <!-- The shared chart geometry (core/chartmath.js). Per-page rather than in
+         the shared block: only this page and /reports draw charts, so the other
+         four would parse it for nothing. It has no dependencies and must load
+         before any script that draws. -->
+    <script src="/static/js/core/chartmath.js"></script>
     <script src="/static/js/pages/reports.js"></script>
     <script src="/static/js/widgets/chart.js"></script>
     <script src="/static/js/widgets/forecast.js"></script>

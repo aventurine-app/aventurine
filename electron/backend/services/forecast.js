@@ -97,19 +97,6 @@ function monthlyTotals(income, expense) {
 }
 
 /**
- * Average monthly income and expense over the trailing `window` of COMPLETE
- * calendar months (the current month is excluded). Thin wrapper over
- * windowAverages for the single-totals case; see windowAverages for the window
- * rules.
- * Returns { avgIncome, avgExpense, monthsUsed } (monthsUsed 0 ⇒ no usable
- * history).
- */
-function trailingAverage(totals, { today, window, activeMonths = null }) {
-  const a = windowAverages(totals, totals, { today, window, activeMonths });
-  return { avgIncome: a.avgIncome, avgExpense: a.avgExpense, monthsUsed: a.monthsUsed };
-}
-
-/**
  * Average two parallel sets of monthly totals over the SAME month span: the
  * full history (`totalsAll`, → the summary's "typical month") and the
  * irregular-only history (`totalsIrreg`, recurring patterns removed → the
@@ -460,8 +447,6 @@ module.exports = {
   forecast,
   HISTORY_MONTHS,
   historySeries,
-  monthlyTotals,
-  trailingAverage,
   windowAverages,
   recurringPatterns,
   placeRecurring,

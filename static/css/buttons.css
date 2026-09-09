@@ -30,7 +30,6 @@
 /* icon / close buttons — these all lacked a focus ring entirely */
 .tx-action-btn:focus-visible,
 .cat-icon-btn:focus-visible,
-.cc-remove-btn:focus-visible,
 .p-menu-btn:focus-visible,
 .dialog-close-btn:focus-visible {
     outline: 2px solid var(--accent-primary);

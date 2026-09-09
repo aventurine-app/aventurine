@@ -1,4 +1,4 @@
-/* ─── New / Open / Unlock Database modal (navbar.html + dbactions.js) ────
+/* ─── New / Open / Unlock Database modal (partials/sidebar.html + dbactions.js) ──
    Loaded unconditionally by head.html so the modal works on EVERY page in
    both browser and Electron. The frame / header / title / close button are
    shared with the other modals via style.css §8 (Shared modal primitives);

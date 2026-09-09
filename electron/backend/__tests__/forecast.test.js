@@ -13,7 +13,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const {
-  forecast, trailingAverage, monthlyTotals, HISTORY_MONTHS, historySeries,
+  forecast, HISTORY_MONTHS, historySeries,
   recurringPatterns, placeRecurring, weekCount, horizonEnd, addMonthKey,
 } = require('../services/forecast');
 const { localTodayIso } = require('../services/predictions');
@@ -295,14 +295,9 @@ test('recurringPatterns: a lapsed pattern (overdue beyond tolerance) is dropped'
   assert.equal(recurringPatterns(rows, '2026-06-01').length, 0);
 });
 
-test('trailingAverage: window/exclusion rules in isolation', () => {
-  const totals = monthlyTotals(
-    [inc('2026-03-01', 100), inc('2026-04-01', 200), inc('2026-05-01', 300), inc('2026-06-01', 9999)],
-    []
-  );
-  const a = trailingAverage(totals, { today: '2026-06-15', window: 3 });
-  assert.deepStrictEqual(a, { avgIncome: 200, avgExpense: 0, monthsUsed: 3 }); // (100+200+300)/3, Jun excluded
-});
+// The window/exclusion rules (the current part-way month excluded, months the
+// ledger has no rows for skipped rather than averaged in as zeros) are asserted
+// through forecast() itself further down — see the summary.monthsUsed checks.
 
 // ── API ──────────────────────────────────────────────────────────────────────
 

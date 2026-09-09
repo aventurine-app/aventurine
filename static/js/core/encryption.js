@@ -90,6 +90,9 @@
         if (changeRadio) changeRadio.checked = true;
         render();
         overlay.hidden = false;
+        // A FRESH read, not the shared cached one in api.js: this modal is the
+        // thing that changes the answer, and it is the one caller that opens
+        // more than once in a page's life.
         apiFetch('/api/db/status')
             .then(r => r.json())
             .then(s => { encrypted = !!s.encrypted; render(); (encrypted ? curInput : newInput).focus(); })
