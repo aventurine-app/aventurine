@@ -133,7 +133,7 @@
      *  marked link sites goes out of date whenever a card is added, so the
      *  destination is what is checked. */
     const PAID_PATHS = new Set([
-        '/statements', '/portfolio', '/reports', '/recurring',
+        '/statements', '/budgets', '/portfolio', '/reports', '/recurring',
     ]);
 
     /** Trailing slashes only; '/' is the Dashboard and is free. */

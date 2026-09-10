@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Aventurine | Budgets</title>
+    <!-- @include head -->
+    <link rel="stylesheet" href="/static/css/budgets.css">
+</head>
+<body>
+    <!-- @include chrome -->
+
+    <div class="body_container">
+        <!-- @include sidebar -->
+
+        <div class="page">
+
+<div class="bud-page">
+
+    <!-- Toolbar: the month it is showing hard left, its one action hard right.
+         No page heading, the same as every other page here — the sidebar's
+         active link already names the page. -->
+    <div class="bud-toolbar">
+        <div id="bud-month"></div>
+        <button type="button" class="button-primary" id="bud-set-btn">Set Budget</button>
+    </div>
+
+    <!-- The circles' field. It fills whatever height is left, and it is what
+         BubbleField measures, so it must have a size of its own before the
+         first circle is drawn (budgets.css gives it one). #bud-empty replaces
+         it while there is nothing to draw. -->
+    <div class="bud-empty" id="bud-empty" hidden></div>
+    <div class="bud-field" id="bud-field"></div>
+
+</div>
+
+        </div>
+    </div>
+
+    <!-- Set Budget: every budgetable category and its monthly target, saved in
+         one write. Three sections, built in JS: the expected income, then
+         Savings & Investing, then Spending. The frame/header/title/close chrome
+         is shared with the app's other dialogs (style.css §7); only this
+         dialog's own rows live in budgets.css. -->
+    <div class="bud-modal-overlay" id="bud-modal" hidden>
+        <div class="bud-modal" role="dialog" aria-modal="true" aria-labelledby="bud-modal-title">
+            <div class="bud-modal-header">
+                <span class="bud-modal-title" id="bud-modal-title">Set Budget</span>
+                <button type="button" class="bud-modal-close" id="bud-modal-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="bud-modal-body" id="bud-modal-body"></div>
+            <!-- Income minus every target in the dialog, live as they are
+                 typed. Hidden when no complete month has any income recorded,
+                 since there is then nothing to measure the targets against. -->
+            <div class="bud-modal-total" id="bud-modal-total" hidden>
+                <span>Unallocated</span>
+                <span class="bud-modal-total-value" id="bud-modal-total-value"></span>
+            </div>
+            <p class="bud-modal-error" id="bud-modal-error" hidden></p>
+            <div class="bud-modal-actions">
+                <button type="button" class="db-btn" id="bud-modal-cancel">Cancel</button>
+                <button type="button" class="db-btn db-btn-primary" id="bud-modal-save">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- @include scripts -->
+    <!-- No chart.js here. The circles are DOM, not a chart, and their colour is
+         one token in budgets.css rather than a per-category ramp, so nothing on
+         this page needs the chart widget. -->
+    <script src="/static/js/widgets/monthstepper.js"></script>
+    <script src="/static/js/widgets/bubblefield.js"></script>
+    <script src="/static/js/pages/budgets.js"></script>
+</body>
+</html>

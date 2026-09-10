@@ -47,6 +47,16 @@ const SCALE = Number(process.env.SHOT_SCALE) || 1;
 // so only override it for one-off captures, never for a docs refresh.
 const W = Number(process.env.SHOT_W) || 1400;
 const H = Number(process.env.SHOT_H) || 900;
+// Surface theme for the `frames` group only (every other group is shot in the
+// theme its own block sets). The website's Features section carries two sets of
+// the same shots, 'colorful' and 'dark', so one run per theme writes both; the
+// dark run suffixes its filenames so the pair lands side by side in one folder.
+const FRAME_SURFACES = { colorful: 'colorful', dark: 'dark', light: '' };
+const FRAME_SURFACE = process.env.SHOT_SURFACE || 'colorful';
+if (!(FRAME_SURFACE in FRAME_SURFACES)) {
+  throw new Error(`SHOT_SURFACE must be one of ${Object.keys(FRAME_SURFACES).join(', ')}, got "${FRAME_SURFACE}"`);
+}
+const FRAME_SUFFIX = FRAME_SURFACE === 'colorful' ? '' : `-${FRAME_SURFACE}`;
 const DEADLINE_MS = 25000;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -185,10 +195,11 @@ app.whenReady().then(async () => {
     await sleep(400);
 
     const js = (code) => win.webContents.executeJavaScript(code, true);
-    const post = (url, body) =>
-      js(`apiFetch(${JSON.stringify(url)}, { method: 'POST',
+    const send = (method, url, body) =>
+      js(`apiFetch(${JSON.stringify(url)}, { method: ${JSON.stringify(method)},
             headers: { 'Content-Type': 'application/json' },
             body: ${JSON.stringify(JSON.stringify(body))} }).then(r => r.json())`);
+    const post = (url, body) => send('POST', url, body);
 
     // The Recurring page lists only the schedules the user adopted from its
     // detection dialog, so a freshly seeded profile lands there empty. Adopt
@@ -199,6 +210,50 @@ app.whenReady().then(async () => {
       const { candidates } = await js('apiFetch("/api/recurring/candidates").then(r => r.json())');
       if (candidates.length) await post('/api/recurring/adopt', { keys: candidates.map((s) => s.key) });
       return candidates.length;
+    };
+
+    // A budget is something the user sets, so a freshly seeded profile has none
+    // and the Budgets page draws its empty state. These are the invented
+    // household's plan, one monthly target per expense category.
+    //
+    // The figures are priced against what buildRows actually spends in the
+    // month the shot is taken, so the field carries all three circle states at
+    // once: seven part-filled and green, travel an empty ring (nothing went out
+    // of it that month), and food over its target and red. That single
+    // overspend is the point — a field of nothing but green shows half the
+    // feature — so the assertion at the capture fails the run if the red one
+    // ever stops appearing.
+    //
+    // Rent is budgeted at exactly what rent costs, because that is what a
+    // household does with a fixed bill; it draws a full green circle, not a red
+    // one (over is spent > target).
+    //
+    // WHAT IS NOT HERE. Entertainment (~$27 a month) would take a circle too
+    // small to hold its own name, printing a bare figure with nothing to say
+    // what it is — the area is the target, so the only way to grow it is to
+    // budget a number the household does not spend. uncat_expense is absent for
+    // a different reason: a target on the bucket that means "not sorted yet" is
+    // not a plan. Both are simply unbudgeted, which is the page's own rule for
+    // leaving a category off the field.
+    //
+    // Idempotent: the PUT upserts by category key, so a re-run rewrites the
+    // same rows.
+    const BUDGET_TARGETS = {
+      rent: 1850,
+      food: 800,
+      shopping: 500,
+      automobile: 275,
+      utilities: 225,
+      travel: 200,
+      health: 160,
+      insurance: 150,
+      general: 75,
+    };
+    const seedBudgets = async () => {
+      const budgets = Object.entries(BUDGET_TARGETS).map(([category, amount]) => ({ category, amount }));
+      const res = await send('PUT', '/api/budgets', { budgets });
+      if (!res || res.ok !== true) throw new Error('budget seed failed: ' + JSON.stringify(res));
+      return budgets.length;
     };
 
     // Screens are captured in named phases so a single one can be re-run while
@@ -212,7 +267,7 @@ app.whenReady().then(async () => {
         const img = await win.webContents.capturePage(rect);
         fs.writeFileSync(path.join(OUT, `${name}.png`), img.toPNG({ scaleFactor: SCALE }));
         const s = img.getSize();
-        console.log(`  ${name}.png  ${s.width * SCALE}×${s.height * SCALE}`);
+        console.log(`  ${name}.png  ${s.width}×${s.height}`);
       } catch (e) {
         missing.push(`${name} (capture failed: ${e.message})`);
         console.log(`  !! ${name} — ${e.message}`);
@@ -997,27 +1052,44 @@ app.whenReady().then(async () => {
     // Whole-window captures — title bar, sidebar and page in one picture — for
     // the website, where the site crops above deliberately drop all of that.
     // Shot in the COLORFUL surface theme (the site crops use the light one) on
-    // the same gemstone palette. Opt in by naming it, like `site`:
+    // the gemstone palette. Opt in by naming it, like `site`:
     //
-    //   SHOT_ONLY=frames SHOT_W=1900 SHOT_H=1400 SHOT_OUT=… \
+    //   SHOT_ONLY=frames SHOT_W=1728 SHOT_H=972 SHOT_SCALE=2 SHOT_OUT=… \
     //     electron --no-sandbox --force-device-scale-factor=2 scripts/shoot-docs.js
     //
-    // Same 1900×1400 as `site`, and for the same reasons: below ~1900 the
-    // ledger's Notes column falls off the right edge, and the dashboard's
-    // second band needs the height. Full WIDTH always, but each shot is
-    // trimmed to where its own page ends — the window is sized for the longest
-    // of the four, and on the shorter pages that would otherwise leave a field
-    // of empty background under the content, which reads as a mistake rather
-    // than as an app.
+    // SHOT_SURFACE=dark takes the same set again in the dark theme and writes it
+    // as frame-<page>-dark.png. The website's Features section shows the colorful
+    // shot and swaps in the dark one on click, so the two sets have to be taken
+    // at the same size, on the same data, with the same cards open.
+    //
+    // EVERY SHOT IS THE WHOLE WINDOW, UNTRIMMED, so the set comes out at one
+    // size and one aspect ratio. The website stacks them down a column and
+    // flips between the two themes in place; a per-page trim (what shotPage
+    // does, and what these used to use) gives each screen its own height, the
+    // column steps in and out, and the flip has to cross-fade two different
+    // shapes. A strip of the app's own background under a shorter page is the
+    // cost, and it is what the window actually looks like.
+    //
+    // 1728×972 is that ratio (16:9, the shape the site's frames are laid out
+    // for) at the size where the pages come closest to filling it. Both floors
+    // are clear: the ledger keeps its Notes column down to ~1600 wide, and 972
+    // holds the dashboard's second band, which ends around 890. Going wider is
+    // what leaves the strip — the cards and the calendar have fixed heights, so
+    // a 1080-tall window adds ~190 of background under them and nothing else.
+    // Density is a separate axis: at --force-device-scale-factor=2 with
+    // SHOT_SCALE=2 the PNGs come out 3456×1944.
     if (ONLY && ONLY.has('frames')) {
       console.log('\n— frames —');
-      // COLORFUL surface theme, not the light one the `site` crops use. These
+      // COLORFUL by default, not the light theme the `site` crops use. These
       // shots carry the title bar and the sidebar, which is where that theme
       // does most of its work, so a light frame would show the chrome the crops
       // deliberately drop and then paint it in the one theme that makes it
-      // plainest. Set once here; both axes live in localStorage on a fixed
-      // origin, so they survive every nav below.
-      await setTheme('colorful');
+      // plainest. SHOT_SURFACE=dark re-shoots the same set for the website's
+      // click-to-flip pair. The gemstone palette is fixed either way: it is the
+      // one chart ramp both surfaces are tuned against. Set once here; both axes
+      // live in localStorage on a fixed origin, so they survive every nav below.
+      console.log(`  surface: ${FRAME_SURFACE}`);
+      await setTheme(FRAME_SURFACES[FRAME_SURFACE]);
       await setGraphTheme('gemstone');
 
       // Stepped back one month for the reason the site dashboard is: the seeded
@@ -1030,25 +1102,23 @@ app.whenReady().then(async () => {
       await click('#dashboard-month-prev');
       await sleep(900);
       await unhover();
-      await shotPage('frame-dashboard', '.dashboard-page', 20);
+      await shotWin(`frame-dashboard${FRAME_SUFFIX}`);
 
       await nav('/transactions', 2500);
       await unhover();
-      await shotPage('frame-transactions', '.tx-wrapper', 20);
+      await shotWin(`frame-transactions${FRAME_SUFFIX}`);
 
       // Cash Flow is the Reports page's first tab, so the nav lands on it.
       //
-      // HEIGHT is load-bearing for this one shot. The Sankey sizes itself to its
-      // container, which fills the window, so it is the one page here with no
-      // natural bottom for shotPage to trim to — at SHOT_H=1400 the capture is
-      // the whole 1400 and the diagram stretches to fill it, leaving a field of
-      // empty background under the smaller expense bands (the two sides scale
-      // against the same total, and expenses are ~65% of net inflow). The
-      // website's copy is shot at SHOT_H=1200, which is a normal window shape
-      // and still leaves room for all eleven category labels.
+      // The Sankey sizes itself to its container, which fills the window, so
+      // this page has no empty strip whatever the window height. What the
+      // height does change is the diagram's shape: the two sides scale against
+      // the same total and expenses are ~65% of net inflow, so a tall window
+      // stretches the income band and leaves air under the smaller expense
+      // ones. 1080 keeps it compact and still fits all eleven category labels.
       await nav('/reports', 3200);
       await unhover();
-      await shotPage('frame-cash-flow', '.rep-panel:not([hidden]) .forecast-card', 20);
+      await shotWin(`frame-cash-flow${FRAME_SUFFIX}`);
 
       // The Recurring calendar, shot with one schedule's card pinned open for
       // the reason the `site` crop is: a chip carries only a name and an amount,
@@ -1073,9 +1143,36 @@ app.whenReady().then(async () => {
       if (!(await js(`(() => { const p = document.getElementById('rec-pop'); return p && !p.hidden; })()`))) {
         throw new Error('recurring card did not open');
       }
-      await shotPage('frame-recurring', '.rec-page', 20);
+      await shotWin(`frame-recurring${FRAME_SUFFIX}`);
       await esc();
       await sleep(200);
+
+      // The Budgets field. Stepped back one month for the reason the dashboard
+      // is: the circles' fill is the shown month's spend, and the seeded ledger
+      // stops at today, so the current month part-fills every circle and the
+      // page reads as a household that is under on everything.
+      //
+      // `.bud-field` is flex:1 and the circles are sized as a share of its
+      // area (bubblefield.js PACK_DENSITY), so this page fills whatever window
+      // it is given rather than leaving background under itself.
+      //
+      // The settle is a physics loop that stops on its own once nothing moves,
+      // so the wait here is for rest, not for load; the assertion below is what
+      // catches a capture taken mid-flight or with no data behind it.
+      console.log(`  ${await seedBudgets()} budgets seeded`);
+      await nav('/budgets', 3200);
+      await click('#bud-month [data-step="-1"]');
+      await sleep(2000);
+      const bubbles = await js(`(() => ({
+        drawn: document.querySelectorAll('.bud-bubble').length,
+        over: document.querySelectorAll('.bud-bubble-over').length,
+      }))()`);
+      if (bubbles.drawn !== Object.keys(BUDGET_TARGETS).length) {
+        throw new Error(`budgets drew ${bubbles.drawn} circles, expected ${Object.keys(BUDGET_TARGETS).length}`);
+      }
+      if (!bubbles.over) throw new Error('no over-budget circle: the red state is not in the shot');
+      await unhover();
+      await shotWin(`frame-budgets${FRAME_SUFFIX}`);
 
       // Back to the defaults for any docs phase sharing the pass.
       await setTheme('');

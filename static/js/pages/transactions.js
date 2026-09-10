@@ -161,11 +161,13 @@
 
     // ─── SVG icons ───────────────────────────────────────────────────────────────
     // Inlined so the action buttons don't depend on an icon font / external sprite.
+    // Only the editing row's two buttons are drawn from here. The pencil and
+    // trash that used to sit in a per-row actions column are gone with it: the
+    // Edit and Delete chips in the toolbar (transactions.html) carry their own
+    // markup, because they exist whether or not any row is rendered.
     const TX_ICONS = {
-        pencil: '<svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l2 2-9.5 9.5-3 1 1-3 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
         check:  '<svg viewBox="0 0 20 20" fill="none"><path d="M5 10.5l3.5 3.5L15 6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
         cross:  '<svg viewBox="0 0 20 20" fill="none"><path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
-        trash:  '<svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M8 6V4h4v2M6 6l1 10h6l1-10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     };
 
     // ─── Category lookup helpers ─────────────────────────────────────────────────

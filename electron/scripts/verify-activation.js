@@ -99,7 +99,7 @@ app.whenReady().then(async () => {
 
     check('locked nav links are marked, not removed', await evalJs(
       '(() => { const a = [...document.querySelectorAll(".nav a[data-paid]")];'
-      + ' return a.length === 4 && a.every(l => l.offsetParent !== null'
+      + ' return a.length === 5 && a.every(l => l.offsetParent !== null'
       + ' && getComputedStyle(l.querySelector(".nav-lock")).display !== "none"); })()'
     ));
     check('the free destinations carry no lock', await evalJs(
@@ -130,6 +130,7 @@ app.whenReady().then(async () => {
         apiFetch("/api/transfers"),
         apiFetch("/api/recurring"),
         apiFetch("/api/report-card"),
+        apiFetch("/api/budgets"),
         apiFetch("/api/portfolio/data"),
         apiFetch("/api/predictions/upcoming"),
       ].map(p => p.then(r => r.status)))`);

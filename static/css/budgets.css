@@ -1,0 +1,402 @@
+/* ============================================================================
+   budgets.css — the Budgets page (pages/budgets.html).
+
+   The field of circles IS the page. One circle per BUDGETED category: its AREA
+   is the monthly target, and how far up it is filled is how much of that target
+   the month on the stepper has already reached. An empty ring means nothing has
+   moved in that category yet. A category with no target gets no circle at all —
+   the circle IS the target, so there is nothing to draw.
+
+   Positions come from JS (static/js/widgets/bubblefield.js) as a `transform` on
+   each circle, and its sizes as inline width/height — so nothing in this file
+   may set either. What this file owns is what a circle LOOKS like at whatever
+   size it is handed, which is why the type inside scales in container units
+   (cqmin) off the circle itself rather than in fixed px: one rule covers a 64px
+   circle and a 240px one.
+
+   Colour carries TWO things and no more. The HUE is the kind of promise: green
+   for a spending target, the app's blue for money put away (Savings, Investing,
+   any transfer-direction category). The SHIFT to red is the verdict, and only a
+   spending circle ever shifts. A put-away circle is blue empty, blue filling
+   and blue full — see .bud-bubble-away below for why it is never graded.
+
+   The Set Budget dialog's frame / header / title / close are shared with the
+   app's other modals (style.css §7); only its rows live here.
+   ============================================================================ */
+
+/* This page fills its scroll area rather than sitting centred in it: the field
+   is sized by what is left over, so the .page default of centring a
+   content-sized child would collapse it. */
+.page:has(.bud-page) {
+    align-items: stretch;
+}
+
+.bud-page {
+    display: flex;
+    flex-direction: column;
+    /* Toolbar → field sits closer than card → card (24px), so the month
+       stepper reads as this page's chrome rather than as a first card. */
+    gap: var(--space-16);
+    padding: var(--page-pad);
+    flex: 1;
+    min-width: 0;
+    /* Lets the field below shrink inside the flex column instead of pushing the
+       page into a scroll it does not want. */
+    min-height: 0;
+}
+
+/* ─── Toolbar ─────────────────────────────────────────────────────────────── */
+/* Month stepper hard left, Set Budget hard right. No page heading: the
+   sidebar's active link already names the page, which is how every other page
+   here works (see recurring.css). A plain flex row with two ends to push apart
+   — the Statements 1fr auto 1fr grid exists to centre a stepper against a
+   title, and there is no title left to centre against. */
+.bud-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-8);
+    flex-wrap: wrap;
+}
+
+/* ─── The field ───────────────────────────────────────────────────────────── */
+/* The circles are absolutely positioned inside this box, so it is their
+   containing block and the box BubbleField measures. It takes the height the
+   toolbar leaves, with a floor so the simulation always has somewhere to run
+   even in a very short window. */
+.bud-field {
+    position: relative;
+    flex: 1;
+    min-height: 320px;
+    /* A circle mid-flight must not be able to raise a scrollbar on the page. */
+    overflow: hidden;
+}
+
+.bud-field[hidden] { display: none; }
+
+.bud-empty {
+    flex: 1;
+    display: grid;
+    place-items: center;
+}
+
+.bud-empty[hidden] { display: none; }
+
+/* ─── A circle ────────────────────────────────────────────────────────────── */
+/* --bud-paint is what the ring, the fill and the waterline all draw with, so a
+   class can repaint a whole circle by changing that single value; --bud-fill is
+   the level. There are exactly two classes that repaint it: -away and -over.
+
+   A circle is not a colour of its own. A colour per category made eleven hues
+   the reader had to learn before the page said anything, and identity is
+   already carried by the name printed inside each circle. What is left for
+   colour is the two things worth a glance: which kind of target this is, and
+   whether a spending one has been passed.
+
+   Position, top/left, width, height and transform are NOT here: bubblefield.js
+   writes all five inline, because they are the layout it computes rather than a
+   look this file chooses. */
+.bud-bubble {
+    --bud-paint: var(--accent-primary);
+
+    box-sizing: border-box;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 2px solid var(--bud-paint);
+    border-radius: 50%;
+    background: var(--surface1);
+    color: var(--text-primary);
+    cursor: pointer;
+    overflow: hidden;
+    /* The type inside sizes itself off the circle (cqmin below), which needs
+       the circle to be a size container. Its own size comes from the inline
+       width/height BubbleField writes, so size containment costs nothing. */
+    container-type: size;
+    /* The transform changes every frame while the field settles; the ring and
+       shadow are the only things that animate on interaction. */
+    will-change: transform;
+    transition: box-shadow 160ms ease, border-color 160ms ease;
+}
+
+/* A halo rather than a lift: `transform` is the simulation's, so hover must not
+   touch it. The circles settle against each other, so the halo falls on its
+   neighbours; raising the hovered circle keeps the ring whole instead of
+   letting the circles drawn after it cut into it. */
+.bud-bubble:hover,
+.bud-bubble:focus-visible {
+    z-index: 1;
+}
+
+.bud-bubble:hover {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--bud-paint) 26%, transparent),
+                var(--shadow-popover);
+}
+
+.bud-bubble:active {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--bud-paint) 34%, transparent);
+}
+
+.bud-bubble:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 3px;
+}
+
+/* Money put away rather than money spent: Savings, Investing, and any other
+   category the user files under the transfer direction. One repaint of
+   --bud-paint turns the ring, the fill and the waterline blue together.
+
+   THIS CLASS NEVER COMBINES WITH .bud-bubble-over. A put-away circle carries no
+   verdict at any level in any month: passing a savings target is not a thing to
+   flag, and falling short of one is a number the circle already prints rather
+   than a limit that was broken. budgets.js is what holds that rule (it sets no
+   `over` on a transfer node); this file only has to avoid giving the blue a
+   second state to shift into. */
+.bud-bubble-away {
+    --bud-paint: var(--accent-secondary);
+}
+
+/* Over the target: the one thing that changes a spending circle's colour. The
+   ring, the fill and the waterline all repaint from this single value. Colour
+   is never the only carrier — the fill reaches the top and the figures inside
+   show the overshoot in full. */
+.bud-bubble-over {
+    --bud-paint: var(--accent-negative);
+}
+
+/* ─── The level ───────────────────────────────────────────────────────────── */
+/* A tint, not a solid: the readout sits over it, and at 30% the text keeps its
+   contrast in both themes. The waterline along the top is the crisp edge that
+   makes the level readable at a glance. */
+.bud-bubble-fill {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--bud-fill, 0%);
+    background: color-mix(in srgb, var(--bud-paint) 30%, transparent);
+    border-top: 2px solid var(--bud-paint);
+    pointer-events: none;
+    transition: height 260ms ease, background-color 160ms ease;
+}
+
+/* Nothing spent: no waterline either, or a zero-height fill would still draw
+   its 2px edge across the bottom of an empty ring. */
+.bud-bubble-empty .bud-bubble-fill { display: none; }
+
+/* ─── The readout ─────────────────────────────────────────────────────────── */
+/* Sits above the fill. cqmin sizes the type against the circle's own box, so
+   the same rules read correctly from the minimum circle up to the largest, and
+   the clamps stop it going illegibly small or comically large. */
+.bud-bubble-text {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    /* Inside a circle, so the text box has to stay clear of the curve. */
+    max-width: 74%;
+    line-height: 1.25;
+    text-align: center;
+}
+
+.bud-bubble-name {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: clamp(9px, 11cqmin, 13px);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--track-tight);
+}
+
+.bud-bubble-spent {
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: clamp(13px, 18cqmin, 26px);
+    font-weight: var(--weight-semibold);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: var(--track-tight);
+}
+
+.bud-bubble-target {
+    color: var(--text-tertiary);
+    font-family: var(--font-numeric);
+    font-size: clamp(9px, 11cqmin, 14px);
+    font-variant-numeric: tabular-nums;
+}
+
+/* As a circle shrinks, the readout sheds lines rather than shrinking past
+   legibility. The amount spent is the last thing to go, so every circle always
+   says what it cost; the name and the target stay in the tooltip and the
+   aria-label either way. */
+@container (max-width: 108px) {
+    .bud-bubble-name { display: none; }
+}
+
+@container (max-width: 84px) {
+    .bud-bubble-target { display: none; }
+}
+
+/* ─── Set Budget dialog ───────────────────────────────────────────────────── */
+/* Below the DB modal's 1300: the locked-database prompt has to stay on top of
+   any dialog a page has open. */
+.bud-modal-overlay {
+    background: var(--scrim);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 1100;
+}
+
+.bud-modal-overlay[hidden] { display: none; }
+
+.bud-modal { width: 460px; }
+
+.bud-modal-body {
+    padding: var(--space-16) var(--space-24);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+}
+
+/* Section headers: Expected income, then Savings & Investing, then Spending.
+   The app's standard section label (settings.css, recurring.css) with a rule
+   above it, so the three groups read as groups without any of them being
+   coloured — the hues in this file belong to the circles.
+
+   :first-child sheds the rule and the space above: the dialog body already has
+   its own padding, and a hairline immediately under the header would double the
+   one the header draws. */
+.bud-section {
+    margin: 0;
+    padding-top: var(--space-16);
+    border-top: var(--border-width) solid var(--border);
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+}
+
+.bud-section:first-child {
+    padding-top: 0;
+    border-top: none;
+}
+
+/* Name left, amount right, at one width so the figures form a column the eye
+   can run down. */
+.bud-row {
+    display: grid;
+    grid-template-columns: 1fr 140px;
+    align-items: center;
+    gap: var(--space-16);
+}
+
+.bud-row-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+}
+
+.bud-row-input {
+    box-sizing: border-box;
+    width: 100%;
+    height: var(--control-height);
+    padding: 0 var(--space-12);
+    background: var(--surface2);
+    border: var(--border-width) solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    transition: border-color 120ms ease;
+}
+
+.bud-row-input:hover { border-color: var(--text-tertiary); }
+.bud-row-input:focus { outline: none; border-color: var(--accent-primary); }
+.bud-row-input.invalid { border-color: var(--accent-negative); }
+
+/* The expected-income figure. It sits in the same 140px column the inputs do,
+   so it lines up with the targets it is measured against, but it is read-only
+   text: the statement already holds the answer (see expectedMonthlyIncome in
+   budgets.js), so there is nothing here to fill in. */
+.bud-row-figure {
+    padding-right: var(--space-12);
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--weight-medium);
+    text-align: right;
+}
+
+/* ─── Unallocated ─────────────────────────────────────────────────────────── */
+/* Expected income minus every target in the dialog, repainted on each
+   keystroke. It sits between the rows and the buttons, ruled off from both, so
+   it reads as a running result rather than as one more row. */
+.bud-modal-total {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-16);
+    padding: var(--space-12) var(--space-24);
+    border-top: var(--border-width) solid var(--border);
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+}
+
+.bud-modal-total[hidden] { display: none; }
+
+.bud-modal-total-value {
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-h3);
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--weight-semibold);
+}
+
+/* Allocated past the income. The figure is already negative and formatted as
+   the user's negative style; the colour is the app's standard loss red, the
+   same one a negative reads in everywhere else. */
+.bud-modal-total-over {
+    color: var(--accent-negative);
+}
+
+.bud-modal-error {
+    margin: 0;
+    padding: 0 var(--space-24) var(--space-8);
+    color: var(--accent-negative);
+    font-size: var(--size-small);
+}
+
+.bud-modal-error[hidden] { display: none; }
+
+.bud-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-8);
+    padding: var(--space-16) var(--space-24);
+    border-top: var(--border-width) solid var(--border);
+}
+
+/* ─── Reduced motion ──────────────────────────────────────────────────────── */
+/* BubbleField already settles the field without animating the journey when this
+   is set; this covers the CSS half — the level and the halo snap instead of
+   easing. */
+@media (prefers-reduced-motion: reduce) {
+    .bud-bubble,
+    .bud-bubble-fill,
+    .bud-row-input {
+        transition: none;
+    }
+}

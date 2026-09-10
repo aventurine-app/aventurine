@@ -591,6 +591,16 @@
     // static/js/pages/transactions.js — "find similar" lookup used by the
     // bulk-recategorize action.
     '/api/transactions/similar': { transactions: [] },
+    // static/js/pages/budgets.js — one monthly target per category. Sized so
+    // the circles come out at three clearly different areas, and so 'food' is
+    // over its target in the March cell of the /api/data fixture above (552 of
+    // 500): pure-UI work needs to see the over-budget state without a backend.
+    '/api/budgets': {
+      budgets: [
+        { category: 'rent', amount: 1500 },
+        { category: 'food', amount: 500 },
+      ],
+    },
   };
 
   // Serves one GET fixture (or 404) by exact path match, ignoring query
