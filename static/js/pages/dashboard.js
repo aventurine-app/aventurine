@@ -76,7 +76,8 @@
      * step every time a neighbouring category happens to be empty.
      *
      * Transfers get no entry. They are neither ramp's business, and their bar is
-     * drawn in the neutral --chart-transfer with the shade fade below.
+     * drawn in --chart-transfer, the app-wide transfer blue, with the shade fade
+     * below.
      *
      * More categories than steps wraps the ramp, so two of them share a colour —
      * the same wrap every other categorical chart in the app takes. The bars are
@@ -1146,7 +1147,7 @@
     // Monthly Cash Flow rows, in display order, on the three named chart tokens —
     // the same two getIEColors reads plus transfers, so this card and the Income
     // & Expenses line chart use identical colours for income and for expenses.
-    // Green in, gold out, grey for money that only moved between the user's own
+    // Green in, gold out, blue for money that only moved between the user's own
     // accounts (style.css carries the reasoning for the trio).
     //
     // The row colour is what a BARE bar is drawn in. A bar with categories under
@@ -1157,7 +1158,7 @@
     const MCF_ROWS = [
         { key: 'income',   label: 'Income',    token: '--chart-income',   fallback: '#10744c' },
         { key: 'expense',  label: 'Expenses',  token: '--chart-expense',  fallback: '#b28a06' },
-        { key: 'transfer', label: 'Transfers', token: '--chart-transfer', fallback: '#7a8085' },
+        { key: 'transfer', label: 'Transfers', token: '--chart-transfer', fallback: '#1d4ed8' },
     ];
 
     /**
@@ -1332,8 +1333,8 @@
      *  Only the TRANSFER row reaches this now — the income and expense rows paint
      *  their segments from the flow ramps instead, so that a segment can be
      *  matched to a bar in the Spending card. Transfers are on neither ramp, and a
-     *  fade of the neutral is the right amount of attention for a row the rest of
-     *  the app leaves out of every income and spending figure.
+     *  fade of the transfer blue is the right amount of attention for a row the
+     *  rest of the app leaves out of every income and spending figure.
      *
      *  Nested color-mix is valid, so a base token that is itself a color-mix
      *  expression still works here. */

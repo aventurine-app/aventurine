@@ -19,6 +19,7 @@ const routes = [
   ...require('./handlers/topMerchants').routes,
   ...require('./handlers/transfers').routes,
   ...require('./handlers/recurring').routes,
+  ...require('./handlers/budgets').routes,
   ...require('./handlers/reportCard').routes,
   ...require('./handlers/appSettings').routes,
   ...require('./handlers/onboarding').routes,

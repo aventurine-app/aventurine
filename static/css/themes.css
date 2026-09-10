@@ -342,12 +342,12 @@ html[data-graph-theme="gemstone"],
     /* The three named series are NOT re-pointed here any more. They used to be
        emerald / garnet / lapis — green in, red out, blue moved — which put this
        palette's green on income at the same time as the app was giving green to
-       balances, and put a cool blue on transfers at the same time as cool became
-       the income side. Both collisions go away by letting the :root aliases
-       stand: --chart-income and --chart-expense point at --chart-inflow-3 and
+       balances. That collision goes away by letting the :root aliases stand:
+       --chart-income and --chart-expense point at --chart-inflow-3 and
        --chart-outflow-2, which this block re-picks below, so the trio follows
-       this palette with nothing to restate — and --chart-transfer stays the one
-       neutral it is everywhere.
+       this palette with nothing to restate — and --chart-transfer follows
+       --accent-info, the app-wide transfer blue, which the dark block above
+       re-points for the dark surface and this palette leaves alone.
 
        The emerald is still on the ramp as --chart-8 / --cat-8, and it is what
        the income ramp below is built from.

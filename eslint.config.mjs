@@ -77,6 +77,10 @@ const appGlobals = {
   FinanceChart: 'readonly',
   // widgets/cellselect.js
   enableCellSelection: 'readonly',
+  // widgets/bubblefield.js (the Budgets page's circles)
+  BubbleField: 'readonly',
+  // widgets/monthstepper.js
+  MonthStepper: 'readonly',
   // core/format.js
   debounce: 'readonly',
   applyCommaFormat: 'readonly',

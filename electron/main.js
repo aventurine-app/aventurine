@@ -32,6 +32,7 @@ const STATIC_DIR = path.join(PROJECT_ROOT, 'static');
 const PAGE_ROUTES = {
     '/':                'dashboard.html',
     '/statements':      'statements.html',
+    '/budgets':         'budgets.html',
     '/portfolio':       'portfolio.html',
     '/transactions':    'transactions.html',
     // Cash Flow, Spending and Forecast are tabs of this one page.

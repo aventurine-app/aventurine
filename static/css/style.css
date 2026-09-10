@@ -259,15 +259,17 @@
       draw the pair also label every series. The slots differ per palette — see
       the spending ramp's block below and the Gemstone pin in themes.css.
 
-      TRANSFERS ARE DELIBERATELY GREY. Money moved between the user's own
-      accounts is neither earned nor spent, and every income/spend surface in the
-      app drops it; a neutral says that on sight, where a fourth hue would put it
-      on the same footing as the two flows it is not. One value serves both
-      themes — it clears 4:1 against the light page and 4.8:1 against the dark
-      one, which is what a mid grey between two page colours buys. */
+      TRANSFERS TAKE THE INFO BLUE. Money moved between the user's own accounts
+      is neither earned nor spent, and every income/spend surface in the app
+      drops it; a third hue off both ramps says that on sight, where a step of
+      either ramp would put it on the same footing as the two flows it is not.
+      It is --accent-info, the same blue the ledger's transfer Type pill already
+      carries, so the two surfaces name transfers in one colour. That token is
+      per theme rather than one fixed value: deeper on the light page, lightened
+      on the dark one, so it clears AA on both. */
    --chart-income:   var(--chart-inflow-2);
    --chart-expense:  var(--chart-outflow-4);
-   --chart-transfer: #7a8085;
+   --chart-transfer: var(--accent-info);
 
    /* Net worth — the Dashboard's Year to Year hero line, and the fourth named
       series. GREEN, on the income ramp, which is the one place this palette
@@ -386,8 +388,6 @@
     * arriving and gold to mean money spent. Both of the Dashboard's balance
     * cards are drawn from it — the Balances donut and the Year to Year Account
     * Balances chart — and so is the Sankey's Net Inflow hub, which takes step 1.
-    * --chart-transfer is the same idea in one fixed value: money that only moved
-    * between the user's own accounts has no direction either.
     *
     * EIGHT steps, because those two cards need different amounts of the family.
     * The donut has three fixed slices and takes steps 1, 4 and 7, spaced two
@@ -967,7 +967,8 @@ div.page::-webkit-scrollbar-thumb:hover {
 
 /* ─── 7. Shared modal primitives ───────────────────────────────────────────
  * Dialog chrome shared by the app's modals: the DB modal (dbmodal.css), the
- * Preferences modal (settings.css) and the .cat-manager shell (categories.css)
+ * Preferences modal (settings.css), the Set Budget dialog (budgets.css) and the
+ * .cat-manager shell (categories.css)
  * that hosts BOTH Statements managers — Manage Categories and the Balance
  * Sheet's Manage Columns. Each component file used to redeclare the full
  * frame / header / close / title; the identical declarations live here once
@@ -983,6 +984,7 @@ div.page::-webkit-scrollbar-thumb:hover {
 .tx-import-overlay,
 .tx-similar-overlay,
 .tx-edit-overlay,
+.bud-modal-overlay,
 .onb-overlay {
     position: fixed;
     inset: 0;
@@ -994,6 +996,7 @@ div.page::-webkit-scrollbar-thumb:hover {
 /* Modal frame — only `width` differs between the three. */
 .db-modal,
 .settings-modal,
+.bud-modal,
 .cat-manager {
     background: var(--surface1);
     border: var(--border-width) solid var(--border);
@@ -1009,6 +1012,7 @@ div.page::-webkit-scrollbar-thumb:hover {
 /* Header row — title on the left, × on the right, divider beneath. */
 .db-modal-header,
 .settings-modal-header,
+.bud-modal-header,
 .cat-manager-header {
     display: flex;
     justify-content: space-between;
@@ -1020,6 +1024,7 @@ div.page::-webkit-scrollbar-thumb:hover {
 /* Title text. */
 .db-modal-title,
 .settings-modal-title,
+.bud-modal-title,
 .cat-manager-header > span {
     color: var(--text-primary);
     font-family: var(--font-h2);
@@ -1031,6 +1036,7 @@ div.page::-webkit-scrollbar-thumb:hover {
 /* × close button. */
 .db-modal-close,
 .settings-modal-close,
+.bud-modal-close,
 .cat-manager-close {
     background: transparent;
     border: none;
@@ -1046,6 +1052,7 @@ div.page::-webkit-scrollbar-thumb:hover {
 
 .db-modal-close:hover,
 .settings-modal-close:hover,
+.bud-modal-close:hover,
 .cat-manager-close:hover {
     background: var(--surface3);
     color: var(--text-primary);
@@ -1055,27 +1062,32 @@ div.page::-webkit-scrollbar-thumb:hover {
    The two bodies that use this were byte-identical; each keeps only its own
    padding / gap / layout in its component file. */
 .settings-modal-body,
+.bud-modal-body,
 .cat-manager-body {
     scrollbar-width: thin;
     scrollbar-color: var(--surface4) var(--surface1);
 }
 
 .settings-modal-body::-webkit-scrollbar,
+.bud-modal-body::-webkit-scrollbar,
 .cat-manager-body::-webkit-scrollbar {
     width: 10px;
 }
 
 .settings-modal-body::-webkit-scrollbar-track,
+.bud-modal-body::-webkit-scrollbar-track,
 .cat-manager-body::-webkit-scrollbar-track {
     background: var(--surface1);
 }
 
 .settings-modal-body::-webkit-scrollbar-thumb,
+.bud-modal-body::-webkit-scrollbar-thumb,
 .cat-manager-body::-webkit-scrollbar-thumb {
     background: var(--surface4);
 }
 
 .settings-modal-body::-webkit-scrollbar-thumb:hover,
+.bud-modal-body::-webkit-scrollbar-thumb:hover,
 .cat-manager-body::-webkit-scrollbar-thumb:hover {
     background: var(--text-tertiary);
 }

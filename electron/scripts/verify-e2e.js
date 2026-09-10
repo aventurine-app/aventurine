@@ -144,6 +144,7 @@ app.whenReady().then(async () => {
       '/':                'Dashboard',
       '/transactions':    'Transactions',
       '/statements':      'Statements',
+      '/budgets':         'Budgets',
       '/portfolio':       'Portfolio',
       '/reports':         'Reports',
       '/recurring':       'Recurring',
