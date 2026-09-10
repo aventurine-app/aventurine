@@ -4,10 +4,15 @@
 // The Reports page's landing report (pages/reports.html), shown when the
 // "Cash Flow" tab is selected. Visualises a year's money movement as a
 // Sankey: income categories on the left gather into a Net Inflow bar, that
-// total crosses the middle as a channel of its own, and a second bar fans it
-// back out to the expense categories on the right. Each band is sized by that
+// total crosses the middle as a channel of its own, and a Net Outflow bar fans
+// it back out to the expense categories on the right. Each band is sized by that
 // category's total over the span on screen, and every ribbon is a gradient
 // running between the colours of the two bars it joins.
+//
+// Nothing balances the two sides here: they are two sums over the same span,
+// not one amount conserved through the diagram. So the channel is sized by the
+// income alone, and the outflow bar is sized by the spending — a year that
+// outspent its income reaches past the channel by the difference.
 //
 // Pure renderer — no dedicated backend. It reuses GET /api/data (the Cash Flow
 // table payload) and aggregates each category on the client, over the span the
@@ -55,10 +60,12 @@
   //
   // The hub is neither ramp: --chart-net is the deepest step of the BALANCE
   // family (--chart-balance-1), which the Dashboard's Balances donut is drawn in
-  // too — grey under Aventurine, blue under Gemstone. Net Inflow is the one place
-  // all the arriving money has landed as a single amount, which makes it
-  // something held rather than something flowing, and a hub from a third family
-  // cannot be read as one more source. Colours are read from the tokens at render time so a theme or
+  // too — grey under Aventurine, blue under Gemstone. The two hub bars are the
+  // one place all the money on each side has landed as a single amount, which
+  // makes them something held rather than something flowing, and a hub from a
+  // third family cannot be read as one more source. Both bars take the same
+  // colour: they are two ends of one stage, not two stages.
+  // Colours are read from the tokens at render time so a theme or
   // palette change re-colours the diagram; the arrays below are first-paint
   // fallbacks matching the light theme.
   // Ribbons are GRADIENTS rather than flat fills: one starts in the colour of
@@ -228,6 +235,30 @@
 
   // ─── SVG builder ─────────────────────────────────────────────────────────────
 
+  // Width of a hub's two-line label block (its name over its figure), in layout
+  // units — the text is drawn at these same sizes in layout units, so a CSS-px
+  // measurement at 11/13px IS the layout width. MEASURED, not counted per
+  // character, for the reason widgets/chart.js measures its axis gutter: the
+  // font, the theme and the app zoom all move it, and a counted width drifts the
+  // moment any of them changes.
+  let labelCtx = null;
+  function hubLabelWidth(name, amount) {
+    try {
+      if (!labelCtx) labelCtx = document.createElement('canvas').getContext('2d');
+      const cs = getComputedStyle(document.documentElement);
+      const family = cs.getPropertyValue('--font-h3').trim() || 'sans-serif';
+      const semibold = cs.getPropertyValue('--weight-semibold').trim() || '600';
+      const bold = cs.getPropertyValue('--weight-bold').trim() || '700';
+      labelCtx.font = `${semibold} 11px ${family}`;
+      // + .sankey-label's own 0.03em tracking, which measureText does not carry.
+      const nameW = labelCtx.measureText(name).width + name.length * 11 * 0.03;
+      labelCtx.font = `${bold} 13px ${family}`;
+      return Math.max(nameW, labelCtx.measureText(amount).width);
+    } catch (_err) {
+      return Infinity;   // nothing to measure with: treat the pair as not fitting
+    }
+  }
+
   /** Horizontal Sankey ribbon between two equal-height slots. */
   function ribbon(sx, s0, tx, t0, h) {
     const f = (n) => Math.round(n * 100) / 100;
@@ -269,15 +300,15 @@
     // LABEL_MARGIN is the inset that keeps the topmost band's own label on screen.
     const TOP = PAD.t + LABEL_MARGIN;
     const availH = H - TOP - PAD.b - LABEL_MARGIN;
-    const maxTotal = Math.max(totalIncome, totalExpense, 1);
 
-    // One value→px scale shared by all three columns so band widths line up. Each
+    // One value→px scale shared by all four columns so band widths line up. Each
     // side column also needs its inter-node gaps to fit, so take the tightest.
+    // Each term already caps its own side at availH, and the two hub bars are
+    // sized off those same totals, so nothing else needs clamping here.
     const gaps = (n) => Math.max(0, n - 1) * GAP;
     const scale = Math.min(
       (availH - gaps(income.length)) / (totalIncome || 1),
-      (availH - gaps(expense.length)) / (totalExpense || 1),
-      availH / maxTotal
+      (availH - gaps(expense.length)) / (totalExpense || 1)
     );
 
     // FOUR columns, not three: the income bars, the bar their total gathers
@@ -290,8 +321,19 @@
     const run = Math.max(0, (expenseX - incomeX - NODE_W * 3) / 3);
     const hubInX = incomeX + NODE_W + run;      // where the income arrives
     const hubOutX = hubInX + NODE_W + run;      // where the expenses leave
-    const centerH = maxTotal * scale;
+    // Each hub bar is sized to the total it actually seats: the inflow bar to
+    // the income that stacks against it, the outflow bar to the expenses that
+    // leave it. The CHANNEL between them stays at the inflow height, because
+    // what crosses the middle is the money that arrived.
+    //
+    // Sizing both bars to the larger side is what this replaced: it drew the
+    // inflow bar at the expense total while printing the income figure on it, so
+    // a year that outspent its income showed a middle bar taller than the income
+    // bar carrying the same amount. Now only the outflow bar reaches past the
+    // channel, and the length it reaches by is the overspend.
     const centerTop = TOP;
+    const inflowH = totalIncome * scale;
+    const outflowH = totalExpense * scale;
 
     // Lay out a stacked side column from the shared top edge downward. Returns
     // nodes with y/h and a colour from that side's palette, in payload order.
@@ -427,28 +469,55 @@
 
     const inc = sideMarkup(incomeNodes, 'start', 1, true);
     const exp = sideMarkup(expenseNodes, 'end', -1, false);
-    // The middle stage: two bars sized to the larger side, with the Net Inflow
-    // channel running between them. None of it is a category, so none of it is
-    // a link; ribbons meet both bars on both faces, so neither bar has an outer
-    // corner to round. The channel sits in the waves layer, under the bars.
-    const netTitle = `<title>Net Inflow: ${fmtMoney(totalIncome)}</title>`;
+    // The middle stage: an inflow bar, an outflow bar, and the channel running
+    // straight across between them at the inflow height. None of it is a
+    // category, so none of it is a link; ribbons meet both bars on both faces,
+    // so neither bar has an outer corner to round. The channel sits in the waves
+    // layer, under the bars.
+    const inflowAmount = fmtMoney(totalIncome);
+    const outflowAmount = fmtMoney(totalExpense);
+    const inflowTitle = `<title>Net Inflow: ${inflowAmount}</title>`;
+    const outflowTitle = `<title>Net Outflow: ${outflowAmount}</title>`;
     const channel = `<path class="sankey-link sankey-link-net"`
-                  + ` d="${ribbon(hubInX + NODE_W, centerTop, hubOutX, centerTop, centerH)}"`
-                  + ` fill="${NET_COLOR}">${netTitle}</path>`;
+                  + ` d="${ribbon(hubInX + NODE_W, centerTop, hubOutX, centerTop, inflowH)}"`
+                  + ` fill="${NET_COLOR}">${inflowTitle}</path>`;
 
     const waves = channel + inc.waves + exp.waves;  // bottom layer: ribbons + labels (clickable)
     let bars = inc.bars + exp.bars;                 // top layer: bare node caps
 
-    for (const hx of [hubInX, hubOutX]) {
-      bars += `<rect class="sankey-node sankey-node-center" x="${r1(hx)}" y="${r1(centerTop)}"`
-            + ` width="${NODE_W}" height="${r1(centerH)}" fill="${NET_COLOR}">${netTitle}</rect>`;
+    const hubBar = (x, h, title) =>
+      `<rect class="sankey-node sankey-node-center" x="${r1(x)}" y="${r1(centerTop)}"`
+      + ` width="${NODE_W}" height="${r1(h)}" fill="${NET_COLOR}">${title}</rect>`;
+    bars += hubBar(hubInX, inflowH, inflowTitle) + hubBar(hubOutX, outflowH, outflowTitle);
+
+    // Each hub label hangs off its bar's INNER face and floats out over the
+    // channel, the same way a category's label floats over its ribbon: the
+    // inflow figure reads rightward off the first bar, the outflow figure
+    // leftward off the second. Both are centred on their own bar, so when the
+    // two totals differ the labels sit at different heights and the taper
+    // between them stays legible.
+    //
+    // In a narrow window the run between the bars shrinks until the two blocks
+    // would meet in the middle. The channel still has height to spare there, so
+    // the outflow label steps away vertically instead — by LABEL_GAP, the same
+    // clearance a stack of category labels keeps — rather than overlapping the
+    // inflow label or being dropped.
+    const inflowLabelY = centerTop + inflowH / 2;
+    let outflowLabelY = centerTop + outflowH / 2;
+    const sideBySide = hubLabelWidth('Net Inflow', inflowAmount)
+                     + hubLabelWidth('Net Outflow', outflowAmount)
+                     + LABEL_OFFSET * 2 <= run;
+    if (!sideBySide && Math.abs(outflowLabelY - inflowLabelY) < LABEL_GAP) {
+      // Step it in the direction its own bar already lies, so it stays on the
+      // side of the inflow label that its height puts it on.
+      const away = inflowLabelY + (outflowH >= inflowH ? LABEL_GAP : -LABEL_GAP);
+      outflowLabelY = Math.min(Math.max(away, PAD.t + 10), H - PAD.b - 12);
     }
-    // The label hangs off the inner face of the first hub bar and floats out
-    // over the channel, the same way a category's label floats over its ribbon.
-    const cLabelX = hubInX + NODE_W + LABEL_OFFSET;
-    const cLabelY = centerTop + centerH / 2;
-    bars += `<text class="sankey-label" x="${r1(cLabelX)}" y="${r1(cLabelY - 3)}" text-anchor="start">Net Inflow</text>`
-          + `<text class="sankey-amount" x="${r1(cLabelX)}" y="${r1(cLabelY + 13)}" text-anchor="start">${escapeHtml(fmtMoney(totalIncome))}</text>`;
+    const hubLabel = (x, cy, anchor, name, amount) =>
+      `<text class="sankey-label" x="${r1(x)}" y="${r1(cy - 3)}" text-anchor="${anchor}">${name}</text>`
+      + `<text class="sankey-amount" x="${r1(x)}" y="${r1(cy + 13)}" text-anchor="${anchor}">${escapeHtml(amount)}</text>`;
+    bars += hubLabel(hubInX + NODE_W + LABEL_OFFSET, inflowLabelY, 'start', 'Net Inflow', inflowAmount)
+          + hubLabel(hubOutX - LABEL_OFFSET, outflowLabelY, 'end', 'Net Outflow', outflowAmount);
 
     const cls = `cashflow-sankey${firstPaint ? ' sankey-enter' : ''}`;
     // Normally H*k IS boxH. It is larger only when the labels needed more room
