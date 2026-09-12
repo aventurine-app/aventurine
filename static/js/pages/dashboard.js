@@ -639,10 +639,9 @@
     let overtimeRange = 'year';
 
     const TRAILING_MONTHS = {
-        '3mo':  3,
         '6mo':  6,
         '12mo': 12,
-        '24mo': 24,
+        '36mo': 36,
         '5yr':  60,
     };
 
