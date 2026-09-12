@@ -582,13 +582,14 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
     line-height: 1;
 }
 
-/* The menu-opener button, used by both the stepper label and the range selector
+/* The toolbar control box, shared by the stepper label, the range selector
  * (.range-selector-btn — its rules were merged into these when the two
- * diverged). A fixed minimum keeps "May 2026" ↔ "September 2026" from shifting
- * the stepper arrows; --stepper-label-min allows narrower content like a bare
- * year to reduce it. Both are real <button>s, so hover and focus states indicate
- * the picker they open. */
-.stepper-label, .range-selector-btn {
+ * diverged) and the joined range buttons further down (.range-group-btn, which
+ * turns the caret off). A fixed minimum keeps "May 2026" ↔ "September 2026"
+ * from shifting the stepper arrows; --stepper-label-min allows narrower content
+ * like a bare year, or a two-character range label, to reduce it. All are real
+ * <button>s, so hover and focus states indicate what a click does. */
+.stepper-label, .range-selector-btn, .range-group-btn {
     /* Theme-tuned fill (style.css/themes.css): surface2 on dark, one rung
        lighter on light where surface2 would disappear into the page
        background. */
@@ -626,7 +627,7 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
     background-repeat: no-repeat;
 }
 
-.stepper-label:hover, .range-selector-btn:hover {
+.stepper-label:hover, .range-selector-btn:hover, .range-group-btn:hover {
     background-color: var(--surface3);
     color: var(--text-primary);
 }
@@ -654,7 +655,7 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
                       currentColor 90deg, transparent 0);
 }
 
-.stepper-label:focus-visible, .range-selector-btn:focus-visible {
+.stepper-label:focus-visible, .range-selector-btn:focus-visible, .range-group-btn:focus-visible {
     outline: 2px solid var(--accent-primary);
     outline-offset: 2px;
 }
@@ -707,6 +708,64 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
 .stepper-joined .stepper-label:focus-visible {
     position: relative;
     z-index: 1;
+}
+
+/* ─── Joined range buttons (.range-group) ───────────────────────────────
+ * A row of range choices drawn as ONE control — the shape .stepper-joined gives
+ * the ‹ year month › cluster, with every segment a plain button rather than a
+ * menu opener. The Dashboard's Year to Year heading row uses it, so it reads as
+ * a sibling of the month stepper on the section below it.
+ *
+ * The segments reuse the .stepper-label box (fill, hairline, height, type) and
+ * drop the two parts only a menu opener needs: the caret, and the wide minimum
+ * that stops "September 2026" resizing the cluster. Labels here are two or three
+ * characters, so that minimum would pad every segment to five times its content.
+ *
+ * Borders overlap by one hairline rather than one side dropping its border, so
+ * every segment still owns all four edges — which is what lets the selected one
+ * paint its accent edge over both neighbours. Hover and focus raise their own
+ * segment for the same reason .stepper-joined does: so a highlight or a focus
+ * ring is never cut by the next border. */
+.range-group { display: inline-flex; }
+
+.range-group-btn {
+    --stepper-label-min: 0;
+    padding: 0 var(--space-16);
+    border-radius: 0;
+    background-image: none;
+}
+
+.range-group-btn + .range-group-btn { margin-left: calc(var(--border-width) * -1); }
+
+.range-group-btn:first-child {
+    border-top-left-radius: 6px;
+    border-bottom-left-radius: 6px;
+}
+
+.range-group-btn:last-child {
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
+
+.range-group-btn:hover,
+.range-group-btn:focus-visible {
+    position: relative;
+    z-index: 1;
+}
+
+/* The selected segment takes the accent fill the stepper's arrows carry, so the
+   two controls read as one family. */
+.range-group-btn[aria-pressed="true"] {
+    position: relative;
+    z-index: 2;
+    background-color: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--button-text);
+}
+
+.range-group-btn[aria-pressed="true"]:hover {
+    background-color: var(--accent-primary-hover);
+    color: var(--button-text);
 }
 
 /* ─── Toast (UI.toast) ───────────────────────────────────────────────────────

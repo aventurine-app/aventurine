@@ -51,16 +51,18 @@
     <section class="dashboard-section" id="dashboard-section-overtime" aria-labelledby="dashboard-heading-overtime">
         <div class="dashboard-section-header">
             <h2 class="dashboard-section-title" id="dashboard-heading-overtime">Year to Year</h2>
-            <!-- The stepper's counterpart: one range picker scoping every card
-                 in this section. -->
-            <div class="range-selector" id="dashboard-range">
-                <button class="range-selector-btn" id="dashboard-range-btn" type="button">Year to Date</button>
-                <div class="range-selector-menu" id="dashboard-range-menu" hidden>
-                    <button data-range="year"   type="button">Year to Date</button>
-                    <button data-range="12mo"   type="button">Last Year</button>
-                    <button data-range="24mo"   type="button">Last 2 Years</button>
-                    <button data-range="5yr"    type="button">Last 5 Years</button>
-                </div>
+            <!-- The stepper's counterpart: one range scoping every card in this
+                 section. Six buttons drawn as a single joined control
+                 (.range-group, ui.css), the shape the month stepper below uses.
+                 The visible labels are abbreviations, so each button carries the
+                 spelled-out range as its accessible name. -->
+            <div class="range-group" id="dashboard-range" role="group" aria-label="Year to Year range">
+                <button class="range-group-btn" data-range="year" type="button" aria-pressed="true"  aria-label="Year to Date">YTD</button>
+                <button class="range-group-btn" data-range="3mo"  type="button" aria-pressed="false" aria-label="Last 3 Months">3M</button>
+                <button class="range-group-btn" data-range="6mo"  type="button" aria-pressed="false" aria-label="Last 6 Months">6M</button>
+                <button class="range-group-btn" data-range="12mo" type="button" aria-pressed="false" aria-label="Last Year">1Y</button>
+                <button class="range-group-btn" data-range="24mo" type="button" aria-pressed="false" aria-label="Last 2 Years">2Y</button>
+                <button class="range-group-btn" data-range="5yr"  type="button" aria-pressed="false" aria-label="Last 5 Years">5Y</button>
             </div>
         </div>
 

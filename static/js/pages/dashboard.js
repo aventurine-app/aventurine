@@ -624,24 +624,26 @@
 
     // ─── Time range (Year to Year section) ───────────────────────────────────────
     //
-    // One shared range for every Year to Year chart, picked from the dropdown on
-    // that section's heading row (the stepper's counterpart). Changing it re-derives
-    // each chart's slots, filtered points, and the Net Worth % change.
+    // One shared range for every Year to Year chart, chosen from the joined button
+    // group on that section's heading row (the stepper's counterpart). Changing it
+    // re-derives each chart's slots, filtered points, and the Net Worth % change.
     //
     // Ranges:
     //   year — January through the current month of the current calendar year.
     //          Change = year-to-date.
-    //   12mo — trailing 12 months ending on the current month. Change = 12-month.
-    //   24mo — trailing 24 months ending on the current month. Change = 24-month.
-    //   5yr  — trailing 60 months ending on the current month. Change = 5-year.
+    // Every other key is a trailing window ending on the current month, so its
+    // change reads over exactly that many months. The trailing lengths live in
+    // TRAILING_MONTHS rather than an if-chain, so adding a window is one entry
+    // there plus one button in dashboard.html.
 
     let overtimeRange = 'year';
 
-    const RANGE_LABELS = {
-        year: 'Year to Date',
-        '12mo': 'Last Year',
-        '24mo': 'Last 2 Years',
-        '5yr':  'Last 5 Years',
+    const TRAILING_MONTHS = {
+        '3mo':  3,
+        '6mo':  6,
+        '12mo': 12,
+        '24mo': 24,
+        '5yr':  60,
     };
 
     /** Trailing N-month window ending on the current calendar month. */
@@ -659,9 +661,8 @@
 
     /** Build the {year, monthIdx} slot list the chart should span for a range. */
     function getRangeSlots(range) {
-        if (range === '12mo') return trailingMonthSlots(12);
-        if (range === '24mo') return trailingMonthSlots(24);
-        if (range === '5yr')  return trailingMonthSlots(60);
+        const months = TRAILING_MONTHS[range];
+        if (months) return trailingMonthSlots(months);
         // 'year' (default) — Jan through current month of this calendar year.
         const now = new Date();
         const yr  = now.getFullYear();
@@ -766,17 +767,21 @@
         observeChart('networth-chart', (W, animate) => buildChartSVG({ series, slots, W, animate }));
     }
 
-    /** Wire the toolbar range-picker button + dropdown. `onSelect` receives the
-     *  chosen range key and re-renders the Year to Year charts. The outer click
-     *  handler closes the dropdown when the user clicks anywhere else. */
-    // The range picker is UI.wirePicker (shell/ui.js), the same helper every
-    // report header's range and year control uses. This page held its own copy
-    // — open on click, delegate off the menu, close on an outside click — which
-    // is where the app's picker copies had already drifted once: this one was
-    // missing the btn.disabled check that stops a picker with nothing in it
-    // from opening.
-    const wireRangePicker = (btnId, menuId, onSelect) =>
-        UI.wirePicker(btnId, menuId, (item) => onSelect(item.dataset.range));
+    /** Wire the joined range buttons. `onSelect` receives the chosen range key
+     *  and re-renders the Year to Year charts. Clicking the already-selected
+     *  button is ignored, so a repeat click doesn't replay the chart animations.
+     *
+     *  aria-pressed carries the selection for both the screen reader and the CSS
+     *  (.range-group-btn[aria-pressed="true"] is the accent fill, ui.css), so
+     *  there is no second class to keep in step with it. */
+    function wireRangeGroup(groupId, onSelect) {
+        const buttons = document.querySelectorAll(`#${groupId} [data-range]`);
+        buttons.forEach(btn => btn.addEventListener('click', () => {
+            if (btn.getAttribute('aria-pressed') === 'true') return;
+            buttons.forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+            onSelect(btn.dataset.range);
+        }));
+    }
 
     // ─── Income & Expenses + Account Balances charts ─────────────────────────────
 
@@ -1776,10 +1781,8 @@
         ieData  = ieDataFetched;
         renderNetworthSection(appData);
         renderIEChart(ieData);
-        wireRangePicker('dashboard-range-btn', 'dashboard-range-menu', range => {
+        wireRangeGroup('dashboard-range', range => {
             overtimeRange = range;
-            const btn = document.getElementById('dashboard-range-btn');
-            if (btn) btn.textContent = RANGE_LABELS[range];
             renderNetworthSection(appData);
             renderIEChart(ieData);
             renderAccountChart();
