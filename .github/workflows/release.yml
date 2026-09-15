@@ -3,33 +3,37 @@ name: release
 # Cut a release by pushing a version tag, e.g.:
 #   git tag v0.2.1 && git push origin v0.2.1
 #
-# This builds the Linux, Windows AND macOS installers but does NOT attach them
-# to the GitHub Release. Releases ship SOURCE ONLY: GitHub auto-generates the
-# "Source code (zip/tar.gz)" assets from the tag, and that is all the public
-# release contains. This matches the source-available licensing direction — the
-# official compiled binary is fenced, not distributed from the public release
-# feed.
+# This builds the Linux, Windows and macOS installers and ATTACHES them to the
+# GitHub Release alongside GitHub's auto-generated source archives.
 #
-# TWO jobs, because macOS cannot be cross-built. Windows can (Wine runs rcedit
-# on the Linux host), so `build` produces both from one ubuntu runner; the .app
-# bundle, hdiutil and codesign are Apple-only, so `build-mac` runs on a macOS
-# runner. The jobs are independent: neither blocks the other, and neither blocks
-# the source-only release, which is cut from the tag by `build`.
+# HISTORY — releases used to ship source only, with the compiled installers
+# kept as private workflow artifacts, because the official binary was fenced
+# behind the old licensing model. That model is gone: the app is GPL v3, so the
+# binary is now part of the public release. aventurine-app.com/downloads.html
+# links straight at these asset URLs, and those links 404 until the release is
+# published with the files attached.
 #
-# The built installers are kept as private workflow ARTIFACTS (downloadable from
-# this Actions run), so the maintainer still gets the official binary without
-# publishing it.
+# THREE jobs. `build` and `build-mac` compile and hand their output up as
+# workflow artifacts; `release` collects both and creates the release. macOS is
+# split out because it cannot be cross-built: electron-builder needs Apple's own
+# tooling (hdiutil for the .dmg, codesign for the bundle). Windows CAN be
+# cross-built (Wine runs rcedit on the Linux host), so `build` produces both
+# Linux and Windows from one ubuntu runner.
+#
+# The release is created as a DRAFT for review. Publishing it is a manual step,
+# and it is that click that fires notify-website.yml.
 #
 # NOTE — no auto-update: the app ships no in-app updater (electron-updater was
-# removed), and releases carry no installers anyway. Users update by installing
-# a newer build.
+# removed). Users update by installing a newer build.
 on:
   push:
     tags:
       - 'v*'
 
+# Read-only by default. Only the `release` job writes, and it asks for that
+# itself, so a compromised build step cannot touch the repository.
 permissions:
-  contents: write   # create the source-only GitHub Release for the tag
+  contents: read
 
 jobs:
   build:
@@ -54,10 +58,10 @@ jobs:
       # electron-builder.
       #
       # continue-on-error for the same reason the Windows build below has it: the
-      # Windows toolchain is best-effort and must never stop the source-only
-      # release. A hard failure here would SKIP the un-guarded steps that follow
-      # (dependencies, Linux installers), leaving the artifact upload with no
-      # files to upload — so the whole run would collapse over a Wine problem.
+      # Windows toolchain is best-effort and must never stop the release. A hard
+      # failure here would SKIP the un-guarded steps that follow (dependencies,
+      # Linux installers), leaving the artifact upload with no files to upload —
+      # so the whole run would collapse over a Wine problem.
       - name: Install Wine (Windows cross-build toolchain)
         continue-on-error: true
         run: |
@@ -72,32 +76,35 @@ jobs:
         working-directory: electron
         run: npm install
 
-      # Linux targets (AppImage + rpm + deb). `--publish never` guarantees
-      # nothing is uploaded to the GitHub Release even though a publish: block
-      # exists in electron-builder.yml — releases are source-only.
+      # Linux targets (AppImage + rpm + deb). `--publish never` keeps
+      # electron-builder itself out of the GitHub API; the `release` job below
+      # owns every upload, so one place decides what ships. (electron-builder.yml
+      # carries no publish config either, so this flag is belt and braces.)
       - name: Build Linux installers
         working-directory: electron
         run: npm run dist:linux -- --publish never
 
       # Windows NSIS installer, cross-built. dist:win parks the win32-x64 sqlite
       # prebuild (scripts/setup-win-abi.js) then runs electron-builder --win;
-      # Wine (installed above) does the .exe stamping. Also never published.
+      # Wine (installed above) does the .exe stamping. `--publish never` for the
+      # same reason as the Linux build above.
       #
       # BEST-EFFORT: the Wine cross-build is fragile against runner-image drift
       # (a newer ubuntu-latest / Wine can break the .exe stamping — this is what
       # the Install Wine note above warns about). continue-on-error keeps a Wine
-      # flake from failing the run: the SOURCE-ONLY release does not need this
-      # binary (it's a private artifact), so it must never block the release.
+      # flake from failing the run, so a bad Windows build costs the release its
+      # .exe and nothing else. Re-running the workflow attaches it later; see
+      # the `release` job, which upgrades to an upload when the release exists.
       - name: Build Windows installer
         continue-on-error: true
         working-directory: electron
         run: npm run dist:win -- --publish never
 
-      # Keep the installers as a private workflow artifact (the fenced official
-      # binary). Downloadable from this Actions run; never attached to the
-      # public release. `if: always()` so the Linux installers still upload even
-      # when the best-effort Windows step above failed (Linux always produces
-      # files, so if-no-files-found:error stays satisfied).
+      # Hand the installers to the `release` job. `if: always()` so the Linux
+      # installers still upload when the best-effort Windows step above failed
+      # (Linux always produces files, so if-no-files-found:error stays
+      # satisfied). *.exe does not match *.exe.blockmap, so the blockmap and
+      # electron-builder's latest*.yml metadata stay out of the release.
       - name: Upload installers as artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -110,25 +117,12 @@ jobs:
             electron/dist/*.exe
           if-no-files-found: error
 
-      # Create the SOURCE-ONLY GitHub Release for this tag as a DRAFT. No assets
-      # are uploaded, so it contains only GitHub's auto-generated source
-      # archives. Review the draft on the Releases page, then Publish.
-      # `if: always()` decouples the public release from the private installer
-      # builds — a Wine flake (or any earlier best-effort step) must not stop us
-      # cutting the source-only release. The release content is the source tag,
-      # which exists regardless of whether the binaries built.
-      - name: Create source-only draft release
-        if: always()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "${{ github.ref_name }}" --draft --title "${{ github.ref_name }}" --generate-notes
-
   # macOS installers. Separate job because there is no cross-build: electron-builder
   # needs Apple's own tooling (hdiutil for the .dmg, codesign for the bundle), so
   # this is the one target that must run on a Mac.
   #
   # BEST-EFFORT, like the Windows step in `build`: this job failing must not stop
-  # the source-only release, which is cut by the other job from the tag alone.
+  # the release, which the `release` job cuts from the tag alone.
   build-mac:
     runs-on: macos-latest
     steps:
@@ -154,27 +148,111 @@ jobs:
       # arm64 + x64 .dmg. dist:mac parks BOTH darwin native binaries first
       # (scripts/setup-mac-abi.js) — the runner is Apple Silicon, so the Intel
       # build is a cross-build and would otherwise ship an arm64 .node that dies
-      # on first DB open. `--publish never` for the same reason as the Linux
-      # build: releases are source-only.
+      # on first DB open.
       #
-      # Signing: the app is ad-hoc signed and NOT notarized (no Apple Developer
-      # ID) — see the SECURITY note in electron-builder.yml. CSC auto-discovery
-      # is off so electron-builder never picks up a stray runner keychain
-      # identity instead of the configured ad-hoc one.
+      # SIGNING: the app is ad-hoc signed and NOT notarized (no Apple Developer
+      # ID) — see the SECURITY note in electron-builder.yml. Now that these .dmg
+      # files are attached to the public release, that gap is user-visible:
+      # Gatekeeper blocks a downloaded unnotarized build until the user opens it
+      # from the right-click menu. CSC auto-discovery stays off so
+      # electron-builder never picks up a stray runner keychain identity instead
+      # of the configured ad-hoc one.
       - name: Build macOS installers
         working-directory: electron
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
         run: npm run dist:mac -- --publish never
 
-      # Private workflow artifact, same as the Linux/Windows one. Its own name:
-      # upload-artifact v4 requires artifact names to be unique within a run.
-      # No `if: always()` here, unlike the other job: there is nothing
-      # best-effort above this step, so on a failed build the useful error is
-      # the build's — letting this run too would bury it under "no files found".
+      # Its own artifact name: upload-artifact v4 requires names to be unique
+      # within a run. No `if: always()` here, unlike the other job: there is
+      # nothing best-effort above this step, so on a failed build the useful
+      # error is the build's — letting this run too would bury it under
+      # "no files found".
       - name: Upload macOS installers as artifacts
         uses: actions/upload-artifact@v4
         with:
           name: aventurine-installers-mac-${{ github.ref_name }}
           path: electron/dist/*.dmg
           if-no-files-found: error
+
+  # The one job that touches the GitHub Release, so there is a single answer to
+  # "what shipped and who put it there". It waits for both build jobs and then
+  # attaches whatever they managed to produce.
+  #
+  # `if: always()` decouples the release from the best-effort builds: a Wine
+  # flake or a macOS failure costs the release that one file, never the release
+  # itself. The content that matters is the source tag, which exists whether or
+  # not any binary built.
+  release:
+    needs: [build, build-mac]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the release and upload its assets
+    steps:
+      # Both artifacts flattened into one directory. The pattern matches
+      # `aventurine-installers-<tag>` and `aventurine-installers-mac-<tag>`.
+      # continue-on-error because a run where both build jobs failed has no
+      # artifacts at all, and that must still produce the source-only release.
+      - name: Collect the built installers
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          path: installers
+          pattern: aventurine-installers-*
+          merge-multiple: true
+
+      # Create the release, or upload into it if it already exists. The second
+      # case is a re-run: `gh release create` fails outright on an existing tag,
+      # which would make re-running the workflow to pick up a fixed Windows
+      # build impossible. --clobber replaces an asset of the same name rather
+      # than erroring on the duplicate.
+      #
+      # DRAFT on purpose. Nothing is public until the draft is reviewed and
+      # published by hand, and publishing is what fires notify-website.yml.
+      #
+      # An empty `files` array is fine: gh then creates a release carrying only
+      # GitHub's generated source archives, which is the old behaviour.
+      - name: Attach the installers to the release
+        id: attach
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(installers/*.AppImage installers/*.rpm installers/*.deb installers/*.exe installers/*.dmg)
+
+          echo "count=${#files[@]}" >> "$GITHUB_OUTPUT"
+          echo "Attaching ${#files[@]} file(s) to $TAG:"
+          if [ ${#files[@]} -gt 0 ]; then
+            printf '  %s\n' "${files[@]}"
+          fi
+
+          # Written as full if-blocks rather than `[ ... ] && cmd`, because
+          # under `set -e` a false test at the end of a branch makes the branch
+          # itself exit non-zero and fails the step.
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — uploading into it."
+            if [ ${#files[@]} -gt 0 ]; then
+              gh release upload "$TAG" --repo "$REPO" --clobber "${files[@]}"
+            fi
+          else
+            gh release create "$TAG" \
+              --repo "$REPO" \
+              --draft \
+              --title "$TAG" \
+              --generate-notes \
+              "${files[@]}"
+          fi
+
+      # A run that attached nothing is almost always a broken toolchain rather
+      # than an intended source-only release, and the website's download links
+      # would 404 on it. Fail the job so this shows up as a red run instead of a
+      # green one holding an empty release.
+      - name: Fail if no installers were attached
+        if: steps.attach.outputs.count == '0'
+        run: |
+          echo "::error::No installers were attached to ${{ github.ref_name }}. The release carries source archives only; check the build jobs above."
+          exit 1

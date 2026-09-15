@@ -49,11 +49,13 @@ buildDependenciesFromSource: false
 
 # No publish config and no in-app updater. Aventurine ships no auto-update
 # (electron-updater was removed) and never phones home; CI builds with
-# `--publish never` and releases are SOURCE ONLY (the official binary is fenced
-# under the source-available license — see .github/workflows/release.yml). Users
-# update by installing a newer build. The win: target below still carries a
-# SECURITY note on Authenticode signing — that is about first-install trust
-# (SmartScreen), independent of the (now removed) update path.
+# `--publish never` so electron-builder itself never calls the GitHub API.
+# The installers ARE attached to the release, but the `release` job in
+# .github/workflows/release.yml uploads them, which keeps one place in charge
+# of what ships. Users update by installing a newer build. The win: target
+# below still carries a SECURITY note on Authenticode signing — that is about
+# first-install trust (SmartScreen), independent of the (now removed) update
+# path.
 
 linux:
   target:
