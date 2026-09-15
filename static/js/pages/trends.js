@@ -26,10 +26,10 @@
 // cards. The NAME focuses the category — the chart steps every other band back,
 // and the Top Merchants card below narrows to that category. Focus travels as
 // the `aventurine:category-focus` event so neither page script has to know the
-// other exists, the same seam shell/license.js uses for its tier. The swatch
-// COLOURS travel the same way, over `aventurine:category-colors`: this card
-// assigns them, and the bars below are painted from them; the switched-off keys
-// travel over `aventurine:category-hidden`.
+// other exists. The swatch COLOURS travel the same way, over
+// `aventurine:category-colors`: this card assigns them, and the bars below are
+// painted from them; the switched-off keys travel over
+// `aventurine:category-hidden`.
 //
 // A BAND IS ITS OWN NAME. Clicking a band in the stacked view runs the same
 // focus toggle its rail NAME does, so the thing on screen is the control for

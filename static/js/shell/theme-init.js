@@ -52,25 +52,6 @@
         document.documentElement.dataset.density = 'compact';
     }
 
-    // Feature tier, pre-paint. The backend is authoritative for licensing
-    // (electron/backend/router.js returns 402 for the paid routes until a key is
-    // stored), but that result arrives over an async IPC round trip, one paint
-    // too late: a licensed user would see a flash of the free layout, and a free
-    // user a flash of paid sections. So the last known result is cached here as a
-    // rendering hint and the real status replaces it a moment later
-    // (shell/license.js).
-    //
-    // An absent hint means FREE, matching the allowlist in router.js: closed by
-    // default. It is missing only on a fresh profile or cleared storage, and
-    // briefly hiding paid sections from a licensed user is preferable to briefly
-    // showing them to an unlicensed one.
-    //
-    // Nothing is gated on this value. Forging it reveals section headings whose
-    // every request still returns 402, which is why a spoofable store is the
-    // right place for it.
-    document.documentElement.dataset.licenseTier =
-        localStorage.getItem('license-activated') === '1' ? 'full' : 'free';
-
     // Tag the host OS so the custom title bar (titlebar.css) can match the
     // platform's native window controls: macOS traffic lights on the left,
     // square Windows-style controls on the right elsewhere. Set pre-paint so

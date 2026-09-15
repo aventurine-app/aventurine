@@ -264,11 +264,6 @@ test('transfers: everTransferred ignores the window', (t) => {
   assert.equal(r.body.everTransferred, true);
 });
 
-test('transfers: the report is a paid feature', (t) => {
-  const c = makeClient(t, { licensed: false });
-  assert.equal(c.get('/api/transfers').status, 402);
-});
-
 test('transfers: a typed Cash Flow cell carries the line and stays in its band', (t) => {
   const c = makeClient(t);
   activateWindow(c);

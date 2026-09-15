@@ -6,7 +6,7 @@
   "private": true,
   "author": "Aventurine <chatgpt.flattered848@passmail.net>",
   "homepage": "https://aventurine-app.com",
-  "license": "PolyForm-Noncommercial-1.0.0",
+  "license": "GPL-3.0-or-later",
   "dependencies": {
     "better-sqlite3-multiple-ciphers": "^12.10.0"
   }

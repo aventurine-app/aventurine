@@ -73,14 +73,6 @@ li {
     flex-shrink: 0;
 }
 
-/* The trailing padlock marks a locked link rather than naming a destination,
-   so it stays at the label's size while the leading icons scale up. It is set
-   here because this selector outranks .nav-lock svg in license.css. */
-.nav li a .nav-lock svg {
-    width: 1em;
-    height: 1em;
-}
-
 /* Hover + active states share --text-primary so a hovered link visually
    matches the currently-open page indicator. */
 .nav li a:hover {

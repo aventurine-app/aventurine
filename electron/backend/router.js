@@ -14,15 +14,11 @@
 //   - handler returns a body object        -> 200
 //   - handler throws ApiError(msg, status[, extra]) -> {ok:false, error:msg, ...extra}
 //   - no route                              -> 404 {ok:false, error:'not found'}
-//   - unactivated install, any non-/api/license path
-//                                           -> 402 {ok:false, error:'license_required'}
-//     (the license gate below; checked first, since nothing else can happen)
 //   - locked DB, non-/api/db/ path          -> 423 {ok:false, error:'db_locked'}
 //     (the _check_db_lock middleware, relocated)
 
 const fs = require('fs');
 const path = require('path');
-const { isLicensed } = require('./license');
 
 const { ApiError } = require('./validate');
 
@@ -75,88 +71,6 @@ function compile(pattern) {
   return { regex, names, types };
 }
 
-// ─── License gate ───────────────────────────────────────────────────────────
-//
-// A SOFT gate: an unactivated install is a working transaction manager, and
-// everything built on top of the ledger is what the key buys.
-//
-// This replaced a total lockout, which itself replaced a read-only gate. The
-// lockout fixed one problem with the read-only version: a gate has to be
-// stateable in one sentence, and "writes are refused" was not. The sentence
-// here is "your transactions are free, the insights are paid", which is short
-// enough to print on the locked screen.
-//
-// The upgrade path is what makes this shape worth it. A separately shipped demo
-// build would need its own release, its own packaging gate, and a second
-// download at the moment of purchase, and a database it created could exceed
-// the paid build's schema version. One binary avoids all of that: the ledger
-// built before purchase is kept, and activation is a paste rather than a
-// re-install.
-//
-// The list below is an ALLOW list, so a new route is locked until it is
-// explicitly freed. That is the safer default for a paid app: a feature left
-// locked by mistake shows up the first time anyone uses it, while a feature
-// left free by mistake does not.
-//
-// What is free, and why:
-//   /api/license      activation would otherwise be impossible
-//   /api/db/          a ledger needs a database to live in, including an
-//                     encrypted one; blocking this would leave the free tier
-//                     with nowhere to store data
-//   /api/onboarding   first-run setup, which is how the ledger gets started
-//   /api/app-settings theme, currency, auto-match. Preferences are not a
-//                     feature, and a free tier that cannot be configured is
-//                     not a representative sample of the paid one
-//   /api/transactions the free tier IS this: list, edit, import, export
-//   /api/categories   a ledger without categories is not a ledger
-//   /api/balance/columns  Balance Sheet columns double as accounts, and import
-//                     needs to pick one. The MONEY on the Balance Sheet lives
-//                     at /api/balance/data and /api/balance/entry, which are
-//                     not on this list
-//   /api/data, /api/balance/data  the Dashboard's Month to Month section reads
-//                     both. See the caveat below
-//
-// CAVEAT, accepted for now: those last two also feed the Dashboard's Year to
-// Year section and the Statements grids, so the backend cannot distinguish a
-// free reader from a paid one there. Year to Year is therefore HIDDEN in the
-// renderer rather than locked, and the renderer ships as loose editable files,
-// so that one section is a display choice and not a boundary. The fix, if it is
-// ever wanted, is to trim both payloads to the current year while unlicensed;
-// it was left out because it is the one place where licensing would change a
-// response body instead of blocking an address.
-//
-// The gate lives HERE, in one place, rather than in the handlers: no feature
-// module references licensing, the same arrangement as _check_db_lock. It also
-// means bypassing it requires editing and rebuilding the app rather than
-// changing something in the renderer, which is the limit of any offline
-// scheme.
-// Each entry frees ITSELF and its path segments below it, and nothing else —
-// see the matcher. Trailing slashes are not needed and not used.
-const FREE_PREFIXES = [
-  '/api/license',
-  '/api/db',
-  '/api/onboarding',
-  '/api/app-settings',
-  '/api/transactions',
-  '/api/categories',
-  '/api/balance/columns',
-];
-
-// Matched whole, not by prefix, so freeing '/api/data' cannot accidentally
-// free a future '/api/dataset'.
-const FREE_EXACT = new Set(['/api/data', '/api/balance/data']);
-
-// A prefix frees the address itself and everything under a '/' below it, never
-// an address that merely STARTS with the same characters: a bare startsWith let
-// '/api/transactions' free a future '/api/transactions-admin', and
-// '/api/license' free '/api/licenses'. Nothing collides today; the point is
-// that the list stays an allowlist as routes are added, which is the whole
-// reason it is an allowlist rather than a deny list.
-function isLicenseGated(path) {
-  if (FREE_EXACT.has(path)) return false;
-  return !FREE_PREFIXES.some((p) => path === p || path.startsWith(p + '/'));
-}
-
 function buildRouter(routes) {
   const compiled = routes.map(([method, pattern, fn]) => ({
     method,
@@ -169,30 +83,17 @@ function buildRouter(routes) {
     const path = qIdx === -1 ? url : url.slice(0, qIdx);
     const query = Object.fromEntries(new URLSearchParams(qIdx === -1 ? '' : url.slice(qIdx + 1)));
 
-    // Checked BEFORE the lock, the reverse of the read-only era. Then, a locked
-    // encrypted DB reported 423 first because supplying the passphrase was the
-    // next available action. Now it is not: an unactivated install cannot open,
-    // unlock or read anything, so activation is the only next action, and
-    // reporting the lock would prompt for a passphrase on a screen the user
-    // cannot reach.
-    if (path.startsWith('/api/') && isLicenseGated(path) && !isLicensed()) {
-      return { status: 402, body: { ok: false, error: 'license_required' } };
-    }
-
     // _check_db_lock, relocated: while the active DB is encrypted and no
     // passphrase has been supplied, every data API returns 423; /api/db/* stays
-    // reachable so status/unlock/open/create work, and /api/license does too —
-    // activation applies to the INSTALL, not to any one database, so it must
-    // respond before and without an unlock.
-    // Segment-anchored for the same reason as the license allowlist above: this
-    // is a deny gate, so a prefix that matches more than it means to is an
-    // exemption nobody asked for.
+    // reachable so status/unlock/open/create work.
+    // Segment-anchored on purpose: this is a deny gate, so a prefix that matches
+    // more than it means to is an exemption nobody asked for. A bare startsWith
+    // would let '/api/db' exempt a future '/api/dbexport'.
     const underPrefix = (p) => path === p || path.startsWith(p + '/');
     if (
       ctx.state.locked &&
       path.startsWith('/api/') &&
-      !underPrefix('/api/db') &&
-      !underPrefix('/api/license')
+      !underPrefix('/api/db')
     ) {
       return { status: 423, body: { ok: false, error: 'db_locked' } };
     }

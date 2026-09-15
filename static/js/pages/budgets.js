@@ -500,9 +500,9 @@
             const [statement] = await Promise.all([Store.ensure('ie'), loadBudgets()]);
             state.statement = statement;
         } catch (err) {
-            // A locked database (423) or a refused route (402) lands here; the
-            // shell puts its own prompt over the page, so this only has to leave
-            // something coherent underneath.
+            // A locked database (423) lands here; the shell puts its own prompt
+            // over the page, so this only has to leave something coherent
+            // underneath.
             console.error('[budgets] could not load', err);
             state.statement = { years: [], entries: {}, columns: [] };
         }

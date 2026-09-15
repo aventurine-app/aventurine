@@ -60,8 +60,6 @@ async function waitForWindow() {
 }
 
 app.whenReady().then(async () => {
-  require('./lib/dev-license').installDevLicense();
-
   let failed = false;
   const check = (label, cond) => {
     console.log(`${cond ? 'ok ' : 'FAIL'}  ${label}`);
