@@ -14,7 +14,7 @@
 // localStorage (theme, currency symbol, zoom) stable across launches, replacing
 // the Flask-era persisted-port handling.
 
-const { app, BrowserWindow, Menu, ipcMain, dialog, protocol, net, shell } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, dialog, protocol, net } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
@@ -126,11 +126,6 @@ let mainWindow = null;
 function startBackend() {
     // Same data-dir contract as the Flask era: <userData>/data.
     process.env.AVENTURINE_DATA_DIR = path.join(app.getPath('userData'), 'data');
-    // The license is stored beside the profile, NOT under the data dir: that
-    // directory travels with the user's database (pointer file, backups), and an
-    // unlock key must not be copied along with it to another machine. See
-    // backend/license.js.
-    process.env.AVENTURINE_CONFIG_DIR = app.getPath('userData');
     // Electron resolves the localized, XDG-aware Documents folder; the backend
     // derives the location it proposes for new databases from it
     // (dbstate.defaultDbDir), and falls back to ~/Documents if this is unset.
@@ -255,21 +250,6 @@ ipcMain.handle('export-choose-path', async (e, format) => {
     if (r.canceled) return null;
     conn?.approveWrite(r.filePath); // dialog-issued → no write re-confirmation
     return r.filePath;
-});
-
-// The one way out of the app. window.open is denied and will-navigate is locked
-// to app://, so a link to the activation page must go through here, and only to
-// the listed hosts. Everything else is dropped without an error: the allowlist
-// prevents a compromised renderer from using this to launch arbitrary URLs (or,
-// on some platforms, local files) through the OS handler.
-const EXTERNAL_HOSTS = new Set(['aventurine-app.com', 'www.aventurine-app.com']);
-
-ipcMain.handle('open-external', (_e, target) => {
-    let u = null;
-    try { u = new URL(String(target)); } catch { return false; }
-    if (u.protocol !== 'https:' || !EXTERNAL_HOSTS.has(u.host)) return false;
-    shell.openExternal(u.href);
-    return true;
 });
 
 // ─── app:// protocol ────────────────────────────────────────────────────────

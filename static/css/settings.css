@@ -54,8 +54,8 @@
 }
 
 /* display:flex outranks the UA's [hidden] rule, so restate it at author level.
-   Several rows are toggled by the attribute alone: the zoom row, the auto-lock
-   timer and About's licensee rows. */
+   Several rows are toggled by the attribute alone: the zoom row and the
+   auto-lock timer. */
 .settings-row[hidden] { display: none; }
 
 .settings-row + .settings-row {

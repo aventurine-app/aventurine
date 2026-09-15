@@ -14,10 +14,6 @@
 // second aggregation over the ledger would let the two surfaces disagree about
 // what a month cost. So there is no /api/budgets/progress: the renderer already
 // holds both halves and divides them.
-//
-// This route is PAID. The licensing gate in router.js is an allow list, so
-// leaving '/api/budgets' off FREE_PREFIXES is what locks it — nothing here
-// references licensing.
 
 const { bad, isFiniteNumber, round2 } = require('../validate');
 

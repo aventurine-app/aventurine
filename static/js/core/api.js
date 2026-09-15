@@ -21,7 +21,7 @@
 //     portfolio, recurring, trends, topmerchants, transfers, metrics),
 //     static/js/widgets/*.js (txfileimport, txexport, forecast,
 //     cashflow-sankey, tables, onboarding), and static/js/shell/*.js
-//     (dbactions, autolock, settings, settingsCategories, license), plus
+//     (dbactions, autolock, settings, settingsCategories), plus
 //     core/store.js and core/encryption.js. titlebar.js reads the database
 //     name through window.dbStatus() below rather than calling apiFetch
 //     itself.
@@ -406,16 +406,6 @@
   })();
 
   const FL_FIXTURES = {
-    // static/js/shell/license.js — Settings → License. Fixture mode reports an
-    // ACTIVATED copy, so pure-UI work renders the full app rather than the
-    // activation screen.
-    '/api/license': {
-      state: 'licensed', licensed: true, appMajor: 1,
-      license: {
-        licenseId: '0000000000000000', issued: '2026-01-15',
-        entitlement: 1, email: 'buyer@example.com',
-      },
-    },
     // static/js/shell/dbactions.js, titlebar.js — DB-open/lock status shown
     // in the title bar and the New/Open Database modal.
     '/api/db/status': {
@@ -634,20 +624,6 @@
   //   4. Otherwise (plain file:// page, no bridge, no server)
   //                                     -> fixtureResponse() above, so pages
   //      can be opened standalone for UI/design iteration.
-  // An unactivated install returns 402 for everything but /api/license
-  // (electron/backend/router.js). Handling that once, here, is why no page
-  // references licensing — a call site sees its request fail as it would on any
-  // other error, and the shell displays the explanation.
-  //
-  // This dispatches an event rather than showing UI: this file is the data seam
-  // and contains no UI code. static/js/shell/license.js listens and raises the
-  // activation screen. Under a total lockout that screen is usually already up
-  // before any page issues a request, so this path is the fallback: it catches a
-  // license that stops verifying mid-session.
-  function notifyGated(url) {
-    window.dispatchEvent(new CustomEvent('aventurine:license-required', { detail: { url } }));
-  }
-
   /** Drop-in replacement for fetch() at the app's /api/* call sites. */
   async function apiFetch(url, opts = {}) {
     if (!isApi(url)) return fetch(url, opts);
@@ -663,7 +639,6 @@
         try { body = JSON.parse(opts.body); } catch { body = null; }
       }
       const { status, body: data } = await window.financeApi.request(method, url, body);
-      if (status === 402) notifyGated(url);
       return responseLike(status, data);
     }
 

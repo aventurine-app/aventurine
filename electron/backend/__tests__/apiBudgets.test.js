@@ -147,9 +147,3 @@ test('budgets: a target survives its category being renamed', (t) => {
   // Keyed by the stable slug, not the name.
   assert.deepStrictEqual(asMap(getBudgets(c)), { [cat.key]: 120 });
 });
-
-test('budgets: the routes are paid', (t) => {
-  const c = makeClient(t, { licensed: false });
-  assert.equal(c.get('/api/budgets').status, 402);
-  assert.equal(c.put('/api/budgets', { budgets: [] }).status, 402);
-});

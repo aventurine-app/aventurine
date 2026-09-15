@@ -1,11 +1,10 @@
 'use strict';
 
-// Shared test client. Each
-// makeClient() builds an isolated conn against a fresh tempfile DB selected
-// via AVENTURINE_DB_PATH (which also suppresses pointer-file writes), and
-// returns HTTP-shaped helpers so a test reads like a request.
+// Shared test client. Each makeClient() builds an isolated conn against a fresh
+// tempfile DB selected via AVENTURINE_DB_PATH (which also suppresses
+// pointer-file writes), and returns HTTP-shaped helpers so a test reads like a
+// request.
 
-const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -13,47 +12,12 @@ const path = require('node:path');
 const { createConn } = require('../conn');
 const { dispatch } = require('../routes');
 const { adoptAccount } = require('../services/accounts');
-const license = require('../license');
 
-/** Give the client an ACTIVATED install, signed by a throwaway pair.
- *
- *  Without this every mutating test would hit the 402 gate, so this keeps the
- *  suite testing features rather than licensing. Tests covering the gate (or the
- *  unlicensed state) pass { licensed: false } and set it up themselves. Both the
- *  key slot and the config dir are restored afterwards, so no state carries
- *  between files. */
-function installTestLicense(t, dir) {
-  const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
-  const prevKey = license.PUBLIC_KEYS[0];
-  const prevCfg = process.env.AVENTURINE_CONFIG_DIR;
-  process.env.AVENTURINE_CONFIG_DIR = path.join(dir, 'config');
-  license.PUBLIC_KEYS[0] = publicKey.export({ type: 'spki', format: 'der' }).subarray(12).toString('base64');
-  license.activate(
-    license.encode(
-      {
-        licenseId: '00'.repeat(8),
-        issued: '2026-01-01',
-        // Every major version, so bumping the app's version does not fail the
-        // whole suite on an entitlement check.
-        entitlement: 255,
-        email: 'tests@example.com',
-      },
-      (body) => crypto.sign(null, body, privateKey)
-    )
-  );
-  t.after(() => {
-    license.PUBLIC_KEYS[0] = prevKey;
-    if (prevCfg === undefined) delete process.env.AVENTURINE_CONFIG_DIR;
-    else process.env.AVENTURINE_CONFIG_DIR = prevCfg;
-  });
-}
-
-function makeClient(t, { licensed = true } = {}) {
+function makeClient(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fl-api-'));
   const dbPath = path.join(dir, 'test.db');
   const prev = process.env.AVENTURINE_DB_PATH;
   process.env.AVENTURINE_DB_PATH = dbPath;
-  if (licensed) installTestLicense(t, dir);
   const conn = createConn();
   conn.init();
   t.after(() => {

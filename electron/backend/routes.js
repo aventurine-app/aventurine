@@ -24,7 +24,6 @@ const routes = [
   ...require('./handlers/appSettings').routes,
   ...require('./handlers/onboarding').routes,
   ...require('./handlers/database').routes,
-  ...require('./handlers/license').routes,
   // Balance Sheet — the one remaining year-table feature.
   ...yearTableRoutes({
     prefix: '/api/balance',

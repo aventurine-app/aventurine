@@ -31,67 +31,6 @@
         </div>
     </div>
 
-    
-    <!-- Activation screen. Raised over the app by shell/license.js, either on
-         request (the sidebar's Unlock button, a click on a link into a paid
-         page) or when a paid route returns 402. It covers everything below the
-         title bar; the bar stays so the window can still be dragged, minimised
-         and closed, and its menus are suppressed by CSS while the gate is up.
-
-         Shown pre-paint from a localStorage hint set by theme-init.js, so a
-         fresh install does not flash the app it cannot use and an activated one
-         does not flash the screen it does not need. The hint is a
-         *rendering* shortcut only - the backend is the authority, and
-         static/js/shell/license.js corrects the screen the moment the real
-         status arrives.
-
-         Nothing here touches the network. The key is a signed token this
-         install verifies locally, obtained from the activation page in the
-         user's own browser, so the app's offline guarantee holds even during
-         activation. -->
-    <div class="license-gate" data-activation-screen>
-        <div class="license-gate-card">
-            <!-- Dismissible, unlike the total-lockout version this replaced.
-                 There is a working app behind this screen now, so refusing to
-                 close would be a lie about what the user still has. -->
-            <button class="license-gate-close" type="button" data-license-close
-                    aria-label="Close">&times;</button>
-            <div class="license-gate-head">
-                <img class="license-gate-logo" src="/static/icons/logo/logo.svg" alt="" draggable="false">
-                <h1 class="license-gate-title">Aventurine</h1>
-            </div>
-            <p class="license-gate-lead" data-gate-lead>
-                Aventurine is a paid app and needs to be activated before use.
-            </p>
-
-            <ol class="license-gate-steps">
-                <!-- The URL is the button. window.open is denied and
-                     will-navigate is locked to the app origin, so an <a href>
-                     here would be inert - the only way out is the preload
-                     bridge, and that needs a click handler either way. It still
-                     reads as the address it opens, so a user whose browser
-                     fails to launch can type what they see. -->
-                <li>Open <button class="license-link" type="button" data-license-open>aventurine-app.com/activate.html</button> in your browser.</li>
-                <li>Enter the license key from your purchase receipt to get an unlock key.</li>
-                <li>Paste the unlock key below.</li>
-            </ol>
-
-            <textarea class="license-input" data-license-input rows="3" spellcheck="false"
-                      autocomplete="off" placeholder="Paste your unlock key"></textarea>
-            <!-- Filled the moment a valid key is pasted, before Activate is
-                 pressed: the address is the whole anti-sharing mechanism, so it
-                 should be visible while the user is still deciding what to do
-                 with the key. -->
-            <div class="license-preview" data-license-preview hidden></div>
-            <div class="enc-error" data-license-error hidden></div>
-
-            <div class="license-gate-actions">
-                <button class="db-btn db-btn-primary" type="button" data-license-submit disabled>Activate</button>
-            </div>
-
-        </div>
-    </div>
-
     <div class="titlebar-dropdown" data-menu-panel="file" hidden>
         <button class="titlebar-dropdown-item" data-action="new-db">New Database</button>
         <button class="titlebar-dropdown-item" data-action="open-db">Open Database</button>
@@ -405,19 +344,12 @@
 </div>
 
 
-<!-- About. Shows the installed version and this copy's license. (Aventurine
-     has no in-app updater; the app never phones home - installs come from the
-     source-only releases.)
+<!-- About. Shows the installed version. (Aventurine has no in-app updater;
+     the app never phones home - installs come from the source releases.)
 
      It is a tab of Preferences rather than a modal of its own: one Settings
      surface, opened one way, with About as its last section. The Settings menu
      still lists About, which opens this modal on this tab.
-
-     License lives HERE rather than in the tabs beside it because it is not a
-     preference: there is nothing to choose. By the time this panel can be
-     opened the install is already activated - an unactivated one never gets
-     past the activation screen - so what is left is a fact about the copy,
-     which is exactly what About is for, next to the version number.
 
      No Restore Defaults for this tab: the footer carries [data-footer="hide"]
      from the tab button, since nothing here is a setting to restore. -->
@@ -437,68 +369,11 @@
     </div>
 </div>
 
-<div class="settings-section" data-about-license-section hidden>
-    <div class="settings-section-header">License</div>
-    <div class="settings-card">
-        <div class="settings-row">
-            <div class="settings-row-label">
-                <div class="settings-row-name">Registered To</div>
-                <!-- The address is the entire anti-sharing measure, so it is
-                     shown rather than filed away: sharing a key means publishing
-                     the address that bought it. -->
-            </div>
-            <div class="about-version" data-about-license></div>
-        </div>
-        <div class="settings-row">
-            <div class="settings-row-label">
-                <div class="settings-row-name">Activated On</div>
-            </div>
-            <div class="about-version" data-about-issued></div>
-        </div>
-    </div>
-
-    <div class="settings-card settings-card-danger">
-        <div class="settings-row">
-            <div class="settings-row-label">
-                <div class="settings-row-name">Deactivate This Copy</div>
-                <div class="settings-row-desc">Returns Aventurine to the activation screen. Your key keeps working, so you can paste it back at any time. </div>
-            </div>
-            <button class="db-btn db-btn-danger" type="button" data-license-remove>Deactivate</button>
-        </div>
-    </div>
-</div>
-
 </div>
 
             </div>
             <div class="settings-modal-footer" data-settings-footer>
                 <button class="db-btn settings-restore-defaults" type="button">Restore Defaults</button>
-            </div>
-        </div>
-    </div>
-
-
-    <!-- Deactivate confirmation (Preferences → About → License → Deactivate).
-
-         Placed AFTER the Preferences modal deliberately: both are
-         .settings-modal-overlay at the same z-index, so DOM order is what puts
-         this one over the modal it was opened from. -->
-    <div class="settings-modal-overlay" data-modal="license-deactivate" hidden>
-        <div class="settings-modal">
-            <div class="settings-modal-header">
-                <span class="settings-modal-title">Deactivate This Copy</span>
-                <button class="settings-modal-close" aria-label="Close">×</button>
-            </div>
-            <div class="settings-modal-body">
-                <div class="settings-row-desc">
-                    Aventurine will return to the <strong>activation screen</strong>
-                    and stay there until a key is pasted back in.
-                </div>
-                <div class="enc-error" data-license-remove-error hidden></div>
-            </div>
-            <div class="settings-modal-footer enc-footer">
-                <button class="db-btn" data-license-remove-cancel type="button">Cancel</button>
-                <button class="db-btn db-btn-danger" data-license-remove-confirm type="button">Deactivate</button>
             </div>
         </div>
     </div>

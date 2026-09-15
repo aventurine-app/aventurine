@@ -625,7 +625,7 @@
      *                     the spreadsheet keeps its monospaced columns while
      *                     every other money value reads as body text.
      *   --font-mono     → monospaced: the Statements grids, and strings meant
-     *                     to be read character by character (a license key) */
+     *                     to be read character by character (a file path) */
     --font-menu:    'Manrope', system-ui, sans-serif;
     --font-h1:      'Manrope', Georgia, serif;
     --font-h2:      'Manrope', system-ui, sans-serif;
