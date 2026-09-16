@@ -252,6 +252,11 @@ ipcMain.handle('export-choose-path', async (e, format) => {
     return r.filePath;
 });
 
+// The installed version, for the About modal. Read from app.getVersion() (the
+// packaged build's package.json) rather than baked into the page, so a release
+// cannot ship a stale number.
+ipcMain.handle('app:version', () => app.getVersion());
+
 // ─── app:// protocol ────────────────────────────────────────────────────────
 
 /** Resolve a decoded URL path inside `root`, rejecting anything that escapes it

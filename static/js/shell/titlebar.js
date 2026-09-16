@@ -102,6 +102,16 @@
         openModal('preferences');
     });
 
+    // Installed version, shown in the About modal. Read once on load from the
+    // preload bridge (main process app.getVersion()). In a plain browser the
+    // bridge is absent and the placeholder stays.
+    const versionEl = document.querySelector('[data-about-version]');
+    if (versionEl && window.electronApp) {
+        window.electronApp.getVersion()
+            .then(v => { if (v) versionEl.textContent = String(v); })
+            .catch(() => { /* leave the placeholder */ });
+    }
+
     // Wire close (× button + backdrop click) for every settings modal.
     document.querySelectorAll('.settings-modal-overlay').forEach(modal => {
         const close = () => { modal.hidden = true; };

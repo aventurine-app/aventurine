@@ -104,6 +104,7 @@ const appGlobals = {
   electronWindow: 'readonly',
   electronFile: 'readonly',
   financeApi: 'readonly',
+  electronApp: 'readonly',
 };
 
 export default [

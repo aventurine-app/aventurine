@@ -180,6 +180,13 @@ app.whenReady().then(async () => {
       + ' && !document.querySelector("[data-menu-panel=\'settings\']")'
     ));
 
+    // About's version row is filled from the preload bridge on load. It read a
+    // hardcoded placeholder in every shipped build after the updater was
+    // removed, so assert a real version string reached it.
+    check('About shows the installed version', await evalJs(
+      '/^\\d+\\.\\d+\\.\\d+/.test(document.querySelector("[data-about-version]").textContent.trim())'
+    ));
+
     // Picking a theme paints in place and fires 'themechange' for the charts —
     // it must NOT reload the page, which used to shut the modal the user was
     // standing in. Assert the swap landed AND the modal survived it.

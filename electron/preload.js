@@ -38,6 +38,13 @@ contextBridge.exposeInMainWorld('electronFile', {
     chooseExportPath:     (format) => ipcRenderer.invoke('export-choose-path', format),
 });
 
+// The installed version string, shown in About (static/js/shell/titlebar.js).
+// Comes from the main process because a sandboxed preload has no access to the
+// app module.
+contextBridge.exposeInMainWorld('electronApp', {
+    getVersion: () => ipcRenderer.invoke('app:version'),
+});
+
 // The data plane. Every /api/* call the page makes goes through here
 // (static/js/core/api.js wraps it in a fetch-shaped interface) straight to the
 // in-process backend — no HTTP server, no socket, no port. The renderer can
