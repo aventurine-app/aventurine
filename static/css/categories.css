@@ -1,7 +1,7 @@
 /* ─── Categories editor ─────────────────────────────────────────────────────
-   The category editor (settingsCategories.js), hosted by the "Manage
-   Categories" modal the Statements page opens from the Cash Flow ⋮ menu
-   (statements.js builds the .cat-manager shell).
+   The category editor (settingsCategories.js), hosted in the Cash Flow panel
+   of the "Manage Columns" modal the Statements toolbar opens (the .cat-manager
+   shell is built by openManagerModal in tables.js).
 
    Layout: a search field above a stack of collapsible group cards — one per
    category type (Income · Expense · Savings · Investing). Each card header
@@ -12,11 +12,11 @@
    Drag-and-drop (grip handle) reorders within a group or recategorizes across
    open groups.
 
-   The Balance Sheet's "Manage Columns" modal (tables.js showColumnManager)
-   deliberately reuses every class here — same shell, search, cards, rows — so
-   the two Statements managers look identical and these styles live in one
-   place. Its editor root is a .cat-editor element rather than a
-   [data-categories-editor], hence the paired selectors below. ───────────── */
+   The Balance Sheet's column editor (tables.js mountColumnEditor) reuses every
+   class here — same search, cards, rows — and the two now sit as the two panels
+   of ONE modal (openManagerModal): same shell, one switch between them. Its
+   editor root is a .cat-editor element rather than a [data-categories-editor],
+   hence the paired selectors below. ────────────────────────────────────────── */
 
 /* ─── Modal shell ────────────────────────────────────────────────────────────
    Frame / header / title / close button + the scrollable-body scrollbar are
@@ -35,10 +35,28 @@
 
 .cat-manager-header { flex-shrink: 0; }
 
+/* ─── Panel switch ───────────────────────────────────────────────────────────
+   Its own row between the fixed header and the scrolling body, so the switch
+   stays put while a long list of cards scrolls under it. The track itself is
+   the app's segmented control (.mgr-tabs / .mgr-tab in ui.css, shared with the
+   Statements and Reports tab bars); only this row's box lives here.
+   One panel means no switch: openManagerModal renders the row only when there
+   are two or more. */
+.mgr-tabs {
+  flex-shrink: 0;
+  align-self: center;
+  margin: 16px 22px 0;
+}
+
 .cat-manager-body {
   padding: 22px;
   overflow-y: auto;
 }
+
+/* Panels fill the body; the hidden one is left out of the layout entirely
+   (restated because the panel is a flex container at author level). */
+.mgr-panel { display: block; }
+.mgr-panel[hidden] { display: none; }
 
 /* The editor root stacks the search field and the group cards. */
 [data-categories-editor],

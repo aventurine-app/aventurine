@@ -4,6 +4,12 @@
   gap: 8px;
 }
 
+/* Panels that stack more than one section (Security) need air between them;
+   16px is the same gap the danger card takes in Transactions. */
+.settings-section + .settings-section {
+  margin-top: 16px;
+}
+
 .settings-section-header {
   font-family: var(--font-h3);
   font-size: var(--size-micro);
@@ -557,6 +563,7 @@
 
 .settings-enc-status {
     color: var(--text-secondary);
+    font-size: var(--size-small);
 }
 
 /* ── Database Encryption modal ──────────────────────────────────────────
@@ -575,10 +582,8 @@
     gap: 6px;
 }
 
-/* The flex display rules above (and .settings-match-toggle on .enc-actions)
-   outrank the UA [hidden] = display:none, so restore it explicitly — these
-   rows are shown/hidden per action by encryption.js. */
-.enc-actions[hidden],
+/* .enc-field's display:flex outranks the UA [hidden] = display:none, so restate
+   it at author level — these rows are shown/hidden per action by encryption.js. */
 .enc-field[hidden] { display: none; }
 
 .enc-label {

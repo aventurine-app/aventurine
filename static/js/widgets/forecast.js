@@ -772,8 +772,8 @@
       <p>Delete the <strong>${escapeHtml(item.label)}</strong> planned item?</p>
       <p class="fc-dialog-note">It only affects this projection — no transaction is touched.</p>
       <div class="confirm-actions">
-        <button class="confirm-cancel">Cancel</button>
-        <button class="confirm-delete">Delete</button>
+        <button class="db-btn confirm-cancel">Cancel</button>
+        <button class="db-btn db-btn-danger confirm-delete">Delete</button>
       </div>
     </div>`;
     document.body.appendChild(overlay);
@@ -828,8 +828,8 @@
           min="${escapeHtml(todayIso())}" max="${escapeHtml(maxPlannedDate())}">
       </label>
       <div class="confirm-actions">
-        <button class="confirm-cancel">Cancel</button>
-        <button class="confirm-add">Add</button>
+        <button class="db-btn confirm-cancel">Cancel</button>
+        <button class="db-btn db-btn-primary confirm-add">Add</button>
       </div>
     </div>`;
     document.body.appendChild(overlay);
@@ -912,8 +912,8 @@
       <p class="fc-dialog-note">These are dated before today or beyond the longest horizon, so nothing
         projects them. No transaction is touched.</p>
       <div class="confirm-actions">
-        <button class="confirm-cancel">Cancel</button>
-        <button class="confirm-delete">Clear</button>
+        <button class="db-btn confirm-cancel">Cancel</button>
+        <button class="db-btn db-btn-danger confirm-delete">Clear</button>
       </div>
     </div>`;
     document.body.appendChild(overlay);

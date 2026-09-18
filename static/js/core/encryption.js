@@ -1,15 +1,16 @@
 'use strict';
 
 // ─── encryption.js ──────────────────────────────────────────────────────────
-// Database Encryption modal. Opened from Settings → Security → Manage… via
-// window.securityActions.showEncryption(). Drives POST /api/db/encryption with
-// one of three actions, chosen from the live DB state:
+// Database Encryption modal: the password form for ONE action, named by the
+// caller. Settings → Security carries a row per action and passes it to
+// window.securityActions.showEncryption(action); nothing is chosen in here.
+// The three actions POST to /api/db/encryption:
 //   encrypt — plaintext DB gains a password.
 //   change  — re-encrypt an encrypted DB under a new password.
 //   decrypt — remove encryption from an encrypted DB.
 // The backend (conn.rekey) performs the keying with a file-backup rollback; this
 // file is only the form. On success the page reloads so every status reader
-// (auto-lock arming, the Security status line) re-reads the new state — the same
+// (auto-lock arming, the Security status row) re-reads the new state — the same
 // pattern as a DB switch.
 
 (function () {
@@ -23,7 +24,6 @@
     // class), so this script binds only to the encryption modal's markup.
     const q = (sel) => overlay.querySelector(sel);
     const statusEl  = q('[data-enc-status]');
-    const actionsEl = q('[data-enc-actions]');
     const curField  = q('[data-enc-current]');
     const newField  = q('[data-enc-new]');
     const confField = q('[data-enc-confirm]');
@@ -36,35 +36,39 @@
     const cancelBtn = q('[data-enc-cancel]');
     const closeBtn  = q('[data-enc-close]');
 
-    // `encrypted` is the live DB state fetched in open(); it, not a form field,
-    // determines whether "encrypt" is offered, since an already-encrypted DB can
-    // only "change" or "decrypt". `busy` blocks a double submit while the request
-    // is in flight.
+    // Three pieces of state, and the order matters:
+    //   requested — the action the Settings row asked for. Never overwritten, so
+    //               a re-render cannot drift away from what was clicked.
+    //   encrypted — the live DB state. It outranks `requested`, because a
+    //               Settings row can be a moment stale if the database changed
+    //               under it, and a plaintext file cannot be decrypted any more
+    //               than an encrypted one can be encrypted again.
+    //   action    — what those two resolve to, and the only value submit() posts.
+    // `busy` blocks a double submit while the request is in flight.
+    let requested = 'encrypt';
     let encrypted = false;
+    let action = 'encrypt';
     let busy = false;
 
     function setError(msg) { errorEl.textContent = msg || ''; errorEl.hidden = !msg; }
 
-    // Resolves which of the three backend actions (encrypt/change/decrypt) the
-    // current form state maps to. Forced to 'encrypt' when the DB is not
-    // encrypted, regardless of radio state, since those radios are hidden in that
-    // case (see actionsEl.hidden in render()).
-    function chosenAction() {
+    // Reconciles the requested action with the live state: on a plaintext
+    // database the only action is 'encrypt', and on an encrypted one 'encrypt'
+    // is impossible, so fall back to 'change'.
+    function resolveAction() {
         if (!encrypted) return 'encrypt';
-        const checked = overlay.querySelector('.enc-action-radio:checked');
-        return checked ? checked.value : 'change';
+        return requested === 'encrypt' ? 'change' : requested;
     }
 
-    // Pure view function: given { encrypted, chosenAction() }, show/hide the
-    // right fields and relabel the submit button. Called after every state
-    // change (radio toggle, DB-status fetch) so the form is always
-    // consistent with `encrypted` + the selected action.
+    // Pure view function: given { requested, encrypted }, show/hide the right
+    // fields and relabel the submit button. Called once optimistically and again
+    // when the DB-status fetch lands, so the form always matches the action
+    // actually about to be submitted.
     function render() {
-        const action = chosenAction();
+        action = resolveAction();
         statusEl.textContent = encrypted
             ? 'This database is encrypted.'
             : 'This database is not encrypted.';
-        actionsEl.hidden = !encrypted;
         curField.hidden  = !(action === 'change' || action === 'decrypt');
         newField.hidden  = !(action === 'encrypt' || action === 'change');
         confField.hidden = newField.hidden;
@@ -77,17 +81,19 @@
         setError('');
     }
 
-    // Entry point wired to window.securityActions.showEncryption(). Shows
-    // the modal immediately with a blank/optimistic ('change') state, then
-    // fetches the real encryption status async and re-renders once it
-    // resolves — avoids a blocking spinner for what's normally an instant
-    // check. If the status fetch fails, the modal is left in its default
-    // (not-encrypted) render rather than erroring out.
-    function open() {
+    // Entry point wired to window.securityActions.showEncryption(action). Paints
+    // at once from what the clicked row implies, then fetches the real status
+    // async and re-renders — no blocking spinner for what is normally an instant
+    // check, and no wrong-fields flash either: a Change/Remove row is only shown
+    // on an encrypted database, so assuming that is right in every ordinary case
+    // and the fetch merely confirms it. A failed fetch leaves that assumption
+    // standing rather than erroring out.
+    function open(requestedAction) {
         curInput.value = newInput.value = confInput.value = '';
-        encrypted = false;
-        const changeRadio = overlay.querySelector('.enc-action-radio[value="change"]');
-        if (changeRadio) changeRadio.checked = true;
+        requested = requestedAction === 'change' || requestedAction === 'decrypt'
+            ? requestedAction
+            : 'encrypt';
+        encrypted = requested !== 'encrypt';
         render();
         overlay.hidden = false;
         // A FRESH read, not the shared cached one in api.js: this modal is the
@@ -110,7 +116,6 @@
     // decides whether currentPassword is correct.
     async function submit() {
         if (busy) return;
-        const action = chosenAction();
         const currentPassword = curInput.value;
         const newPassword = newInput.value;
         setError('');
@@ -160,10 +165,9 @@
     }
 
     // ── Event wiring ─────────────────────────────────────────────────────
-    // Radios re-render (action may have changed); submit/cancel/close map to
-    // the handlers above; clicking the overlay backdrop or pressing Escape
-    // closes, and Enter inside any input submits the form.
-    overlay.querySelectorAll('.enc-action-radio').forEach(r => r.addEventListener('change', render));
+    // Submit/cancel/close map to the handlers above; clicking the overlay
+    // backdrop or pressing Escape closes, and Enter inside any input submits
+    // the form.
     submitBtn.addEventListener('click', submit);
     cancelBtn.addEventListener('click', close);
     closeBtn.addEventListener('click', close);

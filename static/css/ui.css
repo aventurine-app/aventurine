@@ -384,7 +384,10 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
 .rep-panel:focus, .stmt-panel:focus { outline: none; }
 
 /* ─── Segmented tab control + toolbar row ───────────────────────────────────
- * Shared by Statements (.stmt-*), Dashboard (.dashboard-*), and Reports (.rep-*).
+ * Shared by Statements (.stmt-*), Dashboard (.dashboard-*), Reports (.rep-*)
+ * and the manager modal's panel switch (.mgr-*, built by openManagerModal in
+ * tables.js — the track sits in the modal rather than on a toolbar row, but it
+ * is the same control doing the same job).
  * Moved here from statements.css when Dashboard adopted it.
  *
  * The tabs are a segmented control: a hairline-outlined grey track holding both
@@ -394,7 +397,7 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
  *
  * The toolbar row layouts differ per page and live in each page's stylesheet:
  * Statements (statements.css) pins its year stepper dead-center between the
- * tabs and the ⋮ menu; Dashboard (dashboard.css) has no tab bar — its month
+ * tabs and the actions; Dashboard (dashboard.css) has no tab bar — its month
  * stepper sits on the Month to Month section's heading row. */
 
 /* The stepper is display:flex, which overrides the UA's
@@ -402,7 +405,7 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
  * that hides one. */
 .stepper[hidden] { display: none; }
 
-.stmt-tabs, .rep-tabs {
+.stmt-tabs, .rep-tabs, .mgr-tabs {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -425,7 +428,7 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
 /* Type + box tokens mirror the action-button shape (buttons.css) — same
    32px control height, uppercase micro type — so the segments read as
    siblings of the other 32px controls across the row. */
-.stmt-tab, .rep-tab {
+.stmt-tab, .rep-tab, .mgr-tab {
     appearance: none;
     background: transparent;
     /* Transparent hairline reserves the active tab's border so the label never
@@ -453,7 +456,7 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
 
 /* One stop along the base ramp from the track, rather than a translucent frost
    tint — an opaque rung reads the same wherever the toolbar sits. */
-.stmt-tab:hover, .rep-tab:hover {
+.stmt-tab:hover, .rep-tab:hover, .mgr-tab:hover {
     color: var(--text-primary);
     background: var(--segctl-hover);
 }
@@ -462,13 +465,14 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
    track that width change would shove the sibling tab sideways. The accent fill
    carries the selected state on its own. */
 .stmt-tab.active, .stmt-tab[aria-selected="true"],
-.rep-tab.active, .rep-tab[aria-selected="true"] {
+.rep-tab.active, .rep-tab[aria-selected="true"],
+.mgr-tab.active, .mgr-tab[aria-selected="true"] {
     color: var(--segctl-active-text);
     background: var(--segctl-active);
     border-color: var(--segctl-active);
 }
 
-.stmt-tab:focus-visible, .rep-tab:focus-visible {
+.stmt-tab:focus-visible, .rep-tab:focus-visible, .mgr-tab:focus-visible {
     outline: 2px solid var(--color-accent-400);
     outline-offset: -2px;
 }
@@ -476,12 +480,13 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
 /* Inset on an accent fill, the accent ring vanishes — draw the active tab's
    ring in the label colour instead. */
 .stmt-tab.active:focus-visible, .stmt-tab[aria-selected="true"]:focus-visible,
-.rep-tab.active:focus-visible, .rep-tab[aria-selected="true"]:focus-visible {
+.rep-tab.active:focus-visible, .rep-tab[aria-selected="true"]:focus-visible,
+.mgr-tab.active:focus-visible, .mgr-tab[aria-selected="true"]:focus-visible {
     outline-color: var(--segctl-active-text);
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .stmt-tab, .rep-tab { transition: none; }
+    .stmt-tab, .rep-tab, .mgr-tab { transition: none; }
 }
 
 /* ─── Segmented switch ────────────────────────────────────────────────────────

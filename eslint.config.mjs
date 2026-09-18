@@ -91,6 +91,7 @@ const appGlobals = {
   // widgets/tables.js
   confirmDelete: 'readonly',
   promptAddYear: 'readonly',
+  openManagerModal: 'readonly',
   bootstrapYearTablePage: 'readonly',
   // widgets/txparse.js (pure parsing core; also require()d by the backend
   // test suite) / txfileimport.js / txexport.js

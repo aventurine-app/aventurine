@@ -220,6 +220,38 @@ function categorizeSimilar(ctx, { body }) {
   return { ok: true, updated };
 }
 
+/**
+ * How many ledger rows fall in each calendar year, keyed by the year as a
+ * string: { "2024": 132, "2023": 8 }. Years with no rows are absent.
+ *
+ * The Statements "Manage Years" modal reads this to decide which statement
+ * years it may renumber or remove. A year whose cells are computed from
+ * transactions is not the user's to renumber — the numbers would follow the
+ * ledger, not the new label — so those rows are locked there instead.
+ *
+ * Grouped in SQL rather than by loading the ledger: the whole answer is one
+ * row per year.
+ */
+function yearCounts(ctx) {
+  const db = ctx.db();
+  const rows = db
+    .prepare(
+      `SELECT substr(date, 1, 4) AS year, COUNT(*) AS n
+         FROM transactions
+        WHERE date IS NOT NULL AND length(date) >= 4
+        GROUP BY year`
+    )
+    .all();
+  const years = {};
+  for (const r of rows) {
+    // A row whose date never passed parseIsoDate (a hand-edited database) can
+    // hold anything; skip what is not a 4-digit year rather than publishing a
+    // key the caller cannot match against a year number.
+    if (/^\d{4}$/.test(r.year)) years[r.year] = r.n;
+  }
+  return { years };
+}
+
 function hashes(ctx, { query }) {
   const db = ctx.db();
   let sql = 'SELECT date, amount, description FROM transactions';
@@ -658,6 +690,7 @@ const routes = [
   ['GET', '/api/transactions/similar', similar],
   ['POST', '/api/transactions/categorize-similar', categorizeSimilar],
   ['GET', '/api/transactions/hashes', hashes],
+  ['GET', '/api/transactions/years', yearCounts],
   ['POST', '/api/transactions/import', importRows],
   ['POST', '/api/transactions/export', exportTx],
 ];

@@ -305,39 +305,70 @@
 
 <div class="settings-tabpanel" data-tabpanel="security" role="tabpanel" hidden
      id="settings-panel-security" aria-labelledby="settings-tab-security">
-    <div class="settings-card">
-        <div class="settings-row">
-            <div class="settings-row-label">
-                <div class="settings-row-name">Database Encryption</div>
-                <div class="settings-row-desc">Add a password to an unencrypted database, change the password, or remove encryption. <span class="settings-enc-status" data-enc-settings-status></span></div>
+    <!-- Each encryption action is its own row rather than a mode picked inside
+         the password modal. Which rows apply is a property of the database, not
+         a choice: settings.js shows Encrypt on a plaintext file and the
+         Change/Remove pair on an encrypted one. The buttons carry the action
+         through to core/encryption.js, which opens its form already set to it. -->
+    <div class="settings-section">
+        <div class="settings-section-header">Database Encryption</div>
+        <div class="settings-card">
+            <div class="settings-row">
+                <div class="settings-row-label">
+                    <div class="settings-row-name">Status</div>
+                </div>
+                <div class="settings-enc-status" data-enc-settings-status>—</div>
             </div>
-            <button class="db-btn settings-manage-encryption" type="button">Manage…</button>
+            <div class="settings-row" data-enc-row="encrypt" hidden>
+                <div class="settings-row-label">
+                    <div class="settings-row-name">Encrypt Database</div>
+                </div>
+                <button class="db-btn settings-enc-open" data-enc-action="encrypt" type="button">Encrypt…</button>
+            </div>
+            <div class="settings-row" data-enc-row="change" hidden>
+                <div class="settings-row-label">
+                    <div class="settings-row-name">Change Password</div>
+                </div>
+                <button class="db-btn settings-enc-open" data-enc-action="change" type="button">Change…</button>
+            </div>
+            <div class="settings-row" data-enc-row="decrypt" hidden>
+                <div class="settings-row-label">
+                    <div class="settings-row-name">Remove Encryption</div>
+                </div>
+                <button class="db-btn db-btn-danger settings-enc-open" data-enc-action="decrypt" type="button">Remove…</button>
+            </div>
         </div>
-        <div class="settings-row settings-autolock-row">
-            <div class="settings-row-label">
-                <div class="settings-row-name">Auto-Lock</div>
-                <div class="settings-row-desc">Locks the database after a period of inactivity and asks for the password again. Applies only when the database is encrypted.</div>
+    </div>
+
+    <div class="settings-section">
+        <div class="settings-section-header">Auto-Lock</div>
+        <div class="settings-card">
+            <div class="settings-row settings-autolock-row">
+                <div class="settings-row-label">
+                    <div class="settings-row-name">Auto-Lock</div>
+                    <div class="settings-row-desc">Locks the database after a period of inactivity and asks for the password again. Applies only when the database is encrypted.</div>
+                </div>
+                <div class="settings-match-toggle seg-switch">
+                    <label class="settings-match-option">
+                        <input class="settings-pref-radio" type="radio" name="auto_lock" value="1">
+                        <span class="settings-match-label seg-switch-btn">On</span>
+                    </label>
+                    <label class="settings-match-option">
+                        <input class="settings-pref-radio" type="radio" name="auto_lock" value="0">
+                        <span class="settings-match-label seg-switch-btn">Off</span>
+                    </label>
+                </div>
             </div>
-            <div class="settings-match-toggle seg-switch">
-                <label class="settings-match-option">
-                    <input class="settings-pref-radio" type="radio" name="auto_lock" value="1">
-                    <span class="settings-match-label seg-switch-btn">On</span>
-                </label>
-                <label class="settings-match-option">
-                    <input class="settings-pref-radio" type="radio" name="auto_lock" value="0">
-                    <span class="settings-match-label seg-switch-btn">Off</span>
-                </label>
-            </div>
-        </div>
-        <div class="settings-row settings-autolock-timer-row">
-            <div class="settings-row-label">
-                <div class="settings-row-name">Lock After</div>
-                <div class="settings-row-desc">Minutes of inactivity before the database locks.</div>
-            </div>
-            <div class="settings-threshold-control">
-                <input class="settings-threshold-slider settings-autolock-slider" type="range"
-                       min="1" max="30" step="1" value="5" aria-label="Minutes before auto-lock">
-                <span class="settings-threshold-value settings-autolock-value">5 min</span>
+            <div class="settings-row settings-autolock-timer-row">
+                <div class="settings-row-label">
+                    <div class="settings-row-name">Lock After</div>
+                    <div class="settings-row-desc">Minutes of inactivity before the database locks.</div>
+                </div>
+                <div class="settings-threshold-control">
+                    <input class="settings-threshold-slider settings-autolock-slider" type="range"
+                           min="1" max="30" step="1" value="5" aria-label="Minutes before auto-lock">
+                    <span class="settings-threshold-value settings-autolock-value">5 min</span>
+                </div>
             </div>
         </div>
     </div>
@@ -379,9 +410,10 @@
     </div>
 
 
-    <!-- Database Encryption modal (opened from Settings → Security → Manage…).
-         State-driven by static/js/core/encryption.js against POST /api/db/encryption:
-         encrypt a plaintext DB, change the password, or remove encryption. -->
+    <!-- Password form for one encryption action, opened from its own row in
+         Settings → Security. static/js/core/encryption.js is handed the action
+         (encrypt / change / decrypt) and shows only the fields it needs, then
+         POSTs to /api/db/encryption. The action is never picked in here. -->
     <div class="settings-modal-overlay enc-modal-overlay" data-modal="encryption" hidden>
         <div class="settings-modal enc-modal">
             <div class="settings-modal-header">
@@ -390,17 +422,6 @@
             </div>
             <div class="settings-modal-body">
                 <div class="enc-status" data-enc-status>—</div>
-
-                <div class="settings-match-toggle seg-switch enc-actions" data-enc-actions hidden>
-                    <label class="settings-match-option">
-                        <input class="enc-action-radio" type="radio" name="enc_action" value="change" checked>
-                        <span class="settings-match-label seg-switch-btn">Change Password</span>
-                    </label>
-                    <label class="settings-match-option">
-                        <input class="enc-action-radio" type="radio" name="enc_action" value="decrypt">
-                        <span class="settings-match-label seg-switch-btn">Remove Encryption</span>
-                    </label>
-                </div>
 
                 <div class="enc-field" data-enc-current hidden>
                     <label class="enc-label">Current password</label>

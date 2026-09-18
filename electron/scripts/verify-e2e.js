@@ -217,24 +217,65 @@ app.whenReady().then(async () => {
     // Back to the accent ramp, same as the theme above.
     await evalJs('document.querySelector(".settings-graph-btn[data-graph-theme=\'\']").click()');
 
-    // Category management lives in the Statements Cash Flow ⋮ menu — open
-    // "Manage Categories" and prove the modal editor renders the search field,
-    // the three collapsible type groups (Income / Expense / Transfer), each
-    // group's "Add category" row, and the seeded category rows. The editor
-    // fills asynchronously after mount, so poll briefly like the tx table.
+    // Both column editors live behind ONE toolbar button now: "Manage Columns"
+    // opens the shared manager modal on the panel matching the current tab.
+    // From the Cash Flow tab that is the categories editor — prove it renders
+    // the search field, the three collapsible type groups (Income / Expense /
+    // Transfer), each group's "Add category" row and the seeded rows. The
+    // editor fills asynchronously after mount, so poll briefly like the tx table.
     await win.loadURL('app://aventurine/statements');
     await evalJs('new Promise(res => setTimeout(res, 400))');
-    await evalJs('document.getElementById("stmt-menu-btn").click()');
-    await evalJs(`[...document.querySelectorAll('.p-table-dropdown button, [role="menuitem"], .p-dropdown-item')]
-      .find(el => el.textContent.trim() === 'Manage Categories')?.click()`);
-    check('Statements ⋮ → Manage Categories renders the editor modal', await evalJs(
+    await evalJs('document.getElementById("stmt-columns-btn").click()');
+    check('Statements → Manage Columns opens the Cash Flow panel', await evalJs(
       'new Promise(res => setTimeout(() => res('
-        + '!!document.querySelector(".cat-manager-overlay .cat-manager")'
+        + '!!document.querySelector(".col-manager-overlay .cat-manager")'
+        + ' && document.querySelectorAll(".col-manager-overlay .mgr-tab").length === 2'
+        + ' && document.querySelector(".mgr-tab[data-panel=\'cashflow\']").getAttribute("aria-selected") === "true"'
+        + ' && !document.querySelector(".mgr-panel[data-panel=\'cashflow\']").hidden'
+        + ' && document.querySelector(".mgr-panel[data-panel=\'balance\']").hidden'
         + ' && document.querySelectorAll("[data-categories-editor] .cat-group").length === 3'
         + ' && document.querySelectorAll("[data-categories-editor] .cat-add-row").length === 3'
         + ' && !!document.querySelector("[data-categories-editor] .cat-search-input")'
         + ' && document.querySelectorAll("[data-categories-editor] .cat-row").length > 0'
         + '), 800))'
+    ));
+
+    // The other half of the same modal: the switch swaps to the Balance Sheet's
+    // column editor, which mounts only on first view — four type cards (Cash /
+    // Investment / Retirement / Debt) of the identical .cat-* markup, in the
+    // same frame, with the Cash Flow panel still mounted behind it.
+    await evalJs(`document.querySelector(".mgr-tab[data-panel='balance']").click()`);
+    check('the panel switch swaps to the Balance Sheet editor in the same modal', await evalJs(
+      'new Promise(res => setTimeout(() => res('
+        + 'document.querySelectorAll(".col-manager-overlay .cat-manager").length === 1'
+        + ' && !document.querySelector(".mgr-panel[data-panel=\'balance\']").hidden'
+        + ' && document.querySelector(".mgr-panel[data-panel=\'cashflow\']").hidden'
+        + ' && document.querySelectorAll(".mgr-panel[data-panel=\'balance\'] .cat-group").length === 4'
+        + ' && !!document.querySelector(".mgr-panel[data-panel=\'balance\'] .cat-search-input")'
+        + ' && document.querySelectorAll("[data-categories-editor] .cat-group").length === 3'
+        + '), 800))'
+    ));
+
+    // Year management is the other toolbar button. The probe transaction above
+    // is dated 2026, and creating it opened the 2026 statement year, so that row
+    // must come back LOCKED: a static label plus the lock glyph and the ledger
+    // count, with no rename input and no delete ×. This is the whole rule the
+    // modal exists to enforce, end to end — the /api/transactions/years read,
+    // the row split, and the markup.
+    await evalJs('document.querySelector(".col-manager-overlay .cat-manager-close").click()');
+    await evalJs('new Promise(res => setTimeout(res, 400))');
+    await evalJs('document.getElementById("stmt-years-btn").click()');
+    check('Statements → Manage Years locks the year holding transactions', await evalJs(
+      'new Promise(res => setTimeout(() => {'
+        + 'const row = document.querySelector(".year-manager-overlay .year-row[data-year=\'2026\']");'
+        + 'res(!!document.querySelector(".year-manager-overlay .cat-manager")'
+        + ' && !document.querySelector(".year-manager-overlay .mgr-tabs")'
+        + ' && !!document.querySelector(".year-manager-overlay .cat-add-row")'
+        + ' && !!row && row.classList.contains("year-row-locked")'
+        + ' && !!row.querySelector(".cat-lock")'
+        + ' && !row.querySelector("input, .cat-delete")'
+        + ' && /transaction/.test(row.querySelector(".year-count").textContent));'
+      + '}, 800))'
     ));
 
   } catch (e) {

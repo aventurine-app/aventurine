@@ -1,13 +1,14 @@
 /* ============================================================================
    statements.css — Statements page (Cash Flow + Balance Sheet behind tabs,
-   with a compact ‹ year › stepper and the ⋮ menu — home of every action —
-   on the same toolbar row as the tabs).
+   with a compact ‹ year › stepper and the page's two actions on the same
+   toolbar row as the tabs).
 
    The tables themselves are styled by tables.css; the page scroll shell is the
    standard `.page:has(.db-page)` one. The toolbar grid and segmented tab
    control live in ui.css (shared with Dashboard). This file owns the
    statement-specific overrides only.
-   Loads AFTER tables.css (see statements.html).
+   Loads AFTER tables.css and categories.css (see statements.html), so the
+   year-manager rules below override the shared .cat-* ones they sit on.
    ============================================================================ */
 
 .stmt-page {
@@ -30,7 +31,7 @@
     --stepper-label-min: 56px;
 }
 
-/* ─── Toolbar — tabs left; stepper dead-center; ⋮ menu right ────────────────
+/* ─── Toolbar — tabs left; stepper dead-center; actions right ───────────────
    Segmented tab styles are shared via ui.css. The 1fr/auto/1fr grid pins the
    stepper to the midpoint of the FULL row width (the equal side tracks absorb
    the tabs/actions width difference) — not merely the middle of the space
@@ -47,16 +48,28 @@
 .stmt-tabs { justify-self: start; }
 .stmt-year-stepper { justify-self: center; }
 
+/* Narrow window: the three groups no longer fit on one line (two labelled
+   action buttons need far more room than the ⋮ they replaced), so the stepper
+   drops to a second row and keeps its centring, with the tabs and the actions
+   holding the ends of the first. Wrapping beats the alternatives: shrinking the
+   buttons would truncate their labels, and leaving the row to overflow would
+   push the last action off the edge with nothing to scroll it back. */
+@media (max-width: 1000px) {
+    .stmt-toolbar {
+        grid-template-columns: auto auto;
+        row-gap: var(--space-8);
+    }
+
+    .stmt-tabs         { grid-area: 1 / 1; }
+    .stmt-toolbar-right { grid-area: 1 / 2; }
+    .stmt-year-stepper { grid-area: 2 / 1 / 3 / 3; }
+}
+
 .stmt-toolbar-right {
     justify-self: end;
     display: flex;
     align-items: center;
     gap: var(--space-8);
-}
-
-/* The ⋮ dropdown (.p-table-dropdown, position: absolute) anchors here. */
-.stmt-menu-wrap {
-    position: relative;
 }
 
 /* The year cards are display:flex, which overrides the UA's
@@ -70,4 +83,85 @@
     color: var(--text-tertiary);
     font-size: var(--size-small);
     font-style: italic;
+}
+
+/* ─── "Manage Years" modal ───────────────────────────────────────────────────
+   The toolbar's year manager (statements.js). Shell, rows, add-row and lock
+   glyph are the shared .cat-* set (categories.css), so the three managers in
+   this menu look alike; only what a year row needs differently is declared
+   here.
+
+   A row is [year] [ledger count] [remove ×], or, when the ledger has
+   transactions in that year, [year] [ledger count] [lock]. The trailing slots
+   are both 32px, so the two row shapes line up.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Narrower than the 560px column managers: a year row holds a four-digit
+   figure and a short count, not a long name. The overlay's own class is the
+   hook, since the frame inside it is the shared .cat-manager. */
+.year-manager-overlay .cat-manager { width: 400px; }
+
+/* No drag handle on a year row (years sort by value), so the left edge takes
+   the padding the grip would have occupied. */
+.year-row {
+    padding-left: 12px;
+}
+
+/* Years are figures: same monospaced face the statement grids use. The field
+   is sized to its four digits (border-box, so the width carries .cat-name's
+   padding and border too) rather than stretching like a name would. */
+.year-value {
+    flex: none;
+    width: 8ch;
+    font-family: var(--font-mono);
+}
+
+/* Pins the remove × to the right edge, in line with the lock glyph on the
+   locked rows above it — there the ledger count fills that gap. */
+.year-row .cat-delete {
+    margin-left: auto;
+}
+
+/* Spin buttons would crowd a 4-digit field and duplicate what typing does;
+   the same suppression .year-prompt-input carries (tables.css). */
+.year-value::-webkit-outer-spin-button,
+.year-value::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Rejected year (outside 1000-9999, or one the statement already has). The
+   field has already snapped back to the old value, so this brief flash is
+   what shows the edit did not take. */
+.year-row .year-value.invalid {
+    border-color: var(--accent-negative);
+    background: color-mix(in srgb, var(--accent-negative) 10%, transparent);
+}
+
+/* Ledger count fills the middle so the trailing button pins to the right. */
+.year-count {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: right;
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+}
+
+/* Locked row — the year's cells are computed from transactions, so there is
+   nothing here to rename or remove. The muted figure plus the lock glyph in
+   the delete slot are the two signals that the row is read-only. */
+.year-row-locked .year-value {
+    color: var(--text-tertiary);
+}
+
+/* The add row is disabled only while the ledger counts are in flight. */
+.year-manager-overlay .cat-add-row:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: transparent;
+    color: var(--text-secondary);
 }

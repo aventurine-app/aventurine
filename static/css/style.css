@@ -968,9 +968,9 @@ div.page::-webkit-scrollbar-thumb:hover {
 /* ─── 7. Shared modal primitives ───────────────────────────────────────────
  * Dialog chrome shared by the app's modals: the DB modal (dbmodal.css), the
  * Preferences modal (settings.css), the Set Budget dialog (budgets.css) and the
- * .cat-manager shell (categories.css)
- * that hosts BOTH Statements managers — Manage Categories and the Balance
- * Sheet's Manage Columns. Each component file used to redeclare the full
+ * .cat-manager shell (categories.css) that hosts every Statements manager —
+ * Manage Years, and both panels of Manage Columns (the categories editor and
+ * the Balance Sheet's). Each component file used to redeclare the full
  * frame / header / close / title; the identical declarations live here once
  * and each file keeps only its deltas (mostly just `width`). This lives in
  * style.css because it's the one stylesheet loaded on every page, so a global
@@ -1108,7 +1108,8 @@ div.page::-webkit-scrollbar-thumb:hover {
     position: relative;
     background: var(--dialog-surface);
     border: var(--border-width) solid var(--dialog-stroke);
-    border-radius: 8px;
+    /* 10px, the radius every other modal frame in the app uses. */
+    border-radius: 10px;
     padding: 24px 28px;
     max-width: 340px;
     box-shadow: var(--shadow-modal);
@@ -1127,17 +1128,20 @@ div.page::-webkit-scrollbar-thumb:hover {
 }
 
 /* Icon glyph — sized to --size-h2 so it reads at a similar weight to the
-   modal title next to it. */
+   modal title next to it. Colour, box and timing match the × of the modals that
+   have a header row (.db-modal-close and friends, above); only the positioning
+   differs, because these dialogs have no header to sit in. */
 .dialog-close-btn {
-    background: none;
+    background: transparent;
     border: none;
-    color: var(--text-secondary);
+    color: var(--text-tertiary);
     font-size: var(--size-h2);
     line-height: 1;
     cursor: pointer;
-    padding: 2px 5px;
+    width: 26px;
+    height: 26px;
     border-radius: 4px;
-    transition: color 0.15s ease, background 0.15s ease;
+    transition: background-color 120ms ease, color 120ms ease;
     position: absolute;
     top: 10px;
     right: 12px;
@@ -1145,7 +1149,7 @@ div.page::-webkit-scrollbar-thumb:hover {
 
 .dialog-close-btn:hover {
     color: var(--text-primary);
-    background: var(--frost-3);
+    background: var(--surface3);
 }
 
 .confirm-actions {
@@ -1154,46 +1158,15 @@ div.page::-webkit-scrollbar-thumb:hover {
     gap: 10px;
 }
 
-.confirm-cancel,
-.confirm-add,
-.confirm-delete {
-    font-family: var(--font-menu);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wider);
-    text-transform: uppercase;
-    padding: 8px 14px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease;
-}
-
-.confirm-cancel,
-.confirm-add {
-    background: var(--frost-2);
-    border: var(--border-width) solid var(--frost-dim);
-    color: var(--frost-text);
-}
-
-.confirm-cancel:hover,
-.confirm-add:hover {
-    background: var(--frost-dim);
-    color: var(--text-primary);
-}
-
-/* Destructive — red outline that fills on hover, matching .db-btn-danger
-   (the Delete All Transactions modal) and the Transactions delete chip. */
-.confirm-delete {
-    background: transparent;
-    border: var(--border-width) solid var(--accent-negative);
-    color: var(--accent-negative);
-}
-
-.confirm-delete:hover {
-    background: var(--accent-negative);
-    border-color: var(--accent-negative);
-    color: var(--danger-text);
-}
+/* The buttons inside .confirm-actions carry the app's dialog button classes
+   (.db-btn / .db-btn-primary / .db-btn-danger — dbmodal.css + settings.css),
+   the same ones the DB, Preferences, Set Budget and Delete All Transactions
+   footers use. They used to paint their own uppercase eyebrow shape in frost
+   tints here, which put a visibly different button in these dialogs than in
+   every other modal. .confirm-cancel / .confirm-add / .confirm-delete are now
+   only the hooks each dialog's JS wires its click handler to, so nothing is
+   declared for them: fill, hover, focus ring and the disabled affordance all
+   come from the shared button rules. */
 
 /* ⋮ menu trigger — a rounded-square button anchoring UI.openMenu's dropdown.
    The glyph is centred by the flex box, so no padding/margin. focus-visible and

@@ -1487,8 +1487,8 @@
             <p>Delete <strong>${ids.length}</strong> transaction${plural}?<br>
                This permanently removes ${ids.length === 1 ? 'it' : 'them'} and cannot be undone.</p>
             <div class="confirm-actions">
-                <button class="confirm-cancel">Cancel</button>
-                <button class="confirm-delete">Delete</button>
+                <button class="db-btn confirm-cancel">Cancel</button>
+                <button class="db-btn db-btn-danger confirm-delete">Delete</button>
             </div>
         </div>`;
         document.body.appendChild(overlay);

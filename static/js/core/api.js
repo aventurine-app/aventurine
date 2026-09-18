@@ -581,6 +581,11 @@
     // static/js/pages/transactions.js — "find similar" lookup used by the
     // bulk-recategorize action.
     '/api/transactions/similar': { transactions: [] },
+    // static/js/pages/statements.js — ledger rows per calendar year, read by
+    // the "Manage Years" modal to lock the years whose cells are computed from
+    // transactions. The one fixture year carries computed cells in /api/data
+    // above, so it reads as locked here too.
+    '/api/transactions/years': { years: { [String(year)]: 97 } },
     // static/js/pages/budgets.js — one monthly target per category. Sized so
     // the circles come out at three clearly different areas, and so 'food' is
     // over its target in the March cell of the /api/data fixture above (552 of

@@ -76,17 +76,23 @@
      * Modal dialog confirming a destructive delete of a year table. `year` is a
      * parsed integer (safe to interpolate without escaping); no user-controlled
      * text is injected here, so this stays simple.
+     *
+     * `opts.zIndex` stacks the dialog above a modal that is already open — the
+     * Statements "Manage Years" manager deletes from inside itself and stays
+     * open behind the confirmation, the same way confirmColumnDelete stacks
+     * above the column manager.
      */
-    function confirmDelete(year, onConfirm) {
+    function confirmDelete(year, onConfirm, opts = {}) {
         const overlay = document.createElement('div');
         overlay.className = 'confirm-overlay';
+        if (opts.zIndex) overlay.style.zIndex = String(opts.zIndex);
         overlay.innerHTML = `
         <div class="confirm-dialog">
             <button class="dialog-close-btn" aria-label="Close">×</button>
             <p>Remove <strong>${year}</strong> and all its data?<br>This cannot be undone.</p>
             <div class="confirm-actions">
-                <button class="confirm-cancel">Cancel</button>
-                <button class="confirm-delete">Remove</button>
+                <button class="db-btn confirm-cancel">Cancel</button>
+                <button class="db-btn db-btn-danger confirm-delete">Remove</button>
             </div>
         </div>`;
         document.body.appendChild(overlay);
@@ -117,8 +123,8 @@
             <p>${message}</p>
             <input type="number" class="year-prompt-input" min="1000" max="9999" placeholder="e.g. 2024">
             <div class="confirm-actions">
-                <button class="confirm-cancel">Cancel</button>
-                <button class="confirm-add">${escapeHtml(confirmLabel)}</button>
+                <button class="db-btn confirm-cancel">Cancel</button>
+                <button class="db-btn db-btn-primary confirm-add">${escapeHtml(confirmLabel)}</button>
             </div>
         </div>`;
         document.body.appendChild(overlay);
@@ -166,8 +172,8 @@
             <button class="dialog-close-btn" aria-label="Close">×</button>
             <p><strong>${escapeHtml(label)}</strong> has saved data.<br>Deleting it will permanently erase all values for this column. This cannot be undone.</p>
             <div class="confirm-actions">
-                <button class="confirm-cancel">Cancel</button>
-                <button class="confirm-delete">Delete Anyway</button>
+                <button class="db-btn confirm-cancel">Cancel</button>
+                <button class="db-btn db-btn-danger confirm-delete">Delete Anyway</button>
             </div>
         </div>`;
         document.body.appendChild(overlay);
@@ -177,6 +183,127 @@
             overlay.remove();
             onConfirm();
         });
+    }
+
+    /**
+     * Open the app's manager modal: the .cat-manager shell (header, info tip,
+     * close ×) wrapped around one or more editor panels.
+     *
+     * Two or more panels grow a segmented switch under the header, which swaps
+     * the visible panel without closing the modal. That is how the Statements
+     * page's Manage Columns button shows the categories editor and the Balance
+     * Sheet's column editor: they are the same editor over different data, so
+     * they are two panels of one modal rather than two modals that happen to
+     * look alike.
+     *
+     * opts:
+     *   title     string — header text
+     *   className string — extra class on the overlay, and the toggle hook: a
+     *                      second call while it is open closes it instead
+     *   panels    [{ id, label, tip, mount(panelEl, modal) }] — `label` names
+     *             the segment (unused with one panel), `tip` fills the header's
+     *             info glyph while that panel is showing, and `mount` runs the
+     *             FIRST time the panel is shown, so an unvisited panel costs
+     *             neither a fetch nor a render. `modal` is this function's own
+     *             return value, for a panel that has to close or switch itself.
+     *   active    string? — id of the panel to open on (default: the first)
+     *   onClose   fn?     — runs after the overlay is removed
+     *
+     * Returns { overlay, show, close }, or null when the call closed an
+     * already-open modal (the toggle above).
+     */
+    function openManagerModal({ title, className, panels, active, onClose }) {
+        const open = document.querySelector(`.${className}`);
+        if (open) { open.remove(); return null; }
+
+        const tabbed = panels.length > 1;
+        const panelId = (id) => `mgr-panel-${id}`;
+        const tabId   = (id) => `mgr-tab-${id}`;
+
+        const tabsHtml = !tabbed ? '' : `
+            <div class="mgr-tabs" role="tablist" aria-label="${escapeHtml(title)}">
+                ${panels.map(p => `
+                <button type="button" class="mgr-tab" role="tab"
+                        id="${escapeHtml(tabId(p.id))}" data-panel="${escapeHtml(p.id)}"
+                        aria-controls="${escapeHtml(panelId(p.id))}"
+                        aria-selected="false" tabindex="-1">${escapeHtml(p.label)}</button>`).join('')}
+            </div>`;
+
+        const panelsHtml = panels.map(p => `
+            <div class="mgr-panel" id="${escapeHtml(panelId(p.id))}" data-panel="${escapeHtml(p.id)}"
+                 ${tabbed ? `role="tabpanel" aria-labelledby="${escapeHtml(tabId(p.id))}"` : ''} hidden></div>`).join('');
+
+        const overlay = document.createElement('div');
+        // .cat-manager-overlay carries the shared visual treatment; the caller's
+        // className is only the query hook the toggle above looks for.
+        overlay.className = `confirm-overlay cat-manager-overlay ${className}`;
+        overlay.innerHTML = `
+            <div class="cat-manager">
+                <div class="cat-manager-header">
+                    <span>${escapeHtml(title)}<span class="fc-info" tabindex="0" role="note">i</span></span>
+                    <button class="cat-manager-close" aria-label="Close">×</button>
+                </div>
+                ${tabsHtml}
+                <div class="cat-manager-body">${panelsHtml}</div>
+            </div>`;
+        document.body.appendChild(overlay);
+
+        const info    = overlay.querySelector('.fc-info');
+        const mounted = new Set();
+        // Named before show() runs, so a panel's mount can be handed the same
+        // object this function returns.
+        const modal   = { overlay, show: (id) => show(id), close: () => close() };
+
+        const close = () => {
+            overlay.remove();
+            onClose?.();
+        };
+        overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+        overlay.querySelector('.cat-manager-close').addEventListener('click', close);
+
+        const show = (id) => {
+            for (const p of panels) {
+                const on    = p.id === id;
+                const panel = overlay.querySelector(`.mgr-panel[data-panel="${p.id}"]`);
+                const tab   = overlay.querySelector(`.mgr-tab[data-panel="${p.id}"]`);
+                panel.hidden = !on;
+                if (tab) {
+                    tab.classList.toggle('active', on);
+                    tab.setAttribute('aria-selected', on ? 'true' : 'false');
+                    tab.tabIndex = on ? 0 : -1;
+                }
+                if (!on) continue;
+                // setAttribute escapes, so the tip needs no pass through escapeHtml.
+                info.setAttribute('data-tip', p.tip);
+                info.setAttribute('aria-label', p.tip);
+                if (!mounted.has(p.id)) {
+                    mounted.add(p.id);
+                    p.mount(panel, modal);
+                }
+            }
+        };
+
+        // Standard ARIA tablist keys, matching the page's own tab bar.
+        overlay.querySelector('.mgr-tabs')?.addEventListener('keydown', e => {
+            const tabs = [...overlay.querySelectorAll('.mgr-tab')];
+            const i = tabs.indexOf(document.activeElement);
+            if (i < 0) return;
+            let j = -1;
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') j = (i + 1) % tabs.length;
+            else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') j = (i - 1 + tabs.length) % tabs.length;
+            else if (e.key === 'Home') j = 0;
+            else if (e.key === 'End') j = tabs.length - 1;
+            if (j < 0) return;
+            e.preventDefault();
+            show(tabs[j].dataset.panel);
+            tabs[j].focus();
+        });
+        overlay.querySelectorAll('.mgr-tab').forEach(tab => {
+            tab.addEventListener('click', () => show(tab.dataset.panel));
+        });
+
+        show(panels.some(p => p.id === active) ? active : panels[0].id);
+        return modal;
     }
 
     /**
@@ -343,9 +470,9 @@
      *   - tbody:        twelve month rows of editable currency inputs
      *   - tfoot:        optional totals row (when ctx.includeTotals is true)
      *
-     * No per-table chrome: the year caption and the ⋮ menu are on the Statements
-     * sheet (statements.js), which shows one year at a time and acts on that year
-     * across BOTH datasets. The card's visual top is the page's tab bar, styled to
+     * No per-table chrome: the year caption and the actions are on the Statements
+     * sheet's toolbar (statements.js), which shows one year at a time and acts on
+     * that year across BOTH datasets. The card's visual top is the page's tab bar, styled to
      * join the .db-wrapper below it (see statements.css).
      *
      * Uses createElement + textContent rather than innerHTML for any
@@ -377,8 +504,8 @@
             const th = document.createElement('th');
             // A typed column's header wears its type's accent as a bar hugging
             // the cell bottom (th[data-type]::after, tables.css) — the same
-            // per-type colour that marks the type cards in the Manage Columns /
-            // Manage Categories modals — so a header shows the group its
+            // per-type colour that marks the type cards in both panels of the
+            // Manage Columns modal — so a header shows the group its
             // column belongs to. Colour alone shouldn't carry the meaning: the
             // title names the group (e.g. "Cash Accounts") on hover.
             if (col.type) {
@@ -824,14 +951,24 @@
     const _ICON_SEARCH  = '<svg class="cat-search-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
     const _ICON_CHEVRON = '<svg class="cat-group-chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
+    /** The info-glyph text for a column editor, in that dataset's own noun. */
+    function columnEditorTip(ctx) {
+        const nounCap = ctx.itemNoun.charAt(0).toUpperCase() + ctx.itemNoun.slice(1);
+        return `${nounCap}s are the columns of this statement, grouped by `
+            + 'type. Drag one by its handle to reorder it — the order here sets '
+            + 'the column order — or drop it under another type to move it.'
+            + '\n\nDeleting one that still holds saved values asks for '
+            + 'confirmation first.';
+    }
+
     /**
-     * Open (or close, if already open) the "Manage Columns" modal — the Balance
-     * Sheet's column editor. It uses the SAME design as the Cash Flow tab's
-     * "Manage Categories" modal: the shell and every control reuse the .cat-*
-     * styles (categories.css + the shared modal primitives in style.css §7), so
-     * the two Statements managers render identically and the modal styles live in
-     * one place. Only the data layer differs — rows here are ctx.columns, driven
-     * through the /columns endpoints.
+     * Build the column editor inside `rootEl` — the Balance Sheet's half of the
+     * Statements manager modal. It is the SAME editor as the categories one
+     * (settingsCategories.js): identical .cat-* markup and styles, identical
+     * interactions, mounted the same way into a root the caller owns. Only the
+     * data layer differs — rows here are ctx.columns, driven through the
+     * /columns endpoints — which is why the two sit as two panels of one modal
+     * (openManagerModal) instead of being two modals.
      *
      * Layout: a search field above one collapsible card per column type
      * ("Cash Accounts" … "Debt Accounts"). The cards are an accordion — all
@@ -844,42 +981,24 @@
      * name — the card fixes the type — and focuses the rename input, so there
      * is no separate name/type form.
      *
-     * The whole modal is rebuilt from scratch (`buildManager()`) after every
+     * The whole editor is rebuilt from scratch (`buildEditor()`) after every
      * data change — adds, deletes, reorderings — so we don't have to surgically
      * update individual rows after each backend call. This costs us very little
      * (the modal is small and rare to interact with) and eliminates a lot of
-     * bookkeeping bugs. Renames skip the rebuild: nothing else in the modal
+     * bookkeeping bugs. Renames skip the rebuild: nothing else in the editor
      * shows the label, so the input the user just typed in is already correct.
      *
      * SECURITY: every user-controlled value (col.key, col.label, type labels)
      * is escapeHtml'd before being interpolated into the innerHTML template.
      */
-    function showColumnManager(ctx) {
-        const existing = document.querySelector('.col-manager-overlay');
-        if (existing) { existing.remove(); return; }
-
-        // What one column is called in the modal's copy — "column" for a generic
-        // dataset; the Balance Sheet passes "account" (opts.itemNoun) so every
-        // string here reads "account".
+    function mountColumnEditor(rootEl, ctx) {
+        // What one column is called in the editor's copy — "column" for a
+        // generic dataset; the Balance Sheet passes "account" (opts.itemNoun) so
+        // every string here reads "account".
         const noun    = ctx.itemNoun;
         const nounCap = noun.charAt(0).toUpperCase() + noun.slice(1);
 
-        const tip = `${nounCap}s are the columns of this statement, grouped by `
-            + 'type. Drag one by its handle to reorder it — the order here sets '
-            + 'the column order — or drop it under another type to move it.'
-            + '\n\nDeleting one that still holds saved values asks for '
-            + 'confirmation first.';
-
-        const overlay = document.createElement('div');
-        // .cat-manager-overlay carries the shared visual treatment;
-        // .col-manager-overlay is only the query hook for the open/close toggle
-        // above, and keeps this overlay distinct from the categories editor's,
-        // which statements.js queries the same way.
-        overlay.className = 'confirm-overlay cat-manager-overlay col-manager-overlay';
-        document.body.appendChild(overlay);
-        overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-
-        // View state for this open of the modal: the search query plus which
+        // View state for this mount: the search query plus which
         // type card is expanded (accordion — at most one true at a time). Both
         // survive the full rebuilds below.
         const openState = {};
@@ -941,7 +1060,7 @@
             root.querySelector('.cat-no-match').hidden = anyVisible;
         };
 
-        const buildManager = () => {
+        const buildEditor = () => {
             // ── One row per column: grip handle + rename input + quiet × ───────
             // Only the grip is draggable; the row stays a normal flow element so
             // the rename input and × button keep their pointer events.
@@ -992,31 +1111,21 @@
                 </section>`;
             }
 
-            overlay.innerHTML = `
-            <div class="cat-manager">
-                <div class="cat-manager-header">
-                    <span>Manage Columns<span class="fc-info" tabindex="0" role="note"
-                        aria-label="${escapeHtml(tip)}" data-tip="${escapeHtml(tip)}">i</span></span>
-                    <button class="cat-manager-close" aria-label="Close">×</button>
-                </div>
-                <div class="cat-manager-body">
-                    <div class="cat-editor">
-                        <div class="cat-search">
-                            ${_ICON_SEARCH}
-                            <input type="text" class="cat-search-input" placeholder="Search ${escapeHtml(noun)}s"
-                                   aria-label="Search ${escapeHtml(noun)}s" value="${escapeHtml(query)}">
-                        </div>
-                        <div class="cat-groups">${sectionsHtml}</div>
-                        <p class="cat-no-match" hidden>No ${escapeHtml(noun)}s match your search.</p>
+            rootEl.innerHTML = `
+                <div class="cat-editor">
+                    <div class="cat-search">
+                        ${_ICON_SEARCH}
+                        <input type="text" class="cat-search-input" placeholder="Search ${escapeHtml(noun)}s"
+                               aria-label="Search ${escapeHtml(noun)}s" value="${escapeHtml(query)}">
                     </div>
-                </div>
-            </div>`;
+                    <div class="cat-groups">${sectionsHtml}</div>
+                    <p class="cat-no-match" hidden>No ${escapeHtml(noun)}s match your search.</p>
+                </div>`;
 
-            root = overlay.querySelector('.cat-editor');
-            overlay.querySelector('.cat-manager-close').addEventListener('click', () => overlay.remove());
+            root = rootEl.querySelector('.cat-editor');
 
             // ── Search — filter on every keystroke, no round-trip ──────────────
-            const searchInput = overlay.querySelector('.cat-search-input');
+            const searchInput = rootEl.querySelector('.cat-search-input');
             searchInput.addEventListener('input', () => {
                 query = searchInput.value;
                 applyFilter();
@@ -1026,7 +1135,7 @@
             // collapses the others. A live search forces matching cards open
             // (applyFilter takes precedence), so the stored state applies again
             // only once the query is cleared. ─────────────────────────────────
-            overlay.querySelectorAll('.cat-group-head').forEach(head => {
+            rootEl.querySelectorAll('.cat-group-head').forEach(head => {
                 head.addEventListener('click', () => {
                     const type     = head.closest('.cat-group').dataset.type;
                     const willOpen = !openState[type];
@@ -1039,7 +1148,7 @@
             // ── Inline rename — commits on blur/Enter; Escape cancels. Blank or
             // unchanged values revert without an API call. No rebuild on
             // success, so focus stays where the user left it. ───────────────────
-            overlay.querySelectorAll('.cat-row .cat-name').forEach(input => {
+            rootEl.querySelectorAll('.cat-row .cat-name').forEach(input => {
                 const key = input.closest('.cat-row').dataset.key;
                 input.addEventListener('blur', async () => {
                     const newLabel = input.value.trim();
@@ -1087,7 +1196,7 @@
 
             const commitOrder = async () => {
                 const order = [];
-                overlay.querySelectorAll('.cat-list').forEach(list => {
+                rootEl.querySelectorAll('.cat-list').forEach(list => {
                     const type = list.dataset.type;   // undefined on type-less datasets
                     list.querySelectorAll('.cat-row').forEach(row => {
                         order.push(ctx.types ? { key: row.dataset.key, type } : { key: row.dataset.key });
@@ -1100,10 +1209,10 @@
                 if (same) return;
                 await ctx.api.reorderColumns(order);
                 await reloadYearTables(ctx);
-                buildManager();
+                buildEditor();
             };
 
-            overlay.querySelectorAll('.cat-grip').forEach(grip => {
+            rootEl.querySelectorAll('.cat-grip').forEach(grip => {
                 const row = grip.closest('.cat-row');
                 grip.addEventListener('dragstart', e => {
                     // A filtered list shows a partial order — reordering it would
@@ -1172,7 +1281,7 @@
 
             // ── Delete column. If the column has saved data the backend refuses,
             // and confirmColumnDelete re-confirms before forcing. ─────────────
-            overlay.querySelectorAll('.cat-delete').forEach(btn => {
+            rootEl.querySelectorAll('.cat-delete').forEach(btn => {
                 btn.addEventListener('click', async () => {
                     const key    = btn.closest('.cat-row').dataset.key;
                     const col    = ctx.columns.find(c => c.key === key);
@@ -1187,7 +1296,7 @@
                                 const forced = await ctx.api.deleteColumn(key, true);
                                 if (!forced.ok) reportSaveFailure();
                                 await reloadYearTables(ctx);
-                                buildManager();
+                                buildEditor();
                             });
                         } else {
                             reportSaveFailure();
@@ -1196,22 +1305,22 @@
                     }
                     ctx.columns = ctx.columns.filter(c => c.key !== key);
                     renderYearTables(ctx);
-                    buildManager();
+                    buildEditor();
                 });
             });
 
             // ── Add — the quiet row closing each open card. Creates the column
             // immediately with a unique placeholder name (the card fixes the
             // type), then focuses the fresh row's rename input. ────────────────
-            overlay.querySelectorAll('.cat-add-row').forEach(btn => {
+            rootEl.querySelectorAll('.cat-add-row').forEach(btn => {
                 btn.addEventListener('click', async () => {
                     const label  = uniqueDefaultLabel();
                     const body   = ctx.types ? { label, type: btn.dataset.type } : { label };
                     const result = await ctx.api.addColumn(body);
                     if (!result.ok) return;   // wrapWrite already announced the failure
                     await reloadYearTables(ctx);
-                    buildManager();
-                    const input = result.column && overlay.querySelector(
+                    buildEditor();
+                    const input = result.column && rootEl.querySelector(
                         `.cat-row[data-key="${result.column.key}"] .cat-name`);
                     if (input) { input.focus(); input.select(); }
                 });
@@ -1220,7 +1329,7 @@
             applyFilter();
         };
 
-        buildManager();
+        buildEditor();
     }
 
     // ─── Bootstrap ──────────────────────────────────────────────────────────────
@@ -1254,17 +1363,19 @@
      *                                   the handle's addYear
      *   manageColsBtnSelector string? — the "Manage Columns" button (default
      *                                   '.db-actions .button-secondary'); pass
-     *                                   null when the page opens the manager via
-     *                                   the handle's manageColumns (Statements
-     *                                   puts it in the ⋮ menu)
+     *                                   null when the page mounts the editor
+     *                                   itself via the handle's columnEditor
+     *                                   (Statements makes it one panel of the
+     *                                   modal its toolbar button opens)
      *
      * Returns a handle the page controller uses for year-level operations (the
-     * Statements ⋮ menu acts on a year across BOTH datasets):
+     * Statements toolbar acts on a year across BOTH datasets):
      *   api           — the makeYearTableApi wrapper for this dataset
      *   reload        — re-fetch /data and re-render every table
      *   hasYear       — whether this dataset currently has the given year
      *   addYear       — create a year in this dataset and render its table
-     *   manageColumns — open this dataset's column manager modal
+     *   columnEditor  — { tip, mount } for this dataset's column editor, ready
+     *                   to hand to openManagerModal as a panel
      */
     function bootstrapYearTablePage(opts) {
         const ctx = {
@@ -1315,16 +1426,26 @@
                 });
             }
 
-            // "Manage Columns" button — opens the toggleable column manager.
-            // Skipped when the page opts out (Cash Flow manages categories in
-            // Settings) or wires the entry point itself (manageColsBtnSelector:
-            // null + the handle's manageColumns). querySelector returns null when
-            // the button is not in the template, so the guard covers that case
-            // without an explicit flag.
+            // "Manage Columns" button — opens the column editor alone in the
+            // shared manager modal. Skipped when the page opts out (Cash Flow
+            // manages categories in Settings) or wires the entry point itself
+            // (manageColsBtnSelector: null + the handle's columnEditor, which is
+            // how Statements makes it one panel of a two-panel modal).
+            // querySelector returns null when the button is not in the template,
+            // so the guard covers that case without an explicit flag.
             if (opts.manageColsBtnSelector !== null) {
                 const manageBtn = document.querySelector(opts.manageColsBtnSelector || '.db-actions .button-secondary');
                 if (manageBtn && !ctx.hideColumnManager) {
-                    manageBtn.addEventListener('click', () => showColumnManager(ctx));
+                    manageBtn.addEventListener('click', () => openManagerModal({
+                        title:     'Manage Columns',
+                        className: 'col-manager-overlay',
+                        panels:    [{
+                            id:    'columns',
+                            label: 'Columns',
+                            tip:   columnEditorTip(ctx),
+                            mount: (root) => mountColumnEditor(root, ctx),
+                        }],
+                    }));
                 }
             }
         };
@@ -1338,7 +1459,10 @@
             reload:        () => reloadYearTables(ctx),
             hasYear:       (year) => ctx.years.includes(year),
             addYear,
-            manageColumns: () => showColumnManager(ctx),
+            columnEditor:  {
+                tip:   columnEditorTip(ctx),
+                mount: (root) => mountColumnEditor(root, ctx),
+            },
         };
     }
 
@@ -1347,5 +1471,6 @@
     // entries live in eslint.config.mjs.
     window.confirmDelete = confirmDelete;
     window.promptAddYear = promptAddYear;
+    window.openManagerModal = openManagerModal;
     window.bootstrapYearTablePage = bootstrapYearTablePage;
 }());

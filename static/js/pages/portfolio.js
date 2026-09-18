@@ -250,8 +250,8 @@
             <p>Rename account:</p>
             <input class="p-rename-input" type="text" value="${escapeHtml(account.name)}" />
             <div class="confirm-actions">
-                <button class="confirm-cancel">Cancel</button>
-                <button class="confirm-add">Rename</button>
+                <button class="db-btn confirm-cancel">Cancel</button>
+                <button class="db-btn db-btn-primary confirm-add">Rename</button>
             </div>
         </div>`;
         document.body.appendChild(overlay);
@@ -675,8 +675,8 @@
             <p style="margin-bottom:10px">Select an asset to remove:</p>
             <div class="remove-entry-list">${listHtml}</div>
             <div class="confirm-actions" style="margin-top:14px">
-                <button class="confirm-cancel">Cancel</button>
-                <button class="confirm-delete" disabled>Remove</button>
+                <button class="db-btn confirm-cancel">Cancel</button>
+                <button class="db-btn db-btn-danger confirm-delete" disabled>Remove</button>
             </div>
         </div>`;
 
@@ -720,8 +720,8 @@
             <button class="dialog-close-btn" aria-label="Close">×</button>
             <p>Remove account <strong>${escapeHtml(account.name)}</strong> and all its assets?<br>This cannot be undone.</p>
             <div class="confirm-actions">
-                <button class="confirm-cancel">Cancel</button>
-                <button class="confirm-delete">Remove</button>
+                <button class="db-btn confirm-cancel">Cancel</button>
+                <button class="db-btn db-btn-danger confirm-delete">Remove</button>
             </div>
         </div>`;
         document.body.appendChild(overlay);

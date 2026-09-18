@@ -499,7 +499,7 @@
         <p><strong>No new recurring schedules found</strong></p>
         <p class="rec-detect-note">A pattern needs a few charges at a steady interval before it can be spotted. Import more history, or add a schedule by hand with the + on the day it falls on.</p>
         <div class="confirm-actions">
-          <button class="confirm-cancel">Close</button>
+          <button class="db-btn confirm-cancel">Close</button>
         </div>
       </div>`;
       document.body.appendChild(overlay);
@@ -519,8 +519,8 @@
       </label>
       <div class="rec-cand-list">${candidates.map(candidateRowHtml).join('')}</div>
       <div class="confirm-actions">
-        <button class="confirm-cancel">Cancel</button>
-        <button class="confirm-add" id="rec-cand-ok">Add selected</button>
+        <button class="db-btn confirm-cancel">Cancel</button>
+        <button class="db-btn db-btn-primary confirm-add" id="rec-cand-ok">Add selected</button>
       </div>
     </div>`;
     document.body.appendChild(overlay);
@@ -583,8 +583,8 @@
       <p>Delete the <strong>${escapeHtml(label)}</strong> schedule?</p>
       <p class="rec-detect-note">Its transactions stay in your ledger, and detection can offer it again later.</p>
       <div class="confirm-actions">
-        <button class="confirm-cancel">Cancel</button>
-        <button class="confirm-delete">Delete</button>
+        <button class="db-btn confirm-cancel">Cancel</button>
+        <button class="db-btn db-btn-danger confirm-delete">Delete</button>
       </div>
     </div>`;
     document.body.appendChild(overlay);
@@ -619,8 +619,8 @@
       <p>Clear all <strong>${n}</strong> recurring schedule${n === 1 ? '' : 's'}?</p>
       <p class="rec-detect-note">The calendar goes back to blank. Your transactions stay in the ledger, and detection can offer the ones it found again.</p>
       <div class="confirm-actions">
-        <button class="confirm-cancel">Cancel</button>
-        <button class="confirm-delete">Clear all</button>
+        <button class="db-btn confirm-cancel">Cancel</button>
+        <button class="db-btn db-btn-danger confirm-delete">Clear all</button>
       </div>
     </div>`;
     document.body.appendChild(overlay);
@@ -678,8 +678,8 @@
         <input type="date" class="rec-dialog-input" id="rec-add-date" value="${escapeHtml(iso || '')}">
       </label>
       <div class="confirm-actions">
-        <button class="confirm-cancel">Cancel</button>
-        <button class="confirm-add">Add</button>
+        <button class="db-btn confirm-cancel">Cancel</button>
+        <button class="db-btn db-btn-primary confirm-add">Add</button>
       </div>
     </div>`;
     document.body.appendChild(overlay);

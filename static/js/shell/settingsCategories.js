@@ -1,10 +1,11 @@
 'use strict';
 
 // ─── settingsCategories.js ──────────────────────────────────────────────────
-// Categories editor. Lives in the "Manage Categories" modal the Statements
-// page opens from the Cash Flow ⋮ menu (statements.js), which mounts it via
-// window.mountCategoriesEditor; any static [data-categories-editor] root is
-// also wired at load.
+// Categories editor. Lives in the Cash Flow panel of the "Manage Columns"
+// modal the Statements toolbar opens (statements.js mounts it there via
+// window.mountCategoriesEditor, beside the Balance Sheet's column editor —
+// the same editor over the other dataset); any static [data-categories-editor]
+// root is also wired at load.
 //
 // Layout: a search field above a stack of collapsible group cards — one per
 // category type (Income · Expense · Savings · Investing). Each card header
@@ -18,9 +19,10 @@
 // until the query is cleared (a filtered list has no meaningful insertion order).
 //
 // Rows keep the established interactions: inline rename (borderless input),
-// an always-visible quiet delete ×, and the grip-handle drag-and-drop from the
-// Cash Flow column manager (tables.js) — drag within a group to reorder (the
-// order sets Cash Flow row order), drag into another open group to recategorize.
+// an always-visible quiet delete ×, and the grip-handle drag-and-drop the
+// year-table column editor uses too (tables.js mountColumnEditor) — drag within
+// a group to reorder (the order sets Cash Flow row order), drag into another
+// open group to recategorize.
 //
 // One source of truth for the category vocabulary used across:
 //   • Transactions ledger dropdown
@@ -529,7 +531,7 @@
     }
 
     // ── Cross-file surface ───────────────────────────────────────────────────
-    // For roots created after load — the Statements "Manage Categories" modal
+    // For roots created after load — the Statements "Manage Columns" modal
     // builds its editor root on demand. The matching readonly entry lives in
     // eslint.config.mjs.
     window.mountCategoriesEditor = (root) => {

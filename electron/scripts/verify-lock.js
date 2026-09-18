@@ -184,18 +184,16 @@ app.whenReady().then(async () => {
     // mechanisms agree at every transition rather than only at the first.
     await reload();
 
-    /** Drive the Encryption modal the way Settings → Security → Manage… does. */
+    /** Drive the Encryption modal the way a Settings → Security row does. */
     const encryptionModal = async (action, current, next) => {
-      await evalJs('window.securityActions.showEncryption()');
+      await evalJs(`window.securityActions.showEncryption(${JSON.stringify(action)})`);
       // open() renders optimistically and re-renders once GET /api/db/status
-      // lands; submitting before that would pick the wrong action.
+      // lands; submitting before that would post against a stale state.
       await waitFor(
         'document.querySelector("[data-enc-status]").textContent.length > 0',
         'encryption modal status');
       await evalJs(`(() => {
         const o = document.querySelector('[data-modal="encryption"]');
-        const radio = o.querySelector('.enc-action-radio[value=${JSON.stringify(action)}]');
-        if (radio) { radio.checked = true; radio.dispatchEvent(new Event('change')); }
         o.querySelector('[data-enc-current-input]').value = ${JSON.stringify(current)};
         o.querySelector('[data-enc-new-input]').value = ${JSON.stringify(next)};
         o.querySelector('[data-enc-confirm-input]').value = ${JSON.stringify(next)};

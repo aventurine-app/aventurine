@@ -825,35 +825,46 @@ app.whenReady().then(async () => {
       } else missing.push('statements-revert-cell');
       await unhover();
 
-      // The ⋮ dropdown overflows its anchor, so its own rect is just the
-      // button — frame the area it opens into instead.
-      await click('#stmt-menu-btn');
-      await sleep(400);
-      const menuBtn = await rectOf('#stmt-menu-btn');
-      if (menuBtn) {
+      // The page's two actions, which used to live behind a ⋮ menu here. Framed
+      // from the group's own rect plus padding, so the shot follows the buttons
+      // if their labels or count change.
+      const actions = await rectOf('.stmt-toolbar-right');
+      if (actions) {
+        const pad = 12;
         await shot('statements-menu', {
-          x: Math.max(0, Math.round(menuBtn.x - 210)),
-          y: Math.max(0, Math.round(menuBtn.y - 8)),
-          width: 260, height: 240,
+          x: Math.max(0, Math.round(actions.x - pad)),
+          y: Math.max(0, Math.round(actions.y - pad)),
+          width:  Math.round(actions.width + pad * 2),
+          height: Math.round(actions.height + pad * 2),
         });
       } else missing.push('statements-menu');
-      await esc();
-      await sleep(200);
 
-      await click('#stmt-menu-btn');
-      await sleep(300);
-      await js(`(() => {
-        const item = [...document.querySelectorAll('.menu-item, .p-menu-item, [role="menuitem"], button')]
-          .find(b => b.textContent.trim() === 'Manage Categories');
-        if (item) item.click();
-      })()`);
-      await sleep(900);
-      await js(`(() => {
-        const head = [...document.querySelectorAll('.cat-group-head')][1];
-        if (head) head.click();
-      })()`);
-      await sleep(400);
+      // One "Manage Columns" modal holds both editors as two panels, one per
+      // statement sheet, opening on the one matching the current tab. From the
+      // Cash Flow tab that is its categories; the switch then shows the Balance
+      // Sheet's accounts in the same frame.
+      // Two shots, one modal — the docs still show each editor on its own.
+      const openColumnsManager = async () => {
+        await click('#stmt-columns-btn');
+        await sleep(900);
+      };
+      const openSecondCard = async (panel) => {
+        await js(`(() => {
+          const heads = [...document.querySelectorAll('.mgr-panel[data-panel="${panel}"] .cat-group-head')];
+          const head = heads[${panel === 'cashflow' ? 1 : 0}];
+          if (head) head.click();
+        })()`);
+        await sleep(400);
+      };
+
+      await openColumnsManager();
+      await openSecondCard('cashflow');
       await shotEl('statements-manage-categories', '.cat-manager');
+
+      await js(`document.querySelector('.mgr-tab[data-panel="balance"]')?.click()`);
+      await sleep(900);
+      await openSecondCard('balance');
+      await shotEl('statements-manage-columns', '.cat-manager');
       await click('.cat-manager-close');
       await sleep(400);
 
@@ -861,22 +872,6 @@ app.whenReady().then(async () => {
       await sleep(1200);
       await unhover();
       await shotWin('statements-balance-sheet');
-      await click('#stmt-menu-btn');
-      await sleep(300);
-      await js(`(() => {
-        const item = [...document.querySelectorAll('.menu-item, .p-menu-item, [role="menuitem"], button')]
-          .find(b => b.textContent.trim() === 'Manage Columns');
-        if (item) item.click();
-      })()`);
-      await sleep(900);
-      await js(`(() => {
-        const head = document.querySelector('.cat-group-head');
-        if (head) head.click();
-      })()`);
-      await sleep(400);
-      await shotEl('statements-manage-columns', '.cat-manager');
-      await click('.cat-manager-close');
-      await sleep(400);
 
       // A block of selected cells, for the spreadsheet-editing page.
       await click('#stmt-tab-cashflow');
@@ -1248,7 +1243,9 @@ app.whenReady().then(async () => {
         await sleep(450);
         await shotEl(name, '.settings-modal-tabbed');
       }
-      await click('.settings-manage-encryption');
+      // Plaintext at this point in the run (the encrypt step is last), so the
+      // Encrypt row is the one Security shows.
+      await click('[data-enc-action="encrypt"]');
       await sleep(600);
       await shotEl('preferences-encryption', '.enc-modal');
       await click('[data-enc-cancel]');

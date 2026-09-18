@@ -104,9 +104,9 @@
 }
 
 /* == Forehead button group (right-aligned action buttons inside the title row) ==
-   Used by:
-     - Portfolio (portfolio.js): wraps [+ Add Asset] / [− Remove Asset] / [⋮].
-     - The Statements sheet head (statements.html): wraps the year ⋮ menu.
+   Used by Portfolio (portfolio.js), which wraps [+ Add Asset] /
+   [− Remove Asset] / [⋮] in it. The Statements sheet is listed no longer: its
+   actions are plain buttons on the page toolbar, not chrome inside a table.
    position: sticky pins the group to the right edge of the visible scroll
    viewport so the buttons stay accessible even when the table is wider than
    its .db-wrapper and the user has scrolled horizontally. The right offset
@@ -540,21 +540,27 @@
    dialog shell (.confirm-overlay / .confirm-dialog / .dialog-close-btn /
    .confirm-actions / .confirm-cancel / .confirm-add / .confirm-delete) all
    moved to style.css §7b — a second page (Recurring) needed the identical
-   chrome, so it's declared once globally instead of per page. */
+   chrome, so it's declared once globally instead of per page. This file kept a
+   second copy of the action-button rules after that move, and since tables.css
+   loads after style.css it was the copy, not the global set, that painted the
+   buttons on every page loading this file. It is gone now. */
 
-/* == Year prompt input == */
+/* == Year prompt input ==
+   Same fill / border / radius / focus colour as .enc-input (settings.css), the
+   app's other in-modal text field. Only the spin-button suppression, the
+   invalid state and the bottom margin are specific to this one. */
 .year-prompt-input {
     width: 100%;
     box-sizing: border-box;
     height: var(--control-height);
-    background: var(--frost-2);
-    border: var(--border-width) solid var(--frost-dim);
-    border-radius: 4px;
+    background: var(--frost-3);
+    border: var(--border-width) solid var(--border);
+    border-radius: 5px;
     outline: none;
     color: var(--text-primary);
     font-family: var(--font-mono);
     font-size: var(--size-body);
-    padding: 4px 10px;
+    padding: 4px 12px;
     margin-bottom: 16px;
     caret-color: var(--frost-caret);
     transition: border-color 0.15s ease;
@@ -563,7 +569,7 @@
 }
 
 .year-prompt-input:focus {
-    border-color: var(--frost-focus);
+    border-color: var(--accent-primary);
 }
 
 .year-prompt-input.invalid {
@@ -576,40 +582,3 @@
     margin: 0;
 }
 
-/* == Dialog action buttons == */
-.confirm-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-}
-
-.confirm-cancel,
-.confirm-add,
-.confirm-delete {
-    font-family: var(--font-menu);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wider);
-    text-transform: uppercase;
-    padding: 8px 14px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease;
-}
-
-.confirm-cancel,
-.confirm-add {
-    background: var(--frost-2);
-    border: var(--border-width) solid var(--frost-dim);
-    color: var(--frost-text);
-}
-
-.confirm-cancel:hover,
-.confirm-add:hover {
-    background: var(--frost-dim);
-    color: var(--text-primary);
-}
-
-/* Destructive (.confirm-delete) lives in style.css — this file carried a
-   byte-identical second copy of both its rules, and style.css is global, so the
-   copy could only ever restate what was already in effect. */

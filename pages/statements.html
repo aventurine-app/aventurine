@@ -5,10 +5,12 @@
     <title>Aventurine | Statements</title>
     <!-- @include head -->
     <link rel="stylesheet" href="/static/css/tables.css">
-    <link rel="stylesheet" href="/static/css/statements.css">
-    <!-- Categories editor styles — used by the "Manage Categories" modal the
-         Cash Flow ⋮ menu opens. -->
+    <!-- Categories editor styles — the shared .cat-* modal shell, rows and
+         controls behind both toolbar modals (Manage Years, and the two panels
+         of Manage Columns). Loads BEFORE statements.css, which overrides some
+         of those rules for the year rows. -->
     <link rel="stylesheet" href="/static/css/categories.css">
+    <link rel="stylesheet" href="/static/css/statements.css">
 </head>
 <body>
     <!-- @include chrome -->
@@ -20,10 +22,11 @@
 
 <div class="db-page stmt-page">
     <!-- Single toolbar row: tabs (the page's identity — there is no title) on
-         the left; year stepper dead-center on the row; the ⋮ menu on the
-         right. Every action lives in the ⋮ menu: Add New Year (always),
-         Manage Columns (Balance Sheet tab only), Edit/Delete Year (when a
-         year is selected). Controller: statements.js. -->
+         the left; year stepper dead-center on the row; the page's two actions
+         on the right. Manage Years opens the add/renumber/remove modal;
+         Manage Columns opens the categories and balance-sheet accounts
+         editors as two panels of one modal, on the panel for the current tab.
+         Controller: statements.js. -->
     <section class="stmt-sheet" id="stmt-sheet" aria-label="Statement">
         <div class="stmt-toolbar">
             <div class="stmt-tabs" role="tablist" aria-label="Statements">
@@ -39,12 +42,8 @@
                 <button type="button" class="stepper-btn button-primary" id="stmt-year-next" aria-label="Next year" disabled>&#8250;</button>
             </div>
             <div class="stmt-toolbar-right">
-                <!-- The wrapper is the positioned anchor the ⋮ dropdown
-                     attaches to (openTableMenu appends into the button's
-                     parent). -->
-                <div class="stmt-menu-wrap">
-                    <button class="p-menu-btn" id="stmt-menu-btn" title="Statement options">⋮</button>
-                </div>
+                <button type="button" class="button-secondary" id="stmt-years-btn">Manage Years</button>
+                <button type="button" class="button-secondary" id="stmt-columns-btn">Manage Columns</button>
             </div>
         </div>
 

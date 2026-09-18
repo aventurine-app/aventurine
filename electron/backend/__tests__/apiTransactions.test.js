@@ -805,6 +805,42 @@ test('import: never disturbs manual overrides in an existing year', (t) => {
   assert.equal(d.computed['2026'].February.food, 3);
 });
 
+// ── Ledger rows per year: what locks a year in "Manage Years" ───────────────
+
+const getTxYears = (c) => {
+  const r = c.get('/api/transactions/years');
+  assert.equal(r.status, 200);
+  return r.body.years;
+};
+
+test('transaction years: empty ledger reports no years', (t) => {
+  assert.deepEqual(getTxYears(makeClient(t)), {});
+});
+
+test('transaction years: counts every row of a year, whatever its direction', (t) => {
+  const c = makeClient(t);
+  const food = categoryByKey(c, 'food');
+  addTx(c, '2025-03-01', 10, { catId: food.id });
+  addTx(c, '2026-01-05', 20, { catId: food.id });
+  addTx(c, '2026-07-19', 30, { catId: food.id });
+  // An uncategorized transfer feeds no statement cell (handlers/
+  // incomeExpenses.js txKey), but it is still a row the user imported into
+  // 2026 — the Manage Years lock is about the ledger, not about the cells.
+  addTx(c, '2026-11-02', 40, { txType: 'transfer' });
+
+  assert.deepEqual(getTxYears(c), { 2025: 1, 2026: 3 });
+});
+
+test('transaction years: a year is reported whether or not the statement has it', (t) => {
+  const c = makeClient(t);
+  addTx(c, '2026-01-05', 20);
+  // Opting the year out of the statement leaves its transactions in place, so
+  // the count is unchanged and re-adding the year would show them again.
+  assert.equal(c.del('/api/year/2026').status, 200);
+  assert.deepEqual(c.get('/api/data').body.years, []);
+  assert.deepEqual(getTxYears(c), { 2026: 1 });
+});
+
 // ── account_key: every import is tagged with its source account ──────────────
 
 test('import stamps every row with the chosen account, exposed on each tx', (t) => {

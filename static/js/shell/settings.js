@@ -340,13 +340,23 @@
     });
     applyAutolockState();
 
-    // Encryption: reflect current state, gate the auto-lock rows on it, and open
-    // the manage modal (encryption.js, resolved lazily since it loads after this
-    // file).
+    // Encryption: reflect current state, gate the auto-lock rows on it, and show
+    // the action rows that state allows. A plaintext database offers Encrypt
+    // only; an encrypted one offers Change and Remove only. Every row starts
+    // hidden in the markup, so a failed status read shows none rather than one
+    // that would be rejected downstream.
+    function applyEncryptionRows() {
+        const allowed = dbEncrypted ? ['change', 'decrypt'] : ['encrypt'];
+        document.querySelectorAll('[data-enc-row]').forEach(row => {
+            row.hidden = !allowed.includes(row.dataset.encRow);
+        });
+    }
+
     dbStatus()
         .then(s => {
             dbEncrypted = !!s.encrypted;
             applyAutolockState();
+            applyEncryptionRows();
             document.querySelectorAll('[data-enc-settings-status]').forEach(el => {
                 el.textContent = s.encrypted ? 'Currently encrypted.' : 'Currently not encrypted.';
             });
@@ -358,9 +368,13 @@
             applyAutolockState();
         });
 
-    document.querySelectorAll('.settings-manage-encryption').forEach(btn => {
+    // Each row carries its own action straight through to the password form.
+    document.querySelectorAll('.settings-enc-open').forEach(btn => {
         btn.addEventListener('click', () => {
-            if (window.securityActions) window.securityActions.showEncryption();
+            // encryption.js loads after this file, so resolve it at click time.
+            if (window.securityActions) {
+                window.securityActions.showEncryption(btn.dataset.encAction);
+            }
         });
     });
 

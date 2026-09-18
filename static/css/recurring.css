@@ -873,11 +873,9 @@ html[data-theme="dark"] .rec-pop-cadence {
 }
 
 /* Nothing ticked → nothing to add, so the confirm button is disabled rather than
-   posting a request the backend would reject. */
-.rec-detect-dialog .confirm-add:disabled {
-    opacity: 0.5;
-    cursor: default;
-}
+   posting a request the backend would reject. The dimming and the cursor come
+   from the shared .db-btn:disabled rule (buttons.css), same as every other
+   disabled dialog button. */
 
 /* ─── Add-schedule dialog ─────────────────────────────────────────────────── */
 .rec-add-dialog { width: 320px; }
