@@ -75,12 +75,13 @@ html[data-theme="dark"] {
 
 /* ── App icon (far left) ─────────────────────────────────────────────── */
 .titlebar-icon {
-    height: 25px;
+    height: 22px;
     width: auto;
     object-fit: contain;
     align-self: center;
-    /* The larger left margin sits the logo comfortably in the corner. */
-    margin: 0 var(--space-8) 0 var(--space-12);
+    /* The larger left margin sits the logo comfortably in the corner. Each
+       side carries 1.5px more so the logo keeps the centre it had at 25px. */
+    margin: 0 calc(var(--space-8) + 1.5px) 0 calc(var(--space-12) + 1.5px);
     /* Part of the chrome, not a control — let drags pass through it. */
     -webkit-app-region: drag;
     pointer-events: none;

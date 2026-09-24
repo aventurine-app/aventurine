@@ -192,9 +192,7 @@
         if (mode === 'new') {
             titleEl.textContent  = 'New Database';
             submitBtn.textContent = 'Create';
-            setHint(named()
-                ? 'Name your new database. It is stored on this computer, nowhere else.'
-                : 'Choose where to store the new database file.');
+            setHint(named() ? '' : 'Choose where to store the new database file.');
             // A default name, pre-selected so typing replaces it.
             nameInput.value = 'Finances';
             renderLocation();

@@ -39,11 +39,10 @@
             .catch(() => { /* status unreachable — leave the title blank */ });
     }
 
-    // Basename of a DB path, minus a trailing SQLite extension — a clean
-    // "name" to display, not the full filesystem path.
+    // Basename of a DB path, extension included — the file name as it
+    // appears on disk, not the full filesystem path.
     function dbDisplayName(p) {
         if (!p) return '';
-        const base = p.split(/[\\/]/).pop() || p;
-        return base.replace(/\.(db|sqlite|sqlite3)$/i, '');
+        return p.split(/[\\/]/).pop() || p;
     }
 }());
