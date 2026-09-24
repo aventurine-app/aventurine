@@ -532,4 +532,33 @@
     }
 
     document.querySelectorAll('.settings-tabs').forEach(wireSettingsTabs);
+
+
+    // ── Modal close ────────────────────────────────────────────────────────────
+    // The sidebar's Settings button opens the Preferences modal (nav.js). Every
+    // settings modal closes on its × button, a backdrop click, or Escape.
+
+    document.querySelectorAll('.settings-modal-overlay').forEach(modal => {
+        const close = () => { modal.hidden = true; };
+        modal.querySelector('.settings-modal-close')?.addEventListener('click', close);
+        modal.addEventListener('click', e => { if (e.target === modal) close(); });
+    });
+
+    document.addEventListener('keydown', e => {
+        if (e.key !== 'Escape') return;
+        document.querySelectorAll('.settings-modal-overlay:not([hidden])')
+            .forEach(m => { m.hidden = true; });
+    });
+
+
+    // ── About: installed version ───────────────────────────────────────────────
+    // Read once on load from the preload bridge (main process app.getVersion()).
+    // In a plain browser the bridge is absent and the placeholder stays.
+
+    const versionEl = document.querySelector('[data-about-version]');
+    if (versionEl && window.electronApp) {
+        window.electronApp.getVersion()
+            .then(v => { if (v) versionEl.textContent = String(v); })
+            .catch(() => { /* leave the placeholder */ });
+    }
 }());

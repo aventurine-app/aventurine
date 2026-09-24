@@ -16,6 +16,10 @@ div.menu {
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--border) var(--surface1);
+    /* A column, so the File / Settings list can sit at the bottom
+       (.nav-footer). */
+    display: flex;
+    flex-direction: column;
 }
 
 div.menu::-webkit-scrollbar {
@@ -47,8 +51,10 @@ li {
 /* Color comes from --text-secondary (style.css). Each SVG icon in
    pages/partials/sidebar.html uses
    currentColor for its stroke/fill, so it inherits this same color
-   automatically — one variable controls both the label and the icon. */
-.nav li a {
+   automatically — one variable controls both the label and the icon.
+   The File / Settings buttons share the link look, so both are styled here. */
+.nav li a,
+.nav li button {
     display: flex;
     align-items: center;
     gap: var(--space-8);
@@ -67,7 +73,14 @@ li {
     cursor: pointer;
 }
 
-.nav li a svg {
+.nav li button {
+    background: none;
+    border: none;
+    text-align: left;
+}
+
+.nav li a svg,
+.nav li button svg {
     width: 1.25em;
     height: 1.25em;
     flex-shrink: 0;
@@ -75,12 +88,74 @@ li {
 
 /* Hover + active states share --text-primary so a hovered link visually
    matches the currently-open page indicator. */
-.nav li a:hover {
+.nav li a:hover,
+.nav li button:hover {
     background: var(--frost-3);
     color: var(--text-primary);
 }
 
-.nav li a.active {
+.nav li a.active,
+.nav li button[aria-expanded="true"] {
     background: var(--frost-3);
     color: var(--text-primary);
+}
+
+.nav li a:focus-visible,
+.nav li button:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: -2px;
+}
+
+/* ── File / Settings (foot of the sidebar) ──────────────────────────────── */
+.nav-footer {
+    margin-top: auto;
+    margin-bottom: 0;
+    padding-top: var(--space-16);
+}
+
+.nav-footer li:last-child {
+    margin-bottom: 0;
+}
+
+/* The File options sit above the File button. Collapsed, the grid row is 0fr
+   and the list is clipped to nothing; .open (nav.js) sets it to 1fr, so the
+   list grows to its own height. The footer is pinned to the bottom, so the
+   growth pushes upward. */
+.nav-file-options {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 200ms ease;
+}
+
+.nav-file-options.open {
+    grid-template-rows: 1fr;
+}
+
+.nav-file-options > ul {
+    min-height: 0;
+    overflow: hidden;
+    margin: 0;
+}
+
+.nav-file-options button {
+    font-size: var(--size-small);
+}
+
+/* Points up (where the options open) while collapsed, down while open. */
+.nav li button svg.nav-caret {
+    width: 0.875em;
+    height: 0.875em;
+    margin-left: auto;
+    transition: transform 200ms ease;
+}
+
+.nav li button[aria-expanded="true"] svg.nav-caret {
+    transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nav-file-options,
+    .nav li button svg.nav-caret {
+        transition: none;
+    }
 }

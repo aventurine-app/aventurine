@@ -1,12 +1,9 @@
-<!-- Shared window chrome: frameless-window title bar, File menu dropdown,
-     and the Settings modals. Spliced into pages/*.html by the app:// protocol
+<!-- Shared window chrome: frameless-window title bar and the Settings
+     modals. The File and Settings buttons live in the sidebar
+     (partials/sidebar.html). Spliced into pages/*.html by the app:// protocol
      handler (electron/main.js). Edit here once - every page gets it. -->
     <div class="titlebar">
         <img class="titlebar-icon" src="/static/icons/logo/logo.svg" alt="Aventurine" draggable="false">
-        <div class="titlebar-menu">
-            <button class="titlebar-menu-item" data-menu="file" tabindex="-1">File</button>
-            <button class="titlebar-menu-item" data-action="open-settings" tabindex="-1">Settings</button>
-        </div>
         <div class="titlebar-drag"></div>
         <!-- Name of the currently open database, centered over the bar.
              Populated by titlebar.js from /api/db/status; empty (hidden) until
@@ -29,12 +26,6 @@
                 <svg viewBox="0 0 12 12" fill="none"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
             </button>
         </div>
-    </div>
-
-    <div class="titlebar-dropdown" data-menu-panel="file" hidden>
-        <button class="titlebar-dropdown-item" data-action="new-db">New Database</button>
-        <button class="titlebar-dropdown-item" data-action="open-db">Open Database</button>
-        <button class="titlebar-dropdown-item" data-action="save-db-as">Save Database As</button>
     </div>
 
 

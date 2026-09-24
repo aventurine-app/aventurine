@@ -516,13 +516,9 @@ app.whenReady().then(async () => {
     if (phase('chrome')) {
       console.log('\n— chrome —');
       await shotEl('chrome-title-bar', '.titlebar', 0);
-      await click('.titlebar-menu-item[data-menu="file"]');
+      await click('.nav-footer [data-menu="file"]');
       await sleep(300);
-      await shot('chrome-file-menu', { x: 0, y: 0, width: 420, height: 200 });
-      await esc();
-      await click('.titlebar-menu-item[data-menu="settings"]');
-      await sleep(300);
-      await shot('chrome-settings-menu', { x: 0, y: 0, width: 420, height: 200 });
+      await shotEl('chrome-file-menu', '.nav-footer');
       await esc();
       await sleep(200);
     }

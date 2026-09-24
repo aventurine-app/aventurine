@@ -164,20 +164,28 @@ app.whenReady().then(async () => {
       check(`page ${route} assembles with chrome`, ok);
     }
 
-    // The title-bar File menu is now the only way to reach the DB modal —
-    // prove the dropdown → window.dbActions → modal chain works.
+    // The sidebar's File button is the only way to reach the DB modal — prove
+    // the File options → window.dbActions → modal chain works, and that the
+    // options are unreachable until File is opened.
     await win.loadURL('app://aventurine/');
-    await evalJs('document.querySelector("[data-menu=\'file\']").click()');
-    await evalJs('document.querySelector("[data-menu-panel=\'file\'] [data-action=\'new-db\']").click()');
+    check('File options start collapsed', await evalJs(
+      'document.getElementById("nav-file-options").inert'
+    ));
+    await evalJs('document.querySelector(".nav-footer [data-menu=\'file\']").click()');
+    check('File button opens its options', await evalJs(
+      '!document.getElementById("nav-file-options").inert'
+      + ' && document.querySelector(".nav-footer [data-menu=\'file\']").getAttribute("aria-expanded") === "true"'
+    ));
+    await evalJs('document.querySelector("#nav-file-options [data-action=\'new-db\']").click()');
     check('File menu opens New Database modal', await evalJs(
       '!document.getElementById("db-modal").hidden && document.getElementById("db-modal-title").textContent === "New Database"'
+      + ' && document.getElementById("nav-file-options").inert'
     ));
 
-    // Settings is a single button, not a dropdown: one click, one modal.
-    await evalJs('document.querySelector("[data-action=\'open-settings\']").click()');
+    // Settings is a single button, not a menu: one click, one modal.
+    await evalJs('document.querySelector(".nav-footer [data-action=\'open-settings\']").click()');
     check('Settings button opens the settings modal', await evalJs(
       '!document.querySelector("[data-modal=\'preferences\']").hidden'
-      + ' && !document.querySelector("[data-menu-panel=\'settings\']")'
     ));
 
     // About's version row is filled from the preload bridge on load. It read a

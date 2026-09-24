@@ -5,7 +5,7 @@
    style.css.
 
    Visual: a 40px frosted bar matching the existing glass treatment, with the
-   File/Settings menu and the open database name. The three window controls are
+   open database name. (File and Settings live in the sidebar, nav.css.) The three window controls are
    platform-adaptive (keyed off <html data-platform>, set in theme-init.js):
    square Windows/Linux controls on the right, or macOS traffic lights on the
    left. The middle (the drag region) is what -webkit-app-region drags by. */
@@ -13,21 +13,15 @@
 /* ── Bar-local frost tokens ───────────────────────────────────────────────
    The global --frost-* tints darken in the light theme (black-tinted) — but
    the title bar sits on --surface3, a DARKER rung than the page, so its
-   hover/menu surfaces read better stepping UP toward white in both themes.
-   These two tokens are that white-tinted ladder: `frost` is the hover /
-   dropdown-panel fill, `frost-strong` the one rung past it for a hovered item
-   inside an already-tinted panel. Declared on :root because the dropdown
-   panels are SIBLINGS of .titlebar, not children (see chrome.html). */
+   hover surfaces read better stepping UP toward white in both themes. */
 :root {
     --titlebar-frost:        rgba(255,255,255, 0.60);
-    --titlebar-frost-strong: rgba(255,255,255, 0.95);
 }
 
 /* Dark theme: --surface3 is already near-black, so the same white tints only
    need to be whispers to register. */
 html[data-theme="dark"] {
     --titlebar-frost:        rgba(255,255,255, 0.10);
-    --titlebar-frost-strong: rgba(255,255,255, 0.18);
 }
 
 .titlebar {
@@ -55,8 +49,8 @@ html[data-theme="dark"] {
 }
 
 /* ── Active database name (center) ────────────────────────────────────────
-   Absolutely centered on the bar — not flowed between the menu and control
-   clusters — so it reads as the window's title regardless of those clusters'
+   Absolutely centered on the bar — not flowed between the logo and the window
+   controls — so it reads as the window's title regardless of their
    (asymmetric) widths. It overlaps the drag region and is itself a drag
    handle, so the whole center still moves the window. A max-width plus
    ellipsis keeps a long file name from running into either cluster. */
@@ -85,97 +79,11 @@ html[data-theme="dark"] {
     width: auto;
     object-fit: contain;
     align-self: center;
-    /* width:auto means the rendered box is tight to the logo, so as a flex
-       item the menu automatically begins wherever the logo ends — whatever
-       its width. The right margin is the gap between the two; the larger
-       left margin sits the logo comfortably in the corner. */
+    /* The larger left margin sits the logo comfortably in the corner. */
     margin: 0 var(--space-8) 0 var(--space-12);
     /* Part of the chrome, not a control — let drags pass through it. */
     -webkit-app-region: drag;
     pointer-events: none;
-}
-
-/* ── Menu items (File / Settings) ─────────────────────────────────────── */
-.titlebar-menu {
-    /* No leading margin: the app icon's right margin supplies the gap to
-       the File menu (see .titlebar-icon). */
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    -webkit-app-region: no-drag;
-}
-
-.titlebar-menu-item {
-    background: transparent;
-    border: none;
-    padding: var(--space-4) var(--space-8);
-    border-radius: 5px;
-    color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-body);
-    letter-spacing: var(--track-wide);
-    cursor: pointer;
-    transition: color 120ms ease, background-color 120ms ease;
-}
-
-.titlebar-menu-item:hover,
-.titlebar-menu-item[aria-expanded="true"] {
-    background: var(--titlebar-frost);
-    color: var(--text-primary);
-}
-
-.titlebar-menu-item:focus { outline: none; }
-.titlebar-menu-item:focus-visible {
-    box-shadow: inset 0 0 0 1px var(--stroke-medium);
-    border-radius: 2px;
-}
-
-/* ── File dropdown ───────────────────────────────────────────────────── */
-.titlebar-dropdown {
-    /* Positioned absolutely so it floats over page content; left AND top
-       coordinates are set in titlebar.js from the menu button's own rect, so
-       the panel hangs off the bottom edge of the BUTTON (not the full bar) —
-       it reads as an extension of the pressed button rather than a strip
-       dropped from the chrome. */
-    position: fixed;
-    z-index: 1200;
-    /* The button's hover/expanded fill (--titlebar-frost) is translucent; over
-       page content it would show through, so composite it over the bar's own
-       surface as a flat gradient layer. One declaration, correct in every
-       theme — both tokens flip with the theme. */
-    background: linear-gradient(var(--titlebar-frost), var(--titlebar-frost)), var(--surface3);
-    border: var(--border-width) solid var(--border);
-    border-radius: 6px;
-    box-shadow: var(--shadow-menu);
-    padding: 4px 0;
-    display: flex;
-    flex-direction: column;
-}
-
-.titlebar-dropdown[hidden] { display: none; }
-
-.titlebar-dropdown-item {
-    background: transparent;
-    border: none;
-    padding: var(--space-8) var(--space-16);
-    color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    text-align: left;
-    cursor: pointer;
-    text-decoration: none;
-    display: block;
-    /* The panel carries no width floor, so it shrinks to fit its items — nowrap
-       keeps "Open Database…" on one line while it does. */
-    white-space: nowrap;
-    transition: background-color 120ms ease, color 120ms ease;
-}
-
-.titlebar-dropdown-item:hover {
-    /* The panel already sits at the --titlebar-frost tint, so an item hover
-       has to step past it to register. */
-    background: var(--titlebar-frost-strong);
-    color: var(--text-primary);
 }
 
 /* ── Window controls — platform-adaptive ──────────────────────────────────
@@ -216,8 +124,7 @@ html[data-theme="dark"] {
 }
 
 .titlebar-btn:hover {
-    /* Same white-tinted ladder as the menu items, so the whole bar's hover
-       treatment is one thing. (Close keeps its red, below.) */
+    /* The bar's white-tinted hover. (Close keeps its red, below.) */
     background: var(--titlebar-frost);
     color: var(--text-primary);
 }
@@ -247,7 +154,7 @@ html[data-theme="dark"] {
    Re-skin the same three buttons as macOS stoplights — coloured circles in
    the top-LEFT corner (close, minimize, zoom), their symbols revealed only
    when the cluster is hovered, exactly like the system control. order:-1
-   floats the cluster ahead of the menu without touching the markup. */
+   floats the cluster ahead of the logo without touching the markup. */
 [data-platform="mac"] .titlebar-controls {
     order: -1;
     align-items: center;

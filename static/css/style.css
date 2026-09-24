@@ -759,8 +759,8 @@
        reading as a floating panel. Theme-independent, like the two below. */
     --shadow-card: 0 2px 6px rgba(0, 0, 0, 0.14);
 
-    /* Elevation drop shadow shared by every dropdown menu / popover (titlebar
-       File menu, ⋮ table menus, range pickers, Transactions filter popovers).
+    /* Elevation drop shadow shared by every dropdown menu / popover (⋮ table
+       menus, range pickers, Transactions filter popovers).
        Floats above the page, so it reads heavier than --shadow-card but
        lighter than a modal. Theme-independent, like --shadow-card. */
     --shadow-menu: 0 8px 24px rgba(0, 0, 0, 0.5);
