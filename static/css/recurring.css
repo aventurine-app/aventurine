@@ -284,22 +284,19 @@
        the thing a month of chips is actually read for ("what is going out this
        week"), so it is what the colour carries now, and a glance at the month
        separates money in from money out before a single label is read.
-       A TINT of that hue rather than the hue itself, over the cell's own
-       surface: at full strength, twenty red tiles read as twenty errors, and
-       the labels would be stuck with white-on-mid-tone. The tint keeps the
-       chip an object you can point at (it is still a filled tile on a ruled
-       grid, not chrome) while leaving the name at --text-primary contrast. The
-       hue is held in a custom property so the fill and the amount both derive
-       from the one direction token below.
+       The fill is the stone at full strength, matching the Gemstone graph
+       palette, with white labels on top. The hue is held in a custom property
+       so the fill and the hover both derive from the one direction token
+       below.
        Still no border, and the box stays content-box on purpose: width:100%
        plus the side padding is what makes a chip span its cell edge to edge,
        and a border (even with box-sizing corrected) takes ~12px out of the one
        field that has none to spare — the merchant name, which is already
        ellipsing in a narrow cell. The tint carries the tile on its own. */
-    --rec-chip-hue: var(--accent-negative);
+    --rec-chip-hue: var(--rec-chip-expense);
     border: 0;
     border-radius: 6px;
-    background: color-mix(in srgb, var(--rec-chip-hue) 16%, var(--surface1));
+    background: var(--rec-chip-hue);
     text-align: left;
     cursor: pointer;
     font-family: var(--font-menu);
@@ -307,12 +304,27 @@
     transition: background 0.12s ease;
 }
 
-/* The one direction switch: everything else on the chip reads --rec-chip-hue.
-   Transfer takes the ledger's own transfer blue (--accent-info, see
-   transactions.css .tx-amount-transfer) — it is neither a gain nor a spend. */
-.rec-occ-income   { --rec-chip-hue: var(--accent-positive); }
-.rec-occ-expense  { --rec-chip-hue: var(--accent-negative); }
-.rec-occ-transfer { --rec-chip-hue: var(--accent-info); }
+/* The one direction switch: everything else on the chip reads --rec-chip-hue. */
+.rec-occ-income   { --rec-chip-hue: var(--rec-chip-income); }
+.rec-occ-expense  { --rec-chip-hue: var(--rec-chip-expense); }
+.rec-occ-transfer { --rec-chip-hue: var(--rec-chip-transfer); }
+
+/* The chip fills are the Gemstone graph palette's stones at full strength
+   (themes.css): emerald for income, garnet for expense, lapis for transfer.
+   Copied as hex rather than read from --chart-*, because those tokens only hold
+   the stones while the Gemstone graph palette is selected, and the chips use
+   them under every palette. Light and dark are the two sets themes.css picks
+   for each surface; keep them in step if the stones are ever re-picked. */
+:root {
+    --rec-chip-income:   #099e71;   /* emerald */
+    --rec-chip-expense:  #b00d14;   /* garnet */
+    --rec-chip-transfer: #1a49ae;   /* lapis */
+}
+html[data-theme="dark"] {
+    --rec-chip-income:   #00a475;
+    --rec-chip-expense:  #be342f;
+    --rec-chip-transfer: #3365cc;
+}
 
 /* The avatar keeps the merchant's deterministic colour and initials (the same
    circle the ledger and the card draw — avatar.js / ui.css), scaled to chip size
@@ -329,13 +341,10 @@
 }
 
 /* A merchant name is drawn the same way wherever it appears, so this is the
-   LEDGER's treatment: --text-secondary at --weight-regular in --font-menu,
-   which is what a description cell inherits from .tx-row td + .tx-col-description
-   (transactions.css). Only the size differs, because a day cell is not a table
-   row. It used to be bold --button-text, from when the tile was a filled accent
-   and the label had to fight a mid-tone fill; the tint the chip carries now is
-   a shade of the page's own surface, so the page's own text tokens land on it
-   the same way they land in the ledger.
+   LEDGER's treatment: --weight-regular in --font-menu, which is what a
+   description cell inherits from .tx-row td + .tx-col-description
+   (transactions.css). Only the size and colour differ: a day cell is not a
+   table row, and the label sits on a solid stone fill, so it is white.
    The amount below keeps its own weight — it is the one label on the chip that
    is not a merchant name, and the ledger gives its amount column a face of its
    own too. Neither label fades: they used to (name 100% / amount 82%, projected
@@ -348,7 +357,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     font-weight: var(--weight-regular);
-    color: var(--text-secondary);
+    color: #fff;   /* on a solid stone fill in both themes */
 }
 /* A projected charge is NOT stepped back on the grid any more: dimming its name
    was the same washed-grey problem as above, and it cost the chip the one thing
@@ -356,14 +365,8 @@
    card carries the distinction instead. The class stays on the element as the
    hook it always was. */
 
-/* The amount takes the direction hue, the way every other amount in the app
-   does (the card's .rec-amount-*, the ledger's, the picker's) — but DEEPENED,
-   mixed 65% toward --text-primary. The raw tokens are mid-tones picked to sit
-   on the page's plain surfaces; on a tint of themselves they drop to ~3:1 in
-   the light theme. --text-primary is the high-contrast direction in EITHER
-   theme (near-black on light, near-white on dark — the same trick the --chart-*
-   ramp uses), so one mix darkens the number on light and lightens it on dark,
-   clears 4.5:1 in both, and keeps the hue that makes it agree with the tile. */
+/* The amount is white like the name: the tile's solid fill already carries
+   the direction, so a coloured number on it would add nothing. */
 .rec-occ-amount {
     flex: 0 1 auto;
     min-width: 0;
@@ -373,13 +376,13 @@
     font-size: var(--size-micro);
     font-weight: var(--weight-bold);
     font-variant-numeric: tabular-nums;
-    color: color-mix(in srgb, var(--rec-chip-hue) 65%, var(--text-primary));
+    color: #fff;
 }
 
 /* Hover deepens the chip's existing hue rather than switching to another colour:
    the same treatment highlights the whole schedule (below), and a shared neutral
    or accent hover would remove the direction colour from every chip it touched.
-   The step is large enough (16% → 32% of the hue) to be visible on a tile this
+   The step (20% toward black) is large enough to be visible on a tile this
    small, where a few percent would not be.
    .rec-occ-active uses the SAME step, and must: recurring.js sets it on every
    chip of a schedule when its card opens, which is when the pointer lands on one
@@ -392,7 +395,7 @@
 .rec-occ:focus-visible,
 .rec-occ-active,
 .rec-occ-active:hover {
-    background: color-mix(in srgb, var(--rec-chip-hue) 32%, var(--surface1));
+    background: color-mix(in srgb, var(--rec-chip-hue) 80%, #000);
 }
 
 /* The keyboard ring is the accent, not the hue — it is the app's focus

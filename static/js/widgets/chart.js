@@ -216,9 +216,6 @@
         const y = yScale(sl.value);
         const isEnd = di === drawn.length - 1;
         const dotDelay = Math.min(delay + 300 + di * 18, delay + 900);
-        if (isEnd && linePts.length > 1) {
-          svg += `<circle class="chart-pulse" cx="${x}" cy="${y}" r="4"${dim} style="stroke:${s.color}; animation-delay:${delay + 1100}ms"/>`;
-        }
         svg += `<circle class="chart-dot${isEnd ? ' chart-dot-end' : ''}" cx="${x}" cy="${y}" r="${isEnd ? 4.5 : 3}" fill="${s.color}"${dim} style="animation-delay:${dotDelay}ms">
                 <title>${escapeHtml(s.label)} — ${MONTHS[sl.monthIdx]} ${sl.year}: ${fmtTooltip(sl.value)}</title>
             </circle>`;

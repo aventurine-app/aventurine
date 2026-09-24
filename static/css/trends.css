@@ -479,20 +479,13 @@
 .dashboard-chart .chart-area-fill, .dashboard-chart .chart-dot { opacity: 0; animation: chart-fade 0.5s ease forwards; }
 .dashboard-chart .chart-dot { transition: r 0.15s ease; }
 .dashboard-chart .chart-dot:hover { r: 6; }
-.dashboard-chart .chart-pulse { fill: none; stroke-width: 2; opacity: 0; animation: chart-pulse 3s ease-out infinite; }
 
 @keyframes chart-draw { to { stroke-dashoffset: 0; } }
 @keyframes chart-fade { to { opacity: 1; } }
-@keyframes chart-pulse {
-    0%   { r: 4;  opacity: 0.5; }
-    60%  { r: 13; opacity: 0; }
-    100% { r: 13; opacity: 0; }
-}
 /* The .chart-no-anim opt-out is stated in forecast.css, loaded on this page too. */
 
 @media (prefers-reduced-motion: reduce) {
     .dashboard-chart .chart-band-wipe { animation: none; transform: none; }
     .dashboard-chart .chart-line { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; }
     .dashboard-chart .chart-area-fill, .dashboard-chart .chart-dot { animation: none; opacity: 1; }
-    .dashboard-chart .chart-pulse { display: none; }
 }
