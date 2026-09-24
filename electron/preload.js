@@ -23,6 +23,19 @@ contextBridge.exposeInMainWorld('electronWindow', {
     // theme-init.js. `process` is the limited global Electron injects into
     // sandboxed preloads, which still carries `platform`.
     platform:       process.platform,
+
+    // ── Session history (static/js/shell/history.js) ──────────────────────
+    // The renderer moves itself with history.back()/forward(); it only needs to
+    // be told which directions exist, because a document cannot read its own
+    // position in session history. Read-only, and read once per load — every
+    // move replaces the document.
+    navState:       () => ipcRenderer.invoke('nav-state'),
+    // The mouse's side buttons arrive in the main process as window
+    // 'app-command's, which Electron reports without acting on. `fn` receives
+    // 'back' or 'forward'; the renderer decides what to do with it, so the lock
+    // gate stays in one place. Registered once per document, which the page
+    // load then discards along with the rest of the world.
+    onNavCommand:   (fn) => ipcRenderer.on('nav-command', (_e, direction) => fn(direction)),
 });
 
 // Native save/open dialogs for the New / Open Database modal. Each returns a

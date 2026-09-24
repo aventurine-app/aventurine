@@ -17,6 +17,9 @@
          widget: the Dashboard's cards and the Cash Flow Sankey read it from
          two different pages, so it cannot live in either. -->
     <script src="/static/js/core/chartramp.js"></script>
+    <!-- viewstate.js also loads before dbactions.js, which clears it when the
+         open database changes. No dependencies of its own. -->
+    <script src="/static/js/core/viewstate.js"></script>
     <!-- store.js loads BEFORE dbactions.js: dbactions reads GET /api/db/status
          at load and hands the answer to Store.setPersistence / Store.clearAll,
          so window.Store has to exist by then. It depends only on api.js. -->
@@ -29,3 +32,8 @@
     <script src="/static/js/shell/titlebar.js"></script>
     <script src="/static/js/shell/zoom.js"></script>
     <script src="/static/js/shell/nav.js"></script>
+    <!-- Back/forward through the session history. Sits with nav.js because it
+         is the other half of moving between pages; depends on neither it nor
+         anything else above, only on the title-bar markup already being in the
+         document (this block is at the foot of every page). -->
+    <script src="/static/js/shell/history.js"></script>

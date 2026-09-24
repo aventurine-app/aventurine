@@ -28,7 +28,11 @@
 //   txState.filters      — Transactions Search controls, raw input values; a
 //                          blank value (or, for the Type/Category/Account
 //                          multi-selects, an empty array) means that filter
-//                          is off
+//                          is off. Mirrored on every change into the query
+//                          string (which Back, Forward and a refresh restore)
+//                          and into the window's view state (which a fresh
+//                          arrival from the sidebar restores) — see "Filters in
+//                          the URL" below.
 
 (function () {
     // Rows per page. The ledger is loaded and filtered entirely client-side, so
@@ -682,6 +686,7 @@
         if (!Number.isFinite(p)) return;
         txState.page = p;
         txRender();
+        txSyncUrl();
         const tbody = document.getElementById('tx-tbody');
         if (tbody) tbody.scrollTop = 0;
     }
@@ -925,6 +930,7 @@
         txState.page = 1;
         txSyncChips();
         txRender();
+        txSyncUrl();
     }
 
     // Drop any picked category that no longer exists (after an import or a
@@ -959,6 +965,7 @@
         txState.page = 1;
         txSyncChips();
         txRender();
+        txSyncUrl();
     }
 
     // ─── Filter popovers ─────────────────────────────────────────────────────────
@@ -1180,62 +1187,209 @@
         txSyncChips();
     }
 
-    // ─── Deep-link filters ───────────────────────────────────────────────────────
-    // Other pages link into the ledger pre-filtered:
-    //   • Cash Flow  → /transactions?year=<year>&cat=<categoryKey>
-    //   • Recurring  → /transactions?name=<merchant search term>
-    // On arrival with those params, pre-fill the filters — that year's Jan–Dec
-    // range, the matching category, the name search — so the chips light up to
-    // reveal the active search. Every param maps onto an ordinary chip the user can
-    // edit or clear, so a deep link is a starting point, not a mode. Must run after
-    // the category vocabulary and chips are in place (i.e. after txChipsInit).
+    // ─── Filters in the URL ──────────────────────────────────────────────────────
+    //
+    // The active filters are recorded in two places, because the two ways back to
+    // this page are not the same thing. The query string belongs to one history
+    // entry, so it is what Back, Forward and a refresh restore. The copy in the
+    // window's view state (core/viewstate.js) belongs to no entry, so it is what a
+    // fresh arrival restores — clicking Transactions in the sidebar navigates to a
+    // bare /transactions, a brand-new entry that carries no query string of its own.
+    // Both hold the same string, so there is one format and one reader.
+    //
+    // Two sources write, one reader applies:
+    //
+    //   • Other pages link in pre-filtered. Cash Flow sends
+    //     ?year=<year>&month=<month>&cat=<categoryKey>, Recurring sends
+    //     ?name=<merchant search term>. Both are input-only shorthands, and both
+    //     are explicit requests, so they beat anything remembered.
+    //   • This page writes the whole filter set to both places (txSyncUrl) on
+    //     every change.
+    //
+    // Nothing is written to disk and there is no snapshot to keep in step with the
+    // ledger: values travel as stable keys and are re-checked against the live
+    // vocabulary on the way back in, so a category deleted meanwhile simply fails
+    // to resolve. Opening a different database drops the remembered copy outright
+    // (succeed() in shell/dbactions.js), since its categories are not these.
+    //
+    // This is why the query string is no longer stripped after it is applied. It
+    // used to be, so that a refresh would not silently re-prefill; now the URL is
+    // what a refresh and a Back are both meant to restore.
+    //
+    // replaceState, never pushState. The Name and Amount fields write on every
+    // keystroke, and pushing would bury the previous page under a hundred entries
+    // and leave Back useless. Narrowing a filter changes what you are looking at,
+    // not where you are.
+
+    // Every param the reader below recognises. Anything else in the query string
+    // is ignored rather than treated as a filter.
+    const TX_URL_PARAMS = ['year', 'month', 'from', 'to', 'name', 'type', 'cat', 'acct', 'min', 'max', 'page'];
+
+    /** A comma-separated param as a list of non-blank values. */
+    function txCsvParam(raw) {
+        return (raw || '').split(',').map(s => s.trim()).filter(Boolean);
+    }
+
+    /** A YYYY-MM-DD param, or '' — the Date popover's inputs produce nothing else. */
+    function txIsoDateParam(raw) {
+        return /^\d{4}-\d{2}-\d{2}$/.test(raw || '') ? raw : '';
+    }
+
+    /** One category filter value ('none', or a row id) as the key the URL carries.
+     *  Keys rather than ids so a link survives a category being renamed, and an
+     *  id that no longer names a category drops out instead of travelling. */
+    function txCategoryParam(value) {
+        if (value === 'none') return 'none';
+        const cat = txCategoryById(parseInt(value, 10));
+        return cat ? cat.key : '';
+    }
+
+    /** The active filters as a query string, or '' when none are set. */
+    function txFiltersToQuery() {
+        const f = txState.filters;
+        const params = new URLSearchParams();
+        const put = (key, value) => { if (value) params.set(key, value); };
+
+        put('from', f.dateFrom);
+        put('to',   f.dateTo);
+        put('name', f.name.trim());
+        put('min',  String(f.amountMin).trim());
+        put('max',  String(f.amountMax).trim());
+        put('type', f.type.join(','));
+        put('cat',  f.category.map(txCategoryParam).filter(Boolean).join(','));
+        put('acct', f.account.join(','));
+        // Page 1 is the default, so it stays out of the URL and a plain ledger
+        // keeps a plain address.
+        if (txState.page > 1) put('page', String(txState.page));
+        return params.toString();
+    }
+
+    // The slot the filters are remembered in between visits (core/viewstate.js).
+    const TX_VIEW_KEY = 'transactions.filters';
+
+    /** Record the current filters in both places that can bring them back, without
+     *  adding a history entry. Called from the places that change what is on
+     *  screen; cheap next to the txRender it accompanies, so it is not batched.
+     *
+     *  The two are not redundant. The URL belongs to one history entry, so it is
+     *  what Back, Forward and a refresh restore — including an older entry whose
+     *  filters differ from the current ones. The remembered copy is per window and
+     *  has no entry, so it is what a fresh arrival restores: clicking Transactions
+     *  in the sidebar navigates to a bare /transactions, a new entry with no query
+     *  string of its own, and without the memory it would open unfiltered. */
+    function txSyncUrl() {
+        const q = txFiltersToQuery();
+        try {
+            history.replaceState(null, '', q ? `${location.pathname}?${q}` : location.pathname);
+        } catch { /* non-fatal — the filters still apply to the page in front of us */ }
+        // Stored as the query string, so both routes back in parse one format.
+        // An empty string is meaningful: it records that the user cleared the
+        // filters, which is why clearing them does not resurrect the old set.
+        window.ViewState?.set(TX_VIEW_KEY, q);
+    }
+
+    // Restore the filters this page should open under. Must run after the category
+    // vocabulary, the accounts and the chips are in place (i.e. after txChipsInit),
+    // because every value is checked against the live vocabulary before it is kept.
+    //
+    // The query string wins when it has anything to say: it is either a deep link,
+    // which is an explicit request for a particular view, or an entry the user
+    // reached with Back. Only when it is silent does the remembered set apply,
+    // which is the ordinary "I came back to the ledger from the sidebar" case.
+    //
+    // Runs inside the same task as the txRender above it in txInit, so the brief
+    // unfiltered table it replaces is never painted.
     function txApplyUrlFilters() {
         let params;
         try { params = new URLSearchParams(location.search); }
         catch { return; }
-        const yearRaw = params.get('year');
-        const monthRaw = params.get('month');
-        const catKey  = params.get('cat');
-        const nameRaw = params.get('name');
-        if (yearRaw == null && catKey == null && nameRaw == null) return;
 
-        // The Recurring calendar's merchant link. Substring-matched against both
-        // the description and the display name (txRowMatchesFilters), which is why
+        if (!TX_URL_PARAMS.some(k => params.has(k))) {
+            const remembered = window.ViewState?.get(TX_VIEW_KEY);
+            // Nothing remembered, or remembered as "no filters" — either way the
+            // ledger opens unfiltered, which txInit has already drawn.
+            if (!remembered) return;
+            try { params = new URLSearchParams(remembered); }
+            catch { return; }
+            if (!TX_URL_PARAMS.some(k => params.has(k))) return;
+        }
+
+        const f = txState.filters;
+
+        // Free-text fields hold whatever their input would have held; all three are
+        // matched as plain substrings or parsed leniently (txRowMatchesFilters), so
+        // there is nothing to validate that the fields themselves do not.
+        //
+        // `name` is also the Recurring calendar's merchant link. It is substring
+        // matched against both the description and the display name, which is why
         // the term it sends comes from the raw descriptions of the schedule's
         // transactions — see searchTermByKey in handlers/recurring.js.
-        if (nameRaw && nameRaw.trim()) txState.filters.name = nameRaw.trim();
+        const name = (params.get('name') || '').trim();
+        const min  = (params.get('min')  || '').trim();
+        const max  = (params.get('max')  || '').trim();
+        if (name) f.name = name;
+        if (min)  f.amountMin = min;
+        if (max)  f.amountMax = max;
 
-        const year = parseInt(yearRaw, 10);
-        if (Number.isInteger(year) && year > 0) {
-            // `month` (1-12) narrows the same link to one month — the Cash Flow
-            // Sankey sends it when a single month is on screen, so the band
-            // clicked and the rows listed cover the same span. Day 0 of the next
-            // month is the last day of this one, which covers February.
-            const month = parseInt(monthRaw, 10);
-            const scoped = Number.isInteger(month) && month >= 1 && month <= 12;
-            const pad = (n) => String(n).padStart(2, '0');
-            txState.filters.dateFrom = scoped ? `${year}-${pad(month)}-01` : `${year}-01-01`;
-            txState.filters.dateTo   = scoped
-                ? `${year}-${pad(month)}-${pad(new Date(year, month, 0).getDate())}`
-                : `${year}-12-31`;
+        // Dates. `from`/`to` are the pair this page writes; `year`, optionally
+        // narrowed by `month`, is Cash Flow's shorthand and expands to the same
+        // pair. The shorthand only applies when the explicit pair is absent.
+        const from = txIsoDateParam(params.get('from'));
+        const to   = txIsoDateParam(params.get('to'));
+        if (from) f.dateFrom = from;
+        if (to)   f.dateTo   = to;
+        if (!from && !to) {
+            const year = parseInt(params.get('year'), 10);
+            if (Number.isInteger(year) && year > 0) {
+                // The Sankey sends `month` when a single month is on screen, so the
+                // band clicked and the rows listed cover the same span. Day 0 of the
+                // next month is the last day of this one, which covers February.
+                const month  = parseInt(params.get('month'), 10);
+                const scoped = Number.isInteger(month) && month >= 1 && month <= 12;
+                const pad = (n) => String(n).padStart(2, '0');
+                f.dateFrom = scoped ? `${year}-${pad(month)}-01` : `${year}-01-01`;
+                f.dateTo   = scoped
+                    ? `${year}-${pad(month)}-${pad(new Date(year, month, 0).getDate())}`
+                    : `${year}-12-31`;
+            }
         }
-        if (catKey) {
-            // Match on the stable category key the link carries; map it to the id the
-            // filter state holds. An unknown key just leaves the category filter off.
+
+        // Multi-selects. Each value is checked against the live vocabulary, so one
+        // naming something deleted since the URL was written drops out and the rest
+        // still apply — the same rule txReconcileCategoryFilter enforces on reload.
+        // hasOwn rather than `in`: `in` walks the prototype chain, so a value like
+        // "constructor" would otherwise pass the check.
+        const types = txCsvParam(params.get('type'))
+            .filter(t => Object.hasOwn(TX_TYPE_LABELS, t));
+        if (types.length) f.type = types;
+
+        const cats = txCsvParam(params.get('cat')).map(key => {
+            if (key === 'none') return 'none';
             // The locked uncat_* system buckets are NULL-category sums, not real
-            // assignments — filtering by their id matches nothing, so the Cash
-            // Flow "Uncategorized" band maps to the 'none' filter instead.
-            const cat = txState.categories.find(c => c.key === catKey);
-            if (cat) txState.filters.category = [cat.locked ? 'none' : String(cat.id)];
-        }
+            // assignments — filtering by their id matches nothing, so the Cash Flow
+            // "Uncategorized" band maps onto the 'none' filter instead.
+            const cat = txState.categories.find(c => c.key === key);
+            return cat ? (cat.locked ? 'none' : String(cat.id)) : '';
+        }).filter(Boolean);
+        // Two locked keys both fold to 'none', so de-duplicate before storing.
+        if (cats.length) f.category = [...new Set(cats)];
 
-        txState.page = 1;
+        const accts = txCsvParam(params.get('acct'))
+            .filter(a => a === 'none' || Object.hasOwn(txState.accountsByKey, a));
+        if (accts.length) f.account = accts;
+
+        // txRender clamps to the visible-row count, so a page past the end of a
+        // list that has shrunk since lands on the last one rather than on nothing.
+        const page = parseInt(params.get('page'), 10);
+        txState.page = Number.isInteger(page) && page > 0 ? page : 1;
+
         txSyncChips();
         txRender();
 
-        // Consume the deep-link: keep the applied filters but strip the query string
-        // so a manual refresh or bookmark doesn't silently re-prefill.
-        try { history.replaceState(null, '', location.pathname); } catch { /* non-fatal */ }
+        // Rewrite the address from state rather than leaving it as it arrived, so a
+        // shorthand link becomes the full form. The entry then reads exactly like
+        // one this page wrote, and coming back to it restores the same view.
+        txSyncUrl();
     }
 
     // ─── Render orchestration ────────────────────────────────────────────────────
@@ -2152,6 +2306,10 @@
         txReconcileAccountFilter();
         txSyncChips();
         txRender();
+        // The reconcile steps can drop a filter value and the page has gone back
+        // to 1, so the address has to follow rather than keep describing the view
+        // that was on screen before the import.
+        txSyncUrl();
     });
 
     // ─── Categorize-similar feature ──────────────────────────────────────────────

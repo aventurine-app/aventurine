@@ -87,6 +87,73 @@ html[data-theme="dark"] {
     pointer-events: none;
 }
 
+/* ── History navigation (just right of the logo) ──────────────────────────
+   Back / forward through the app:// session history. Shaped like a sidebar
+   control rather than a caption button — 8px radius, the bar's own frost on
+   hover — because they act on the page, not on the window. On macOS the
+   traffic lights carry order:-1, so this pair still lands after them. */
+.titlebar-nav {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    /* The logo already carries 8px on its right; only the far side needs
+       spacing before the drag region takes over. */
+    padding-right: var(--space-8);
+    -webkit-app-region: no-drag;
+}
+
+.titlebar-nav-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    /* 8px — the radius every other nav surface uses (nav.css). */
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.titlebar-nav-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.titlebar-nav-btn:hover:not(:disabled) {
+    background: var(--titlebar-frost);
+    color: var(--text-primary);
+}
+
+/* The press has to register before the next page paints, so it is a shape
+   change rather than another tint. */
+.titlebar-nav-btn:active:not(:disabled) {
+    color: var(--text-primary);
+    transform: scale(0.92);
+}
+
+/* These are real controls in the tab order (unlike the window buttons, which
+   carry tabindex="-1"), so they take the app's own focus ring from nav.css. */
+.titlebar-nav-btn:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: -2px;
+}
+
+/* Nothing in that direction. Dimmed and inert rather than hidden, so the pair
+   keeps its width and the logo does not shift as the trail grows. */
+.titlebar-nav-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .titlebar-nav-btn { transition: none; }
+    .titlebar-nav-btn:active:not(:disabled) { transform: none; }
+}
+
 /* ── Window controls — platform-adaptive ──────────────────────────────────
    One set of three buttons, dressed to match the host OS. The DEFAULT here is
    the Windows/Linux look (square controls flush to the top-right corner); the

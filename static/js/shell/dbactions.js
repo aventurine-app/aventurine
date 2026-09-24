@@ -372,6 +372,10 @@
         // The sessionStorage dataset cache (store.js) belongs to the
         // previous database — drop it before anything re-renders.
         try { sessionStorage.clear(); } catch { /* disabled — ignore */ }
+        // So does the remembered view state (core/viewstate.js): the incoming
+        // database has its own categories and accounts, and its own ledger to
+        // search, so the filters the last one was left under mean nothing here.
+        window.ViewState?.clear();
         window.location.reload();
     }
 

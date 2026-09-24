@@ -183,6 +183,15 @@ ipcMain.on('window-max', () => {
 });
 ipcMain.on('window-close', () => BrowserWindow.getFocusedWindow()?.close());
 
+// Which directions the sender's session history holds. The renderer drives the
+// move itself (history.back() in static/js/shell/history.js) — this answers only
+// the question it cannot answer for itself, so its back/forward buttons can show
+// a truthful disabled state.
+ipcMain.handle('nav-state', (e) => {
+    const nav = e.sender.navigationHistory;
+    return { canGoBack: nav.canGoBack(), canGoForward: nav.canGoForward() };
+});
+
 ipcMain.on('zoom-set', (_e, level) => {
     const w = BrowserWindow.getFocusedWindow();
     if (!w) return;
@@ -379,6 +388,16 @@ async function createWindow() {
         if (!isReload) return;
         e.preventDefault();
         win.webContents.reload();
+    });
+
+    // The mouse's side buttons (Windows and Linux; macOS mice have none).
+    // Electron reports them here and performs no navigation of its own, so hand
+    // the direction to the renderer rather than calling goBack() from this side:
+    // shell/history.js holds the gate that stops a locked database being
+    // navigated away from, and every input path has to pass it.
+    win.on('app-command', (_e, cmd) => {
+        if (cmd === 'browser-backward')     win.webContents.send('nav-command', 'back');
+        else if (cmd === 'browser-forward') win.webContents.send('nav-command', 'forward');
     });
 
     mainWindow = win;

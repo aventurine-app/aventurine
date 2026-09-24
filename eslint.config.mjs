@@ -43,6 +43,8 @@ const appGlobals = {
   dbStatus: 'readonly',
   // core/store.js
   Store: 'readonly',
+  // core/viewstate.js
+  ViewState: 'readonly',
   // core/currency.js
   CURRENCY_SYMBOL: 'readonly',
   formatCurrency: 'readonly',
