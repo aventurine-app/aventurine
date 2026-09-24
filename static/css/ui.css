@@ -577,14 +577,24 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
 }
 
 /* The arrows wear .button-primary (buttons.css) for fill/hover/press/disabled;
- * this override only squares the box and sizes the ‹ › glyph, undoing the
- * eyebrow padding/typography. Compound selector so it outranks .button-primary,
- * which loads later. */
+ * this override only squares the box, undoing the eyebrow padding. Compound
+ * selector so it outranks .button-primary, which loads later.
+ * The glyphs are Phosphor caret-left/caret-right (static/icons/Phosphor),
+ * inlined in the markup like every other icon here — they used to be the ‹ ›
+ * text entities, which meant the arrows were typography and drifted from the
+ * caret the label below draws. */
 .stepper-btn.button-primary {
     width: var(--control-height);
     padding: 0;
-    font-size: var(--size-body);
-    line-height: 1;
+}
+
+/* 14px matches the other small glyphs (.tx-desc-chevron) and keeps the caret
+ * from crowding the 32px button. currentColor inherits .button-primary's
+ * --button-text, so the fill tracks hover/disabled with no extra rule. */
+.stepper-btn-icon {
+    width: 14px;
+    height: 14px;
+    flex: none;
 }
 
 /* The toolbar control box, shared by the stepper label, the range selector
@@ -619,17 +629,29 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
     user-select: none;
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
-    /* The caret, drawn as background-image so the button text stays clean. One
-       conic-gradient triangle: the older two-linear-gradient recipe drew it as
-       two abutting halves whose positions rounded to device pixels
-       independently, so they visibly split at fractional zoom — one layer
-       scales as a unit. Every background rule on this control must stay
-       long-hand; the `background` shorthand would drop this layer. */
-    background-image: conic-gradient(from -45deg at 50% 100%,
-                      currentColor 90deg, transparent 0);
-    background-position: calc(100% - 10px) 50%;
-    background-size: 8px 4px;
-    background-repeat: no-repeat;
+    /* Anchor for .picker-caret, which is absolutely positioned inside. */
+    position: relative;
+}
+
+/* The caret. A real <svg class="picker-caret"> child (UI.PICKER_CARET) rather
+   than a background-image, so it is the same Phosphor caret-down the group
+   chevrons and the sidebar use instead of a triangle drawn in CSS.
+   ABSOLUTE, deliberately: in flow it would join the text in the centred box and
+   push the caption off-centre, and it would add itself to the width
+   UI.lockPickerWidth measures. Out of flow it changes no layout at all — the
+   text-align:center and the right padding above still do exactly what their
+   comments say, and the glyph lands where the background-image did.
+   A .range-group-btn is a plain choice, not a menu opener, so it simply carries
+   no caret child; it needs no rule to switch one off. */
+.picker-caret {
+    position: absolute;
+    right: var(--space-8);
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    margin-top: -6px;
+    pointer-events: none;
+    transition: transform 0.15s ease;
 }
 
 .stepper-label:hover, .range-selector-btn:hover, .range-group-btn:hover {
@@ -653,11 +675,14 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
    covers both markup shapes — a label wrapped in .stepper-picker (Dashboard)
    and a bare label whose parent is the .stepper itself (Statements,
    Recurring). */
-.stepper-label:has(~ .p-table-dropdown),
-.range-selector:has(.p-table-dropdown) .range-selector-btn,
-.range-selector:has(.range-selector-menu:not([hidden])) .range-selector-btn {
-    background-image: conic-gradient(from 135deg at 50% 0%,
-                      currentColor 90deg, transparent 0);
+.stepper-label:has(~ .p-table-dropdown) .picker-caret,
+.range-selector:has(.p-table-dropdown) .range-selector-btn .picker-caret,
+.range-selector:has(.range-selector-menu:not([hidden])) .range-selector-btn .picker-caret {
+    transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .picker-caret { transition: none; }
 }
 
 .stepper-label:focus-visible, .range-selector-btn:focus-visible, .range-group-btn:focus-visible {
@@ -737,7 +762,6 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
     --stepper-label-min: 0;
     padding: 0 var(--space-16);
     border-radius: 0;
-    background-image: none;
 }
 
 .range-group-btn + .range-group-btn { margin-left: calc(var(--border-width) * -1); }

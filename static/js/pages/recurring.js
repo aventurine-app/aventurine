@@ -732,7 +732,7 @@
   function renderToolbar() {
     const [y, m] = month.split('-').map(Number);
     const label = document.getElementById('rec-month-label');
-    if (label) label.textContent = `${MONTHS[m - 1]} ${y}`;
+    if (label) UI.setPickerLabel(label, `${MONTHS[m - 1]} ${y}`);
     // Nothing to go back to while we're already there — disabled rather than
     // hidden, so the arrows and the ⋮ never move under the pointer.
     const today = document.getElementById('rec-month-today');

@@ -1002,11 +1002,11 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 /* Direction comes from the category, so the en-masse control row's Type select
    locks once a category is picked. Muted rather than faded out: the value it
    shows is still correct, it is just not editable there.
-   background-COLOR, not the shorthand: .tx-select draws its caret as a
-   background-image, and resetting that leaves the locked field the only control
-   in the row without an arrow. Text stays at --text-secondary because
-   --text-tertiary is the placeholder colour — at tertiary, a locked "Expense"
-   read as an empty field beside the "Keep" next to it. */
+   Text stays at --text-secondary because --text-tertiary is the placeholder
+   colour — at tertiary, a locked "Expense" read as an empty field beside the
+   "Keep" next to it. The caret is a sibling element now, not a background
+   layer, so this no longer has to avoid the `background` shorthand to keep the
+   locked field's arrow; .tx-select-wrap mutes it to match this text. */
 .tx-input:disabled,
 .tx-select:disabled {
     background-color: var(--surface1);
@@ -1037,21 +1037,38 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     background: var(--calendar-icon) center / contain no-repeat;
 }
 
-/* Native <select> caret styling — drawn via background-image so the menu
-   text stays clean. Same approach as the dashboard-page range selector
-   (.range-selector-btn in ui.css): a single conic-gradient triangle, one
-   layer, so it can't split into halves at fractional zoom the way the old
-   two-linear-gradient recipe did. */
+/* Native <select> caret. appearance:none drops the platform arrow; the glyph
+   that replaces it is the same Phosphor caret-down (.picker-caret, ui.css) the
+   report pickers and the group chevrons use, so every caret in the app is one
+   drawing.
+   A <select> cannot hold a child element, so the caret is a sibling inside
+   .tx-select-wrap rather than a background-image on the control. That costs one
+   span + one svg per select; it buys the real glyph instead of a CSS triangle
+   approximating it. */
 .tx-select {
     appearance: none;
     -webkit-appearance: none;
     padding-right: 28px;
-    background-image: conic-gradient(from -45deg at 50% 100%,
-                      currentColor 90deg, transparent 0);
-    background-position: calc(100% - 10px) 50%;
-    background-size: 8px 4px;
-    background-repeat: no-repeat;
 }
+
+/* Positioning context for .picker-caret, which is absolute. display:block and
+   the full width keep the cell layout exactly as it was when the <select> was
+   the td's only child. */
+.tx-select-wrap {
+    position: relative;
+    display: block;
+    width: 100%;
+    color: var(--text-primary);
+}
+
+/* The caret is painted over the control, so it would otherwise eat the click
+   that opens the menu. .picker-caret already sets pointer-events:none; this
+   states the stacking explicitly rather than relying on source order. */
+.tx-select-wrap .picker-caret { z-index: 1; }
+
+/* Track the disabled control's muted text, the way currentColor did when the
+   caret was the select's own background layer. */
+.tx-select-wrap:has(.tx-select:disabled) { color: var(--text-secondary); }
 
 
 /* ─── 5. Selection column + inline add-row actions ───────────────────────── */

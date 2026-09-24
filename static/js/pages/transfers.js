@@ -113,7 +113,7 @@
 
   function render() {
     const btn = document.getElementById('transfers-range-btn');
-    if (btn) btn.textContent = WINDOW_LABELS[state.window];
+    if (btn) UI.setPickerLabel(btn, WINDOW_LABELS[state.window]);
     renderTotal();
     renderTrend();
     renderAccounts();

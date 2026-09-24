@@ -61,17 +61,17 @@
         container.setAttribute('aria-label', label);
         container.innerHTML = `
             <button type="button" class="stepper-btn button-primary" data-step="-1"
-                aria-label="Previous month">&#8249;</button>
+                aria-label="Previous month"><svg class="stepper-btn-icon" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"></path></svg></button>
             <span class="stepper-picker">
                 <button type="button" class="stepper-label" data-pick="year" aria-live="polite"
-                    aria-haspopup="menu" title="Choose year">&nbsp;</button>
+                    aria-haspopup="menu" title="Choose year">&nbsp;<svg class="picker-caret" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"></path></svg></button>
             </span>
             <span class="stepper-picker">
                 <button type="button" class="stepper-label" data-pick="month" aria-live="polite"
-                    aria-haspopup="menu" title="Choose month">&nbsp;</button>
+                    aria-haspopup="menu" title="Choose month">&nbsp;<svg class="picker-caret" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"></path></svg></button>
             </span>
             <button type="button" class="stepper-btn button-primary" data-step="1"
-                aria-label="Next month">&#8250;</button>`;
+                aria-label="Next month"><svg class="stepper-btn-icon" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"></path></svg></button>`;
 
         const prevBtn = container.querySelector('[data-step="-1"]');
         const nextBtn = container.querySelector('[data-step="1"]');
@@ -86,8 +86,8 @@
         UI.lockPickerWidth(yearBtn, [String(new Date().getFullYear())]);
 
         function paint() {
-            monthBtn.textContent = MONTHS[month.monthIdx];
-            yearBtn.textContent = String(month.year);
+            UI.setPickerLabel(monthBtn, MONTHS[month.monthIdx]);
+            UI.setPickerLabel(yearBtn, String(month.year));
             nextBtn.disabled = isFuture(month);
         }
 

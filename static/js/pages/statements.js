@@ -138,7 +138,7 @@ const balanceTable = bootstrapYearTablePage({
         const year = years[current];
         prevBtn.disabled  = (current <= 0);
         nextBtn.disabled  = (current < 0 || current >= years.length - 1);
-        yearLabel.textContent = (year === undefined) ? '—' : String(year);
+        UI.setPickerLabel(yearLabel, (year === undefined) ? '—' : String(year));
         TABS.forEach(t => {
             let has = false;
             t.container.querySelectorAll('.db-outer[data-year]').forEach(el => {

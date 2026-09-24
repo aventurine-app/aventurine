@@ -122,7 +122,7 @@
   // picker in the header states the span they cover.
   function render() {
     const btn = document.getElementById('merchants-range-btn');
-    if (btn) btn.textContent = WINDOW_LABELS[state.window];
+    if (btn) UI.setPickerLabel(btn, WINDOW_LABELS[state.window]);
     renderFilter();
     renderChart();
   }

@@ -1560,8 +1560,8 @@
         const monthEl = document.getElementById('dashboard-month-label');
         const yearEl  = document.getElementById('dashboard-year-label');
         const nextBtn = document.getElementById('dashboard-month-next');
-        if (monthEl) monthEl.textContent = MONTHS[dashboardMonth.monthIdx];
-        if (yearEl)  yearEl.textContent  = String(dashboardMonth.year);
+        if (monthEl) UI.setPickerLabel(monthEl, MONTHS[dashboardMonth.monthIdx]);
+        if (yearEl)  UI.setPickerLabel(yearEl,  String(dashboardMonth.year));
         if (nextBtn) nextBtn.disabled = isCurrentDashboardMonth();
 
         let data = ieData;

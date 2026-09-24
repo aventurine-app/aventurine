@@ -608,7 +608,7 @@
 
     const monthBtn = document.getElementById('cashflow-month-btn');
     if (!years.length) {
-      btn.textContent = 'No data';
+      UI.setPickerLabel(btn, 'No data');
       btn.disabled = true;
       menu.innerHTML = '';
       if (monthBtn) monthBtn.disabled = true;
@@ -616,7 +616,7 @@
     }
     btn.disabled = false;
     if (monthBtn) monthBtn.disabled = false;
-    btn.textContent = String(state.year);
+    UI.setPickerLabel(btn, String(state.year));
     menu.innerHTML = years
       .map((y) => `<button type="button" data-year="${y}">${y}</button>`)
       .join('');
@@ -641,7 +641,7 @@
       const y = parseInt(b.dataset.year, 10);
       if (y === state.year) return;
       state.year = y;
-      document.getElementById('cashflow-year-btn').textContent = String(y);
+      UI.setPickerLabel(document.getElementById('cashflow-year-btn'), String(y));
       render();
     });
 
@@ -649,7 +649,7 @@
       const m = b.dataset.month || null;
       if (m === state.month) return;
       state.month = m;
-      document.getElementById('cashflow-month-btn').textContent = m || ENTIRE_YEAR;
+      UI.setPickerLabel(document.getElementById('cashflow-month-btn'), m || ENTIRE_YEAR);
       render();
     });
   }

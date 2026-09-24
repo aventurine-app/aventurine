@@ -154,7 +154,7 @@
     if (!btn || !state.data) return;
     const accounts = state.data.accounts || [];
     const current = accounts.find((a) => a.key === state.data.start_account);
-    btn.textContent = current ? current.label : 'No accounts';
+    UI.setPickerLabel(btn, current ? current.label : 'No accounts');
     btn.disabled = !accounts.length;
     // Pin the button to the widest account name it can ever show, so switching
     // accounts doesn't shove the horizon picker sideways (same treatment as the
@@ -876,7 +876,7 @@
   function setHorizon(m) {
     state.months = m;
     const btn = document.getElementById('forecast-range-btn');
-    if (btn) btn.textContent = `${m} Month${m === 1 ? '' : 's'}`;
+    if (btn) UI.setPickerLabel(btn, `${m} Month${m === 1 ? '' : 's'}`);
   }
 
   function wireRangePicker() {

@@ -410,8 +410,8 @@
     const monthBtn = document.getElementById('metrics-month-btn');
     const heading = document.getElementById('metrics-year-heading');
     const none = state.year == null;
-    if (btn) btn.textContent = none ? 'No data' : String(state.year);
-    if (monthBtn) monthBtn.textContent = state.month || ENTIRE_YEAR;
+    if (btn) UI.setPickerLabel(btn, none ? 'No data' : String(state.year));
+    if (monthBtn) UI.setPickerLabel(monthBtn, state.month || ENTIRE_YEAR);
     if (heading) {
       heading.textContent = none ? ''
         : state.month ? `${state.month} ${state.year}` : String(state.year);

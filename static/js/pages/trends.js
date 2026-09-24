@@ -142,7 +142,7 @@
   }
 
   function render() {
-    document.getElementById('trends-range-btn').textContent = WINDOW_LABELS[state.window];
+    UI.setPickerLabel(document.getElementById('trends-range-btn'), WINDOW_LABELS[state.window]);
     renderViewSwitch();
     renderRail();
     renderChart();

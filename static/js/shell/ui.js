@@ -53,6 +53,11 @@
 //       month steppers, whose caption length otherwise changes with the month.
 //       The menu it opens is sized separately, by its own content.
 //
+//   UI.PICKER_CARET  /  UI.setPickerLabel(btn, text)
+//       The caret markup a picker button carries, and the one supported way to
+//       relabel such a button. The caret is a real child element, so writing
+//       btn.textContent directly would delete it — go through setPickerLabel.
+//
 //   UI.CARD_ICONS
 //       The 20px glyph set the hover cards use (pencil / check / cross / trash
 //       / plus). Separate from UI.ICONS, which is the 24px empty-state set.
@@ -182,6 +187,32 @@
                 if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close, true); }
             };
             setTimeout(() => document.addEventListener('click', close, true), 0);
+        }
+
+        // ── Picker caret ───────────────────────────────────────────────────────
+        // Phosphor caret-down (static/icons/Phosphor/caret-down.svg), inlined
+        // like every other icon here. It used to be a conic-gradient triangle
+        // painted as the button's background-image; a real element means the
+        // stepper arrows, the sidebar caret and this one are all the same glyph
+        // instead of three separate drawings of the idea of a caret.
+        //
+        // ui.css positions it absolutely, so it costs the button no layout: the
+        // width lockPickerWidth measures is still text + padding, and the
+        // text-align:center the label has always used is untouched.
+        const PICKER_CARET = '<svg class="picker-caret" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"></path></svg>';
+
+        // Relabel a picker button without losing its caret.
+        //
+        // The caret is a child element now, so a bare `btn.textContent = x`
+        // deletes it — and every picker relabels itself on each render. This is
+        // the one write path: it replaces the text and puts the caret back.
+        // Buttons that carry no caret (.range-group-btn) fall through to a
+        // plain textContent write, so callers need not care which they hold.
+        function setPickerLabel(btn, text) {
+            if (!btn) return;
+            const caret = btn.querySelector('.picker-caret');
+            btn.textContent = text;
+            if (caret) btn.appendChild(caret);
         }
 
         // ── Static picker width ────────────────────────────────────────────────
@@ -368,7 +399,7 @@
 
         return {
             emptyState, ICONS, skChart, skRows, skeletonGuard, openMenu, wirePicker,
-            lockPickerWidth, toast,
+            lockPickerWidth, PICKER_CARET, setPickerLabel, toast,
             CARD_ICONS, floatingCard, positionFloatingCard, cardActions, markActive,
         };
     })();

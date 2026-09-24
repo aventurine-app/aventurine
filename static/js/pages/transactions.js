@@ -260,7 +260,7 @@
             <button type="button" class="tx-desc-toggle" data-tx-desc="${t.id}"
                     aria-expanded="${revealed}" title="${revealed ? 'Hide' : 'Show'} original description">
                 <span class="tx-desc-name" title="${txEsc(t.display_name)}">${txEsc(t.display_name)}</span>
-                <svg class="tx-desc-chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M7 8.5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <svg class="tx-desc-chevron" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"></path></svg>
             </button>${revealed ? `
             <div class="tx-desc-original">${txEsc(t.description)}</div>` : ''}`;
         }
@@ -350,10 +350,10 @@
                    value="${txEsc(t.description || '')}" placeholder="Description">
         </td>
         <td class="tx-col-account">
-            <select class="tx-select tx-input-account" data-field="account_key">${txAccountOptions(t.account_key)}</select>
+            <span class="tx-select-wrap"><select class="tx-select tx-input-account" data-field="account_key">${txAccountOptions(t.account_key)}</select><svg class="picker-caret" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"></path></svg></span>
         </td>
         <td class="tx-col-category">
-            <select class="tx-select tx-input-category" data-field="category_id">${txCategoryOptions(t.category_id)}</select>
+            <span class="tx-select-wrap"><select class="tx-select tx-input-category" data-field="category_id">${txCategoryOptions(t.category_id)}</select><svg class="picker-caret" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"></path></svg></span>
         </td>
         <td class="tx-col-amount">
             <input type="text" inputmode="decimal" class="tx-input tx-input-amount" data-field="amount"
@@ -420,12 +420,12 @@
                    placeholder="${TX_KEEP_LABEL}" aria-label="Set the description on every selected transaction">
         </td>
         <td class="tx-col-account">
-            <select class="tx-select tx-input-account" data-field="account_key"
-                    aria-label="Set the account on every selected transaction">${keep}${txAccountOptions(undefined)}</select>
+            <span class="tx-select-wrap"><select class="tx-select tx-input-account" data-field="account_key"
+                    aria-label="Set the account on every selected transaction">${keep}${txAccountOptions(undefined)}</select><svg class="picker-caret" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"></path></svg></span>
         </td>
         <td class="tx-col-category">
-            <select class="tx-select tx-input-category" data-field="category_id"
-                    aria-label="Set the category on every selected transaction">${keep}${txCategoryOptions(undefined)}</select>
+            <span class="tx-select-wrap"><select class="tx-select tx-input-category" data-field="category_id"
+                    aria-label="Set the category on every selected transaction">${keep}${txCategoryOptions(undefined)}</select><svg class="picker-caret" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"></path></svg></span>
         </td>
         <td class="tx-col-amount">
             <input type="text" inputmode="decimal" class="tx-input tx-input-amount" data-field="amount"
