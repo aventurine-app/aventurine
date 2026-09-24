@@ -21,6 +21,11 @@
 // All charts are built as inline SVG by hand — no chart library. The
 // ResizeObserver-based observeChart() helper redraws on container resize, and
 // performs the first (animated) paint once a container has a width.
+//
+// The three Year to Year line charts also carry an active hover: the pointer
+// reads whole month columns rather than individual dots, and a floating card
+// names the month and prints what each plotted series was worth in it
+// (buildHoverLayer + wireChartHover).
 
 (function () {
     const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -485,6 +490,10 @@
             svg += `<text class="chart-label" x="${xScale(i)}" y="${H - PB + 18}" text-anchor="middle">${label}</text>`;
         });
 
+        // Which slots ended up with at least one plotted value. Only those get a
+        // hover column below: a month no series reached has no reading to give.
+        const slotHasData = new Array(N).fill(false);
+
         // Lines, area fills, and dots per series. Each series gets a smoothed
         // curve, a soft gradient under it, and a pulsing halo on its latest
         // point; entrance animations are staggered per series.
@@ -531,14 +540,61 @@
                 // Dots cascade in behind the line draw; the cap keeps dense
                 // charts (60 slots) from dragging the entrance out.
                 const dotDelay = Math.min(delay + 300 + di * 18, delay + 900);
-                svg += `<circle class="chart-dot${isEnd ? ' chart-dot-end' : ''}" cx="${x}" cy="${y}" r="${isEnd ? 4.5 : 3}" fill="${s.color}" style="animation-delay:${dotDelay}ms">
+                slotHasData[sl.i] = true;
+                // data-slot ties the dot to its hover column; data-name and
+                // data-amount are what the floating reading prints, so the
+                // hover needs no second copy of the series to read from.
+                svg += `<circle class="chart-dot${isEnd ? ' chart-dot-end' : ''}" cx="${x}" cy="${y}" r="${isEnd ? 4.5 : 3}" fill="${s.color}"
+                data-slot="${sl.i}" data-name="${escapeHtml(s.label)}" data-amount="${escapeHtml(fmtTooltip(sl.value))}"
+                style="animation-delay:${dotDelay}ms">
                 <title>${escapeHtml(s.label)} — ${MONTHS[sl.monthIdx]} ${sl.year}: ${fmtTooltip(sl.value)}</title>
             </circle>`;
             });
         });
 
+        // Last, so it sits over every series and takes the pointer itself.
+        svg += buildHoverLayer({ slots, slotHasData, xScale, PL, PT, CW, CH });
+
         svg += '</svg>';
         return svg;
+    }
+
+    /**
+     * The hover layer for a line chart: one transparent hit rect per month that
+     * has a value, plus the single guide rule the pointer moves between them.
+     *
+     * The columns are what make the hover usable. A 3px dot is a target nobody
+     * can hit on a 60-month range, so the pointer reads the whole column
+     * instead: each rect spans half a slot either side of its month, edge to
+     * edge, so every pixel of the plot belongs to exactly one month and moving
+     * across the chart steps the reading from month to month without gaps.
+     *
+     * One guide line is emitted, not one per column: only ever one is on, and
+     * dashboard.js moves it. The reading itself is an HTML tooltip outside the
+     * SVG (wireChartHover) — .chart-area clips on purpose, so an in-chart one
+     * would be cut off at the card edge.
+     *
+     * SECURITY: every value interpolated here is a number or a month name from
+     * MONTHS. Series labels live on the dots, escaped where they are written.
+     */
+    function buildHoverLayer({ slots, slotHasData, xScale, PL, PT, CW, CH }) {
+        const N   = slots.length;
+        const px  = n => Math.round(n * 10) / 10;
+        // Half a slot each side. A single-slot chart has no neighbour to split
+        // the difference with, so its one column is the whole plot.
+        const half = N > 1 ? CW / (N - 1) / 2 : CW;
+
+        let out = `<line class="chart-guide" x1="0" y1="${PT}" x2="0" y2="${PT + CH}"/>`;
+        for (let i = 0; i < N; i++) {
+            if (!slotHasData[i]) continue;
+            const x  = xScale(i);
+            const x0 = Math.max(PL, x - half);
+            const x1 = Math.min(PL + CW, x + half);
+            out += `<rect class="chart-hit" x="${px(x0)}" y="${PT}" width="${px(x1 - x0)}" height="${CH}"`
+                 + ` data-slot="${i}" data-x="${px(x)}"`
+                 + ` data-when="${MONTHS[slots[i].monthIdx]} ${slots[i].year}"/>`;
+        }
+        return out;
     }
 
     /**
@@ -579,6 +635,9 @@
             if (w > 0 && (w !== lastW || (fillHeight && h !== lastH))) {
                 lastW = w;
                 lastH = h;
+                // The reading is anchored to a point in the SVG about to be
+                // thrown away; it has to go with it.
+                hideChartHover();
                 el.innerHTML = renderFn(w, animate, h) || '';
                 animate = false;
             }
@@ -617,6 +676,172 @@
         // Immediate first paint (animated). If layout isn't ready yet (width 0),
         // the observer's first callback above performs the animated paint instead.
         render(target.clientWidth, target.clientHeight);
+    }
+
+    // ─── Active hover on the Year to Year line charts ────────────────────────────
+    // Moving across a chart names the month under the pointer and prints what
+    // every plotted series was worth in it. The hover columns, the guide rule and
+    // the dots all come out of buildHoverLayer/buildChartSVG; this half moves the
+    // guide, raises the dots of the hovered month, and fills the one floating
+    // reading the three charts share.
+    //
+    // Only the three line charts take part. The two Month to Month charts plot
+    // categories rather than months — there is no date to name — and they already
+    // print each bar's value beside it.
+    //
+    // Everything the reading prints is read back off the dots themselves
+    // (data-name, data-amount, fill), so there is no second copy of the series
+    // held here to fall out of step with the chart, and a redraw needs no
+    // re-wiring: the listeners sit on the chart hosts, which outlive every SVG
+    // drawn into them.
+
+    const HOVER_CHART_IDS = ['networth-chart', 'ie-chart', 'account-chart'];
+
+    let hoverTipEl = null;   // the one floating reading, built on first hover
+    let hoverHit   = null;   // the .chart-hit column under the pointer
+    let hoverDots  = [];     // the dots that column reads, top-most first on screen
+
+    /** The shared reading element. Body-level and fixed-positioned, like the
+     *  Forecast card (.fc-pop): .chart-area clips its overflow on purpose and the
+     *  .page scroll container would clip it again, so it cannot live in the card. */
+    function chartTipEl() {
+        if (hoverTipEl) return hoverTipEl;
+        hoverTipEl = document.createElement('div');
+        hoverTipEl.className = 'chart-tip';
+        hoverTipEl.setAttribute('role', 'tooltip');
+        document.body.appendChild(hoverTipEl);
+        return hoverTipEl;
+    }
+
+    /** Fill the reading from the hovered column's dots: the month, then one row
+     *  per series with its colour, name and amount. Built as nodes with
+     *  textContent rather than innerHTML — the names are user-controlled category
+     *  and account labels, and this way nothing has to be escaped to be safe. */
+    function fillChartTip(tip, when, dots) {
+        const head = document.createElement('div');
+        head.className = 'chart-tip-when';
+        head.textContent = when;
+
+        const rows = document.createElement('ul');
+        rows.className = 'chart-tip-rows';
+        for (const dot of dots) {
+            const row = document.createElement('li');
+            row.className = 'chart-tip-row';
+
+            const swatch = document.createElement('span');
+            swatch.className = 'chart-tip-swatch';
+            swatch.style.background = dot.getAttribute('fill');
+
+            const name = document.createElement('span');
+            name.className = 'chart-tip-name';
+            name.textContent = dot.dataset.name;
+
+            const amount = document.createElement('span');
+            amount.className = 'chart-tip-amount';
+            amount.textContent = dot.dataset.amount;
+
+            row.append(swatch, name, amount);
+            rows.appendChild(row);
+        }
+        tip.replaceChildren(head, rows);
+    }
+
+    /** Place the reading over the hovered month, centred on the guide.
+     *
+     *  It slides left and right only. The height comes from the chart's own
+     *  frame rather than from the points, so it holds one line across the whole
+     *  sweep instead of hopping up and down with the series — a card that moves
+     *  on both axes at once is hard to read while the numbers inside it are also
+     *  changing, and a fixed one also never lands on the dots it is describing.
+     *
+     *  It sits above the chart, dropping to just inside it on the rare chart with
+     *  no room above, and clears both viewport edges — a month at the end of a
+     *  range is against the window edge on a narrow window. */
+    function positionChartTip(tip, hit, dots) {
+        const GAP  = 12;
+        const EDGE = 8;
+        const frame  = hit.ownerSVGElement.getBoundingClientRect();
+        const anchor = (dots[0] || hit).getBoundingClientRect();
+
+        const w = tip.offsetWidth;
+        const h = tip.offsetHeight;
+        const x = anchor.left + anchor.width / 2 - w / 2;
+        const above = frame.top - h - GAP;
+
+        tip.style.left = `${Math.round(Math.max(EDGE, Math.min(x, window.innerWidth - w - EDGE)))}px`;
+        tip.style.top  = `${Math.round(above < EDGE ? frame.top + GAP : above)}px`;
+    }
+
+    function showChartHover(hit) {
+        const svg = hit.ownerSVGElement;
+        if (!svg) return;
+
+        clearChartHoverMarks(svg);
+        hoverHit  = hit;
+        // Screen order, so the reading anchors to the topmost point and the rows
+        // read down the chart rather than in whatever order the series drew.
+        hoverDots = [...svg.querySelectorAll(`.chart-dot[data-slot="${hit.dataset.slot}"]`)]
+            .sort((a, b) => Number(a.getAttribute('cy')) - Number(b.getAttribute('cy')));
+        for (const dot of hoverDots) dot.classList.add('chart-dot-active');
+
+        const guide = svg.querySelector('.chart-guide');
+        if (guide) {
+            guide.setAttribute('x1', hit.dataset.x);
+            guide.setAttribute('x2', hit.dataset.x);
+            guide.classList.add('chart-guide-on');
+        }
+
+        const tip = chartTipEl();
+        fillChartTip(tip, hit.dataset.when, hoverDots);
+        // Measured and placed before it is shown, so it never appears at the
+        // previous month's position for a frame.
+        positionChartTip(tip, hit, hoverDots);
+        tip.classList.add('chart-tip-on');
+    }
+
+    function clearChartHoverMarks(svg) {
+        if (!svg) return;
+        for (const dot of svg.querySelectorAll('.chart-dot-active')) dot.classList.remove('chart-dot-active');
+        svg.querySelector('.chart-guide')?.classList.remove('chart-guide-on');
+    }
+
+    function hideChartHover() {
+        if (hoverHit) clearChartHoverMarks(hoverHit.ownerSVGElement);
+        hoverHit  = null;
+        hoverDots = [];
+        hoverTipEl?.classList.remove('chart-tip-on');
+    }
+
+    function wireChartHover() {
+        for (const id of HOVER_CHART_IDS) {
+            const host = document.getElementById(id);
+            if (!host) continue;
+            // pointerover bubbles (pointerenter does not), so this one listener
+            // covers every column of every SVG the host is ever given. It also
+            // fires on the way OUT of a column into the axis gutters, which are
+            // inside the host and so never reach pointerleave — without the
+            // clear there, a reading parked beside the plot outlives the pointer.
+            host.addEventListener('pointerover', (e) => {
+                const hit = e.target.closest('.chart-hit');
+                if (!hit) { hideChartHover(); return; }
+                if (hit !== hoverHit) showChartHover(hit);
+            });
+            host.addEventListener('pointerleave', hideChartHover);
+        }
+
+        // The reading is fixed-positioned against its point, so it has to follow
+        // the page under it — .page scrolls, not the window. Capture, because
+        // that scroll does not bubble.
+        document.addEventListener('scroll', () => {
+            if (hoverHit) positionChartTip(chartTipEl(), hoverHit, hoverDots);
+        }, { capture: true, passive: true });
+
+        // A window resize redraws every chart anyway; drop the reading rather
+        // than chase a point that is about to move.
+        window.addEventListener('resize', hideChartHover);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') hideChartHover();
+        });
     }
 
     // ─── Time range (Year to Year section) ───────────────────────────────────────
@@ -1767,6 +1992,9 @@
     /** Fetch both datasets in parallel and render all dashboard sections. */
     async function init() {
         wireMonthStepper();
+        // Bound to the chart hosts, which are already in the document and outlive
+        // every SVG drawn into them, so this runs once rather than per redraw.
+        wireChartHover();
         // Kick this off first so the Month to Month section loads alongside the
         // Year to Year charts (its statement fetch is deduped with the one below).
         renderMonthSection();

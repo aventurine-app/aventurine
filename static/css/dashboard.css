@@ -14,9 +14,8 @@
      5. Net Worth card
      6. Accounts card (donut + legend)
      7. Income & Expenses + Account Balances charts (legend, selector)
-     8. Range-selector dropdown
-     9. Upcoming Expenses card (predicted recurring spends)
-    10. Charts: unified frame chrome + entrance animation
+     9. Charts: unified frame chrome + entrance animation
+    10. Active hover on the line charts (hit columns, guide, floating reading)
     11. Month to Month section (month stepper, cash-flow + spending bar charts)
    ============================================================================ */
 
@@ -578,9 +577,10 @@
     animation: chart-fade 0.5s ease forwards;
 }
 
-/* Hover affordance on every data dot, all charts alike. */
+/* Hover affordance on every data dot, all charts alike. Driven by the hover
+   column below rather than by :hover on the dot itself — the hit rects are
+   drawn over the whole plot, so a dot never sees the pointer. */
 .dashboard-chart .chart-dot { transition: r 0.15s ease; }
-.dashboard-chart .chart-dot:hover { r: 6; }
 
 @keyframes chart-draw { to { stroke-dashoffset: 0; } }
 @keyframes chart-fade { to { opacity: 1; } }
@@ -609,7 +609,135 @@
         opacity: 1;
     }
     .accounts-pie-svg .donut-arc { transition: none !important; }
+    /* The hover still marks the month and prints its amounts — only the fades
+       and the dot's grow go. */
+    .dashboard-chart .chart-dot,
+    .dashboard-chart .chart-guide,
+    .chart-tip { transition: none; }
 }
+
+
+/* ─── 10. Active hover on the line charts ────────────────────────────────── */
+/* Reading a month off a line chart, built in dashboard.js (buildHoverLayer +
+   wireChartHover): a transparent hit rect per month takes the pointer for its
+   whole column, a dashed rule marks it, the month's dots come up out of the
+   line, and a floating card names the month and prints each series' amount. */
+
+/* fill:none with pointer-events:all — the rect must be invisible AND hittable,
+   and visiblePainted (the default) would skip an unfilled shape. */
+.dashboard-chart .chart-hit {
+    fill: none;
+    pointer-events: all;
+    cursor: crosshair;
+}
+
+.dashboard-chart .chart-guide {
+    stroke: var(--text-tertiary);
+    stroke-width: 1;
+    stroke-dasharray: 4 4;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+
+.dashboard-chart .chart-guide-on { opacity: 0.55; }
+
+/* The card-coloured ring is what lifts the dot off its own line, which matters
+   where two series cross and both dots are raised at the same x. */
+.dashboard-chart .chart-dot-active {
+    r: 5.5;
+    stroke: var(--surface1);
+    stroke-width: 2;
+}
+
+/* The reading. Fixed-positioned against its point by dashboard.js, like the
+   Forecast hover card (.fc-pop): .chart-area clips its overflow on purpose and
+   the .page scroll container would clip it again, so it cannot sit in the card.
+   visibility rather than [hidden] so it can fade, and so it can be measured for
+   placement before it is shown. */
+.chart-tip {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 60;
+    box-sizing: border-box;
+    min-width: 160px;
+    max-width: 280px;
+    padding: var(--space-8) var(--space-12);
+    border: var(--border-width) solid var(--border);
+    border-radius: 8px;
+    background: var(--surface1);
+    /* The chart rung of the elevation ladder, shared with the Recurring day card
+       (.rec-pop): this is raised off the chart it is reading, not out of a menu
+       button, so --shadow-menu reads as detached from what it describes. */
+    box-shadow: var(--shadow-popover);
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s;
+}
+
+.chart-tip-on {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* The month, as the card eyebrow one tier down — it names the reading, the
+   amounts under it are the reading. */
+.chart-tip-when {
+    margin-bottom: var(--space-8);
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    line-height: var(--lh-tight);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+}
+
+.chart-tip-rows {
+    display: grid;
+    gap: var(--space-4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.chart-tip-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+}
+
+/* The series' own line colour, so a row is matched to a line without reading
+   the name — the name is still there, so colour is never the only cue. */
+.chart-tip-swatch {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.chart-tip-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+}
+
+.chart-tip-amount {
+    flex: 0 0 auto;
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+    font-variant-numeric: tabular-nums;
+}
+
 
 
 /* ─── 11. Month to Month section (cash-flow + spending bar charts) ──────── */
