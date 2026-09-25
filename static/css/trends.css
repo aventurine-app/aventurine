@@ -436,6 +436,8 @@
     stroke: none;
     opacity: 0.6;
     transition: opacity 0.15s ease;
+    clip-path: inset(0 100% 0 0);
+    animation: chart-band-wipe 0.9s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
 }
 .dashboard-chart .chart-band-group:hover .chart-band { opacity: 1; }
 /* The focused band holds that same lifted fill: it is the band being read, and
@@ -443,20 +445,25 @@
    that is already at the front. */
 .dashboard-chart .chart-band-group[data-active="true"] .chart-band { opacity: 1; }
 
-/* The entrance is ONE clip rect widening, applied to every band path, so the
-   stack is revealed left to right along its own time axis — the same direction
-   the line form's stroke draws in. Growing the bands upward animated along the
-   VALUE axis instead, which read as the totals changing rather than as the
-   chart arriving. The clip is on the paths and not on a group wrapping the
-   whole plot: the transparent hit strips do not need revealing, and an
-   animating clip over them made the browser re-clip every one of them per
-   frame. */
-.dashboard-chart .chart-band-wipe {
-    transform: scaleX(0);
-    animation: chart-band-wipe 0.9s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
-}
-.dashboard-chart.chart-no-anim .chart-band-wipe { animation: none; transform: none; }
-@keyframes chart-band-wipe { to { transform: scaleX(1); } }
+/* The entrance is a left-to-right wipe along the stack's own time axis, the same
+   direction the line form's stroke draws in. Growing the bands upward animated
+   along the VALUE axis instead, which read as the totals changing rather than
+   as the chart arriving. Every band spans the same months, so one clip on each
+   band path reveals the stack together, and the transparent hit strips are
+   left unclipped because they never needed revealing.
+
+   KEEP THIS A CSS clip-path ANIMATION on .chart-band (declared above). Do not
+   "simplify" it back into an SVG <clipPath> element with an animated rect or
+   transform inside, and do not move the clip onto a group. Chromium keeps the
+   animation clock running for that form but does not repaint the shapes the
+   <clipPath> applies to, so the stack sits frozen for the whole entrance and
+   then appears finished. It looks fine in code review and in a static
+   screenshot; it only shows as the Spending chart "skipping" its animation on
+   a range change or a Stacked/Lines switch. To check a change here, capture
+   frames mid-animation (webContents.capturePage at ~150/450/750ms): the
+   revealed area must grow between frames. */
+.dashboard-chart.chart-no-anim .chart-band { animation: none; clip-path: none; }
+@keyframes chart-band-wipe { to { clip-path: inset(0 0 0 0); } }
 
 /* A series the page has stepped back (the rail's focus). !important because
    every animated mark here ends on an opacity its animation holds with
@@ -485,7 +492,7 @@
 /* The .chart-no-anim opt-out is stated in forecast.css, loaded on this page too. */
 
 @media (prefers-reduced-motion: reduce) {
-    .dashboard-chart .chart-band-wipe { animation: none; transform: none; }
+    .dashboard-chart .chart-band { animation: none; clip-path: none; }
     .dashboard-chart .chart-line { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; }
     .dashboard-chart .chart-area-fill, .dashboard-chart .chart-dot { animation: none; opacity: 1; }
 }

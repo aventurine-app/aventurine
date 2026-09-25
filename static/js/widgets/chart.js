@@ -583,17 +583,11 @@
 
     svg += strip.join('');
 
-    // The entrance wipe. It used to be a clipPath on a GROUP wrapping every
-    // band AND every band's copy of the strips, so an animating clip forced the
-    // browser to re-clip that whole subtree each frame — hundreds of nested
-    // clipped rects — which is what made the stack stutter and then appear all
-    // at once. The clip goes on the band paths themselves instead: same reveal,
-    // a handful of simple shapes to re-clip, and the transparent strips never
-    // needed revealing.
-    const clipId = `bandwipe-${rnd}`;
-    svg += `<defs><clipPath id="${clipId}">`
-      + `<rect class="chart-band-wipe" x="${PL}" y="${PT}" width="${CW}" height="${CH}"`
-      + ` style="transform-origin:${PL}px 0px"/></clipPath></defs>`;
+    // The entrance wipe is a CSS clip-path on each band path (.chart-band in
+    // trends.css). Do not reintroduce an SVG <clipPath> with an animated child
+    // for it: Chromium does not repaint the shapes such a clip applies to, so
+    // the stack sat frozen for the length of the animation and then appeared
+    // all at once. The full reasoning is at .chart-band in trends.css.
 
     let base = slots.map(() => 0);
     series.forEach((s, si) => {
@@ -640,7 +634,7 @@
       // `s.active` marks the one series the caller has singled out, so CSS can
       // hold it at its hovered fill for as long as it is the selected one.
       svg += `<g class="chart-band-group"${s.id == null ? '' : ` data-series="${escapeHtml(String(s.id))}"`}${s.active ? ' data-active="true"' : ''}>`
-        + `<path class="chart-band" d="${d}" fill="url(#${gradId})" clip-path="url(#${clipId})"${s.dim ? ' data-dim="true"' : ''}/>`
+        + `<path class="chart-band" d="${d}" fill="url(#${gradId})"${s.dim ? ' data-dim="true"' : ''}/>`
         + `<g clip-path="url(#${bandClip})">${bandStrips}</g>`
         + `</g>`;
       base = top;

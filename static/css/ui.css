@@ -837,3 +837,15 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
 @media (prefers-reduced-motion: reduce) {
     .ui-toast { transition: opacity 0.18s ease; transform: translate(-50%, 0); }
 }
+
+/* A chart's entrance, held until the chart is on screen (UI.observeChart).
+   Inserting a large chart costs the browser a long first frame (style, layout
+   and paint for every node), and an animation that started at insertion spent
+   that frame running unseen: it arrived part-way through, or already finished.
+   Held, every animation sits at its starting state (the keyframes here are all
+   `to`-only, so the element's own style IS the start) and plays from zero once
+   the class is removed, a frame after the chart first paints. */
+.chart-anim-hold,
+.chart-anim-hold * {
+    animation-play-state: paused !important;
+}

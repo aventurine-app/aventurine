@@ -390,16 +390,48 @@
         // their box. The 2px height tolerance stops a chart that makes its own
         // container taller from redrawing itself forever.
         //
-        // `animate` is true for the first paint only. ResizeObserver always
-        // reports once right after observe(), before the first frame is on
-        // screen. If that size matches what the synchronous paint used, nothing
-        // is redrawn and the entrance animation plays out. If layout moved in
-        // between (a scrollbar appearing, a neighbouring card filling in), the
-        // redraw is still the first thing painted, so it animates too.
+        // `animate` is true for the first paint only, and a chart is drawn once
+        // per real size change. Drawing it again restarts the entrance
+        // animation (or cuts it off) and builds the SVG twice, which is visible
+        // lag on a big chart.
+        //
+        // The chart is drawn synchronously, so it is on the page when the
+        // caller returns. Nothing is measured after that draw: reading the box
+        // back would force the browser to style and lay out the new SVG inside
+        // the caller's task, a long stall on a chart of a thousand-plus nodes.
+        //
+        // ResizeObserver always reports once right after observe(), after
+        // layout. Inserting the chart has usually moved the box by then (the
+        // page scrollbar coming back once a chart refills a container that was
+        // just emptied, as the Spending view switch does), and that is not a
+        // resize, so the report is taken as the baseline and not drawn. The one
+        // exception is a `height: true` chart whose box ended up TALLER than the
+        // chart drawn into it: a neighbouring card finished filling the row
+        // (Dashboard, Month to Month), so the chart redraws, with the animation,
+        // to fill it. The drawn height is read from the svg's own attribute,
+        // which costs no layout. A chart in a hidden panel (width 0) gets its
+        // first paint whenever the panel is shown.
+        //
+        // An animated paint is inserted with its entrance HELD (see
+        // .chart-anim-hold in ui.css) and released a frame after it first
+        // paints. The first frame of a large chart is long, and an animation
+        // running through it arrives part-way done or not at all; held, it
+        // starts from zero once that frame is behind it. The start is a frame
+        // later, and the animation is never interrupted.
         //
         // One observer per element: observing again replaces the previous one,
         // and unobserveChart(el) stops it.
         const _chartObservers = new WeakMap();
+
+        function holdEntrance(chart) {
+            if (!chart) return;
+            chart.classList.add('chart-anim-hold');
+            // The first callback runs before the frame that styles, lays out
+            // and paints the new chart; the second runs once that frame is done.
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                chart.classList.remove('chart-anim-hold');
+            }));
+        }
 
         function unobserveChart(el) {
             _chartObservers.get(el)?.disconnect();
@@ -422,12 +454,24 @@
                 lastH = h;
                 draw(w, h, animate);
                 paints++;
+                if (animate) holdEntrance(el.firstElementChild);
             };
 
             const obs = new ResizeObserver((entries) => {
                 const { width, height: h } = entries[0].contentRect;
-                paint(width, h, paints === 0 || firstCallback);
+                if (firstCallback && paints > 0) {
+                    firstCallback = false;
+                    const drawnH = Number(el.firstElementChild?.getAttribute('height')) || 0;
+                    if (height && drawnH && h > drawnH + 2) {
+                        paint(width, h, true);
+                        return;
+                    }
+                    lastW = Math.round(width);
+                    lastH = Math.round(h);
+                    return;
+                }
                 firstCallback = false;
+                paint(width, h, paints === 0);
             });
             obs.observe(target);
             _chartObservers.set(el, obs);
