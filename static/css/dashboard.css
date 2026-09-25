@@ -534,8 +534,8 @@
 
 
 /* ─── 9. Charts: unified frame chrome + entrance animation ───────────────── */
-/* All three line charts share the .dashboard-chart renderer in dashboard.js — one
-   frame, one grid, one label style. Chrome colors come from theme variables
+/* All three line charts share the .dashboard-chart renderer in widgets/chart.js —
+   one frame, one grid, one label style. Chrome colors come from theme variables
    so a palette change (or the light theme) retones the charts too. */
 
 .dashboard-chart .chart-grid {

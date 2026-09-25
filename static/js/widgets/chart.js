@@ -1,12 +1,12 @@
 'use strict';
 
 // ─── chart.js ────────────────────────────────────────────────────────────────
-// Shared hand-rolled multi-series SVG chart, exposed as window.FinanceChart. A
-// copy of the renderer the Dashboard uses (dashboard.js), moved into a reusable
-// module so other pages (Spending Trends, and others later) get the same frame,
-// smoothing, nice-tick axis, entrance animation and responsive redraw without a
-// per-page copy. Dashboard and forecast still have their own copies and can
-// migrate here later.
+// Shared hand-rolled multi-series SVG chart, exposed as window.FinanceChart.
+// Every line chart in the app is drawn here: the Reports tabs through render(),
+// and the Dashboard's Year to Year cards through buildLine(), which it mounts
+// itself so it can add its hover reading. The Balance Forecast keeps its own
+// engine (widgets/forecast.js): its split history/projection line and date-
+// scaled x axis are a different chart, and only the geometry is shared.
 //
 // Three forms share the frame: render() draws smoothed lines (one measure over
 // time), renderStacked() draws stacked columns (a part-to-whole breakdown over
@@ -134,7 +134,46 @@
     return fill ? Math.max(ratio, Math.round(boxH) || 0) : ratio;
   }
 
-  function buildChartSVG({ series, slots, W, boxH = 0, fill = false, animate = true, zeroBase = false }) {
+  /** The y axis ticks for a line chart's values.
+   *
+   *  By default the ticks fit the data. `zeroBase` floors the axis at zero:
+   *  right once the line carries an AREA FILL, because a filled shape reads its
+   *  height from the baseline and a baseline of 1,800 states a swing that isn't
+   *  there. Any report pairing this chart with a stacked one (Reports →
+   *  Investing) also needs both halves on the same floor, or the same months
+   *  look volatile above and steady below.
+   *
+   *  `centred` gives the data a minimum vertical span instead (a quarter of its
+   *  magnitude, floored at 1) and centres it with some headroom. The Dashboard
+   *  uses it: a balance that barely moves sits mid-card rather than filling the
+   *  plot edge to edge, and peaks stay off the frame. A FLAT series always takes
+   *  this path: fitted ticks for a zero-height range collapse to one gridline
+   *  and glue the line to the bottom axis. */
+  function lineTicks(values, { zeroBase = false, centred = false } = {}) {
+    const lo = Math.min(...values);
+    const hi = Math.max(...values);
+    if (centred || hi === lo) {
+      const mid = (lo + hi) / 2;
+      const span = Math.max(hi - lo, Math.abs(mid) * 0.25, 1);
+      const pad = span * 0.1;
+      const bottom = mid - span / 2 - pad;
+      return ChartMath.niceTicks(zeroBase ? Math.min(0, bottom) : bottom, mid + span / 2 + pad, 4);
+    }
+    return ChartMath.niceTicks(zeroBase ? Math.min(0, lo) : lo, hi, 4);
+  }
+
+  /** Smoothed lines with a gradient under each, over `slots`.
+   *
+   *  `hover` adds what the Dashboard's month reading needs: one hit column per
+   *  month with a value (see hoverLayer) and, on each dot, the series name and
+   *  formatted amount the reading prints. The reading itself is wired by the
+   *  page (dashboard.js wireChartHover), since it lives outside the SVG.
+   *
+   *  SECURITY: series.label is user-controlled (a column name) and is escaped
+   *  wherever it is written. Every other interpolated value is a number, a
+   *  month name, or an attribute-safe constant. */
+  function buildChartSVG({ series, slots, W, boxH = 0, fill = false, animate = true,
+    zeroBase = false, centred = false, hover = false }) {
     const N = slots.length;
     const allValues = series.flatMap((s) => s.points.map((p) => p.value));
     if (allValues.length === 0) return null;
@@ -143,15 +182,7 @@
     const { r: PR, t: PT, b: PB } = CHART_PAD;
     const CH = H - PT - PB;
 
-    // zeroBase floors the axis at zero. The line form fits its ticks to the
-    // data by default, which is right for a bare line; it is NOT right once the
-    // line carries an AREA FILL, because a filled shape reads its height from
-    // the baseline and a baseline of 1,800 states a swing that isn't there. Any
-    // report pairing this chart with a stacked one (Reports → Investing) also
-    // needs both halves on the same floor, or the same months look volatile
-    // above and steady below.
-    const lo = Math.min(...allValues);
-    const yTicks = ChartMath.niceTicks(zeroBase ? Math.min(0, lo) : lo, Math.max(...allValues), 4);
+    const yTicks = lineTicks(allValues, { zeroBase, centred });
     const minVal = yTicks[0];
     const maxVal = yTicks[yTicks.length - 1];
     const valRange = maxVal - minVal || 1;
@@ -180,6 +211,10 @@
     }
 
     svg += xAxisLabels(slots, xScale, H - PB + 18);
+
+    // Which slots ended up with at least one plotted value. Only those get a
+    // hover column: a month no series reached has no reading to give.
+    const slotHasData = new Array(N).fill(false);
 
     series.forEach((s, si) => {
       const pointMap = new Map(s.points.map((p) => [`${p.year}-${p.monthIdx}`, p.value]));
@@ -215,14 +250,58 @@
         const y = yScale(sl.value);
         const isEnd = di === drawn.length - 1;
         const dotDelay = Math.min(delay + 300 + di * 18, delay + 900);
-        svg += `<circle class="chart-dot${isEnd ? ' chart-dot-end' : ''}" cx="${x}" cy="${y}" r="${isEnd ? 4.5 : 3}" fill="${s.color}"${dim} style="animation-delay:${dotDelay}ms">
+        slotHasData[sl.i] = true;
+        // data-slot ties the dot to its hover column; data-name and data-amount
+        // are what the reading prints, so it needs no copy of the series.
+        const hoverAttrs = hover
+          ? ` data-slot="${sl.i}" data-name="${escapeHtml(s.label)}" data-amount="${escapeHtml(fmtTooltip(sl.value))}"`
+          : '';
+        svg += `<circle class="chart-dot${isEnd ? ' chart-dot-end' : ''}" cx="${x}" cy="${y}" r="${isEnd ? 4.5 : 3}" fill="${s.color}"${dim}${hoverAttrs} style="animation-delay:${dotDelay}ms">
                 <title>${escapeHtml(s.label)} — ${MONTHS[sl.monthIdx]} ${sl.year}: ${fmtTooltip(sl.value)}</title>
             </circle>`;
       });
     });
 
+    // Last, so it sits over every series and takes the pointer itself.
+    if (hover) svg += hoverLayer({ slots, slotHasData, xScale, PL, PT, CW, CH });
+
     svg += '</svg>';
     return svg;
+  }
+
+  /**
+   * The hover layer for a line chart: one transparent hit rect per month that
+   * has a value, plus the single guide rule the pointer moves between them.
+   *
+   * The columns are what make the hover usable. A 3px dot is a target nobody
+   * can hit on a 60-month range, so the pointer reads the whole column
+   * instead: each rect spans half a slot either side of its month, edge to
+   * edge, so every pixel of the plot belongs to exactly one month and moving
+   * across the chart steps the reading from month to month without gaps.
+   *
+   * One guide line is emitted, not one per column: only ever one is on, and
+   * the page moves it. The reading itself is an HTML tooltip outside the SVG
+   * (dashboard.js wireChartHover): .chart-area clips on purpose, so an
+   * in-chart one would be cut off at the card edge.
+   */
+  function hoverLayer({ slots, slotHasData, xScale, PL, PT, CW, CH }) {
+    const N = slots.length;
+    const px = (n) => Math.round(n * 10) / 10;
+    // Half a slot each side. A single-slot chart has no neighbour to split
+    // the difference with, so its one column is the whole plot.
+    const half = N > 1 ? CW / (N - 1) / 2 : CW;
+
+    let out = `<line class="chart-guide" x1="0" y1="${PT}" x2="0" y2="${PT + CH}"/>`;
+    for (let i = 0; i < N; i++) {
+      if (!slotHasData[i]) continue;
+      const x = xScale(i);
+      const x0 = Math.max(PL, x - half);
+      const x1 = Math.min(PL + CW, x + half);
+      out += `<rect class="chart-hit" x="${px(x0)}" y="${PT}" width="${px(x1 - x0)}" height="${CH}"`
+        + ` data-slot="${i}" data-x="${px(x)}"`
+        + ` data-when="${MONTHS[slots[i].monthIdx]} ${slots[i].year}"/>`;
+    }
+    return out;
   }
 
   /** The month labels under the plot. Shared by both chart forms so a line and
@@ -616,5 +695,10 @@
     return new Map(keys.map((k, i) => [k, colors[i % colors.length]]));
   }
 
-  window.FinanceChart = { render, renderStacked, renderArea, colorMap, PALETTE, CAT_PALETTE };
+  window.FinanceChart = {
+    render, renderStacked, renderArea, colorMap, PALETTE, CAT_PALETTE,
+    // The bare line builder, for a page that mounts the chart itself
+    // (dashboard.js, which clears its hover reading on every redraw).
+    buildLine: buildChartSVG,
+  };
 }());

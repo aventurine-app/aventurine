@@ -4,9 +4,10 @@
 // The geometry every line chart in the app is drawn from, in one copy.
 //
 // There are three chart engines, and there is no fourth place for this to live:
-//   - widgets/chart.js    — the Reports tab's lines and stacked columns
+//   - widgets/chart.js    — every line chart (Reports and the Dashboard's Year
+//                           to Year cards), plus stacked columns and areas
 //   - widgets/forecast.js — the Balance Forecast's split history/projection
-//   - pages/dashboard.js  — the Dashboard's own frame (it does not load chart.js)
+//   - pages/dashboard.js  — the Dashboard's Month to Month bar charts
 //
 // Each held its own copy of the tick maths and the curve, and the copies had
 // already started to differ in ways that were invisible: niceTicks carried a

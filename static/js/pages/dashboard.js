@@ -25,7 +25,8 @@
 // The three Year to Year line charts also carry an active hover: the pointer
 // reads whole month columns rather than individual dots, and a floating card
 // names the month and prints what each plotted series was worth in it
-// (buildHoverLayer + wireChartHover).
+// (FinanceChart.buildLine in widgets/chart.js draws the columns; wireChartHover
+// here moves the guide and fills the reading).
 
 (function () {
     const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -374,227 +375,18 @@
         return formatCurrency(n, true);
     }
 
-    // ─── Hand-rolled SVG line chart ──────────────────────────────────────────────
-    // One unified renderer for every line chart on the page (Net Worth, Income &
-    // Expenses, Account Balances) so they all share an identical frame: same
-    // gutters, same nice-tick Y axis, same dashed grid, same label typography,
-    // same entrance animation. Lines render as smoothed bezier curves with a
-    // soft gradient fill underneath; frame chrome (grid/labels) uses theme
-    // variables so the charts retone with the palette and stay legible in the
-    // light theme. Animation keyframes live in dashboard.css §10.
-
+    // ─── Chart frame ──────────────────────────────────────────────────────────────
+    // The Year to Year line charts are drawn by FinanceChart.buildLine
+    // (widgets/chart.js), the renderer every line chart in the app shares. These
+    // two constants size the Month to Month bar charts below to the same
+    // proportions. Animation keyframes live in dashboard.css §10.
     const CHART_RATIO = 200 / 800;
-
-    // Frame shared by every chart: left gutter sized for the widest Y label,
-    // identical top/right/bottom margins, so all charts line up across cards.
     const CHART_PAD = { l: 56, r: 20, t: 18, b: 30 };
 
-    /**
-     * Build one inline SVG line chart from a list of series.
-     *
-     *   series:  [{ label, color, points: [{year, monthIdx, value}] }]
-     *   years:   year list — used to generate slots when `slots` isn't passed.
-     *            Each year becomes 12 month slots on the x-axis.
-     *   slots:   explicit [{year, monthIdx}, ...] list. When provided,
-     *            overrides `years` so the caller can render any custom
-     *            date range (used by the Net Worth range picker).
-     *   W:       target width in pixels (height = W * CHART_RATIO).
-     *   animate: replay the entrance animation (line draw-in, fades). True on
-     *            first paint and user-driven re-renders; false on resizes —
-     *            observeChart() manages this.
-     *
-     * SECURITY: series.label is user-controlled (column name) and is escaped
-     * before being placed inside the <title> tooltip. All other strings
-     * interpolated here are numeric or attribute-safe constants.
-     */
-    function buildChartSVG({ series, years, slots: customSlots, W, animate = true }) {
-        const slots = customSlots || (() => {
-            const s = [];
-            for (const year of years || []) {
-                for (let m = 0; m < 12; m++) s.push({ year, monthIdx: m });
-            }
-            return s;
-        })();
-        const N = slots.length;
-
-        const allValues = series.flatMap(s => s.points.map(p => p.value));
-        if (allValues.length === 0) return null;
-
-        // Height follows width, but never below a floor — in the narrow aside
-        // column a pure ratio would leave ~75px of chart, squashing the Y axis
-        // into unreadability.
-        const H  = Math.max(Math.round(W * CHART_RATIO), 170);
-        const { l: PL, r: PR, t: PT, b: PB } = CHART_PAD;
-        const CW = W - PL - PR;
-        const CH = H - PT - PB;
-
-        // Every chart snaps its value range to "nice" tick boundaries so the
-        // grid labels read as clean round numbers ($80K, $100K, $120K) instead
-        // of arbitrary padded values — one scale treatment everywhere.
-        //
-        // Before snapping, enforce a minimum vertical span (scaled to the
-        // values' magnitude, with an absolute floor near zero) and centre the
-        // data within it. Without this a flat or plateaued series collapses to
-        // a zero-height range and glues the line to the bottom axis; centring a
-        // padded span instead lays a flat stretch mid-chart. The extra head/
-        // footroom also keeps peaks and troughs off the frame edges. Series with
-        // real variation already exceed the minimum span, so they're unaffected.
-        const dataLo = Math.min(...allValues);
-        const dataHi = Math.max(...allValues);
-        const mid    = (dataLo + dataHi) / 2;
-        const span   = Math.max(dataHi - dataLo, Math.abs(mid) * 0.25, 1);
-        const pad    = span * 0.1;
-        const yTicks = ChartMath.niceTicks(mid - span / 2 - pad, mid + span / 2 + pad, 4);
-        const minVal = yTicks[0];
-        const maxVal = yTicks[yTicks.length - 1];
-        const valRange = maxVal - minVal || 1;
-
-        const xScale = i => PL + (i / (N - 1 || 1)) * CW;
-        const yScale = v => PT + CH - ((v - minVal) / valRange) * CH;
-
-        // Unique id per render so multiple charts on the page never collide
-        // on the area-fill linearGradient ids.
-        const rnd = Math.random().toString(36).slice(2, 9);
-
-        let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" class="dashboard-chart${animate ? '' : ' chart-no-anim'}" style="display:block;">`;
-
-        // Horizontal grid + Y labels (right-aligned in the left gutter).
-        // Styling lives in dashboard.css (.chart-grid / .chart-label) so the frame
-        // chrome follows the theme instead of hard-coded dark-mode rgba values.
-        const fmtAxis = axisFormatter(yTicks);
-        for (const v of yTicks) {
-            const y = yScale(v);
-            svg += `<line class="chart-grid" x1="${PL}" y1="${y}" x2="${W - PR}" y2="${y}"/>`;
-            svg += `<text class="chart-label" x="${PL - 10}" y="${y}" text-anchor="end" dominant-baseline="middle">${escapeHtml(fmtAxis(v))}</text>`;
-        }
-
-        // Zero line — emphasised when values straddle zero.
-        if (minVal < 0 && maxVal > 0) {
-            const y0 = yScale(0);
-            svg += `<line class="chart-zero" x1="${PL}" y1="${y0}" x2="${W - PR}" y2="${y0}"/>`;
-        }
-
-        // X labels: month abbreviations at a density that fits N; on charts
-        // spanning multiple years, each January shows the year instead. The
-        // final slot (current month) is labeled too unless it would collide
-        // with the previous label.
-        const multiYear = new Set(slots.map(s => s.year)).size > 1;
-        const stride    = N <= 8 ? 1 : N <= 14 ? 2 : N <= 26 ? 3 : 6;
-        const lastDist  = (N - 1) % stride;
-        slots.forEach((s, i) => {
-            const isLast = i === N - 1;
-            if (!isLast && i % stride !== 0) return;
-            if (isLast && lastDist !== 0 && lastDist < 2) return;
-            const label = (multiYear && s.monthIdx === 0) ? s.year : MONTHS_SHORT[s.monthIdx];
-            svg += `<text class="chart-label" x="${xScale(i)}" y="${H - PB + 18}" text-anchor="middle">${label}</text>`;
-        });
-
-        // Which slots ended up with at least one plotted value. Only those get a
-        // hover column below: a month no series reached has no reading to give.
-        const slotHasData = new Array(N).fill(false);
-
-        // Lines, area fills, and dots per series. Each series gets a smoothed
-        // curve, a soft gradient under it, and a pulsing halo on its latest
-        // point; entrance animations are staggered per series.
-        series.forEach((s, si) => {
-            const pointMap = new Map(s.points.map(p => [`${p.year}-${p.monthIdx}`, p.value]));
-            const slotData = slots.map((sl, i) => ({
-                ...sl,
-                i,
-                value: pointMap.get(`${sl.year}-${sl.monthIdx}`) ?? null,
-            }));
-
-            const drawn   = slotData.filter(sl => sl.value !== null);
-            const linePts = drawn.map(sl => ({ x: xScale(sl.i), y: yScale(sl.value) }));
-            const delay   = si * 140;
-
-            if (linePts.length > 1) {
-                const baseY = H - PB;
-                const lineD = ChartMath.smoothPath(linePts);
-                const areaD = `${lineD} L ${linePts[linePts.length - 1].x} ${baseY}`
-                            + ` L ${linePts[0].x} ${baseY} Z`;
-
-                // Anchor the gradient to the line's actual vertical extent so
-                // the fade is consistent whether the series sits high or low —
-                // tone near the line, transparent at the baseline. Opacity is
-                // kept low enough that overlapping series don't turn muddy.
-                const lineTopY = Math.min(...linePts.map(p => p.y));
-                const gradId   = `areagrad-${rnd}-${si}`;
-                svg += `<defs>
-                <linearGradient id="${gradId}" gradientUnits="userSpaceOnUse"
-                                x1="0" y1="${lineTopY}" x2="0" y2="${baseY}">
-                    <stop offset="0%"   stop-color="${s.color}" stop-opacity="0.30"/>
-                    <stop offset="100%" stop-color="${s.color}" stop-opacity="0"/>
-                </linearGradient>
-            </defs>`;
-                svg += `<path class="chart-area-fill" d="${areaD}" fill="url(#${gradId})" style="animation-delay:${delay + 400}ms"/>`;
-                // pathLength="1" normalises the dash math for the CSS draw-in.
-                svg += `<path class="chart-line" d="${lineD}" pathLength="1" fill="none" stroke="${s.color}" stroke-width="2.25" stroke-linejoin="round" stroke-linecap="round" style="animation-delay:${delay}ms"/>`;
-            }
-
-            drawn.forEach((sl, di) => {
-                const x = xScale(sl.i);
-                const y = yScale(sl.value);
-                const isEnd = di === drawn.length - 1;
-                // Dots cascade in behind the line draw; the cap keeps dense
-                // charts (60 slots) from dragging the entrance out.
-                const dotDelay = Math.min(delay + 300 + di * 18, delay + 900);
-                slotHasData[sl.i] = true;
-                // data-slot ties the dot to its hover column; data-name and
-                // data-amount are what the floating reading prints, so the
-                // hover needs no second copy of the series to read from.
-                svg += `<circle class="chart-dot${isEnd ? ' chart-dot-end' : ''}" cx="${x}" cy="${y}" r="${isEnd ? 4.5 : 3}" fill="${s.color}"
-                data-slot="${sl.i}" data-name="${escapeHtml(s.label)}" data-amount="${escapeHtml(fmtTooltip(sl.value))}"
-                style="animation-delay:${dotDelay}ms">
-                <title>${escapeHtml(s.label)} — ${MONTHS[sl.monthIdx]} ${sl.year}: ${fmtTooltip(sl.value)}</title>
-            </circle>`;
-            });
-        });
-
-        // Last, so it sits over every series and takes the pointer itself.
-        svg += buildHoverLayer({ slots, slotHasData, xScale, PL, PT, CW, CH });
-
-        svg += '</svg>';
-        return svg;
-    }
-
-    /**
-     * The hover layer for a line chart: one transparent hit rect per month that
-     * has a value, plus the single guide rule the pointer moves between them.
-     *
-     * The columns are what make the hover usable. A 3px dot is a target nobody
-     * can hit on a 60-month range, so the pointer reads the whole column
-     * instead: each rect spans half a slot either side of its month, edge to
-     * edge, so every pixel of the plot belongs to exactly one month and moving
-     * across the chart steps the reading from month to month without gaps.
-     *
-     * One guide line is emitted, not one per column: only ever one is on, and
-     * dashboard.js moves it. The reading itself is an HTML tooltip outside the
-     * SVG (wireChartHover) — .chart-area clips on purpose, so an in-chart one
-     * would be cut off at the card edge.
-     *
-     * SECURITY: every value interpolated here is a number or a month name from
-     * MONTHS. Series labels live on the dots, escaped where they are written.
-     */
-    function buildHoverLayer({ slots, slotHasData, xScale, PL, PT, CW, CH }) {
-        const N   = slots.length;
-        const px  = n => Math.round(n * 10) / 10;
-        // Half a slot each side. A single-slot chart has no neighbour to split
-        // the difference with, so its one column is the whole plot.
-        const half = N > 1 ? CW / (N - 1) / 2 : CW;
-
-        let out = `<line class="chart-guide" x1="0" y1="${PT}" x2="0" y2="${PT + CH}"/>`;
-        for (let i = 0; i < N; i++) {
-            if (!slotHasData[i]) continue;
-            const x  = xScale(i);
-            const x0 = Math.max(PL, x - half);
-            const x1 = Math.min(PL + CW, x + half);
-            out += `<rect class="chart-hit" x="${px(x0)}" y="${PT}" width="${px(x1 - x0)}" height="${CH}"`
-                 + ` data-slot="${i}" data-x="${px(x)}"`
-                 + ` data-when="${MONTHS[slots[i].monthIdx]} ${slots[i].year}"/>`;
-        }
-        return out;
-    }
+    /** A Year to Year line chart. `centred` keeps a balance that barely moves
+     *  mid-card; `hover` adds the month columns wireChartHover reads. */
+    const lineChart = (series, slots) => (W, animate) =>
+        FinanceChart.buildLine({ series, slots, W, animate, centred: true, hover: true });
 
     /**
      * Render a chart into #containerId and keep it responsive (UI.observeChart).
@@ -631,7 +423,7 @@
     // ─── Active hover on the Year to Year line charts ────────────────────────────
     // Moving across a chart names the month under the pointer and prints what
     // every plotted series was worth in it. The hover columns, the guide rule and
-    // the dots all come out of buildHoverLayer/buildChartSVG; this half moves the
+    // the dots all come out of FinanceChart.buildLine; this half moves the
     // guide, raises the dots of the hovered month, and fills the one floating
     // reading the three charts share.
     //
@@ -935,7 +727,7 @@
             .getPropertyValue('--chart-networth').trim() || '#1a8b52';
         const series = [{ label: 'Net Worth', color: lineColor, points: filtered }];
 
-        observeChart('networth-chart', (W, animate) => buildChartSVG({ series, slots, W, animate }));
+        observeChart('networth-chart', lineChart(series, slots));
     }
 
     /** Wire the joined range buttons. `onSelect` receives the chosen range key
@@ -1153,7 +945,7 @@
             return;
         }
 
-        observeChart('ie-chart', (W, animate) => buildChartSVG({ series: visible, slots, W, animate }));
+        observeChart('ie-chart', lineChart(visible, slots));
     }
 
     let appData = null;
@@ -1226,7 +1018,7 @@
             return;
         }
 
-        observeChart('account-chart', (W, animate) => buildChartSVG({ series, slots, W, animate }));
+        observeChart('account-chart', lineChart(series, slots));
     }
 
     /**
