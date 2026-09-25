@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { bad, parseIsoDate, isFiniteNumber, validateYear, round2 } = require('../validate');
-const { ensureActiveYear } = require('./incomeExpenses');
+const { ensureActiveYear } = require('../services/statement');
 const { normalisePath } = require('./database');
 const { EXPORT_FORMATS, exportHeader, exportBody, exportFooter } = require('../services/txExport');
 const {
@@ -71,20 +71,50 @@ function update(ctx, { params, body }) {
   const data = body || {};
   const err = applyTxFields(db, t, data, { requireAll: false });
   if (err) bad(err);
-  db.transaction(() => {
-    // Only a payload containing category_id changes categorization: setting it
-    // creates or updates the rule for this description, clearing it deletes
-    // the rule.
-    if ('category_id' in data) {
-      if (t.category_id != null) {
-        recordMatch(db, t.description, t.category_id);
-      } else {
-        forgetMatch(db, t.description);
-      }
-    }
-    updateTx(db, t);
-  })();
+  db.transaction(() => saveEdit(db, t, data))();
   return { ok: true, transaction: serialiseTx(t) };
+}
+
+/** Write one edited row, keeping the learned rules in step. Only a payload
+ *  containing category_id changes categorization: setting it creates or
+ *  updates the rule for this description, clearing it deletes the rule. The
+ *  caller supplies the transaction. */
+function saveEdit(db, t, data) {
+  if ('category_id' in data) {
+    if (t.category_id != null) {
+      recordMatch(db, t.description, t.category_id);
+    } else {
+      forgetMatch(db, t.description);
+    }
+  }
+  updateTx(db, t);
+}
+
+/** Edit several rows in one request: body { updates: [{ id, ...fields }] },
+ *  where each entry's fields follow the single-row PUT. Every row is loaded
+ *  and validated before anything is written, and the writes share one
+ *  transaction, so a bad row fails the whole request with nothing saved. */
+function bulkUpdate(ctx, { body }) {
+  const db = ctx.db();
+  const updates = (body || {}).updates;
+  if (!Array.isArray(updates) || !updates.length) bad('updates must be a non-empty array');
+  if (updates.length > MAX_IDS) bad(`updates must contain at most ${MAX_IDS} entries`);
+
+  const byId = db.prepare('SELECT * FROM transactions WHERE id = ?');
+  const edits = updates.map((u) => {
+    if (!u || typeof u !== 'object' || !Number.isInteger(u.id)) bad('each update needs an integer id');
+    const t = byId.get(u.id);
+    if (!t) bad(`transaction ${u.id} not found`, 404);
+    // applyTxFields reads only the fields it knows, so `id` rides along unused.
+    const err = applyTxFields(db, t, u, { requireAll: false });
+    if (err) bad(`transaction ${u.id}: ${err}`);
+    return { t, data: u };
+  });
+
+  db.transaction(() => {
+    for (const { t, data } of edits) saveEdit(db, t, data);
+  })();
+  return { ok: true, transactions: edits.map(({ t }) => serialiseTx(t)) };
 }
 
 function remove(ctx, { params }) {
@@ -93,6 +123,17 @@ function remove(ctx, { params }) {
   if (!t) bad('not found', 404);
   db.prepare('DELETE FROM transactions WHERE id = ?').run(t.id);
   return { ok: true };
+}
+
+/** Delete the rows named in body { ids } in one statement. An id that is
+ *  already gone is skipped rather than refused (the row is deleted either
+ *  way); `deleted` reports how many rows were actually removed. */
+function bulkDelete(ctx, { body }) {
+  const db = ctx.db();
+  const ids = parseIds((body || {}).ids);
+  const placeholders = ids.map(() => '?').join(',');
+  const info = db.prepare(`DELETE FROM transactions WHERE id IN (${placeholders})`).run(...ids);
+  return { ok: true, deleted: info.changes };
 }
 
 // Delete every transaction. Scoped to the transactions table only — categories,
@@ -113,6 +154,20 @@ function removeAll(ctx) {
 // Similar dialog is bounded by what a person ticks.
 const MAX_IMPORT_ROWS = 100000;
 const MAX_IDS = 5000;
+
+/** Validate a request's id list and return it. Each id is bound as a
+ *  parameter, so this is not an injection guard: the ids go into an
+ *  `IN (...)` list one placeholder each, and SQLite caps a statement's
+ *  parameters (SQLITE_MAX_VARIABLE_NUMBER). Past the cap the prepare throws
+ *  and the request reports a 500, a client mistake dressed as a backend
+ *  fault. The type check is the same idea: a non-integer reaches
+ *  better-sqlite3 as an unbindable value and throws there instead of here. */
+function parseIds(ids) {
+  if (!Array.isArray(ids) || !ids.length) bad('ids must be a non-empty array');
+  if (ids.length > MAX_IDS) bad(`ids must contain at most ${MAX_IDS} entries`);
+  if (!ids.every(Number.isInteger)) bad('ids must all be integers');
+  return ids;
+}
 
 function similar(ctx, { query }) {
   const db = ctx.db();
@@ -175,18 +230,9 @@ function similar(ctx, { query }) {
 function categorizeSimilar(ctx, { body }) {
   const db = ctx.db();
   const data = body || {};
-  const ids = data.ids ?? [];
+  const ids = parseIds(data.ids ?? []);
   const categoryId = data.category_id;
 
-  if (!Array.isArray(ids) || !ids.length) bad('ids must be a non-empty array');
-  // Each id is bound as a parameter, so this is not an injection guard: it is
-  // that the ids go into an `IN (...)` list one placeholder each, and SQLite
-  // caps a statement's parameters (SQLITE_MAX_VARIABLE_NUMBER). Past the cap the
-  // prepare throws and the request reports a 500 — a client mistake dressed as
-  // a backend fault. The type check is the same idea: a non-integer reaches
-  // better-sqlite3 as an unbindable value and throws there instead of here.
-  if (ids.length > MAX_IDS) bad(`ids must contain at most ${MAX_IDS} entries`);
-  if (!ids.every(Number.isInteger)) bad('ids must all be integers');
   if (typeof categoryId !== 'number' || !Number.isInteger(categoryId)) {
     bad('category_id must be an integer');
   }
@@ -687,6 +733,8 @@ const routes = [
   ['PUT', '/api/transactions/<int:tx_id>', update],
   ['DELETE', '/api/transactions', removeAll],
   ['DELETE', '/api/transactions/<int:tx_id>', remove],
+  ['POST', '/api/transactions/bulk-update', bulkUpdate],
+  ['POST', '/api/transactions/bulk-delete', bulkDelete],
   ['GET', '/api/transactions/similar', similar],
   ['POST', '/api/transactions/categorize-similar', categorizeSimilar],
   ['GET', '/api/transactions/hashes', hashes],

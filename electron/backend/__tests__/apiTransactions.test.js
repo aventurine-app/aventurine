@@ -1,13 +1,12 @@
 'use strict';
 
-// Transactions, learned match rules, and the API half of predictions. The
-// pure helpers behind them are covered in services.test.js.
+// Transactions and learned match rules. The pure helpers behind them are
+// covered in services.test.js.
 
 const test = require('node:test');
 const assert = require('node:assert');
 
 const { makeClient } = require('./helpers');
-const { addMonths, localTodayIso } = require('../services/predictions');
 
 // ── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -282,6 +281,72 @@ test('uncategorizing forgets the rule', (t) => {
   assert.ok(txByDesc(c, 'StreamCo Monthly').every((x) => x.category_id === null));
 });
 
+test('bulk-update saves every row and records their rules', (t) => {
+  const c = makeClient(t);
+  const cat = makeCategory(c, 'Bulk Grocer');
+  const a = createTx(c, 'BULK GROCER #1');
+  const b = createTx(c, 'BULK GROCER #2', { amount: 5 });
+
+  const r = c.post('/api/transactions/bulk-update', {
+    updates: [
+      { id: a.id, category_id: cat },
+      { id: b.id, category_id: cat, notes: 'weekly shop' },
+    ],
+  });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.deepStrictEqual(r.body.transactions.map((x) => x.id), [a.id, b.id]);
+  assert.ok(r.body.transactions.every((x) => x.category_id === cat));
+  assert.equal(txByDesc(c, 'BULK GROCER #2')[0].notes, 'weekly shop');
+
+  // Same rule-learning as the single-row PUT.
+  assert.equal(importRows(c, ['BULK GROCER #1', 'BULK GROCER #2']).auto_categorized, 2);
+});
+
+test('bulk-update is all-or-nothing', (t) => {
+  const c = makeClient(t);
+  const a = createTx(c, 'Atomic Row A', { amount: 1 });
+  const b = createTx(c, 'Atomic Row B', { amount: 2 });
+
+  // One bad field refuses the whole batch, including the valid row before it.
+  let r = c.post('/api/transactions/bulk-update', {
+    updates: [{ id: a.id, amount: 99 }, { id: b.id, date: 'not-a-date' }],
+  });
+  assert.equal(r.status, 400);
+  assert.match(r.body.error, new RegExp(`transaction ${b.id}`));
+  assert.equal(txByDesc(c, 'Atomic Row A')[0].amount, 1);
+
+  // So does an id that does not exist.
+  r = c.post('/api/transactions/bulk-update', {
+    updates: [{ id: a.id, amount: 99 }, { id: 987654 }],
+  });
+  assert.equal(r.status, 404);
+  assert.equal(txByDesc(c, 'Atomic Row A')[0].amount, 1);
+
+  for (const updates of [undefined, [], [{ amount: 1 }], [{ id: 'x' }]]) {
+    assert.equal(c.post('/api/transactions/bulk-update', { updates }).status, 400);
+  }
+});
+
+test('bulk-delete removes only the listed rows', (t) => {
+  const c = makeClient(t);
+  const a = createTx(c, 'Doomed A');
+  const b = createTx(c, 'Doomed B');
+  createTx(c, 'Survivor');
+
+  // An id that is already gone is skipped, not refused.
+  const r = c.post('/api/transactions/bulk-delete', { ids: [a.id, b.id, 987654] });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.deleted, 2);
+  assert.deepStrictEqual(
+    c.get('/api/transactions').body.transactions.map((x) => x.description),
+    ['Survivor']
+  );
+
+  for (const ids of [undefined, [], [1.5], ['1']]) {
+    assert.equal(c.post('/api/transactions/bulk-delete', { ids }).status, 400);
+  }
+});
+
 test('explicit category is never overridden', (t) => {
   const c = makeClient(t);
   const catA = makeCategory(c, 'Match A');
@@ -543,108 +608,6 @@ test('built-in categorization respects the direction guard and the on/off settin
   assert.equal(txByDesc(c, 'NETFLIX.COM')[0].category_id, null);
 });
 
-// ── Predictions (API half) ───────────────────────────────────────────────────
-
-const TODAY = localTodayIso();
-
-function isoAddDays(iso, n) {
-  const [y, m, d] = iso.split('-').map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d) + n * 86400000);
-  const p = (x) => String(x).padStart(2, '0');
-  return `${dt.getUTCFullYear()}-${p(dt.getUTCMonth() + 1)}-${p(dt.getUTCDate())}`;
-}
-
-function seedMonthly(c, catId, desc, amount, lastIso, n = 4) {
-  for (let i = 0; i < n; i++) {
-    createTx(c, `${desc} #${100 + i}`, { catId, amount, d: isoAddDays(lastIso, -30 * i) });
-  }
-}
-
-const getUpcoming = (c, params = '') => {
-  const r = c.get(`/api/predictions/upcoming${params}`);
-  assert.equal(r.status, 200);
-  return r.body.upcoming;
-};
-
-test('predictions: monthly subscription detected with full payload', (t) => {
-  const c = makeClient(t);
-  const cat = makeCategory(c, 'Pred Bills A');
-  const last = isoAddDays(TODAY, -10);
-  seedMonthly(c, cat, 'NETFLIX', 15.99, last);
-
-  const items = getUpcoming(c);
-  assert.equal(items.length, 1);
-  const item = items[0];
-  assert.equal(item.cycle, 'monthly');
-  assert.equal(item.amount, 15.99);
-  assert.equal(item.occurrences, 4);
-  assert.equal(item.description, 'NETFLIX #100');
-  const expectedDue = addMonths(last, 1);
-  assert.equal(item.next_date, expectedDue);
-  assert.equal(
-    item.due_in_days,
-    Math.round((Date.parse(expectedDue) - Date.parse(TODAY)) / 86400000)
-  );
-  assert.equal(item.last_date, last);
-  assert.ok(item.confidence > 0 && item.confidence <= 1);
-});
-
-test('predictions: irregular spending not detected', (t) => {
-  const c = makeClient(t);
-  const cat = makeCategory(c, 'Pred Groceries');
-  [3, 13, 23, 60, 100, 145].forEach((offset, i) => {
-    createTx(c, 'Corner Grocer', { catId: cat, amount: 20 + i * 7, d: isoAddDays(TODAY, -offset) });
-  });
-  assert.deepStrictEqual(getUpcoming(c), []);
-});
-
-test('predictions: two occurrences not enough', (t) => {
-  const c = makeClient(t);
-  const cat = makeCategory(c, 'Pred Bills B');
-  seedMonthly(c, cat, 'Gym Membership', 30.0, isoAddDays(TODAY, -5), 2);
-  assert.deepStrictEqual(getUpcoming(c), []);
-});
-
-test('predictions: lapsed subscription excluded', (t) => {
-  const c = makeClient(t);
-  const cat = makeCategory(c, 'Pred Bills C');
-  seedMonthly(c, cat, 'Old Magazine', 9.99, isoAddDays(TODAY, -80));
-  assert.deepStrictEqual(getUpcoming(c), []);
-});
-
-test('predictions: income not included', (t) => {
-  const c = makeClient(t);
-  const cat = makeCategory(c, 'Pred Salary', 'income');
-  seedMonthly(c, cat, 'ACME Payroll', 4200.0, isoAddDays(TODAY, -10));
-  assert.deepStrictEqual(getUpcoming(c), []);
-});
-
-test('predictions: uncategorized expense detected via stored tx_type', (t) => {
-  const c = makeClient(t);
-  seedMonthly(c, null, 'Spotify', 11.99, isoAddDays(TODAY, -3));
-  const items = getUpcoming(c);
-  assert.equal(items.length, 1);
-  assert.equal(items[0].amount, 11.99);
-});
-
-test('predictions: limit and ordering', (t) => {
-  const c = makeClient(t);
-  const cat = makeCategory(c, 'Pred Bills D');
-  ['Aa', 'Bb', 'Cc', 'Dd', 'Ee', 'Ff'].forEach((name, j) => {
-    const last = isoAddDays(TODAY, -(5 + j));
-    for (let i = 0; i < 4; i++) {
-      createTx(c, `Sub ${name}`, { catId: cat, amount: 10 + j, d: isoAddDays(last, -30 * i) });
-    }
-  });
-
-  const items = getUpcoming(c);
-  assert.equal(items.length, 5);
-  assert.ok(items.every((it) => it.description !== 'Sub Aa'));
-  const dates = items.map((it) => it.next_date);
-  assert.deepStrictEqual(dates, [...dates].sort());
-  assert.equal(getUpcoming(c, '?limit=6').length, 6);
-});
-
 // ── Shared helpers for the statement/transaction tests below ────────────────
 
 const categoryByKey = (c, key) =>
@@ -823,8 +786,8 @@ test('transaction years: counts every row of a year, whatever its direction', (t
   addTx(c, '2025-03-01', 10, { catId: food.id });
   addTx(c, '2026-01-05', 20, { catId: food.id });
   addTx(c, '2026-07-19', 30, { catId: food.id });
-  // An uncategorized transfer feeds no statement cell (handlers/
-  // incomeExpenses.js txKey), but it is still a row the user imported into
+  // An uncategorized transfer feeds no statement cell (services/statement.js
+  // cellKey), but it is still a row the user imported into
   // 2026 — the Manage Years lock is about the ledger, not about the cells.
   addTx(c, '2026-11-02', 40, { txType: 'transfer' });
 

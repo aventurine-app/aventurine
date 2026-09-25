@@ -1,11 +1,7 @@
 'use strict';
 
 // detectRecurringSeries (services/predictions.js) — the Recurring report's full
-// listing detector. This is NOT an oracle-pinned function (detectRecurringExpenses
-// is, and stays untouched); it shares the same grouping/cycle/regularity rules but
-// returns every qualifying series with its full occurrence history instead of a
-// top-N "due soon" slice, so it's pinned by ordinary deterministic unit tests here
-// (same precedent as services/forecast.js's recurringPatterns/placeRecurring in
+// listing detector, pinned by ordinary deterministic unit tests here (same precedent as services/forecast.js's recurringPatterns/placeRecurring in
 // forecast.test.js) with a fixed `today` removing the only time dependency.
 
 const test = require('node:test');

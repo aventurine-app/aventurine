@@ -1,110 +1,17 @@
 'use strict';
 
-// Cash Flow (Income & Expenses) routes. Shares its validation helpers with
-// the year-table factory via validate.js.
-//
-// Data-source rule (per cell): every (year, month, category) cell of an active
-// year is COMPUTED from transactions by default; a stored Entry OVERRIDES that
-// one cell. There is no sync mode or per-category switch — typing in a cell
-// stores an override, deleting the entry restores the computed value.
+// Cash Flow (Income & Expenses) routes: the statement grid read. How its cells
+// are computed and blended lives in services/statement.js; the year and cell
+// write routes it shares with the Balance Sheet come from yearTable.js.
 
-const { bad, parseEntry, validateYear, VALID_MONTHS, monthNumber, monthName } = require('../validate');
-
-const NULL_KEYS = { income: 'uncat_income', expense: 'uncat_expense' };
+const { yearEntryRoutes } = require('./yearTable');
+const { computedCells, manualCells, blendCells } = require('../services/statement');
 
 function columnsPayload(db) {
   return db
-    .prepare('SELECT * FROM categories ORDER BY position')
+    .prepare('SELECT "key", name, cat_type FROM categories ORDER BY position')
     .all()
     .map((c) => ({ key: c.key, label: c.name, type: c.cat_type }));
-}
-
-/** The category key a transaction feeds: its category's key, or one of the two
- *  uncategorized buckets (by tx_type) for NULL-category rows. An uncategorized
- *  TRANSFER feeds no cell: the statement is an income/spend surface and the
- *  direction rule keeps transfers off every one of those, so bucketing it as
- *  uncategorized expense would have the statement report moved money as spent.
- *  There is no uncat_transfer bucket to send it to instead, and inventing one
- *  would put a column on the statement for rows that belong on none of it. */
-function txKey(t, keyById) {
-  if (t.category_id == null) {
-    const dir = t.tx_type ?? 'expense';
-    if (dir === 'transfer') return null;
-    return NULL_KEYS[dir === 'income' ? 'income' : 'expense'];
-  }
-  return keyById.get(t.category_id);
-}
-
-/**
- * Aggregate Transactions into {yearStr -> {month -> {catKey -> sum}}} for every
- * cell of every ACTIVE year — the computed layer every cell shows unless a
- * manual Entry overrides it. Years without a year-table contribute nothing
- * (deleting a year-table is how a user opts a year out of the statement).
- *
- * `years` (a Set of year strings) lets a caller that has already read
- * active_years hand it over instead of having it read a second time.
- */
-function computedCells(db, years = null) {
-  const sums = {};
-  const activeYears = years || new Set(
-    db.prepare('SELECT year FROM active_years').all().map((y) => String(y.year))
-  );
-  if (!activeYears.size) return sums;
-
-  const keyById = new Map(
-    db.prepare('SELECT id, "key" FROM categories').all().map((c) => [c.id, c.key])
-  );
-
-  // The four named columns, not SELECT *: this runs on /api/data, /api/trends,
-  // /api/report-card and /api/transfers, and the row's description, notes,
-  // display_name and account_key are the bulk of it and are read by none of
-  // them.
-  const rows = db.prepare(
-    'SELECT date, amount, category_id, tx_type FROM transactions'
-  ).all();
-
-  for (const t of rows) {
-    if (!t.date) continue;
-    const yearStr = t.date.slice(0, 4);
-    if (!activeYears.has(yearStr)) continue;
-    const key = txKey(t, keyById);
-    if (!key) continue;
-    const month = VALID_MONTHS[parseInt(t.date.slice(5, 7), 10) - 1];
-    const months = (sums[yearStr] ??= {});
-    const cells = (months[month] ??= {});
-    cells[key] = (cells[key] || 0) + t.amount;
-  }
-  return sums;
-}
-
-/** Stored Entry rows as {yearStr -> {month -> {catKey -> value}}} — the manual
- *  per-cell overrides (and, for years/categories with no transactions, simply
- *  the hand-entered bookkeeping). */
-function manualCells(db) {
-  const manual = {};
-  for (const e of db.prepare('SELECT year, month, category, value FROM entries').all()) {
-    const months = (manual[String(e.year)] ??= {});
-    // Stored as 1-12; the response (and the renderer) key cells by month name.
-    (months[monthName(e.month)] ??= {})[e.category] = e.value;
-  }
-  return manual;
-}
-
-/** Deep-merge the two layers into the values the statement shows:
- *  entry ?? computed, per cell. */
-function blendCells(computed, manual) {
-  const entries = {};
-  const overlay = (layer) => {
-    for (const [yearStr, months] of Object.entries(layer)) {
-      for (const [month, cells] of Object.entries(months)) {
-        const target = ((entries[yearStr] ??= {})[month] ??= {});
-        Object.assign(target, cells);
-      }
-    }
-  };
-  overlay(computed);
-  overlay(manual); // manual second — an entry wins its cell
-  return entries;
 }
 
 function dataGet(ctx) {
@@ -129,97 +36,14 @@ function dataGet(ctx) {
   };
 }
 
-function entryUpsert(ctx, { body }) {
-  const db = ctx.db();
-  const parsed = parseEntry(body);
-  // A Cash Flow cell names a CATEGORY. parseEntry checks the string's type and
-  // length but has no table to check it against — and it is shared with the
-  // Balance Sheet, whose cells name balance_columns instead — so the existence
-  // check belongs here, per route, not in the shared validator.
-  //
-  // WRITE ONLY. Reads and deletes stay unchecked on purpose: a database that
-  // has climbed through v9/v11/v14, or that predates the removal of the budget
-  // and credit-card features, can hold entry rows whose key no longer resolves.
-  // Refusing to READ those would make historical cells disappear from the
-  // statement, and refusing to DELETE them would leave the user no way to clear
-  // one. This stops new orphans; it does not disown the old ones.
-  if (!db.prepare('SELECT 1 FROM categories WHERE "key" = ?').get(parsed.category)) {
-    bad('unknown category');
-  }
-  db.prepare(
-    `INSERT INTO entries (year, month, category, value) VALUES (?, ?, ?, ?)
-     ON CONFLICT(year, month, category) DO UPDATE SET value = excluded.value`
-  ).run(parsed.year, monthNumber(parsed.month), parsed.category, parsed.value);
-  return { ok: true };
-}
-
-function entryDelete(ctx, { body }) {
-  const db = ctx.db();
-  const parsed = parseEntry(body, { requireValue: false });
-  db.prepare('DELETE FROM entries WHERE year = ? AND month = ? AND category = ?').run(
-    parsed.year,
-    monthNumber(parsed.month),
-    parsed.category
-  );
-  return { ok: true };
-}
-
-/**
- * Ensure a Cash Flow year-table exists. Cells compute from transactions by
- * default, so creating the year is all it takes for that year's activity to
- * appear. Shared by the "+ year" endpoint and the transaction importer (an
- * import auto-creates the years it touches, so imported history feeds the
- * statement, Report Card, and Dashboard with zero configuration). Returns true
- * when the year was created.
- */
-function ensureActiveYear(db, year) {
-  return db.prepare('INSERT OR IGNORE INTO active_years (year) VALUES (?)').run(year).changes > 0;
-}
-
-function yearAdd(ctx, { body }) {
-  const db = ctx.db();
-  if (!body) bad('invalid request');
-  const year = body.year;
-  if (!validateYear(year)) bad('invalid year');
-  ensureActiveYear(db, year);
-  return { ok: true, year };
-}
-
-function yearDelete(ctx, { params }) {
-  const db = ctx.db();
-  db.transaction(() => {
-    db.prepare('DELETE FROM active_years WHERE year = ?').run(params.year);
-    db.prepare('DELETE FROM entries WHERE year = ?').run(params.year);
-  })();
-  return { ok: true };
-}
-
-function yearDuplicate(ctx, { params, body }) {
-  const db = ctx.db();
-  const target = (body || {}).target_year;
-  if (!validateYear(target)) bad('invalid target_year');
-  if (db.prepare('SELECT 1 FROM active_years WHERE year = ?').get(target)) {
-    bad('year already exists');
-  }
-  db.transaction(() => {
-    db.prepare('INSERT INTO active_years (year) VALUES (?)').run(target);
-    // Copy the manual overrides; computed cells are recomputed from the target
-    // year's transactions.
-    db.prepare(
-      `INSERT INTO entries (year, month, category, value)
-       SELECT ?, month, category, value FROM entries WHERE year = ?`
-    ).run(target, params.year);
-  })();
-  return { ok: true, year: target };
-}
-
 const routes = [
   ['GET', '/api/data', dataGet],
-  ['POST', '/api/entry', entryUpsert],
-  ['DELETE', '/api/entry', entryDelete],
-  ['POST', '/api/year', yearAdd],
-  ['DELETE', '/api/year/<int:year>', yearDelete],
-  ['POST', '/api/year/<int:year>/duplicate', yearDuplicate],
+  ...yearEntryRoutes({
+    prefix: '/api',
+    yearTable: 'active_years',
+    entryTable: 'entries',
+    keyTable: 'categories',
+  }),
 ];
 
-module.exports = { routes, computedCells, manualCells, blendCells, ensureActiveYear };
+module.exports = { routes };

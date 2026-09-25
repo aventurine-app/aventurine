@@ -150,7 +150,6 @@
 
   const ENTIRE_YEAR = 'Entire year';
 
-  let chartObserver = null;
   let firstPaint = true;
 
   // Deep-link a category to the Transactions ledger, pre-filtered to that
@@ -558,34 +557,18 @@
   function render() {
     const el = document.getElementById('cashflow-chart');
     if (!el || !state.data) return;
-    const target = el.parentElement || el; // .chart-area
-    if (chartObserver) chartObserver.disconnect();
-
-    // Both dimensions are watched now that the diagram is laid out to the box's
-    // height as well as its width. .chart-area's height comes from the flex
-    // chain above it, never from this svg, so redrawing cannot resize the box
-    // that triggered the redraw — no observer loop.
-    let lastW = 0;
-    let lastH = 0;
-    const draw = (w, h) => {
-      w = Math.round(w);
-      h = Math.round(h || 0);
-      if (w <= 0 || (w === lastW && h === lastH)) return;
-      lastW = w;
-      lastH = h;
+    // Both dimensions are watched: the diagram is laid out to its box's height
+    // as well as its width. The box (.chart-area, el's parent) takes its height
+    // from the flex chain above it, never from this svg, so redrawing cannot
+    // resize the box that triggered the redraw. The entrance animation is
+    // driven by `firstPaint` (see buildSVG), not by the observer's flag.
+    UI.observeChart(el, (w, h) => {
       const svg = buildSVG(w, h);
       if (svg === null) { showEmpty(true); return; }
       showEmpty(false);
       el.innerHTML = svg;
       firstPaint = false;
-    };
-
-    chartObserver = new ResizeObserver((entries) => {
-      const r = entries[0].contentRect;
-      draw(r.width, r.height);
-    });
-    chartObserver.observe(target);
-    draw(target.clientWidth, target.clientHeight);
+    }, { height: true });
   }
 
   // ─── Span picker: year + month, one joined control ───────────────────────────

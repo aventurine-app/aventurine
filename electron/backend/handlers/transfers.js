@@ -42,8 +42,8 @@
 // grey "Other" band. Reading the statement's own rows removes the question.
 //
 // AN UNCATEGORIZED TRANSFER gets a band of its own. It is money the direction
-// rule counts in the line, but the statement gives it no row (see txKey in
-// handlers/incomeExpenses.js — it is neither income nor spending, and there is
+// rule counts in the line, but the statement gives it no row (see cellKey in
+// services/statement.js — it is neither income nor spending, and there is
 // no uncat_transfer bucket), so the ledger is the only thing that speaks for it
 // and it is summed directly. It carries no ledger link: `?cat=` addresses a
 // category, and "uncategorized AND moved" is not one the filter can express, so
@@ -66,7 +66,7 @@
 // that rather than the requested count.
 
 const { addMonthKey } = require('../services/forecast');
-const { computedCells, manualCells, blendCells } = require('./incomeExpenses');
+const { statementCells } = require('../services/statement');
 const { round2, monthName } = require('../validate');
 
 // Allowed trailing windows, in months.
@@ -136,7 +136,7 @@ function transfersGet(ctx, { query }) {
 
   // The statement, cell for cell: computed from transactions, a typed Entry
   // overriding its own cell.
-  const cells = blendCells(computedCells(db), manualCells(db));
+  const cells = statementCells(db);
   const cellAt = (ym, key) =>
     cells[ym.slice(0, 4)]?.[monthName(Number(ym.slice(5, 7)))]?.[key];
 

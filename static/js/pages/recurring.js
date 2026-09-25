@@ -488,29 +488,17 @@
     }
     const { candidates } = await res.json();
 
-    const overlay = document.createElement('div');
-    overlay.className = 'confirm-overlay';
-    const close = () => overlay.remove();
-
     if (!candidates.length) {
-      overlay.innerHTML = `
-      <div class="confirm-dialog rec-detect-dialog">
-        <button class="dialog-close-btn" aria-label="Close">×</button>
+      UI.dialog(`
         <p><strong>No new recurring schedules found</strong></p>
         <p class="rec-detect-note">A pattern needs a few charges at a steady interval before it can be spotted. Import more history, or add a schedule by hand with the + on the day it falls on.</p>
         <div class="confirm-actions">
           <button class="db-btn confirm-cancel">Close</button>
-        </div>
-      </div>`;
-      document.body.appendChild(overlay);
-      overlay.querySelector('.dialog-close-btn').addEventListener('click', close);
-      overlay.querySelector('.confirm-cancel').addEventListener('click', close);
+        </div>`, { className: 'rec-detect-dialog' });
       return;
     }
 
-    overlay.innerHTML = `
-    <div class="confirm-dialog rec-detect-dialog">
-      <button class="dialog-close-btn" aria-label="Close">×</button>
+    const { overlay, close } = UI.dialog(`
       <p><strong>Recurring schedules found</strong></p>
       <p class="rec-detect-note">These transactions look like they repeat. Keep the ones you want to track — you can correct any detail afterwards.</p>
       <label class="rec-cand-all">
@@ -521,9 +509,7 @@
       <div class="confirm-actions">
         <button class="db-btn confirm-cancel">Cancel</button>
         <button class="db-btn db-btn-primary confirm-add" id="rec-cand-ok">Add selected</button>
-      </div>
-    </div>`;
-    document.body.appendChild(overlay);
+      </div>`, { className: 'rec-detect-dialog' });
 
     const allBox = overlay.querySelector('#rec-cand-all');
     const boxes = [...overlay.querySelectorAll('.rec-cand-cb')];
@@ -547,8 +533,6 @@
       syncState();
     });
     overlay.querySelector('.rec-cand-list').addEventListener('change', syncState);
-    overlay.querySelector('.dialog-close-btn').addEventListener('click', close);
-    overlay.querySelector('.confirm-cancel').addEventListener('click', close);
 
     okBtn.addEventListener('click', async () => {
       const keys = checked().map((b) => b.dataset.key);
@@ -572,35 +556,22 @@
   /** Small confirm dialog, same .confirm-* shell the rest of the app uses for
    *  destructive prompts. The wording names what is actually lost: the
    *  schedule, not the transactions it was detected from. */
-  function confirmRemoveSchedule(key) {
+  async function confirmRemoveSchedule(key) {
     const s = seriesFor(key);
     const label = s.display_name || s.description || key;
-    const overlay = document.createElement('div');
-    overlay.className = 'confirm-overlay';
-    overlay.innerHTML = `
-    <div class="confirm-dialog">
-      <button class="dialog-close-btn" aria-label="Close">×</button>
+    const ok = await UI.confirm({
+      message: `
       <p>Delete the <strong>${escapeHtml(label)}</strong> schedule?</p>
-      <p class="rec-detect-note">Its transactions stay in your ledger, and detection can offer it again later.</p>
-      <div class="confirm-actions">
-        <button class="db-btn confirm-cancel">Cancel</button>
-        <button class="db-btn db-btn-danger confirm-delete">Delete</button>
-      </div>
-    </div>`;
-    document.body.appendChild(overlay);
-    const close = () => overlay.remove();
-    overlay.querySelector('.dialog-close-btn').addEventListener('click', close);
-    overlay.querySelector('.confirm-cancel').addEventListener('click', close);
-    overlay.querySelector('.confirm-delete').addEventListener('click', async () => {
-      close();
-      const res = await apiFetch(`/api/recurring/schedule/${encodeURIComponent(key)}`, { method: 'DELETE' });
-      if (!res.ok) {
-        window.UI?.toast?.("Couldn't delete it — try again.", { type: 'error' });
-        return;
-      }
-      closeCard();
-      await load();
+      <p class="rec-detect-note">Its transactions stay in your ledger, and detection can offer it again later.</p>`,
     });
+    if (!ok) return;
+    const res = await apiFetch(`/api/recurring/schedule/${encodeURIComponent(key)}`, { method: 'DELETE' });
+    if (!res.ok) {
+      window.UI?.toast?.("Couldn't delete it — try again.", { type: 'error' });
+      return;
+    }
+    closeCard();
+    await load();
   }
 
   /** ⋮ → "Clear all recurring schedules": the card's trash can applied to every
@@ -608,35 +579,23 @@
    *  in the picker, corrections kept), hand-added ones are deleted. This clears
    *  the CALENDAR only; the transactions behind it are untouched, and the wording
    *  reflects that. */
-  function confirmClearAll() {
+  async function confirmClearAll() {
     closeCard();
     const n = data.series.length;
-    const overlay = document.createElement('div');
-    overlay.className = 'confirm-overlay';
-    overlay.innerHTML = `
-    <div class="confirm-dialog">
-      <button class="dialog-close-btn" aria-label="Close">×</button>
+    const ok = await UI.confirm({
+      message: `
       <p>Clear all <strong>${n}</strong> recurring schedule${n === 1 ? '' : 's'}?</p>
-      <p class="rec-detect-note">The calendar goes back to blank. Your transactions stay in the ledger, and detection can offer the ones it found again.</p>
-      <div class="confirm-actions">
-        <button class="db-btn confirm-cancel">Cancel</button>
-        <button class="db-btn db-btn-danger confirm-delete">Clear all</button>
-      </div>
-    </div>`;
-    document.body.appendChild(overlay);
-    const close = () => overlay.remove();
-    overlay.querySelector('.dialog-close-btn').addEventListener('click', close);
-    overlay.querySelector('.confirm-cancel').addEventListener('click', close);
-    overlay.querySelector('.confirm-delete').addEventListener('click', async () => {
-      close();
-      const res = await apiFetch('/api/recurring/schedules', { method: 'DELETE' });
-      if (!res.ok) {
-        window.UI?.toast?.("Couldn't clear your schedules — nothing was removed.", { type: 'error' });
-        return;
-      }
-      expandedDays.clear();
-      await load();
+      <p class="rec-detect-note">The calendar goes back to blank. Your transactions stay in the ledger, and detection can offer the ones it found again.</p>`,
+      confirmLabel: 'Clear all',
     });
+    if (!ok) return;
+    const res = await apiFetch('/api/recurring/schedules', { method: 'DELETE' });
+    if (!res.ok) {
+      window.UI?.toast?.("Couldn't clear your schedules — nothing was removed.", { type: 'error' });
+      return;
+    }
+    expandedDays.clear();
+    await load();
   }
 
   /** Form dialog for a schedule with no backing transactions — a charge the user
@@ -650,11 +609,7 @@
    *  fixed caption so the date can still be changed. */
   function openAddDialog(iso) {
     closeCard();
-    const overlay = document.createElement('div');
-    overlay.className = 'confirm-overlay';
-    overlay.innerHTML = `
-    <div class="confirm-dialog rec-add-dialog">
-      <button class="dialog-close-btn" aria-label="Close">×</button>
+    const { overlay, close } = UI.dialog(`
       <p><strong>Add a recurring schedule</strong></p>
       <label class="rec-add-field">
         <span class="rec-add-label">Name</span>
@@ -680,18 +635,13 @@
       <div class="confirm-actions">
         <button class="db-btn confirm-cancel">Cancel</button>
         <button class="db-btn db-btn-primary confirm-add">Add</button>
-      </div>
-    </div>`;
-    document.body.appendChild(overlay);
+      </div>`, { className: 'rec-add-dialog' });
 
     const nameInput   = overlay.querySelector('#rec-add-name');
     const typeSelect  = overlay.querySelector('#rec-add-type');
     const cycleSelect = overlay.querySelector('#rec-add-cycle');
     const amountInput = overlay.querySelector('#rec-add-amount');
     const dateInput   = overlay.querySelector('#rec-add-date');
-    const close = () => overlay.remove();
-    overlay.querySelector('.dialog-close-btn').addEventListener('click', close);
-    overlay.querySelector('.confirm-cancel').addEventListener('click', close);
     amountInput.addEventListener('input', () => applyCurrencyFormat(amountInput));
     nameInput.focus();
 

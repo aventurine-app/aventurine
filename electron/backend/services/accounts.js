@@ -3,7 +3,7 @@
 // Accounts — the Balance Sheet's columns, which double as the accounts a
 // transaction can belong to (transactions.account_key references
 // balance_columns."key"; see the v10 migration). This service holds the one
-// thing the generic year-table factory does not: adoption of a starter account.
+// thing handlers/balanceSheet.js does not: adoption of a starter account.
 //
 // A fresh database seeds the starter accounts hidden (seed.js
 // DEFAULT_BALANCE_COLUMNS): they exist so onboarding and the import picker can

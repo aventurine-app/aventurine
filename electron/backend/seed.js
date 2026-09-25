@@ -15,7 +15,7 @@ const { SYSTEM_CATEGORY_KEYS, insertPos } = require('./services/categories');
 // targets these keys; broad buckets here (a single Food bucket for groceries and
 // restaurants, a dedicated Insurance/Travel category) raise the share of rows
 // auto-categorization can fill. The two uncat_* buckets are system buckets
-// (NULL-category sums) — see handlers/incomeExpenses.js NULL_SYNC_KEYS — and
+// (NULL-category sums) — see services/statement.js NULL_KEYS — and
 // must not be removed.
 const DEFAULT_CATEGORIES = [
   ['income',         'Primary Income',      'income',    0],

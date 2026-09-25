@@ -13,7 +13,7 @@
 // table), so every year the user tracks gets a card, including one with no
 // activity yet, not only years with transactions. Each year's figures are the
 // same numbers the Cash Flow page shows: per cell, the transaction-derived sum
-// unless a stored Entry overrides it (see incomeExpenses.dataGet).
+// unless a stored Entry overrides it (see services/statement.js).
 //
 // The response carries the same cards over TWO spans: `years`, and `months` —
 // each of the twelve months, keyed by name, as its own newest-first series of
@@ -23,7 +23,7 @@
 // so the debt-to-income ratio reports N/A rather than measuring a balance
 // carried against a twelfth of the income servicing it.
 
-const { computedCells, manualCells, blendCells } = require('./incomeExpenses');
+const { statementCells } = require('../services/statement');
 const { buildReportCards, METRIC_BANDS } = require('../services/reportCard');
 const { VALID_MONTHS } = require('../validate');
 
@@ -91,7 +91,7 @@ function collectTotals(db) {
     for (const m of VALID_MONTHS) ensureMonth(m, y.year);
   }
 
-  const blended = blendCells(computedCells(db), manualCells(db));
+  const blended = statementCells(db);
   for (const [yearStr, monthCells] of Object.entries(blended)) {
     const year = parseInt(yearStr, 10);
     if (!Number.isInteger(year)) continue;

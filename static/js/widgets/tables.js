@@ -82,26 +82,13 @@
      * open behind the confirmation, the same way confirmColumnDelete stacks
      * above the column manager.
      */
-    function confirmDelete(year, onConfirm, opts = {}) {
-        const overlay = document.createElement('div');
-        overlay.className = 'confirm-overlay';
-        if (opts.zIndex) overlay.style.zIndex = String(opts.zIndex);
-        overlay.innerHTML = `
-        <div class="confirm-dialog">
-            <button class="dialog-close-btn" aria-label="Close">×</button>
-            <p>Remove <strong>${year}</strong> and all its data?<br>This cannot be undone.</p>
-            <div class="confirm-actions">
-                <button class="db-btn confirm-cancel">Cancel</button>
-                <button class="db-btn db-btn-danger confirm-delete">Remove</button>
-            </div>
-        </div>`;
-        document.body.appendChild(overlay);
-        overlay.querySelector('.dialog-close-btn').addEventListener('click', () => overlay.remove());
-        overlay.querySelector('.confirm-cancel').addEventListener('click', () => overlay.remove());
-        overlay.querySelector('.confirm-delete').addEventListener('click', () => {
-            overlay.remove();
-            onConfirm();
+    async function confirmDelete(year, onConfirm, opts = {}) {
+        const ok = await UI.confirm({
+            message: `<p>Remove <strong>${year}</strong> and all its data?<br>This cannot be undone.</p>`,
+            confirmLabel: 'Remove',
+            zIndex: opts.zIndex,
         });
+        if (ok) onConfirm();
     }
 
     /**
@@ -115,24 +102,16 @@
     function promptAddYear(existingYears, onConfirm, opts = {}) {
         const message      = opts.message || 'Enter a <strong>4-digit year</strong> to add:';
         const confirmLabel = opts.confirmLabel || 'Add';
-        const overlay = document.createElement('div');
-        overlay.className = 'confirm-overlay';
-        overlay.innerHTML = `
-        <div class="confirm-dialog">
-            <button class="dialog-close-btn" aria-label="Close">×</button>
+        const { overlay, close } = UI.dialog(`
             <p>${message}</p>
             <input type="number" class="year-prompt-input" min="1000" max="9999" placeholder="e.g. 2024">
             <div class="confirm-actions">
                 <button class="db-btn confirm-cancel">Cancel</button>
                 <button class="db-btn db-btn-primary confirm-add">${escapeHtml(confirmLabel)}</button>
-            </div>
-        </div>`;
-        document.body.appendChild(overlay);
+            </div>`);
 
-        const input     = overlay.querySelector('.year-prompt-input');
-        const addBtn    = overlay.querySelector('.confirm-add');
-        const cancelBtn = overlay.querySelector('.confirm-cancel');
-        overlay.querySelector('.dialog-close-btn').addEventListener('click', () => overlay.remove());
+        const input  = overlay.querySelector('.year-prompt-input');
+        const addBtn = overlay.querySelector('.confirm-add');
         input.focus();
 
         const tryAdd = () => {
@@ -141,7 +120,7 @@
                 input.classList.add('invalid');
                 return;
             }
-            overlay.remove();
+            close();
             onConfirm(year);
         };
 
@@ -152,9 +131,7 @@
         });
         input.addEventListener('keydown', e => {
             if (e.key === 'Enter') tryAdd();
-            if (e.key === 'Escape') overlay.remove();
         });
-        cancelBtn.addEventListener('click', () => overlay.remove());
         addBtn.addEventListener('click', tryAdd);
     }
 
@@ -163,26 +140,13 @@
      * data. Stacks ABOVE the column manager modal (z-index 1100 vs the manager's
      * 1000). `label` is user-controlled, so it is escapeHtml'd.
      */
-    function confirmColumnDelete(label, onConfirm) {
-        const overlay = document.createElement('div');
-        overlay.className = 'confirm-overlay';
-        overlay.style.zIndex = '1100';
-        overlay.innerHTML = `
-        <div class="confirm-dialog">
-            <button class="dialog-close-btn" aria-label="Close">×</button>
-            <p><strong>${escapeHtml(label)}</strong> has saved data.<br>Deleting it will permanently erase all values for this column. This cannot be undone.</p>
-            <div class="confirm-actions">
-                <button class="db-btn confirm-cancel">Cancel</button>
-                <button class="db-btn db-btn-danger confirm-delete">Delete Anyway</button>
-            </div>
-        </div>`;
-        document.body.appendChild(overlay);
-        overlay.querySelector('.dialog-close-btn').addEventListener('click', () => overlay.remove());
-        overlay.querySelector('.confirm-cancel').addEventListener('click', () => overlay.remove());
-        overlay.querySelector('.confirm-delete').addEventListener('click', () => {
-            overlay.remove();
-            onConfirm();
+    async function confirmColumnDelete(label, onConfirm) {
+        const ok = await UI.confirm({
+            message: `<p><strong>${escapeHtml(label)}</strong> has saved data.<br>Deleting it will permanently erase all values for this column. This cannot be undone.</p>`,
+            confirmLabel: 'Delete Anyway',
+            zIndex: 1100,
         });
+        if (ok) onConfirm();
     }
 
     /**
@@ -370,8 +334,8 @@
         const invalidate  = () => {
             if (storeName && window.Store) window.Store.invalidate(storeName);
         };
-        const sendJson = (url, method, body, extra = {}) =>
-            apiFetch(url, { method, headers: jsonHeaders, body: JSON.stringify(body), ...extra });
+        const sendJson = (url, method, body) =>
+            apiFetch(url, { method, headers: jsonHeaders, body: JSON.stringify(body) });
         // Wrap a write so (a) the Store cache for this feature is dropped once the
         // request settles and (b) a failure shows a toast instead of being
         // discarded. A failure is either a rejected fetch (backend unreachable) or
@@ -392,16 +356,10 @@
                 },
             )
             .finally(invalidate);
-        // `keepalive: true` lets a cell save survive the page navigation that
-        // would otherwise abort an in-flight fetch — critical for flushing
-        // pending writes from a pagehide handler. ~64KB body cap doesn't matter
-        // for our few-byte JSON payloads.
-        const KEEPALIVE = { keepalive: true };
-
         return {
             get:           ()                        => apiFetch(`${prefix}/data`).then(r => r.json()),
-            upsertEntry:   (year, month, cat, value) => wrapWrite(sendJson(`${prefix}/entry`,  'POST',   { year, month, category: cat, value }, KEEPALIVE)),
-            deleteEntry:   (year, month, cat)        => wrapWrite(sendJson(`${prefix}/entry`,  'DELETE', { year, month, category: cat },         KEEPALIVE)),
+            upsertEntry:   (year, month, cat, value) => wrapWrite(sendJson(`${prefix}/entry`,  'POST',   { year, month, category: cat, value })),
+            deleteEntry:   (year, month, cat)        => wrapWrite(sendJson(`${prefix}/entry`,  'DELETE', { year, month, category: cat })),
             addYear:       (year)                    => wrapWrite(sendJson(`${prefix}/year`,   'POST',   { year })),
             deleteYear:    (year)                    => wrapWrite(apiFetch(`${prefix}/year/${year}`, { method: 'DELETE' })),
             duplicateYear: (src, tgt)                => wrapWrite(sendJson(`${prefix}/year/${src}/duplicate`, 'POST', { target_year: tgt })),
@@ -615,8 +573,8 @@
         _pendingCellSaves.clear();
     }
 
-    // The save fetches carry `keepalive: true` (see makeYearTableApi) so the
-    // browser keeps them open long enough to complete as the page unloads.
+    // Each save is handed to IPC synchronously inside this handler, so the main
+    // process completes it even though the page is unloading.
     window.addEventListener('pagehide', flushAllPendingCellSaves);
 
     // ─── Cell provenance presentation (Cash Flow) ───────────────────────────────

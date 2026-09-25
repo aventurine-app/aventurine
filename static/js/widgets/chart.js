@@ -108,7 +108,6 @@
     }
     return Math.round(Math.min(AXIS_PAD_MAX, Math.max(AXIS_PAD_MIN, widest + AXIS_GAP)));
   }
-  const observers = new Map();
 
   // Gridlines and the smoothed curve come from ChartMath (core/chartmath.js),
   // shared with widgets/forecast.js and pages/dashboard.js so all three engines
@@ -576,7 +575,7 @@
    *  Series are drawn bottom-up in the order given. */
   function renderArea(containerId, { series, slots, fill }) {
     mount(containerId, series.length > 0 && slots.length > 0, (W, animate, boxH) =>
-      buildAreaSVG({ series, slots, W, boxH, fill, animate }));
+      buildAreaSVG({ series, slots, W, boxH, fill, animate }), { fill });
   }
 
   /** Render stacked columns into a container. Pass empty `series` to clear. */
@@ -585,57 +584,21 @@
       buildStackedSVG({ series, slots, W, animate }));
   }
 
-  /** Draw into a container and keep it responsive: re-render on resize, with the
-   *  first paint animating and resizes not. `build(W, animate, H)` returns the
-   *  SVG for a given pixel width, with the container's measured height alongside
-   *  it for the forms that fill their box (see `fill` in buildChartSVG). Shared
-   *  by all three chart forms, which is the main reason stacked bars live in
-   *  this file rather than a separate one. */
-  function mount(containerId, hasData, build) {
+  /** Draw into a container and keep it responsive (UI.observeChart): the first
+   *  paint animates and resizes do not. `build(W, animate, H)` returns the SVG
+   *  for a given pixel width, with the container's measured height alongside
+   *  it for the forms that fill their box (see `fill` in buildChartSVG); only
+   *  those track height changes. Shared by all three chart forms, which is the
+   *  main reason stacked bars live in this file rather than a separate one. */
+  function mount(containerId, hasData, build, { fill = false } = {}) {
     const el = document.getElementById(containerId);
     if (!el) return;
-    const existing = observers.get(containerId);
-    if (existing) { existing.disconnect(); observers.delete(containerId); }
-
-    if (!hasData) { el.innerHTML = ''; return; }
-
-    const target = el.parentElement || el;
-    let animate = true;       // flips off after the first successful paint
-    let lastW = 0;
-    let lastH = 0;
-    let sawInitial = false;   // has the observer delivered its first callback?
-    const draw = (w, h) => {
-      w = Math.round(w);
-      h = Math.round(h) || 0;
-      // Height changes redraw too, for a chart told to fill its box. The 2px
-      // tolerance is what keeps that from oscillating: a filled chart makes its
-      // own container taller, so an exact compare would have every paint feed
-      // the observer a new number to paint again.
-      if (w > 0 && (w !== lastW || Math.abs(h - lastH) > 2)) {
-        lastW = w;
-        lastH = h;
-        el.innerHTML = build(w, animate, h) || '';
-        animate = false;
-      }
-    };
-    const obs = new ResizeObserver((entries) => {
-      const { width, height } = entries[0].contentRect;
-      const w = Math.round(width);
-      // The observer always fires once right after observe(). If the sync
-      // paint below already ran (animate now false), that first callback is
-      // synthetic, not a real resize — adopt its width as the baseline and
-      // skip the repaint so the entrance animation isn't cancelled a frame in.
-      // (clientWidth from the sync paint can differ from contentRect.width if
-      // layout shifts in between, so a width compare alone won't catch this.)
-      if (!sawInitial) {
-        sawInitial = true;
-        if (!animate) { lastW = w; lastH = Math.round(height); return; }
-      }
-      draw(w, height);
-    });
-    obs.observe(target);
-    observers.set(containerId, obs);
-    draw(target.clientWidth, target.clientHeight);
+    if (!hasData) {
+      UI.unobserveChart(el);
+      el.innerHTML = '';
+      return;
+    }
+    UI.observeChart(el, (w, h, animate) => { el.innerHTML = build(w, animate, h) || ''; }, { height: fill });
   }
 
   /** Render smoothed lines into a container. Pass empty `series` to clear.
@@ -643,7 +606,7 @@
    *  container's height — see buildChartSVG. */
   function render(containerId, { series, slots, zeroBase, fill }) {
     mount(containerId, series.length > 0 && slots.length > 0, (W, animate, boxH) =>
-      buildChartSVG({ series, slots, W, boxH, fill, animate, zeroBase }));
+      buildChartSVG({ series, slots, W, boxH, fill, animate, zeroBase }), { fill });
   }
 
   /** Map<key, colour>, assigned in order. `palette` is 'accent' (default) or

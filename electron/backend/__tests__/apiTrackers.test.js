@@ -1,6 +1,6 @@
 'use strict';
 
-// Balance Sheet via the year-table factory, plus the cross-cutting
+// Balance Sheet (handlers/balanceSheet.js), plus the cross-cutting
 // non-finite-value rejections. (There are no host/origin/CSP middleware tests:
 // there is no HTTP server and no socket to defend.)
 

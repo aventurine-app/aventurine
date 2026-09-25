@@ -317,6 +317,14 @@ const MIGRATIONS = [
       ALTER TABLE recurring_overrides_new RENAME TO recurring_overrides;
     `);
   }],
+  // v15 — covering index for the Cash Flow cell sums (see schema.js baseline
+  // and services/statement.js computedCells). Index only: no data changes.
+  [15, (db) => {
+    db.exec(
+      'CREATE INDEX IF NOT EXISTS ix_transactions_month_cat ON transactions '
+      + '(substr(date, 1, 7), category_id, tx_type, amount, date)'
+    );
+  }],
 ];
 
 /**

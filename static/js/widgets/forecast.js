@@ -283,7 +283,6 @@
 
   const CHART_RATIO = 240 / 800;
   const CHART_PAD = { l: 60, r: 22, t: 20, b: 34 };
-  let chartObserver = null;
 
   function readAccent() {
     // The forecast line is a neutral projection, so it uses the chart palette and
@@ -550,26 +549,11 @@
   function renderChartResponsive() {
     const el = document.getElementById('forecast-chart');
     if (!el) return;
-    const target = document.getElementById('forecast-plot') || el;
-    if (chartObserver) chartObserver.disconnect();
-
-    let animate = true;
-    let lastW = 0;
-    const draw = (w) => {
-      w = Math.round(w);
-      if (w <= 0) return;
-      // Re-draw on a width change, and on demand (data changed) at the same width.
-      lastW = w;
+    // Called again whenever the data changes, which redraws at the same width.
+    UI.observeChart(el, (w, _h, animate) => {
       el.innerHTML = buildChartSVG(w, animate);
-      animate = false;
       renderPins();
-    };
-    chartObserver = new ResizeObserver((entries) => {
-      const w = Math.round(entries[0].contentRect.width);
-      if (w !== lastW) draw(w);
-    });
-    chartObserver.observe(target);
-    draw(target.clientWidth);
+    }, { target: document.getElementById('forecast-plot') || el });
   }
 
   // ─── The card ────────────────────────────────────────────────────────────
@@ -761,35 +745,22 @@
     UI.toast(`Showing ${fits} month${fits === 1 ? '' : 's'} so ${fmtShortDate(date)} is on the chart.`);
   }
 
-  function confirmDelete(id) {
+  async function confirmDelete(id) {
     const item = itemFor(id);
     if (!item) return;
-    const overlay = document.createElement('div');
-    overlay.className = 'confirm-overlay';
-    overlay.innerHTML = `
-    <div class="confirm-dialog">
-      <button class="dialog-close-btn" aria-label="Close">×</button>
+    const ok = await UI.confirm({
+      message: `
       <p>Delete the <strong>${escapeHtml(item.label)}</strong> planned item?</p>
-      <p class="fc-dialog-note">It only affects this projection — no transaction is touched.</p>
-      <div class="confirm-actions">
-        <button class="db-btn confirm-cancel">Cancel</button>
-        <button class="db-btn db-btn-danger confirm-delete">Delete</button>
-      </div>
-    </div>`;
-    document.body.appendChild(overlay);
-    const close = () => overlay.remove();
-    overlay.querySelector('.dialog-close-btn').addEventListener('click', close);
-    overlay.querySelector('.confirm-cancel').addEventListener('click', close);
-    overlay.querySelector('.confirm-delete').addEventListener('click', async () => {
-      close();
-      const res = await apiFetch(`/api/forecast/planned/${id}`, { method: 'DELETE' });
-      if (!res.ok) {
-        UI.toast("Couldn't delete that item — try again.", { type: 'error' });
-        return;
-      }
-      closeCard();
-      await load();
+      <p class="fc-dialog-note">It only affects this projection — no transaction is touched.</p>`,
     });
+    if (!ok) return;
+    const res = await apiFetch(`/api/forecast/planned/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      UI.toast("Couldn't delete that item — try again.", { type: 'error' });
+      return;
+    }
+    closeCard();
+    await load();
   }
 
   /** Add dialog, opened from the guide's +, so the date is pre-filled from the
@@ -797,11 +768,7 @@
    *  stays an editable field so the date can still be changed. */
   function openAddDialog(iso) {
     closeCard();
-    const overlay = document.createElement('div');
-    overlay.className = 'confirm-overlay';
-    overlay.innerHTML = `
-    <div class="confirm-dialog fc-add-dialog">
-      <button class="dialog-close-btn" aria-label="Close">×</button>
+    const { overlay, close } = UI.dialog(`
       <p><strong>Plan an item</strong></p>
       <p class="fc-dialog-note">A one-off payment or receipt you already know about. It bends this
         projection only — it is not a transaction, and nothing is added to your ledger.</p>
@@ -830,17 +797,12 @@
       <div class="confirm-actions">
         <button class="db-btn confirm-cancel">Cancel</button>
         <button class="db-btn db-btn-primary confirm-add">Add</button>
-      </div>
-    </div>`;
-    document.body.appendChild(overlay);
+      </div>`, { className: 'fc-add-dialog' });
 
     const labelInput = overlay.querySelector('#fc-add-label');
     const flowSelect = overlay.querySelector('#fc-add-flow');
     const amountInput = overlay.querySelector('#fc-add-amount');
     const dateInput = overlay.querySelector('#fc-add-date');
-    const close = () => overlay.remove();
-    overlay.querySelector('.dialog-close-btn').addEventListener('click', close);
-    overlay.querySelector('.confirm-cancel').addEventListener('click', close);
     amountInput.addEventListener('input', () => applyCurrencyFormat(amountInput));
     labelInput.focus();
 
@@ -900,33 +862,21 @@
     return plannedItems().filter((p) => p.date < today || p.date > max);
   }
 
-  function confirmClearStranded() {
+  async function confirmClearStranded() {
     const stranded = strandedItems();
     if (!stranded.length) return;
-    const overlay = document.createElement('div');
-    overlay.className = 'confirm-overlay';
-    overlay.innerHTML = `
-    <div class="confirm-dialog">
-      <button class="dialog-close-btn" aria-label="Close">×</button>
+    const ok = await UI.confirm({
+      message: `
       <p>Clear <strong>${stranded.length}</strong> planned item${stranded.length === 1 ? '' : 's'} outside the forecast?</p>
       <p class="fc-dialog-note">These are dated before today or beyond the longest horizon, so nothing
-        projects them. No transaction is touched.</p>
-      <div class="confirm-actions">
-        <button class="db-btn confirm-cancel">Cancel</button>
-        <button class="db-btn db-btn-danger confirm-delete">Clear</button>
-      </div>
-    </div>`;
-    document.body.appendChild(overlay);
-    const close = () => overlay.remove();
-    overlay.querySelector('.dialog-close-btn').addEventListener('click', close);
-    overlay.querySelector('.confirm-cancel').addEventListener('click', close);
-    overlay.querySelector('.confirm-delete').addEventListener('click', async () => {
-      close();
-      for (const p of stranded) {
-        await apiFetch(`/api/forecast/planned/${p.id}`, { method: 'DELETE' });
-      }
-      await load();
+        projects them. No transaction is touched.</p>`,
+      confirmLabel: 'Clear',
     });
+    if (!ok) return;
+    for (const p of stranded) {
+      await apiFetch(`/api/forecast/planned/${p.id}`, { method: 'DELETE' });
+    }
+    await load();
   }
 
   /** The transfers switch. It is in the header as a labelled checkbox rather than

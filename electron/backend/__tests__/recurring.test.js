@@ -5,9 +5,8 @@
 // (categorized rows derive tx_type from Category.cat_type, same rule every
 // other list endpoint follows), transfer exclusion, month-scoped occurrences
 // (actual vs. projected), and the month query-param contract. `today` is not
-// injectable through the API (the handler always uses the real local date, as
-// /api/predictions/upcoming does), so dates are built relative to "now" rather
-// than hardcoded.
+// injectable through the API (the handler always uses the real local date), so
+// dates are built relative to "now" rather than hardcoded.
 //
 // Detection does not populate the page on its own, so almost every test here
 // inserts history and then calls adoptAll(), the two-call equivalent of running

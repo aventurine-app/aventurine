@@ -1,8 +1,7 @@
 'use strict';
 
 // Recurring (Reports) routes. Surfaces detectRecurringSeries
-// (services/predictions.js) as a full listing rather than the top-N "due
-// soon" slice /api/predictions/upcoming returns, plus a per-month calendar of
+// (services/predictions.js) as a full listing, plus a per-month calendar of
 // occurrences (actual past charges + projected ones) for the
 // requested month — projected ones fill BOTH the future and any gap between a
 // series' last recorded charge and today, so a schedule never renders a month

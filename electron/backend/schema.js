@@ -17,7 +17,7 @@
 //   - the v_* views pre-join the normalized tables into human-readable,
 //     chronologically-sortable shapes for ad-hoc querying.
 
-const SCHEMA_VERSION = 14;
+const SCHEMA_VERSION = 15;
 
 // Months persist as 1-12 integers so `ORDER BY year, month` sorts
 // chronologically (the app translates to/from English names at its API
@@ -246,6 +246,12 @@ const DDL = [
   `CREATE INDEX ix_portfolio_entries_account_id ON portfolio_entries (account_id)`,
   `CREATE INDEX ix_transactions_category_id ON transactions (category_id)`,
   `CREATE INDEX ix_transactions_date ON transactions (date)`,
+  // Covering index for the Cash Flow cell sums (services/statement.js
+  // computedCells): its GROUP BY reads the groups in index order instead of
+  // sorting every transaction on each statement/report request. The trailing
+  // `date` is what makes it covering: SQLite does not treat an index as
+  // covering a column that appears only inside an indexed expression.
+  `CREATE INDEX ix_transactions_month_cat ON transactions (substr(date, 1, 7), category_id, tx_type, amount, date)`,
   `CREATE INDEX ix_forecast_planned_date ON forecast_planned (date)`,
 
   // ── Convenience views ──────────────────────────────────────────────────────

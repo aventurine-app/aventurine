@@ -13,7 +13,7 @@
 // directly: it ranks merchants, and the statement has no per-merchant cell.
 
 const { addMonthKey } = require('../services/forecast');
-const { computedCells, manualCells, blendCells } = require('./incomeExpenses');
+const { statementCells } = require('../services/statement');
 const { monthNumber } = require('../validate');
 
 // Allowed trailing windows, in months (3mo / 6mo / 1yr / 2yr / 5yr) — the same
@@ -49,7 +49,7 @@ function trendsGet(ctx, { query }) {
   const inWindow = new Set(months);
 
   // What the statement shows, cell for cell.
-  const cells = blendCells(computedCells(db), manualCells(db));
+  const cells = statementCells(db);
 
   // Expense-category names, keyed the way the statement keys its cells; a cell
   // whose key isn't here is income or transfer, and isn't spending.

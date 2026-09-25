@@ -384,7 +384,6 @@
     // light theme. Animation keyframes live in dashboard.css §10.
 
     const CHART_RATIO = 200 / 800;
-    const chartObservers = new Map();
 
     // Frame shared by every chart: left gutter sized for the widest Y label,
     // identical top/right/bottom margins, so all charts line up across cards.
@@ -598,16 +597,11 @@
     }
 
     /**
-     * Render a chart and keep it responsive by re-rendering whenever its
-     * container resizes. Stores the observer per-container so old observers
-     * are torn down when new data is loaded.
-     *
-     * The first paint of each registration animates (initial load, and
-     * user-driven re-renders like the range picker or account toggles, which call
-     * observeChart again); plain window resizes re-render without the entrance so
-     * the chart does not flicker while dragging. The width guard also discards the
-     * ResizeObserver's immediate same-size callback, which would otherwise cancel
-     * the entrance animation one frame in.
+     * Render a chart into #containerId and keep it responsive (UI.observeChart).
+     * The first paint of each call animates (initial load, and user-driven
+     * re-renders like the range picker or account toggles, which call this
+     * again); plain window resizes re-render without the entrance so the chart
+     * does not flicker while dragging.
      *
      * `fillHeight` makes a chart redraw when the host's HEIGHT changes too, and
      * passes that height to renderFn as its third argument. Only a chart that
@@ -617,65 +611,21 @@
      * repaint on each render.
      */
     function observeChart(containerId, renderFn, { fillHeight = false } = {}) {
-        const existing = chartObservers.get(containerId);
-        if (existing) existing.disconnect();
         const el = document.getElementById(containerId);
         if (!el) return;
-        // Observe the parent so shrinking the window triggers a re-render — the
-        // chart div cannot shrink below the SVG it already contains.
-        const target = el.parentElement || el;
+        UI.observeChart(el, (w, h, animate) => {
+            // The reading is anchored to a point in the SVG about to be
+            // thrown away; it has to go with it.
+            hideChartHover();
+            el.innerHTML = renderFn(w, animate, h) || '';
+        }, { height: fillHeight });
+    }
 
-        let animate     = true;   // flips off after the first successful paint
-        let lastW       = 0;
-        let lastH       = 0;
-        let sawInitial  = false;  // has the observer delivered its first callback?
-        const render = (w, h) => {
-            w = Math.round(w);
-            h = Math.round(h);
-            if (w > 0 && (w !== lastW || (fillHeight && h !== lastH))) {
-                lastW = w;
-                lastH = h;
-                // The reading is anchored to a point in the SVG about to be
-                // thrown away; it has to go with it.
-                hideChartHover();
-                el.innerHTML = renderFn(w, animate, h) || '';
-                animate = false;
-            }
-        };
-
-        const obs = new ResizeObserver(entries => {
-            const w = Math.round(entries[0].contentRect.width);
-            const h = Math.round(entries[0].contentRect.height);
-            // A ResizeObserver always fires once immediately after observe(). If
-            // the synchronous paint below already ran (animate is now false), that
-            // first callback is not a real resize — record its content-box width as
-            // the baseline and return WITHOUT repainting, so the entrance animation
-            // is not cancelled a frame in. Width alone cannot distinguish the two
-            // cases: the sync paint uses clientWidth, this reports
-            // contentRect.width, and a layout shift in between (e.g. the page
-            // scrollbar appearing as other cards populate) makes them differ.
-            //
-            // Height is the exception for a fillHeight chart: the sync paint
-            // measured the host before the row's other cards finished filling, so a
-            // first callback reporting a DIFFERENT height is a real change (a
-            // neighbouring card grew) and must be drawn. This callback still lands
-            // before the frame paints, so the entrance animation is re-armed rather
-            // than skipped.
-            if (!sawInitial) {
-                sawInitial = true;
-                if (!animate) {
-                    lastW = w;
-                    if (!fillHeight || h === lastH) { lastH = h; return; }
-                    animate = true;
-                }
-            }
-            render(w, h);
-        });
-        obs.observe(target);
-        chartObservers.set(containerId, obs);
-        // Immediate first paint (animated). If layout isn't ready yet (width 0),
-        // the observer's first callback above performs the animated paint instead.
-        render(target.clientWidth, target.clientHeight);
+    /** Stop redrawing #containerId on resize, before its contents are replaced
+     *  by something that is not a chart (an empty state, a skeleton). */
+    function stopChart(containerId) {
+        const el = document.getElementById(containerId);
+        if (el) UI.unobserveChart(el);
     }
 
     // ─── Active hover on the Year to Year line charts ────────────────────────────
@@ -1173,7 +1123,7 @@
             });
             const selEl = document.getElementById('ie-selector');
             if (selEl) selEl.innerHTML = '';
-            chartObservers.get('ie-chart')?.disconnect();
+            stopChart('ie-chart');
             return;
         }
 
@@ -1191,7 +1141,7 @@
                 icon: null, compact: true,
                 title: 'Nothing selected',
             });
-            chartObservers.get('ie-chart')?.disconnect();
+            stopChart('ie-chart');
             return;
         }
         if (!visible.some(s => s.points.length > 0)) {
@@ -1199,7 +1149,7 @@
                 icon: null, compact: true,
                 title: 'Nothing in this range',
             });
-            chartObservers.get('ie-chart')?.disconnect();
+            stopChart('ie-chart');
             return;
         }
 
@@ -1238,7 +1188,7 @@
                     icon: null, compact: true,
                     title: 'Nothing selected',
                 });
-            chartObservers.get('account-chart')?.disconnect();
+            stopChart('account-chart');
             return;
         }
 
@@ -1272,7 +1222,7 @@
                 icon: null, compact: true,
                 title: 'Nothing in this range',
             });
-            chartObservers.get('account-chart')?.disconnect();
+            stopChart('account-chart');
             return;
         }
 
@@ -1589,7 +1539,7 @@
         }));
 
         if (!rows.some(r => r.value > 0)) {
-            chartObservers.get('mcf-chart')?.disconnect();
+            stopChart('mcf-chart');
             // The month card leads to the statement, its neighbours to balances
             // and the ledger — one destination each, so the row doesn't repeat
             // the same button three times.
@@ -1721,7 +1671,7 @@
         if (!container) return;
 
         if (cats.length === 0) {
-            chartObservers.get('spending-chart')?.disconnect();
+            stopChart('spending-chart');
             container.innerHTML = isCurrentDashboardMonth()
                 ? UI.emptyState({
                     icon: null,
@@ -1793,7 +1743,7 @@
         if (!data) {
             const cancelSkeleton = UI.skeletonGuard(() => {
                 for (const id of ['mcf-chart', 'spending-chart']) {
-                    chartObservers.get(id)?.disconnect();
+                    stopChart(id);
                     const el = document.getElementById(id);
                     if (el) el.innerHTML = UI.skChart(id === 'mcf-chart' ? 180 : 220);
                 }

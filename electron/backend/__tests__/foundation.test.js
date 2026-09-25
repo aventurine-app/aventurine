@@ -315,8 +315,8 @@ test('migration ladder: SCHEMA_VERSION is the top of it, with no gaps', () => {
 // comment-only edit.) Then bump SCHEMA_VERSION, add the migration, and update
 // the hash below in the same commit.
 test('baseline schema is pinned: changing it requires a migration', () => {
-  const EXPECTED_SCHEMA_VERSION = 14;
-  const EXPECTED_DDL_HASH = 'ebac4ae3c22b969a40e5ab1b2806806192e82273d525ff0ad79c882f163dab24';
+  const EXPECTED_SCHEMA_VERSION = 15;
+  const EXPECTED_DDL_HASH = 'd7ef417dd3a39fef734bc6594893ab5e65c2f806ece837634422ab662b8afdb8';
 
   const actual = crypto.createHash('sha256').update(DDL.join('\n')).digest('hex');
   assert.equal(
@@ -347,13 +347,15 @@ test('a migrated database matches a fresh one', () => {
   fresh.close();
 
   const cases = {
-    // v12 — before recurring_overrides existed at all (climbs v13 + v14).
+    // v12 — before recurring_overrides existed at all (climbs v13 to v15).
     12: (db) => db.exec('DROP TABLE recurring_overrides'),
-    // v13 — recurring_overrides still carrying `removed` (climbs v14).
+    // v13 — recurring_overrides still carrying `removed` (climbs v14 + v15).
     13: (db) => {
       db.exec('DROP TABLE recurring_overrides');
       db.exec(V13_RECURRING);
     },
+    // v14 — before the Cash Flow covering index (climbs v15).
+    14: (db) => db.exec('DROP INDEX ix_transactions_month_cat'),
   };
 
   for (const [version, rewind] of Object.entries(cases)) {

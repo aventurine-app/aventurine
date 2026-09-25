@@ -146,19 +146,24 @@
         return data.transaction;
     }
 
-    async function txApiUpdate(id, payload) {
-        const r = await apiFetch(`/api/transactions/${id}`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
+    // Bulk edit: every row saves or none does (one backend transaction).
+    // Resolves to the saved rows, in the order sent.
+    async function txApiBulkUpdate(updates) {
+        const r = await apiFetch('/api/transactions/bulk-update', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ updates }),
         });
         const data = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(data.error || 'failed to update');
         txInvalidateDerived();
-        return data.transaction;
+        return data.transactions;
     }
 
-    async function txApiDelete(id) {
-        const r = await apiFetch(`/api/transactions/${id}`, { method: 'DELETE' });
+    async function txApiBulkDelete(ids) {
+        const r = await apiFetch('/api/transactions/bulk-delete', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids }),
+        });
         if (!r.ok) throw new Error('failed to delete');
         txInvalidateDerived();
     }
@@ -1625,49 +1630,29 @@
         return txState.rows.filter(r => sel.has(r.id));
     }
 
-    // Warning modal → permanently delete every selected row. Mirrors the app-wide
-    // .confirm-overlay pattern (see tables.js confirmDelete). Deletes loop over
-    // the single-row endpoint; failed rows stay selected so they can be retried.
-    function txConfirmBulkDelete() {
+    // Warning modal → permanently delete every selected row in one request.
+    // On failure nothing was deleted, so the selection is kept for a retry.
+    async function txConfirmBulkDelete() {
         const ids = txSelectedRows().map(t => t.id);
         if (!ids.length) return;
         const plural = ids.length === 1 ? '' : 's';
 
-        const overlay = document.createElement('div');
-        overlay.className = 'confirm-overlay';
-        overlay.innerHTML = `
-        <div class="confirm-dialog">
-            <button class="dialog-close-btn" aria-label="Close">×</button>
-            <p>Delete <strong>${ids.length}</strong> transaction${plural}?<br>
-               This permanently removes ${ids.length === 1 ? 'it' : 'them'} and cannot be undone.</p>
-            <div class="confirm-actions">
-                <button class="db-btn confirm-cancel">Cancel</button>
-                <button class="db-btn db-btn-danger confirm-delete">Delete</button>
-            </div>
-        </div>`;
-        document.body.appendChild(overlay);
-
-        const close = () => overlay.remove();
-        overlay.querySelector('.dialog-close-btn').addEventListener('click', close);
-        overlay.querySelector('.confirm-cancel').addEventListener('click', close);
-        overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-
-        overlay.querySelector('.confirm-delete').addEventListener('click', async (e) => {
-            e.target.disabled = true;
-            const failed = [];
-            for (const id of ids) {
-                try {
-                    await txApiDelete(id);
-                    txState.rows = txState.rows.filter(r => r.id !== id);
-                } catch (_) {
-                    failed.push(id);
-                }
-            }
-            close();
-            txState.selectedIds = new Set(failed);
-            txRender();
-            if (failed.length) alert(`${failed.length} transaction${failed.length === 1 ? '' : 's'} could not be deleted.`);
+        const ok = await UI.confirm({
+            message: `<p>Delete <strong>${ids.length}</strong> transaction${plural}?<br>
+               This permanently removes ${ids.length === 1 ? 'it' : 'them'} and cannot be undone.</p>`,
         });
+        if (!ok) return;
+
+        try {
+            await txApiBulkDelete(ids);
+        } catch (_) {
+            alert(`The ${ids.length} transaction${plural} could not be deleted.`);
+            return;
+        }
+        const deleted = new Set(ids);
+        txState.rows = txState.rows.filter(r => !deleted.has(r.id));
+        txState.selectedIds = new Set();
+        txRender();
     }
 
     // Editing wizard → three steps inside one overlay:
@@ -2104,15 +2089,17 @@
             nextBtn.disabled = true;
             nextBtn.textContent = 'Saving…';
 
+            // One request for every edited row, so a failure saves none of them
+            // and the selection stays as it was for a retry.
             const changed = edits.filter(({ orig, payload }) => rowChanges(orig, payload).length);
-            const failed = [];
-            for (const { id, payload } of changed) {
+            let editFailed = false;
+            if (changed.length) {
                 try {
-                    const saved = await txApiUpdate(id, payload);
-                    const idx = txState.rows.findIndex(r => r.id === saved.id);
-                    if (idx !== -1) txState.rows[idx] = saved;
+                    const saved = await txApiBulkUpdate(changed.map(({ id, payload }) => ({ id, ...payload })));
+                    const byId = new Map(saved.map(t => [t.id, t]));
+                    txState.rows = txState.rows.map(r => byId.get(r.id) || r);
                 } catch (_) {
-                    failed.push(id);
+                    editFailed = true;
                 }
             }
 
@@ -2137,7 +2124,7 @@
             }
 
             close();
-            txState.selectedIds = new Set(failed);
+            if (!editFailed) txState.selectedIds = new Set();
             if (cascading.size) {
                 // Cascaded rows changed outside txState — refetch the ledger.
                 window.dispatchEvent(new Event('transactions:reload'));
@@ -2145,7 +2132,7 @@
                 txSortRows();
                 txRender();
             }
-            if (failed.length) alert(`${failed.length} transaction${failed.length === 1 ? '' : 's'} could not be saved.`);
+            if (editFailed) alert('Your changes could not be saved. No transactions were changed.');
             if (cascadeFailed) alert('Some similar transactions could not be updated.');
         }
 

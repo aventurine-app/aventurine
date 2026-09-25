@@ -242,19 +242,13 @@
      * label changes without a full page re-render.
      */
     function renameAccountDialog(account, nameSpan) {
-        const overlay = document.createElement('div');
-        overlay.className = 'confirm-overlay';
-        overlay.innerHTML = `
-        <div class="confirm-dialog">
-            <button class="dialog-close-btn" aria-label="Close">×</button>
+        const { overlay, close } = UI.dialog(`
             <p>Rename account:</p>
             <input class="p-rename-input" type="text" value="${escapeHtml(account.name)}" />
             <div class="confirm-actions">
                 <button class="db-btn confirm-cancel">Cancel</button>
                 <button class="db-btn db-btn-primary confirm-add">Rename</button>
-            </div>
-        </div>`;
-        document.body.appendChild(overlay);
+            </div>`);
 
         const input = overlay.querySelector('.p-rename-input');
         input.focus();
@@ -266,15 +260,12 @@
                 const result = await portfolioApi.renameAccount(account.id, name);
                 if (result.ok) { account.name = name; nameSpan.textContent = name; }
             }
-            overlay.remove();
+            close();
         };
 
-        overlay.querySelector('.dialog-close-btn').addEventListener('click', () => overlay.remove());
-        overlay.querySelector('.confirm-cancel').addEventListener('click', () => overlay.remove());
         overlay.querySelector('.confirm-add').addEventListener('click', commit);
         input.addEventListener('keydown', e => {
             if (e.key === 'Enter')  { e.preventDefault(); commit(); }
-            if (e.key === 'Escape') overlay.remove();
         });
     }
 
@@ -657,9 +648,6 @@
      * the row UI (would clutter an already-busy 7-column row).
      */
     function showRemoveEntryModal(account, wrapper) {
-        const overlay = document.createElement('div');
-        overlay.className = 'confirm-overlay';
-
         const entries = account.entries;
         const listHtml = entries.length
             ? entries.map(e => `
@@ -669,18 +657,13 @@
             </div>`).join('')
             : '<p class="remove-entry-empty">No assets in this account.</p>';
 
-        overlay.innerHTML = `
-        <div class="confirm-dialog">
-            <button class="dialog-close-btn" aria-label="Close">×</button>
+        const { overlay, close } = UI.dialog(`
             <p style="margin-bottom:10px">Select an asset to remove:</p>
             <div class="remove-entry-list">${listHtml}</div>
             <div class="confirm-actions" style="margin-top:14px">
                 <button class="db-btn confirm-cancel">Cancel</button>
                 <button class="db-btn db-btn-danger confirm-delete" disabled>Remove</button>
-            </div>
-        </div>`;
-
-        document.body.appendChild(overlay);
+            </div>`);
 
         let selectedId  = null;
         const removeBtn = overlay.querySelector('.confirm-delete');
@@ -694,11 +677,9 @@
             });
         });
 
-        overlay.querySelector('.dialog-close-btn').addEventListener('click', () => overlay.remove());
-        overlay.querySelector('.confirm-cancel').addEventListener('click', () => overlay.remove());
         removeBtn.addEventListener('click', async () => {
             if (!selectedId) return;
-            overlay.remove();
+            close();
             await portfolioApi.deleteEntry(selectedId);
             account.entries = account.entries.filter(e => e.id !== selectedId);
             const tr = wrapper.querySelector(`tr[data-entry-id="${selectedId}"]`);
@@ -712,26 +693,14 @@
      * confirmDelete() in tables.js, with the account name in the message (the name
      * is user-controlled, so it is escapeHtml'd).
      */
-    function confirmDeleteAccount(account) {
-        const overlay = document.createElement('div');
-        overlay.className = 'confirm-overlay';
-        overlay.innerHTML = `
-        <div class="confirm-dialog">
-            <button class="dialog-close-btn" aria-label="Close">×</button>
-            <p>Remove account <strong>${escapeHtml(account.name)}</strong> and all its assets?<br>This cannot be undone.</p>
-            <div class="confirm-actions">
-                <button class="db-btn confirm-cancel">Cancel</button>
-                <button class="db-btn db-btn-danger confirm-delete">Remove</button>
-            </div>
-        </div>`;
-        document.body.appendChild(overlay);
-        overlay.querySelector('.dialog-close-btn').addEventListener('click', () => overlay.remove());
-        overlay.querySelector('.confirm-cancel').addEventListener('click', () => overlay.remove());
-        overlay.querySelector('.confirm-delete').addEventListener('click', async () => {
-            overlay.remove();
-            await portfolioApi.deleteAccount(account.id);
-            ACCOUNTS = ACCOUNTS.filter(a => a.id !== account.id);
-            document.querySelector(`.db-outer[data-account-id="${account.id}"]`)?.remove();
+    async function confirmDeleteAccount(account) {
+        const ok = await UI.confirm({
+            message: `<p>Remove account <strong>${escapeHtml(account.name)}</strong> and all its assets?<br>This cannot be undone.</p>`,
+            confirmLabel: 'Remove',
         });
+        if (!ok) return;
+        await portfolioApi.deleteAccount(account.id);
+        ACCOUNTS = ACCOUNTS.filter(a => a.id !== account.id);
+        document.querySelector(`.db-outer[data-account-id="${account.id}"]`)?.remove();
     }
 }());

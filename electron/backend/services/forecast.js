@@ -154,8 +154,8 @@ function windowAverages(totalsAll, totalsIrreg, { today, window, activeMonths = 
 }
 
 // ── Recurring-pattern detection (for the dated layer) ────────────────────────
-// A trimmed-down version of detectRecurringExpenses: same grouping/cycle/
-// regularity rules, returning only what the forecast uses — the normalised key
+// A trimmed-down version of predictions.js's detectRecurringSeries: same
+// grouping/cycle/regularity rules, returning only what the forecast uses — the normalised key
 // (to mark which history rows to remove from the smooth baseline) and the cycle
 // + predicted amount + last charge (to project occurrences forward). Works for
 // either direction's rows; recurring income (paychecks) produces the upward

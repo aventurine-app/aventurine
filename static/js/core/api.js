@@ -60,8 +60,7 @@
   }
 
   // ── Fixtures (browser-only UI mode) ─────────────────────────────────────
-  // Only reached when there is neither window.financeApi (Electron) nor an
-  // http(s): page origin (legacy/dev server) — see the branching order in
+  // Only reached when there is no window.financeApi (Electron) — see
   // apiFetch() near the bottom of this file. Nothing outside this file reads
   // FL_FIXTURES directly; pages receive it only through apiFetch()'s GET
   // responses, so this data must match the shape every consuming page and widget
@@ -511,10 +510,6 @@
                     amount: 12, price: 210.5, market_price: 268.4 }],
       }],
     },
-    // Recurring-spend predictions — no dashboard widget consumes this one
-    // (the Recurring report below uses detectRecurringSeries, not this
-    // top-N "due soon" endpoint). Empty here since fixtures don't model it.
-    '/api/predictions/upcoming': { upcoming: [] },
     '/api/recurring': recurringFixture,
     '/api/recurring/candidates': recurringCandidatesFixture,
     // static/js/pages/trends.js — 12-month per-category spend series for
@@ -623,10 +618,7 @@
   //      handled in electron/main.js and routed by
   //      electron/backend/router.js to the real handlers. This is the path
   //      used by the actual shipped app.
-  //   3. http(s): page origin          -> a real HTTP server is serving the
-  //      page (legacy/dev workflow, e.g. `electron/scripts/verify-e2e.js`) —
-  //      pass straight through to fetch() so it reaches that server.
-  //   4. Otherwise (plain file:// page, no bridge, no server)
+  //   3. Otherwise (plain browser page, no bridge)
   //                                     -> fixtureResponse() above, so pages
   //      can be opened standalone for UI/design iteration.
   /** Drop-in replacement for fetch() at the app's /api/* call sites. */
@@ -645,11 +637,6 @@
       }
       const { status, body: data } = await window.financeApi.request(method, url, body);
       return responseLike(status, data);
-    }
-
-    if (location.protocol === 'http:' || location.protocol === 'https:') {
-      // A real HTTP backend is serving us (legacy/dev) — pass straight through.
-      return fetch(url, opts);
     }
 
     return fixtureResponse(method, url);

@@ -75,6 +75,20 @@
 //       each card stays in its own file: one describes a merchant and a
 //       cadence, the other a label and a date, and they have no rows in common.
 //
+//   UI.observeChart(el, draw(w, h, animate), { height, target })  /  UI.unobserveChart(el)
+//       Draw a chart now and again on every real resize of its container.
+//       Shared by all four chart engines (Reports charts, Dashboard, Forecast,
+//       Cash Flow diagram), which each held their own copy and had drifted.
+//
+//   UI.dialog(bodyHtml, { className, zIndex, dismissOnBackdrop, onClose }) → { overlay, close }
+//   UI.confirm({ message, confirmLabel = 'Delete', danger = true, zIndex }) → Promise<boolean>
+//       The app's one modal shell (.confirm-overlay / .confirm-dialog in
+//       style.css). dialog() is the shell for forms: × / Cancel / Escape close
+//       it and the caller wires the rest. confirm() is the yes/no case built on
+//       it. Fourteen hand-built copies of this had drifted apart: only one
+//       closed on a backdrop click, and only the two with a text input closed
+//       on Escape.
+//
 //   UI.toast(message, { type = 'info', duration = 5000 })
 //       Small transient notice, bottom-center. type: 'info' | 'error'.
 //       One toast at a time: a repeat call replaces the text and restarts the
@@ -367,6 +381,125 @@
             });
         }
 
+        // ── Responsive charts ──────────────────────────────────────────────────
+        // Charts are SVG strings built for an exact pixel size, so each one is
+        // redrawn when its container resizes. Watches `target` (default: el's
+        // parent, since el cannot shrink below the svg already inside it) and
+        // calls draw(w, h, animate) now and on every real size change. Width is
+        // always tracked; height only with `height: true`, for charts that fill
+        // their box. The 2px height tolerance stops a chart that makes its own
+        // container taller from redrawing itself forever.
+        //
+        // `animate` is true for the first paint only. ResizeObserver always
+        // reports once right after observe(), before the first frame is on
+        // screen. If that size matches what the synchronous paint used, nothing
+        // is redrawn and the entrance animation plays out. If layout moved in
+        // between (a scrollbar appearing, a neighbouring card filling in), the
+        // redraw is still the first thing painted, so it animates too.
+        //
+        // One observer per element: observing again replaces the previous one,
+        // and unobserveChart(el) stops it.
+        const _chartObservers = new WeakMap();
+
+        function unobserveChart(el) {
+            _chartObservers.get(el)?.disconnect();
+            _chartObservers.delete(el);
+        }
+
+        function observeChart(el, draw, { height = false, target = el.parentElement || el } = {}) {
+            unobserveChart(el);
+            let lastW = 0;
+            let lastH = 0;
+            let paints = 0;
+            let firstCallback = true;
+
+            const paint = (w, h, animate) => {
+                w = Math.round(w);
+                h = Math.round(h || 0);
+                const changed = w !== lastW || (height && Math.abs(h - lastH) > 2);
+                if (w <= 0 || !changed) return;
+                lastW = w;
+                lastH = h;
+                draw(w, h, animate);
+                paints++;
+            };
+
+            const obs = new ResizeObserver((entries) => {
+                const { width, height: h } = entries[0].contentRect;
+                paint(width, h, paints === 0 || firstCallback);
+                firstCallback = false;
+            });
+            obs.observe(target);
+            _chartObservers.set(el, obs);
+            paint(target.clientWidth, target.clientHeight, true);
+        }
+
+        // ── Modal dialogs ──────────────────────────────────────────────────────
+        // The .confirm-overlay / .confirm-dialog shell every page's modal uses.
+        // `bodyHtml` is trusted markup: escape anything user-controlled before
+        // passing it. The shell adds the × button and wires ×, any
+        // .confirm-cancel button and Escape to close(). Escape only closes the
+        // TOPMOST dialog, so a confirm stacked over another modal (the column
+        // manager, Manage Years) steps back one level at a time.
+        //
+        // `dismissOnBackdrop` also closes on a click outside the dialog. Off by
+        // default: a form dialog would lose what was typed into it.
+        function dialog(bodyHtml, { className = '', zIndex = null, dismissOnBackdrop = false, onClose = null } = {}) {
+            const overlay = document.createElement('div');
+            overlay.className = 'confirm-overlay';
+            if (zIndex) overlay.style.zIndex = String(zIndex);
+            overlay.innerHTML = `
+            <div class="confirm-dialog${className ? ' ' + className : ''}">
+                <button class="dialog-close-btn" aria-label="Close">×</button>
+                ${bodyHtml}
+            </div>`;
+
+            const isTopmost = () => {
+                const all = document.querySelectorAll('.confirm-overlay');
+                return all[all.length - 1] === overlay;
+            };
+            const onKey = (e) => {
+                if (e.key === 'Escape' && isTopmost()) close();
+            };
+            let closed = false;
+            function close() {
+                if (closed) return;
+                closed = true;
+                overlay.remove();
+                document.removeEventListener('keydown', onKey);
+                if (onClose) onClose();
+            }
+
+            overlay.querySelector('.dialog-close-btn').addEventListener('click', close);
+            overlay.querySelectorAll('.confirm-cancel').forEach((b) => b.addEventListener('click', close));
+            if (dismissOnBackdrop) {
+                overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+            }
+            document.addEventListener('keydown', onKey);
+            document.body.appendChild(overlay);
+            return { overlay, close };
+        }
+
+        // Yes/no confirmation on the dialog shell. Resolves true when the
+        // confirm button is pressed, false on every other way out. `message`
+        // is trusted markup (see dialog). `danger` picks the red button, for
+        // destructive actions; otherwise the primary one.
+        function confirm({ message, confirmLabel = 'Delete', danger = true, zIndex = null }) {
+            return new Promise((resolve) => {
+                let confirmed = false;
+                const { overlay, close } = dialog(`
+                ${message}
+                <div class="confirm-actions">
+                    <button class="db-btn confirm-cancel">Cancel</button>
+                    <button class="db-btn ${danger ? 'db-btn-danger confirm-delete' : 'db-btn-primary confirm-add'}">${escapeHtml(confirmLabel)}</button>
+                </div>`, { zIndex, dismissOnBackdrop: true, onClose: () => resolve(confirmed) });
+                overlay.querySelector('.confirm-actions .db-btn:last-child').addEventListener('click', () => {
+                    confirmed = true;
+                    close();
+                });
+            });
+        }
+
         // ── Toast ──────────────────────────────────────────────────────────────
         // A single persistent element, shown and hidden by class so repeated
         // calls reuse it (see the header comment). textContent, never innerHTML,
@@ -401,6 +534,7 @@
             emptyState, ICONS, skChart, skRows, skeletonGuard, openMenu, wirePicker,
             lockPickerWidth, PICKER_CARET, setPickerLabel, toast,
             CARD_ICONS, floatingCard, positionFloatingCard, cardActions, markActive,
+            dialog, confirm, observeChart, unobserveChart,
         };
     })();
 

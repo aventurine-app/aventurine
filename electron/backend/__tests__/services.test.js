@@ -1,8 +1,7 @@
 'use strict';
 
 // Tests for the pure services, plus semantic tests for applyTxFields /
-// parseEntry. The fixtures under fixtures/ are golden values: they pin
-// behaviour that is expensive to re-derive and easy to change by accident.
+// parseEntry.
 
 const test = require('node:test');
 const assert = require('node:assert');
@@ -10,30 +9,11 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { detectRecurringExpenses } = require('../services/predictions');
 const { round2, parseEntry, parseIsoDate, ApiError } = require('../validate');
 const { applyTxFields, newTx } = require('../services/transactions');
 const { connect } = require('../db');
 const { bootstrapSchema } = require('../migrate');
 const { seedDefaults } = require('../seed');
-
-const FIXTURES = path.join(__dirname, 'fixtures');
-const load = (name) => JSON.parse(fs.readFileSync(path.join(FIXTURES, name), 'utf8'));
-
-test('detectRecurringExpenses holds its pinned values', () => {
-  const cases = load('predictions-oracle.json');
-  assert.ok(cases.length >= 10, 'enough cases');
-  let kept = 0;
-  for (const c of cases) {
-    const got = detectRecurringExpenses(c.transactions, { today: c.today, limit: c.limit });
-    assert.deepStrictEqual(
-      got, c.expected,
-      `prediction mismatch (today=${c.today} limit=${c.limit} rows=${c.transactions.length})`
-    );
-    kept += got.length;
-  }
-  assert.ok(kept >= 10, 'oracle exercises kept rows, not only drops');
-});
 
 test('round2: half away from zero, on the decimal the user typed', () => {
   // The cases that separate a decimal-domain shift from `x * 100`. Each of
