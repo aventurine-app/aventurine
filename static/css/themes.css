@@ -261,7 +261,7 @@ html[data-theme="colorful"] div.menu {
 html[data-theme="colorful"] .nav li a.active {
     background: var(--accent-primary);
     color: var(--color-base-050);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+    /* TEMP: disabled. Restore: box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16); */
 }
 
 

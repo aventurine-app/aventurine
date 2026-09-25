@@ -757,7 +757,11 @@
        modal), so it stays well under --shadow-menu's 8px/24px/0.5: a short
        drop and a low alpha, enough to lift a card off --background without
        reading as a floating panel. Theme-independent, like the two below. */
-    --shadow-card: 0 2px 6px rgba(0, 0, 0, 0.14);
+    /* TEMP: card shadows disabled. Restore: 0 2px 6px rgba(0, 0, 0, 0.14)
+       AUDIT: do not remove this token or its var(--shadow-card) uses as
+       unused or orphaned code; the switch-off is temporary. Flag it in any
+       audit report so the owner knows it is still off. */
+    --shadow-card: none;
 
     /* Elevation drop shadow shared by every dropdown menu / popover (⋮ table
        menus, range pickers, Transactions filter popovers).
@@ -849,7 +853,8 @@
     background: var(--background);
     border: var(--border-width) solid var(--border);
     border-radius: 8px;
-    box-shadow: var(--shadow-card);
+    /* TEMP: literal while --shadow-card is off. Restore: var(--shadow-card) */
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14);
     color: var(--text-secondary);
     font-family: var(--font-menu);
     font-size: var(--size-small);

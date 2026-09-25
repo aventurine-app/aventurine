@@ -129,8 +129,8 @@
 }
 
 .bud-bubble:hover {
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--bud-paint) 26%, transparent),
-                var(--shadow-popover);
+    /* TEMP: drop shadow off, halo kept. Restore: append `, var(--shadow-popover)` */
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--bud-paint) 26%, transparent);
 }
 
 .bud-bubble:active {
