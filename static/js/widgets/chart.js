@@ -25,8 +25,10 @@
 // the three with the visual mass to sit beside the Cash Flow sankey.
 //
 // Series shape:  [{ label, color, points: [{ year, monthIdx, value }], id? }]
-//                `id` is optional and opaque: the stacked-area form stamps it on
-//                each band as data-series, so a click in the plot names a series.
+//                `id` is optional and opaque. It is stamped as data-series — on
+//                each band group in the stacked-area form, on each mark in the
+//                line form — so a click in the plot can name a series, and so
+//                setFocus() can re-mark a focus change in place (see Focus).
 // Slots:         [{ year, monthIdx }]  — the x-axis columns to plot across.
 //
 // Uses the existing globals escapeHtml (escape.js) and CURRENCY_SYMBOL
@@ -226,7 +228,14 @@
       // is how the Spending rail's focus reads: the other categories are still
       // the context the focused one is being judged against, so removing them
       // would answer a different question. Styled in trends.css.
-      const dim = s.dim ? ' data-dim="true"' : '';
+      //
+      // `id` rides out on every mark of the series, the way the stacked-area
+      // form puts it on the group around each band, so a later focus change can
+      // be re-marked onto the drawn chart by setFocus() instead of rebuilding
+      // it. It is identity only: nothing in this form is a click target.
+      const marks = (s.id == null ? '' : ` data-series="${escapeHtml(String(s.id))}"`)
+        + (s.dim ? ' data-dim="true"' : '')
+        + (s.active ? ' data-active="true"' : '');
 
       if (linePts.length > 1) {
         const baseY = H - PB;
@@ -241,8 +250,8 @@
                     <stop offset="100%" stop-color="${s.color}" stop-opacity="0"/>
                 </linearGradient>
             </defs>`;
-        svg += `<path class="chart-area-fill" d="${areaD}" fill="url(#${gradId})"${dim} style="animation-delay:${delay + 400}ms"/>`;
-        svg += `<path class="chart-line" d="${lineD}" pathLength="1" fill="none" stroke="${s.color}" stroke-width="2.25" stroke-linejoin="round" stroke-linecap="round"${dim} style="animation-delay:${delay}ms"/>`;
+        svg += `<path class="chart-area-fill" d="${areaD}" fill="url(#${gradId})"${marks} style="animation-delay:${delay + 400}ms"/>`;
+        svg += `<path class="chart-line" d="${lineD}" pathLength="1" fill="none" stroke="${s.color}" stroke-width="2.25" stroke-linejoin="round" stroke-linecap="round"${marks} style="animation-delay:${delay}ms"/>`;
       }
 
       drawn.forEach((sl, di) => {
@@ -256,7 +265,7 @@
         const hoverAttrs = hover
           ? ` data-slot="${sl.i}" data-name="${escapeHtml(s.label)}" data-amount="${escapeHtml(fmtTooltip(sl.value))}"`
           : '';
-        svg += `<circle class="chart-dot${isEnd ? ' chart-dot-end' : ''}" cx="${x}" cy="${y}" r="${isEnd ? 4.5 : 3}" fill="${s.color}"${dim}${hoverAttrs} style="animation-delay:${dotDelay}ms">
+        svg += `<circle class="chart-dot${isEnd ? ' chart-dot-end' : ''}" cx="${x}" cy="${y}" r="${isEnd ? 4.5 : 3}" fill="${s.color}"${marks}${hoverAttrs} style="animation-delay:${dotDelay}ms">
                 <title>${escapeHtml(s.label)} — ${MONTHS[sl.monthIdx]} ${sl.year}: ${fmtTooltip(sl.value)}</title>
             </circle>`;
       });
@@ -657,6 +666,61 @@
       buildStackedSVG({ series, slots, W, animate }));
   }
 
+  // ─── Focus ───────────────────────────────────────────────────────────────────
+  // Singling one series out moves no point: the same chart is drawn, with one
+  // series held at the front and the rest stepped back. So a focus change is
+  // re-marked onto the SVG already on screen instead of going back through
+  // mount(), which would rebuild it and replay the entrance animation — the
+  // chart would read as having reloaded in answer to a click that only asked
+  // which series to look at.
+
+  /** The marks a focus steps back. The stacked-area form dims the band path
+   *  inside its group rather than the group itself: the path carries a resting
+   *  opacity that a dim on the group around it would multiply instead of
+   *  replace. */
+  const DIM_MARKS = '.chart-band, .chart-line, .chart-area-fill, .chart-dot';
+
+  /** What setFocus() last applied to a container, so a repaint from inside
+   *  mount() can put it back. Keyed by the element, so a container that leaves
+   *  the page takes its entry with it. */
+  const appliedFocus = new WeakMap();
+
+  function setMark(el, name, on) {
+    if (on) el.setAttribute(name, 'true');
+    else el.removeAttribute(name);
+  }
+
+  /** Mark `activeId`'s series as the focused one on a drawn chart and step the
+   *  others back; null clears the focus. False when the container holds no
+   *  chart naming its series — an empty state, or a first paint still pending. */
+  function markFocus(el, activeId) {
+    const owners = el.firstElementChild
+      ? el.firstElementChild.querySelectorAll('[data-series]')
+      : [];
+    if (!owners.length) return false;
+    const key = activeId == null ? null : String(activeId);
+    for (const owner of owners) {
+      const active = key !== null && owner.dataset.series === key;
+      setMark(owner, 'data-active', active);
+      // The owner is the mark itself in the line form, and the group around
+      // the band in the stacked-area one.
+      const dimmable = owner.matches(DIM_MARKS) ? [owner] : owner.querySelectorAll(DIM_MARKS);
+      for (const mark of dimmable) setMark(mark, 'data-dim', key !== null && !active);
+    }
+    return true;
+  }
+
+  /** Re-mark which series is focused on the chart already drawn in
+   *  `containerId`, without redrawing it. `activeId` is a series `id`, or null
+   *  to clear. Returns false when there is no drawn chart to re-mark, so the
+   *  caller can fall back to a render. See the block above. */
+  function setFocus(containerId, activeId) {
+    const el = document.getElementById(containerId);
+    if (!el || !markFocus(el, activeId)) return false;
+    appliedFocus.set(el, activeId ?? null);
+    return true;
+  }
+
   /** Draw into a container and keep it responsive (UI.observeChart): the first
    *  paint animates and resizes do not. `build(W, animate, H)` returns the SVG
    *  for a given pixel width, with the container's measured height alongside
@@ -666,12 +730,20 @@
   function mount(containerId, hasData, build, { fill = false } = {}) {
     const el = document.getElementById(containerId);
     if (!el) return;
+    // The series handed in here carry their own focus marks, so whatever
+    // setFocus() put on the chart being replaced is spent.
+    appliedFocus.delete(el);
     if (!hasData) {
       UI.unobserveChart(el);
       el.innerHTML = '';
       return;
     }
-    UI.observeChart(el, (w, h, animate) => { el.innerHTML = build(w, animate, h) || ''; }, { height: fill });
+    UI.observeChart(el, (w, h, animate) => {
+      el.innerHTML = build(w, animate, h) || '';
+      // A resize rebuilds from the series this mount captured, which predate
+      // any setFocus() since, so the focus is put back on the new SVG.
+      if (appliedFocus.has(el)) markFocus(el, appliedFocus.get(el));
+    }, { height: fill });
   }
 
   /** Render smoothed lines into a container. Pass empty `series` to clear.
@@ -690,7 +762,7 @@
   }
 
   window.FinanceChart = {
-    render, renderStacked, renderArea, colorMap, PALETTE, CAT_PALETTE,
+    render, renderStacked, renderArea, setFocus, colorMap, PALETTE, CAT_PALETTE,
     // The bare line builder, for a page that mounts the chart itself
     // (dashboard.js, which clears its hover reading on every redraw).
     buildLine: buildChartSVG,

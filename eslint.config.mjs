@@ -115,6 +115,8 @@ export default [
     ignores: [
       'electron/dist/**',
       '**/node_modules/**',
+      // Throwaway working files, not app code. See .scratch/README.md.
+      '.scratch/**',
     ],
   },
 

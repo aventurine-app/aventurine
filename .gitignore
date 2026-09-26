@@ -31,6 +31,11 @@ THREAT-MODEL.md
 # Design-system component library — kept out of the app repo.
 design-system/
 
+# Throwaway working files (temp scripts, screenshots, frame dumps, logs).
+# Lives in the repo so host node via flatpak-spawn can actually see it; the
+# session scratchpad under /tmp is invisible to the host. See .scratch/README.md.
+.scratch/
+
 # Editor / OS scratch
 .DS_Store
 .vscode/

@@ -197,9 +197,13 @@
   /** Focus one category or clear it, from the rail's name or from its own band. */
   function toggleFocus(key) {
     if (!state.enabled) return;
+    // Showing a category adds a band, which is a different chart and has to be
+    // drawn as one. Focus on its own is not: see refocusChart.
+    let shown = false;
     if (state.focus === key) { setFocus(null); } else {
       // Focusing a hidden category shows it: the click asked for that one
       // category, and answering with a chart it isn't drawn on is a refusal.
+      shown = !state.enabled.has(key);
       state.enabled.add(key);
       // Before the focus goes out, or the card below would take a focus on a
       // category it is still excluding and answer with an empty ranking.
@@ -207,7 +211,7 @@
       setFocus(key);
     }
     renderRail();
-    renderChart();
+    if (shown) renderChart(); else refocusChart();
   }
 
   /** Show or hide one category, from the rail's swatch. */
@@ -242,6 +246,15 @@
   }
 
   // ─── Chart ───────────────────────────────────────────────────────────────────
+
+  /** Move the focus on the chart that is already drawn. Focus does not move a
+   *  single point, so redrawing would replay the entrance wipe and read as the
+   *  card reloading in answer to a click that only asked which category to
+   *  look at. Falls back to a full render when there is no drawn chart to
+   *  re-mark, which is the empty state and the frame before the first paint. */
+  function refocusChart() {
+    if (!FinanceChart.setFocus('trends-chart', state.focus)) renderChart();
+  }
 
   function renderChart() {
     const container = document.getElementById('trends-chart');
@@ -327,10 +340,16 @@
   /** Clicking a band runs its rail name's focus toggle. Delegated to the
    *  container, which survives every repaint: the chart's SVG is replaced on
    *  each render and on every resize, so a listener bound to the bands
-   *  themselves would have to be re-bound each time. Only the stacked form
-   *  stamps data-series, so the line form is unaffected. */
+   *  themselves would have to be re-bound each time.
+   *
+   *  Stacked only. Both forms stamp data-series, since that is what lets a
+   *  focus change be re-marked rather than redrawn, but only a band is a
+   *  target: the line form's marks are a 2px stroke and the wide transparent
+   *  fill under it, which overlaps every other series' fill, so a click in the
+   *  plot would land on whichever of them happened to be drawn last. */
   function wireChartClicks() {
     document.getElementById('trends-chart').addEventListener('click', (e) => {
+      if (state.view !== 'stacked') return;
       const band = e.target.closest('[data-series]');
       if (band) toggleFocus(band.dataset.series);
     });
@@ -370,10 +389,11 @@
       if (key === state.focus) return;
       // Nothing to focus before the first response has built the category set.
       if (key && !state.enabled) return;
+      const shown = Boolean(key) && !state.enabled.has(key);
       setFocus(key, true);
       if (key) { state.enabled.add(key); publishHidden(); }
       renderRail();
-      renderChart();
+      if (shown) renderChart(); else refocusChart();
     });
     // The --cat-* ramp flips with the theme, and state.colors was resolved from
     // it back in load() — so re-map before repainting, from the data we already
