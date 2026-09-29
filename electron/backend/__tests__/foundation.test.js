@@ -315,8 +315,8 @@ test('migration ladder: SCHEMA_VERSION is the top of it, with no gaps', () => {
 // comment-only edit.) Then bump SCHEMA_VERSION, add the migration, and update
 // the hash below in the same commit.
 test('baseline schema is pinned: changing it requires a migration', () => {
-  const EXPECTED_SCHEMA_VERSION = 15;
-  const EXPECTED_DDL_HASH = 'd7ef417dd3a39fef734bc6594893ab5e65c2f806ece837634422ab662b8afdb8';
+  const EXPECTED_SCHEMA_VERSION = 16;
+  const EXPECTED_DDL_HASH = 'aa5776d8b0e1ba1203a61e0a819f99e9323ea5432e2be07fc6329a4e5dfa52f0';
 
   const actual = crypto.createHash('sha256').update(DDL.join('\n')).digest('hex');
   assert.equal(
@@ -354,8 +354,15 @@ test('a migrated database matches a fresh one', () => {
       db.exec('DROP TABLE recurring_overrides');
       db.exec(V13_RECURRING);
     },
-    // v14 — before the Cash Flow covering index (climbs v15).
+    // v14 — before the Cash Flow covering index (climbs v15 + v16).
     14: (db) => db.exec('DROP INDEX ix_transactions_month_cat'),
+    // v15 — before built schedules: no alias table, no amount band columns.
+    // ADD COLUMN appends, so the baseline declares these two last on purpose.
+    15: (db) => {
+      db.exec('DROP TABLE recurring_aliases');
+      db.exec('ALTER TABLE recurring_overrides DROP COLUMN amount_min');
+      db.exec('ALTER TABLE recurring_overrides DROP COLUMN amount_max');
+    },
   };
 
   for (const [version, rewind] of Object.entries(cases)) {

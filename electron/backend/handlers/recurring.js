@@ -14,6 +14,17 @@
 // cleared all at once (DELETE /api/recurring/schedules) — see the handler doc
 // comments below.
 //
+// BUILT SCHEDULES: detection groups by one normaliseDesc key and counts every
+// row under it, which loses a series its bank has renamed and breaks one whose
+// merchant sends off-cycle extras under the same description. A schedule can
+// therefore carry a RULE instead of a bare key -- several description keys
+// folded together (recurring_aliases) plus an amount band -- which the user
+// assembles in the builder (GET /api/recurring/merchants, GET
+// /api/recurring/similar, POST /api/recurring/preview, POST /api/recurring/build).
+// See services/recurringRules.js for why neither case is reachable by tuning a
+// threshold. Membership is still recomputed from transactions on every read, so
+// a built schedule picks up future charges on its own and survives a re-import.
+//
 // ADOPTION (the reason there are two listing endpoints): detection is heuristic,
 // so it does not populate the page on its own. GET /api/recurring returns only
 // ADOPTED schedules — a fresh database returns an empty list however much
@@ -25,9 +36,14 @@
 const { bad, cleanLabel, isFiniteNumber, round2, parseIsoDate } = require('../validate');
 const { serialiseTx } = require('../services/transactions');
 const {
-  detectRecurringSeries, normaliseDesc, localTodayIso, addMonths, addDays, daysBetween, CYCLE_MONTHS, CYCLE_DAYS,
+  detectRecurringSeries, normaliseDesc, localTodayIso, addMonths, addDays, daysBetween, median,
+  CYCLE_MONTHS, CYCLE_DAYS,
 } = require('../services/predictions');
 const { addMonthKey, placeRecurring } = require('../services/forecast');
+const {
+  suggestAmountBand, withinBand, makeKeyResolver, summariseByKey,
+} = require('../services/recurringRules');
+const { sequenceRatio, FUZZY_THRESHOLD_MIN } = require('../services/matchRules');
 // The merchant link's search term — the same rule the Top Merchants report
 // links its bars through (services/merchantSearch.js, extracted from here).
 const { searchTermByKey } = require('../services/merchantSearch');
@@ -128,11 +144,11 @@ function manualSeries(ov, todayIso) {
  * category don't vote — a schedule half-categorized still reads as its
  * category, and one with nothing categorized comes back absent.
  */
-function categoryByKey(rows) {
+function categoryByKey(rows, keyOf) {
   const counts = new Map(); // detection key -> Map(category_id -> {n, last})
   for (const t of rows) {
     if (t.category_id == null) continue;
-    const key = normaliseDesc(t.description);
+    const key = keyOf(t);
     if (!key) continue;
     let byCat = counts.get(key);
     if (!byCat) { byCat = new Map(); counts.set(key, byCat); }
@@ -164,19 +180,57 @@ function categoryByKey(rows) {
  * candidate picker (which keeps the rest) and delete (which only checks whether
  * a key is detected at all).
  */
-function detectAll(db, todayIso) {
+/**
+ * The rules built schedules carry: alias key -> schedule key, and schedule key
+ * -> its amount band. Both are empty on a database whose schedules were all
+ * detected or hand-added, and an empty pair reproduces the pre-builder
+ * behaviour exactly.
+ */
+function loadRules(db) {
+  const aliases = new Map(
+    db.prepare('SELECT alias_key, "key" FROM recurring_aliases').all().map((a) => [a.alias_key, a.key])
+  );
+  const bands = new Map();
+  for (const r of db.prepare('SELECT "key", amount_min, amount_max FROM recurring_overrides').all()) {
+    if (r.amount_min != null || r.amount_max != null) {
+      bands.set(r.key, { min: r.amount_min, max: r.amount_max });
+    }
+  }
+  return { aliases, bands };
+}
+
+/** Every transaction, serialised, with each row's direction resolved from its
+ *  category. The one full read the page costs; shared by detection and by the
+ *  builder's summaries so neither scans the table twice. */
+function loadLedger(db) {
   const cats = db.prepare('SELECT id, name, cat_type FROM categories').all();
   const catTypeById = new Map(cats.map((c) => [c.id, c.cat_type]));
-  const catNameById = new Map(cats.map((c) => [c.id, c.name]));
   const rows = db
     .prepare('SELECT * FROM transactions ORDER BY date')
     .all()
     .map((t) => serialiseTx(t, catTypeById));
-  const catByKey = categoryByKey(rows);
+  return { catTypeById, catNameById: new Map(cats.map((c) => [c.id, c.name])), rows };
+}
+
+function detectAll(db, todayIso) {
+  const { catNameById, rows: allRows } = loadLedger(db);
+  const { aliases, bands } = loadRules(db);
+  const keyOf = makeKeyResolver(aliases);
+
+  // Drop rows outside their schedule's amount band BEFORE detection: the band
+  // decides what counts as an occurrence, and detection measures its cadence
+  // from the occurrences it is given. Filtering afterwards would leave the
+  // cadence measured from rows the user excluded.
+  const rows = bands.size ? allRows.filter((t) => withinBand(t.amount, bands.get(keyOf(t)))) : allRows;
+
+  const catByKey = categoryByKey(rows, keyOf);
+  // Keyed by RAW normaliseDesc (merchantSearch is shared with Top Merchants and
+  // knows nothing of aliases). A folded series' key is the primary key, which is
+  // itself one of those raw keys, so the lookup still resolves.
   const searchByKey = searchTermByKey(rows);
 
   return DIRECTION_NAMES.flatMap((direction) =>
-    detectRecurringSeries(rows.filter((t) => t.tx_type === direction), { today: todayIso })
+    detectRecurringSeries(rows.filter((t) => t.tx_type === direction), { today: todayIso, keyOf })
       .map((s) => {
         const categoryId = catByKey.has(s.key) ? catByKey.get(s.key) : null;
         return {
@@ -435,6 +489,309 @@ function recurringScheduleCreate(ctx, { body }) {
   return { ok: true, key };
 }
 
+// ── Builder ──────────────────────────────────────────────────────────────────
+// Assembling a schedule the detector could not find on its own: the user names
+// one merchant, the app offers every description that looks like it, and the
+// picked set becomes the schedule's rule. See services/recurringRules.js for
+// why the rule is a set of keys plus an amount band rather than a list of
+// transaction ids.
+
+const MAX_BUILD_KEYS = 25;   // a schedule assembled from more spellings than
+                             // this is a mis-click, not a renamed merchant
+const MAX_MERCHANT_RESULTS = 40;
+
+/**
+ * Description keys that already belong to ANOTHER built schedule's rule. These
+ * block: letting two schedules fold the same key would divide one merchant's
+ * history between them, and each would then measure a cadence from half of it.
+ */
+function aliasOwners(db) {
+  return new Map(
+    db.prepare('SELECT alias_key, "key" FROM recurring_aliases').all().map((a) => [a.alias_key, a.key])
+  );
+}
+
+/**
+ * Keys that are currently a schedule in their own right. Unlike an alias this
+ * does NOT block: a user assembling a renamed series will often tick a fragment
+ * they adopted earlier, back when it was still detectable, and absorbing it is
+ * precisely what they are asking for. The builder reports these so the dialog
+ * can say so on the row rather than springing it on them.
+ */
+function adoptedKeys(db) {
+  return new Set(
+    db.prepare('SELECT "key" FROM recurring_overrides WHERE adopted = 1').all().map((o) => o.key)
+  );
+}
+
+/**
+ * Merchant groups matching a search term — step one of the builder, where the
+ * user names the schedule the detector missed.
+ *
+ * This searches DESCRIPTIONS, not transactions: the user is identifying a
+ * merchant, not a particular charge, and returning groups keeps the response
+ * small (a real ledger holds far fewer distinct descriptions than rows) and
+ * spares them choosing which of 46 identical paychecks is "the" one.
+ */
+function recurringMerchants(ctx, { query }) {
+  const db = ctx.db();
+  const q = String(query.q || '').trim().toLowerCase();
+  if (!q) return { merchants: [] };
+
+  const { rows } = loadLedger(db);
+  const owners = aliasOwners(db);
+  const adopted = adoptedKeys(db);
+
+  const merchants = summariseByKey(rows)
+    .filter((g) => g.description.toLowerCase().includes(q) || g.key.includes(q))
+    // Newest first: a schedule is built to project forward, so the merchant the
+    // user is looking for is almost always one that charged recently.
+    .sort((a, b) => (a.last_date < b.last_date ? 1 : a.last_date > b.last_date ? -1 : b.count - a.count))
+    .slice(0, MAX_MERCHANT_RESULTS)
+    .map((g) => ({ ...g, claimed_by: owners.get(g.key) ?? null, adopted: adopted.has(g.key) }));
+
+  return { merchants };
+}
+
+/**
+ * Descriptions that look like the seed's — step two, where a renamed series is
+ * put back together.
+ *
+ * Everything at or above FUZZY_THRESHOLD_MIN is returned, and the client shows
+ * the whole list with only the exact match ticked. There is deliberately NO
+ * threshold slider: whether loose matching is safe depends on how distinctive
+ * the merchant's name is, which a number cannot express. Measured on a real
+ * ledger, a seed of "PUSHPAY USA INC" matches its three renamed spellings and
+ * nothing else across 963 descriptions, while "ZELLE PAYMENT FROM <person>" at
+ * the same threshold reaches a different person entirely. A count, a date span
+ * and an amount range make that judgement obvious; a number does not.
+ *
+ * Candidates are restricted to the seed's own direction, which removes the
+ * commonest false match for free (a payment TO someone scoring high against a
+ * payment FROM them).
+ */
+function recurringSimilar(ctx, { query }) {
+  const db = ctx.db();
+  const key = String(query.key || '').trim();
+  if (!key) bad('key required');
+
+  const { rows } = loadLedger(db);
+  const groups = summariseByKey(rows);
+  const seed = groups.find((g) => g.key === key);
+  if (!seed) bad('no transactions match that merchant', 404);
+
+  const owners = aliasOwners(db);
+  const adopted = adoptedKeys(db);
+  const needle = seed.description.toLowerCase();
+
+  const matches = groups
+    .filter((g) => g.direction === seed.direction)
+    .map((g) => ({ ...g, similarity: round2(sequenceRatio(needle, g.description.toLowerCase())) }))
+    .filter((g) => g.key === seed.key || g.similarity >= FUZZY_THRESHOLD_MIN)
+    .map((g) => ({
+      ...g,
+      exact: g.key === seed.key,
+      claimed_by: owners.get(g.key) === seed.key ? null : owners.get(g.key) ?? null,
+      // Its own schedule today, and it would be folded into this one. Shown on
+      // the row so ticking it is a decision rather than a surprise.
+      adopted: g.key !== seed.key && adopted.has(g.key),
+    }))
+    .sort((a, b) => b.similarity - a.similarity || (a.last_date < b.last_date ? 1 : -1));
+
+  return { seed: { key: seed.key, description: seed.description, direction: seed.direction }, matches };
+}
+
+/**
+ * Resolve a builder request into the schedule it describes, without writing.
+ * Shared by preview and build so the schedule the user is shown is produced by
+ * the same code that saves it.
+ *
+ * The PRIMARY key is the picked key whose newest charge is newest overall:
+ * that is the spelling the bank is using now, so it is the one a future import
+ * will carry and the one the other picks fold onto.
+ */
+function resolveBuild(db, body) {
+  const raw = (body && body.keys) || [];
+  if (!Array.isArray(raw)) bad('keys required');
+  const keys = [...new Set(raw.map((k) => (typeof k === 'string' ? k.trim() : '')).filter(Boolean))];
+  if (!keys.length) bad('no keys selected');
+  if (keys.length > MAX_BUILD_KEYS) bad(`at most ${MAX_BUILD_KEYS} descriptions can form one schedule`);
+
+  const band = parseBand(body);
+  const todayIso = localTodayIso();
+  const { rows } = loadLedger(db);
+
+  const picked = new Set(keys);
+  const matched = rows.filter((t) => picked.has(normaliseDesc(t.description)));
+  if (!matched.length) bad('no transactions match those descriptions', 404);
+
+  const newestMatch = matched.reduce((a, b) => (a.date > b.date ? a : b));
+  const direction = body.direction && DIRECTION_NAMES.includes(body.direction)
+    ? body.direction
+    : newestMatch.tx_type;
+  // One direction per schedule, the same way detection buckets the ledger. A
+  // mixed selection keeps the rows that agree with the newest charge rather
+  // than measuring a cadence across two different kinds of money.
+  const inDirection = matched.filter((t) => t.tx_type === direction);
+  if (!inDirection.length) bad('no transactions match those descriptions', 404);
+
+  const primary = normaliseDesc(inDirection.reduce((a, b) => (a.date > b.date ? a : b)).description);
+  const kept = inDirection.filter((t) => withinBand(t.amount, band));
+  if (!kept.length) bad('the amount range excludes every matching transaction');
+
+  const series = detectRecurringSeries(kept, { today: todayIso, keyOf: () => primary })[0] || null;
+  const newest = kept.reduce((a, b) => (a.date > b.date ? a : b));
+
+  return {
+    keys,
+    primary,
+    direction,
+    band,
+    series,
+    matched_count: inDirection.length,
+    excluded_count: inDirection.length - kept.length,
+    suggested_band: suggestAmountBand(inDirection.map((t) => t.amount)),
+    newest_date: newest.date,
+    newest_description: newest.description,
+    median_amount: round2(median(kept.map((t) => t.amount))),
+  };
+}
+
+/** {min, max} from a request body, or null for no band. Either bound may be
+ *  null on its own (an open-ended range is still a range). */
+function parseBand(body) {
+  const read = (field) => {
+    if (!Object.prototype.hasOwnProperty.call(body, field) || body[field] === null) return null;
+    if (!isFiniteNumber(body[field]) || body[field] < 0) bad(`invalid ${field}`);
+    return round2(body[field]);
+  };
+  const min = read('amount_min');
+  const max = read('amount_max');
+  if (min != null && max != null && min > max) bad('amount_min must not exceed amount_max');
+  return min == null && max == null ? null : { min, max };
+}
+
+/**
+ * What POST /api/recurring/build would create, without writing anything. The
+ * dialog calls this as the user ticks descriptions, so the cadence, amount and
+ * next due date on screen are the ones that will actually be saved.
+ *
+ * `needs_cycle` is the interesting answer: it means the picked set is real but
+ * too short or too irregular for a cadence to be measured, so the user has to
+ * say what it is. That is the case the builder exists for.
+ */
+function recurringPreview(ctx, { body }) {
+  const r = resolveBuild(ctx.db(), body || {});
+  return {
+    primary: r.primary,
+    direction: r.direction,
+    matched_count: r.matched_count,
+    excluded_count: r.excluded_count,
+    suggested_band: r.suggested_band,
+    needs_cycle: !r.series,
+    series: r.series ? serialiseSeries({ ...r.series, direction: r.direction }) : null,
+    median_amount: r.median_amount,
+  };
+}
+
+/**
+ * Save the built schedule: one adopted override row plus an alias row per
+ * extra description key.
+ *
+ * Two shapes come out of this, and which one depends on whether the picked set
+ * detects. When it does, the override deliberately stores NO cycle or amount —
+ * those keep coming from live detection, so the schedule follows the ledger the
+ * way every detected one does, and the band and aliases are all that was added.
+ * When it does not, the request must carry a cycle and the row is written as a
+ * full manual schedule; detection takes over by itself once enough charges land
+ * (withOverride), exactly as it does for a hand-added one.
+ */
+function recurringBuild(ctx, { body }) {
+  const db = ctx.db();
+  const data = body || {};
+  const r = resolveBuild(db, data);
+
+  let displayName = null;
+  if (data.display_name != null) {
+    displayName = cleanLabel(data.display_name);
+    if (!displayName) bad('invalid display_name');
+  }
+  // A schedule that cannot be detected is stored as a manual one, and
+  // manualSeries only surfaces a row carrying every field — including a label.
+  // Falling back to the newest description gives it the name the user just
+  // picked it by. A DETECTED schedule keeps a null label on purpose: that is
+  // what makes its name follow the ledger.
+  if (!displayName && !r.series) displayName = cleanLabel(r.newest_description);
+
+  // A key already folded into a DIFFERENT built schedule is refused: taking it
+  // would divide one merchant's history between two schedules, and each would
+  // then measure a cadence from half of it. The owner is named so the message
+  // points at the schedule to edit.
+  const owners = aliasOwners(db);
+  for (const key of r.keys) {
+    const owner = owners.get(key);
+    if (owner && owner !== r.primary) {
+      bad('one of those descriptions already belongs to another schedule', 409, { key, schedule: owner });
+    }
+  }
+
+  // A picked key that is its own schedule today is ABSORBED, not refused. This
+  // is the common case when a renamed series is reassembled: the user adopted a
+  // fragment months ago, it lapsed off the calendar when the bank renamed it,
+  // and they are now saying it was this schedule all along. Un-adopting keeps
+  // its stored corrections, the same way deleting a detected schedule does.
+  const adopted = adoptedKeys(db);
+  const absorbed = r.keys.filter((k) => k !== r.primary && adopted.has(k));
+
+  let cycle = null;
+  if (!r.series) {
+    if (!CYCLE_NAMES.includes(data.cycle)) bad('cycle required: these charges are too few or too irregular to measure one', 422);
+    cycle = data.cycle;
+  } else if (CYCLE_NAMES.includes(data.cycle)) {
+    cycle = data.cycle; // an explicit correction still wins over what was measured
+  }
+
+  const aliases = r.keys.filter((k) => k !== r.primary);
+
+  db.transaction(() => {
+    db.prepare('INSERT INTO recurring_overrides ("key") VALUES (?) ON CONFLICT("key") DO NOTHING').run(r.primary);
+    db.prepare(
+      `UPDATE recurring_overrides
+          SET adopted = 1, direction = ?, amount_min = ?, amount_max = ?,
+              display_name = COALESCE(?, display_name),
+              cycle = ?,
+              amount = CASE WHEN ? THEN ? ELSE NULL END,
+              last_date = CASE WHEN ? THEN ? ELSE NULL END
+        WHERE "key" = ?`
+    ).run(
+      r.direction,
+      r.band ? r.band.min : null,
+      r.band ? r.band.max : null,
+      displayName,
+      cycle,
+      r.series ? 0 : 1, r.median_amount,
+      r.series ? 0 : 1, r.newest_date,
+      r.primary
+    );
+
+    // Replace this schedule's aliases wholesale: the picked set IS the rule, so
+    // rebuilding it with one description unticked has to drop that key rather
+    // than leave the old row behind.
+    db.prepare('DELETE FROM recurring_aliases WHERE "key" = ?').run(r.primary);
+    const addAlias = db.prepare('INSERT INTO recurring_aliases (alias_key, "key") VALUES (?, ?)');
+    for (const alias of aliases) addAlias.run(alias, r.primary);
+
+    // An absorbed fragment must stop being a schedule of its own, or the page
+    // would list it beside the one that now owns its transactions.
+    const unadopt = db.prepare('UPDATE recurring_overrides SET adopted = 0 WHERE "key" = ?');
+    for (const key of absorbed) unadopt.run(key);
+  })();
+
+  return {
+    ok: true, key: r.primary, aliases: aliases.length, detected: !!r.series, absorbed: absorbed.length,
+  };
+}
+
 /**
  * Remove a recurring schedule from the page. A MANUAL schedule (no matching
  * detected series) has nothing else backing it, so its row is deleted
@@ -451,9 +808,16 @@ function recurringScheduleDelete(ctx, { params }) {
 
   const isDetected = detectAll(db, localTodayIso()).some((s) => s.key === key);
   if (isDetected) {
+    // Un-adopt only. The aliases and amount band stay with the row: they are
+    // corrections like any other, and keeping them means the schedule returns
+    // to the picker as the ONE series the user assembled instead of splintering
+    // back into the fragments they just merged.
     db.prepare('UPDATE recurring_overrides SET adopted = 0 WHERE "key" = ?').run(key);
   } else {
-    db.prepare('DELETE FROM recurring_overrides WHERE "key" = ?').run(key);
+    db.transaction(() => {
+      db.prepare('DELETE FROM recurring_aliases WHERE "key" = ?').run(key);
+      db.prepare('DELETE FROM recurring_overrides WHERE "key" = ?').run(key);
+    })();
   }
   return { ok: true };
 }
@@ -478,9 +842,17 @@ function recurringClearAll(ctx) {
     .map((o) => o.key);
 
   const unadopt = db.prepare('UPDATE recurring_overrides SET adopted = 0 WHERE "key" = ?');
-  const drop = db.prepare('DELETE FROM recurring_overrides WHERE "key" = ?');
+  const dropAliases = db.prepare('DELETE FROM recurring_aliases WHERE "key" = ?');
+  const dropRow = db.prepare('DELETE FROM recurring_overrides WHERE "key" = ?');
   db.transaction(() => {
-    for (const key of adopted) (detected.has(key) ? unadopt : drop).run(key);
+    for (const key of adopted) {
+      if (detected.has(key)) {
+        unadopt.run(key);
+      } else {
+        dropAliases.run(key);
+        dropRow.run(key);
+      }
+    }
   })();
 
   return { ok: true, cleared: adopted.length };
@@ -489,6 +861,10 @@ function recurringClearAll(ctx) {
 const routes = [
   ['GET', '/api/recurring', recurringGet],
   ['GET', '/api/recurring/candidates', recurringCandidates],
+  ['GET', '/api/recurring/merchants', recurringMerchants],
+  ['GET', '/api/recurring/similar', recurringSimilar],
+  ['POST', '/api/recurring/preview', recurringPreview],
+  ['POST', '/api/recurring/build', recurringBuild],
   ['POST', '/api/recurring/adopt', recurringAdopt],
   ['POST', '/api/recurring/override', recurringOverrideUpsert],
   ['POST', '/api/recurring/schedule', recurringScheduleCreate],

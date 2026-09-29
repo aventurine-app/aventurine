@@ -325,6 +325,24 @@ const MIGRATIONS = [
       + '(substr(date, 1, 7), category_id, tx_type, amount, date)'
     );
   }],
+  // v16 — user-built recurring schedules: an amount band per schedule, plus the
+  // alias table that lets one schedule own several description keys. Both are
+  // additive and default to the pre-v16 behaviour (no band, no aliases), so
+  // every existing schedule keeps detecting exactly as it did.
+  [16, (db) => {
+    const cols = db.prepare('PRAGMA table_info(recurring_overrides)').all().map((c) => c.name);
+    if (!cols.includes('amount_min')) db.exec('ALTER TABLE recurring_overrides ADD COLUMN amount_min FLOAT');
+    if (!cols.includes('amount_max')) db.exec('ALTER TABLE recurring_overrides ADD COLUMN amount_max FLOAT');
+    // Same DDL as the baseline in schema.js (foundation.test.js compares a
+    // migrated database's shape against a fresh one).
+    db.exec(`CREATE TABLE IF NOT EXISTS recurring_aliases (
+       alias_key VARCHAR(200) NOT NULL,
+       "key" VARCHAR(200) NOT NULL,
+       PRIMARY KEY (alias_key),
+       FOREIGN KEY ("key") REFERENCES recurring_overrides ("key")
+     )`);
+    db.exec('CREATE INDEX IF NOT EXISTS ix_recurring_aliases_key ON recurring_aliases ("key")');
+  }],
 ];
 
 /**

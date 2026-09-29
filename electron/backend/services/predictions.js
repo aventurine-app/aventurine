@@ -105,22 +105,28 @@ const { round2 } = require('../validate');
 
 /**
  * Find every currently-active recurring series in one direction's transactions.
- * Rows are grouped by normaliseDesc, same-day rows are merged into one charge,
+ * Rows are grouped by `keyOf` (normaliseDesc by default), same-day rows are
+ * merged into one charge,
  * and a group qualifies when its median gap matches a cycle (classifyCycle)
  * and at least MIN_REGULARITY of its gaps sit within that cycle's tolerance.
  * Each series keeps its full occurrence history (`dates`, one entry per real
  * charge date with that day's split-merged amount), which the calendar view
  * uses to mark past charge days as well as the next projected one.
- * `today` is an ISO string (defaults to the current date). Returns
+ * `today` is an ISO string (defaults to the current date). `keyOf` overrides
+ * the grouping key so a user-built schedule can fold several bank spellings of
+ * one merchant into a single series (services/recurringRules.js); passing it
+ * does not change normaliseDesc, which stays the identity of every other
+ * schedule. Returns
  * [{key, description, amount, cycle, next_date, due_in_days, last_date, dates,
  * occurrences, confidence}], sorted soonest-due first.
  */
-function detectRecurringSeries(transactions, { today = null } = {}) {
+function detectRecurringSeries(transactions, { today = null, keyOf = null } = {}) {
   const todayIso = today || localTodayIso();
+  const groupKey = keyOf || ((t) => normaliseDesc(t.description));
 
   const groups = new Map();
   for (const t of transactions) {
-    const key = normaliseDesc(t.description);
+    const key = groupKey(t);
     if (!key) continue;
     let arr = groups.get(key);
     if (!arr) { arr = []; groups.set(key, arr); }
@@ -156,7 +162,7 @@ function detectRecurringSeries(transactions, { today = null } = {}) {
     const latestRow = rows.reduce((a, b) => (a.date > b.date ? a : b));
 
     results.push({
-      key: normaliseDesc(latestRow.description),
+      key: groupKey(latestRow),
       description: latestRow.description,
       display_name: latestRow.display_name ?? null,
       amount,

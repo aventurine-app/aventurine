@@ -489,12 +489,17 @@
     const { candidates } = await res.json();
 
     if (!candidates.length) {
-      UI.dialog(`
+      const empty = UI.dialog(`
         <p><strong>No new recurring schedules found</strong></p>
         <p class="rec-detect-note">A pattern needs a few charges at a steady interval before it can be spotted. Import more history, or add a schedule by hand with the + on the day it falls on.</p>
         <div class="confirm-actions">
           <button class="db-btn confirm-cancel">Close</button>
+          <button class="db-btn db-btn-primary" id="rec-build-open">Didn't find your schedule?</button>
         </div>`, { className: 'rec-detect-dialog' });
+      empty.overlay.querySelector('#rec-build-open').addEventListener('click', () => {
+        empty.close();
+        openBuildDialog();
+      });
       return;
     }
 
@@ -506,10 +511,17 @@
         <span>Select all (${candidates.length})</span>
       </label>
       <div class="rec-cand-list">${candidates.map(candidateRowHtml).join('')}</div>
-      <div class="confirm-actions">
+      <div class="confirm-actions rec-detect-actions">
+        <button class="db-btn rec-detect-build" id="rec-build-open">Didn't find your schedule?</button>
+        <span class="rec-detect-spacer"></span>
         <button class="db-btn confirm-cancel">Cancel</button>
         <button class="db-btn db-btn-primary confirm-add" id="rec-cand-ok">Add selected</button>
       </div>`, { className: 'rec-detect-dialog' });
+
+    overlay.querySelector('#rec-build-open').addEventListener('click', () => {
+      close();
+      openBuildDialog();
+    });
 
     const allBox = overlay.querySelector('#rec-cand-all');
     const boxes = [...overlay.querySelectorAll('.rec-cand-cb')];
@@ -549,6 +561,257 @@
       close();
       await load();
     });
+  }
+
+  // ─── Build ───────────────────────────────────────────────────────────────
+  // The way out of the picker when detection found nothing, or found the wrong
+  // thing. Detection groups a ledger by one normalised description and counts
+  // every row under it, which loses a series the bank has renamed and breaks
+  // one whose merchant sends off-cycle extras under the same wording. Neither
+  // is reachable by loosening a threshold, so here the user names the merchant
+  // and the picked descriptions become the schedule's rule (aliases + an amount
+  // band, see services/recurringRules.js). It is deliberately reached FROM the
+  // detection picker rather than offered alongside it: detection stays the
+  // front door and this fills the gaps.
+  //
+  // There is no match-strength slider. Whether loose matching is safe depends on
+  // how distinctive the merchant's name is, which no number can express — a
+  // payroll line matches its own renamings and nothing else, while "Zelle
+  // payment from <person>" at the same score reaches a different person. The
+  // dialog shows every candidate with its charge count, date span and amount
+  // range and ticks only the exact one, so the judgement is made on the data.
+
+  const BUILD_PREVIEW_DELAY_MS = 180;
+
+  /** "Jan 2025 – Sep 2026", or a single month when a group spans one. */
+  function fmtSpan(first, last) {
+    const part = (iso) => {
+      const [y, m] = iso.split('-').map(Number);
+      return `${MONTHS[m - 1].slice(0, 3)} ${y}`;
+    };
+    const a = part(first);
+    const b = part(last);
+    return a === b ? a : `${a} – ${b}`;
+  }
+
+  function buildGroupRowHtml(g) {
+    const detail = [
+      `${g.count} charge${g.count === 1 ? '' : 's'}`,
+      fmtSpan(g.first_date, g.last_date),
+    ].join(' · ');
+    const range = g.amount_min === g.amount_max
+      ? formatCurrency(g.amount_min, true)
+      : `${formatCurrency(g.amount_min, true)} – ${formatCurrency(g.amount_max, true)}`;
+    // A description another schedule already owns is shown, not hidden: the
+    // user needs to know where it went, and why they cannot have it here.
+    const taken = g.claimed_by ? ' rec-build-row-taken' : '';
+    // Ticking a row that is its own schedule today folds it into this one, so
+    // the row says that instead of reading like any other candidate.
+    const note = g.claimed_by ? 'Already in another schedule'
+      : g.adopted ? `Its own schedule now · ${detail}`
+        : detail;
+    return `<label class="rec-build-row${taken}">
+      <input type="checkbox" class="rec-build-cb" data-key="${escapeHtml(g.key)}"
+        ${g.exact ? 'checked' : ''}${g.claimed_by ? ' disabled' : ''}>
+      <span class="rec-build-text">
+        <span class="rec-build-name">${escapeHtml(g.description)}</span>
+        <span class="rec-build-detail">${escapeHtml(note)}</span>
+      </span>
+      <span class="rec-build-amount">${escapeHtml(range)}</span>
+    </label>`;
+  }
+
+  function buildMerchantRowHtml(g) {
+    const detail = `${g.count} charge${g.count === 1 ? '' : 's'} · ${fmtSpan(g.first_date, g.last_date)}`;
+    return `<button type="button" class="rec-build-pick" data-key="${escapeHtml(g.key)}">
+      ${merchantAvatarHtml(g.description)}
+      <span class="rec-build-text">
+        <span class="rec-build-name">${escapeHtml(g.description)}</span>
+        <span class="rec-build-detail">${escapeHtml(detail)}</span>
+      </span>
+      <span class="rec-build-amount">${escapeHtml(formatCurrency(g.amount_median, true))}</span>
+    </button>`;
+  }
+
+  /** Step one: name the merchant. Searches descriptions rather than rows —
+   *  the user is identifying a merchant, not one particular charge. */
+  async function openBuildDialog() {
+    closeCard();
+    const { overlay, close } = UI.dialog(`
+      <p><strong>Build a schedule</strong></p>
+      <label class="rec-add-field">
+        <span class="rec-add-label">Merchant</span>
+        <input type="text" class="rec-dialog-input" id="rec-build-q" maxlength="100"
+          placeholder="Search your transactions" autocomplete="off">
+      </label>
+      <div class="rec-build-list" id="rec-build-results"></div>
+      <div class="confirm-actions">
+        <button class="db-btn confirm-cancel">Cancel</button>
+      </div>`, { className: 'rec-detect-dialog' });
+
+    const input = overlay.querySelector('#rec-build-q');
+    const results = overlay.querySelector('#rec-build-results');
+    let timer = null;
+    let generation = 0;
+
+    async function search() {
+      const q = input.value.trim();
+      if (!q) { results.innerHTML = ''; return; }
+      // Every keystroke can outrun the one before it; only the newest answer
+      // may paint, or a slow early response overwrites a fast later one.
+      const mine = ++generation;
+      const res = await apiFetch(`/api/recurring/merchants?q=${encodeURIComponent(q)}`);
+      if (mine !== generation) return;
+      if (!res.ok) { results.innerHTML = ''; return; }
+      const { merchants } = await res.json();
+      if (mine !== generation) return;
+      results.innerHTML = merchants.length
+        ? merchants.map(buildMerchantRowHtml).join('')
+        : '<p class="rec-detect-note">No transactions match that name.</p>';
+    }
+
+    input.addEventListener('input', () => {
+      clearTimeout(timer);
+      timer = setTimeout(search, BUILD_PREVIEW_DELAY_MS);
+    });
+    results.addEventListener('click', (e) => {
+      const pick = e.target.closest('.rec-build-pick');
+      if (!pick) return;
+      clearTimeout(timer);
+      generation++; // abandon any search still in flight
+      close();
+      openBuildMatchDialog(pick.dataset.key);
+    });
+    input.focus();
+  }
+
+  /** Step two: confirm which descriptions belong to the schedule, and on what
+   *  cadence. The preview line is produced by the same backend call that saves,
+   *  so what it reads is what gets stored. */
+  async function openBuildMatchDialog(seedKey) {
+    const res = await apiFetch(`/api/recurring/similar?key=${encodeURIComponent(seedKey)}`);
+    if (!res.ok) {
+      window.UI?.toast?.("Couldn't look up that merchant — try again.", { type: 'error' });
+      return;
+    }
+    const { seed, matches } = await res.json();
+
+    const { overlay, close } = UI.dialog(`
+      <p><strong>${escapeHtml(seed.description)}</strong></p>
+      <div class="rec-build-list">${matches.map(buildGroupRowHtml).join('')}</div>
+      <label class="rec-build-band">
+        <input type="checkbox" id="rec-build-band-on">
+        <span id="rec-build-band-text">Ignore unusual amounts</span>
+      </label>
+      <label class="rec-add-field" id="rec-build-cycle-field" hidden>
+        <span class="rec-add-label">Cadence</span>
+        <select class="rec-select" id="rec-build-cycle">${cycleOptionsHtml('monthly')}</select>
+      </label>
+      <p class="rec-build-summary" id="rec-build-summary"></p>
+      <div class="confirm-actions">
+        <button class="db-btn" id="rec-build-back">Back</button>
+        <button class="db-btn db-btn-primary confirm-add" id="rec-build-ok">Create schedule</button>
+      </div>`, { className: 'rec-detect-dialog rec-build-dialog' });
+
+    const boxes = [...overlay.querySelectorAll('.rec-build-cb')];
+    const bandBox = overlay.querySelector('#rec-build-band-on');
+    const bandText = overlay.querySelector('#rec-build-band-text');
+    const cycleField = overlay.querySelector('#rec-build-cycle-field');
+    const cycleSelect = overlay.querySelector('#rec-build-cycle');
+    const summary = overlay.querySelector('#rec-build-summary');
+    const okBtn = overlay.querySelector('#rec-build-ok');
+
+    // The last band the backend suggested for the current selection. Kept here
+    // rather than read back off the label so the checkbox means the same thing
+    // after the selection changes under it.
+    let band = null;
+    let timer = null;
+    let generation = 0;
+
+    const pickedKeys = () => boxes.filter((b) => b.checked).map((b) => b.dataset.key);
+    const bandFields = () => (bandBox.checked && band ? { amount_min: band.min, amount_max: band.max } : {});
+
+    async function refresh() {
+      const keys = pickedKeys();
+      if (!keys.length) {
+        summary.textContent = '';
+        bandText.textContent = 'Ignore unusual amounts';
+        okBtn.disabled = true;
+        return;
+      }
+      const mine = ++generation;
+      const res2 = await apiFetch('/api/recurring/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keys, ...bandFields() }),
+      });
+      if (mine !== generation) return;
+      if (!res2.ok) { summary.textContent = ''; okBtn.disabled = true; return; }
+      const p = await res2.json();
+      if (mine !== generation) return;
+
+      band = p.suggested_band;
+      bandBox.disabled = !band;
+      bandText.textContent = band
+        ? `Ignore amounts outside ${formatCurrency(band.min, true)} – ${formatCurrency(band.max, true)}`
+        : 'Ignore unusual amounts';
+
+      // A cadence can only be asked for when it could not be measured; when it
+      // could, showing the picker would invite the user to overrule a reading
+      // taken from their own history.
+      cycleField.hidden = !p.needs_cycle;
+      okBtn.disabled = false;
+
+      const charges = `${p.matched_count - p.excluded_count} charge${p.matched_count - p.excluded_count === 1 ? '' : 's'}`;
+      summary.textContent = p.series
+        ? `${CYCLE_LABEL[p.series.cycle]} · ${formatCurrency(p.series.amount, true)} · next ${fmtShortDate(p.series.next_date)} · ${charges}`
+        : `${charges} · too few or too irregular to measure a cadence`;
+    }
+
+    function queueRefresh() {
+      clearTimeout(timer);
+      timer = setTimeout(refresh, BUILD_PREVIEW_DELAY_MS);
+    }
+
+    overlay.querySelector('.rec-build-list').addEventListener('change', queueRefresh);
+    bandBox.addEventListener('change', queueRefresh);
+
+    overlay.querySelector('#rec-build-back').addEventListener('click', () => {
+      clearTimeout(timer);
+      generation++;
+      close();
+      openBuildDialog();
+    });
+
+    okBtn.addEventListener('click', async () => {
+      const keys = pickedKeys();
+      if (!keys.length) return;
+      const body = { keys, ...bandFields() };
+      if (!cycleField.hidden) body.cycle = cycleSelect.value;
+
+      const saved = await apiFetch('/api/recurring/build', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      // One read of the body, whichever way it went: a Response can only be
+      // consumed once.
+      const payload = await saved.json().catch(() => ({}));
+      if (!saved.ok) {
+        window.UI?.toast?.(payload.error || "Couldn't build that schedule — try again.", { type: 'error' });
+        return;
+      }
+      clearTimeout(timer);
+      generation++;
+      close();
+      await load();
+      // The calendar is the only place a schedule appears, so land on the month
+      // its next charge falls in rather than leaving the user on a month that
+      // may not show it.
+      if (data.series.some((s) => s.key === payload.key)) await followSchedule(payload.key);
+    });
+
+    await refresh();
   }
 
   // ─── Add / remove ─────────────────────────────────────────────────────────

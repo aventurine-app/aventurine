@@ -930,3 +930,118 @@ html[data-theme="dark"] .rec-pop-cadence {
 .rec-select.invalid {
     border-color: var(--accent-negative);
 }
+
+/* ─── Schedule builder ───────────────────────────────────────────────────────
+   The two-step dialog reached from the detection picker. Its rows reuse the
+   candidate list's proportions on purpose: it is the same judgement (does this
+   belong on my calendar?) made one level lower, on descriptions rather than on
+   whole schedules. */
+
+.rec-detect-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+/* Pushes Cancel/Add to the right so the builder button reads as the way out of
+   this dialog rather than a third confirm sitting beside them. */
+.rec-detect-spacer { flex: 1; }
+
+.rec-build-list {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 14px;
+}
+
+.rec-build-row,
+.rec-build-pick {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 4px;
+    border: none;
+    border-bottom: var(--border-width) solid var(--border);
+    background: none;
+    text-align: left;
+    cursor: pointer;
+}
+.rec-build-row:last-child,
+.rec-build-pick:last-child { border-bottom: none; }
+.rec-build-row:hover,
+.rec-build-pick:hover { background: var(--surface3); }
+
+/* A description another schedule already owns: visible so the user can see
+   where it went, inert so they cannot take it from here. */
+.rec-build-row-taken { cursor: default; opacity: 0.55; }
+.rec-build-row-taken:hover { background: none; }
+
+.rec-build-cb {
+    accent-color: var(--accent-primary);
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+    cursor: pointer;
+}
+.rec-build-row-taken .rec-build-cb { cursor: default; }
+
+.rec-build-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    flex: 1;
+}
+.rec-build-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-medium);
+}
+.rec-build-detail {
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+}
+
+.rec-build-amount {
+    flex: 0 0 auto;
+    color: var(--text-secondary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-micro);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.rec-build-band {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    color: var(--text-secondary);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    cursor: pointer;
+}
+.rec-build-band input[type="checkbox"] {
+    accent-color: var(--accent-primary);
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+}
+.rec-build-band input[type="checkbox"]:disabled { cursor: default; }
+
+/* The line the Create button acts on: cadence, amount and next due date as the
+   backend would save them. Reads as a readout, not a caption, so it carries the
+   numeric font the rest of the page uses for figures. */
+.rec-build-summary {
+    min-height: 1.2em;
+    margin-bottom: 14px;
+    color: var(--text-secondary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-micro);
+    font-variant-numeric: tabular-nums;
+}

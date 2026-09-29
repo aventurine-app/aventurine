@@ -17,7 +17,7 @@
 //   - the v_* views pre-join the normalized tables into human-readable,
 //     chronologically-sortable shapes for ad-hoc querying.
 
-const SCHEMA_VERSION = 15;
+const SCHEMA_VERSION = 16;
 
 // Months persist as 1-12 integers so `ORDER BY year, month` sorts
 // chronologically (the app translates to/from English names at its API
@@ -236,7 +236,34 @@ const DDL = [
      amount FLOAT CHECK (amount > 0),
      last_date DATE,  -- anchor date for a MANUAL schedule's own projection
      adopted INTEGER DEFAULT 0 NOT NULL CHECK (adopted IN (0, 1)),
+     -- Amount band for a BUILT schedule (services/recurringRules.js): rows
+     -- outside it are not occurrences of this series. It exists because a
+     -- merchant can send something else under the same description, such as an
+     -- off-cycle expense reimbursement among paychecks, which detection
+     -- otherwise counts as a charge and measures a broken cadence from. NULL on
+     -- both ends means no band, which is every schedule predating the builder.
+     -- Declared bare, with no CHECK: the v16 migration adds these with ALTER
+     -- TABLE ADD COLUMN, which cannot carry one, and foundation.test.js pins a
+     -- migrated database to have the same shape as a fresh one.
+     amount_min FLOAT,
+     amount_max FLOAT,
      PRIMARY KEY ("key")
+   )`,
+  `CREATE TABLE recurring_aliases (
+     -- Extra description keys folded into one schedule, so a series that the
+     -- bank has renamed stays one series. alias_key is another normaliseDesc
+     -- output; "key" is the schedule it belongs to (recurring_overrides."key").
+     --
+     -- alias_key is the PRIMARY KEY, not a plain column: a description key can
+     -- belong to at most one schedule, or two schedules would claim the same
+     -- transactions and each would measure a cadence from half a history.
+     --
+     -- A schedule's own key is never stored here. Absent aliases, folding is
+     -- the identity function and detection behaves exactly as it always has.
+     alias_key VARCHAR(200) NOT NULL,
+     "key" VARCHAR(200) NOT NULL,
+     PRIMARY KEY (alias_key),
+     FOREIGN KEY ("key") REFERENCES recurring_overrides ("key")
    )`,
   `CREATE INDEX ix_balance_entries_year ON balance_entries (year)`,
   `CREATE INDEX ix_credit_cards_category_id ON credit_cards (category_id)`,
@@ -253,6 +280,10 @@ const DDL = [
   // covering a column that appears only inside an indexed expression.
   `CREATE INDEX ix_transactions_month_cat ON transactions (substr(date, 1, 7), category_id, tx_type, amount, date)`,
   `CREATE INDEX ix_forecast_planned_date ON forecast_planned (date)`,
+  // Alias lookup runs per schedule on every Recurring read, so the reverse
+  // direction (schedule -> its aliases) needs an index of its own; alias_key
+  // is already covered by the primary key.
+  `CREATE INDEX ix_recurring_aliases_key ON recurring_aliases ("key")`,
 
   // ── Convenience views ──────────────────────────────────────────────────────
   // Read-only, pre-joined shapes for users querying the DB directly. They add
