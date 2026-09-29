@@ -16,7 +16,7 @@
 //
 // Icons are ordinary bundled assets under static/merchant-icons/, downloaded
 // once on a developer's machine and committed. The app makes no network call and
-// runs offline (see PRODUCT.md); nothing here fetches a logo at runtime, and a
+// runs offline; nothing here fetches a logo at runtime, and a
 // missing file falls back to tier 2 rather than showing a broken image. CSS for
 // both tiers lives in ui.css.
 //

@@ -91,9 +91,9 @@
         // Checking is a wrong result that has to be undone manually.
         //
         // The only way to skip is the × in the corner (matching the import modals'
-        // close button) — first-run has no "enter things myself" link, so skipping
-        // must stay reachable some other way, per PRODUCT.md's "skipping is always
-        // available" guarantee.
+        // close button) — first-run has no "enter things myself" link. First run
+        // must always be skippable, so if that × ever goes, skipping has to
+        // reappear somewhere else in the same step.
         function renderPicker(dialog, { accounts, imported, onChosen, onSkip, onDone }) {
             const again = imported.length > 0;
 

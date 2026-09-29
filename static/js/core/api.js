@@ -14,8 +14,8 @@
 // { ok, status, json() }. Non-/api/ URLs always go to the real fetch().
 //
 // Who depends on this file:
-//   - Loaded as a plain <script> (no bundler — see the "no build step"
-//     guardrail in PRODUCT.md) and attaches window.apiFetch as a global.
+//   - Loaded as a plain <script> (the frontend has no build step and no
+//     bundler — see CLAUDE.md) and attaches window.apiFetch as a global.
 //     Nearly every page and widget module calls window.apiFetch(...) instead of
 //     window.fetch(...): static/js/pages/*.js (dashboard, transactions,
 //     portfolio, recurring, trends, topmerchants, transfers, metrics),

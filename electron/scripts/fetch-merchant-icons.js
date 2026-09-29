@@ -9,10 +9,10 @@
 // This is the ONLY place a network call happens, and it happens on a
 // developer's machine, never in the app: the icons are committed and shipped
 // as ordinary bundled assets (static/ goes into the package via
-// electron-builder's extraResources), so the "local-first & offline, no
-// required network calls" guardrail in .claude/PRODUCT.md still holds at
-// runtime. Nothing regenerates these during a build, the same as the packaging
-// icons in build/ (see make-icons.js).
+// electron-builder's extraResources). The app itself makes no network call at
+// runtime and never will, and running this script is what keeps that true
+// while the icons still exist. Nothing regenerates these during a build, the
+// same as the packaging icons in build/ (see make-icons.js).
 //
 //   node scripts/fetch-merchant-icons.js              # resolve + download
 //   node scripts/fetch-merchant-icons.js --manifest   # re-audit + rewrite the
