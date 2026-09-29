@@ -7,10 +7,10 @@
    page, which is how every other page here works.
 
    The calendar is the page: a grid whose day cells hold occurrence chips
-   (.rec-occ), each carrying its own schedule's name and amount. Nothing on the
-   grid opens anything: a chip is a tile that reads, with its full name and
-   whether the charge is projected in its tooltip. Editing and deleting are the
-   rail's, whose rows open the editor and carry the trash can.
+   (.rec-occ), each carrying its own schedule's name and amount, with its full
+   name and whether the charge is projected in its tooltip. A chip is a button:
+   it opens that schedule's editor, the same dialog a rail row opens. Deleting is
+   the rail's alone, on the trash can its rows carry.
    Hovering a day cell still reveals its own .rec-day-add "+", which is where
    adding a schedule by hand starts — on the date it is due, not in a menu.
 
@@ -112,13 +112,13 @@
    would leave the rail a different width on every window size, which is the
    same reason trends.css pins its rail. The rail's width IS its name column's
    allowance: everything else in a row is a fixed field (avatar, cadence, due
-   date, the trash can), so the 464px is those fields plus about 148px of name,
-   which is enough for a two-word merchant. `align-items: start` keeps each card
+   date, the trash can), so the 432px is those fields plus about 116px of name,
+   which still holds a two-word merchant before the ellipsis. `align-items: start` keeps each card
    at its own height — a rail holding four schedules should not be stretched to
    a six-week calendar's height and left three quarters empty. */
 .rec-main {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) var(--rec-rail-w, 464px);
+    grid-template-columns: minmax(0, 1fr) var(--rec-rail-w, 432px);
     grid-template-areas:
         "summary summary"
         "calendar rail";
@@ -130,8 +130,8 @@
 /* Below this the rail cannot hold its three fields side by side without the
    calendar's day cells going too narrow for a chip, so it folds under the grid.
    It folds earlier than the Spending Trends rail (1100px) because it is nearly
-   twice that rail's width: at 1100px a 464px rail leaves the seven day columns
-   about 55px each, which is under a chip's minimum. */
+   twice that rail's width: at 1100px a 432px rail leaves the seven day columns
+   about 60px each, which is under a chip's minimum. */
 @media (max-width: 1200px) {
     .rec-main {
         grid-template-columns: minmax(0, 1fr);
@@ -557,10 +557,10 @@
 /* The schedule's home on the page: the merchant avatar, the name, and the
    amount that actually applies to THIS date, on a tile tinted by DIRECTION.
    Reading a chip answers "what is this and how much", and reading the month
-   answers "what is going out" without reading any chip at all. Nothing opens
-   from here: a chip is a tile, not a control. The cadence and the due date are
-   the rail's columns, and clicking a rail row opens the editor, which holds
-   every field a schedule has. */
+   answers "what is going out" without reading any chip at all. A chip is a
+   button: pressing it opens that schedule's editor, so the surface the schedule
+   is read on is the surface it is changed from. The cadence and the due date
+   stay the rail's columns — a day cell has no room for them. */
 .rec-occ {
     display: flex;
     align-items: center;
@@ -586,12 +586,17 @@
        Still no border: one would take ~12px out of the one field that has none
        to spare — the merchant name, which is already ellipsing in a narrow cell.
        The tint carries the tile on its own.
-       box-sizing is explicit because this stopped being a <button>, which the
-       UA sizes as border-box: width:100% on a content-box tile puts the side
-       padding OUTSIDE the cell, and every chip spilled ~12px over its day's
-       right edge. */
+       box-sizing is explicit rather than left to the UA's border-box default for
+       buttons: width:100% on a content-box chip puts the side padding OUTSIDE
+       the cell, and every chip spills ~12px over its day's right edge. */
     --rec-chip-hue: var(--rec-chip-expense);
     box-sizing: border-box;
+    border: 0;
+    /* A button's UA centring would centre a short merchant name in the space the
+       ellipsis is measured against; the chip's labels align left like the
+       rail's. */
+    text-align: left;
+    cursor: pointer;
     border-radius: 6px;
     background: var(--rec-chip-hue);
     font-family: var(--font-menu);
@@ -673,16 +678,40 @@ html[data-theme="dark"] {
     color: #fff;
 }
 
-/* The ONE state a chip has: recurring.js sets it on every chip of the schedule
-   the rail is pointing at, so a monthly bill shows its whole run across the
-   month at once. It deepens the chip's existing hue rather than switching to
-   another colour — a shared neutral or accent would take the direction colour
-   off every chip it touched. The step (20% toward black) is large enough to be
-   visible on a tile this small, where a few percent would not be.
-   No :hover and no :focus-visible: a chip is not a control, and a tile that
-   lights up under the pointer promises a click that does nothing. */
-.rec-occ-active {
+/* Every state deepens the chip's own hue rather than switching to another
+   colour: a shared neutral or accent would take the direction colour off every
+   chip it touched. They are one ladder toward black — hover 10%, marked 20%,
+   pressed 30% — so the steps read in order on a tile this small (a few percent
+   would not be visible at all) and the white labels only ever gain contrast.
+
+   .rec-occ-active is the MARKED state, not a pointer state: recurring.js sets it
+   on every chip of the schedule the rail is pointing at, so a monthly bill shows
+   its whole run across the month at once. It outranks hover so the run stays
+   readable while the pointer crosses it. */
+.rec-occ:hover {
+    background: color-mix(in srgb, var(--rec-chip-hue) 90%, #000);
+}
+.rec-occ-active,
+.rec-occ-active:hover {
     background: color-mix(in srgb, var(--rec-chip-hue) 80%, #000);
+}
+.rec-occ:active,
+.rec-occ-active:active {
+    background: color-mix(in srgb, var(--rec-chip-hue) 70%, #000);
+}
+/* The focus ring is white, not --accent-primary like the rest of the page: the
+   accent is a muted teal and it sits on a saturated stone here, which is about
+   1.6:1 against garnet and less against emerald. White is the chip's own label
+   colour and clears the 3:1 bar for a UI boundary on all three stones.
+   Offset inward because an outline drawn outside a chip lands on the day cell's
+   edge and on the chip below it, 3px away (.rec-day-occs). */
+.rec-occ:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rec-occ { transition: none; }
 }
 
 /* Overflow toggle. A button, not a label: the calendar is the only way to

@@ -4,16 +4,18 @@
   // ─── Recurring ──────────────────────────────────────────────────────────────
   // The calendar IS the page. Every occurrence of an adopted schedule — actual
   // past charges and projected future ones alike — renders as a chip in its
-  // day cell, and the chip is where that schedule's data lives: CLICKING one
-  // opens a card carrying the whole row (name, amount, cadence).
-  // The card READS a schedule; the rail row is where one is changed. There is no
-  // separate table of the same rows to keep in sync with the grid; the two used
-  // to be the same data drawn twice.
+  // day cell, and the chip is where that schedule's data lives: the merchant,
+  // the amount, and the rest in its tooltip. CLICKING one opens that schedule's
+  // editor — the same dialog a rail row opens, on the surface the schedule
+  // already lives on, so the grid is not a read-only picture of rows that can
+  // only be changed elsewhere. There is no separate table of the same rows to
+  // keep in sync with the grid; the two used to be the same data drawn twice.
   //
-  // The card used to open on hover too. It does not any more: a card wide enough
-  // to hold a row covers the days around its chip, so crossing the grid with the
-  // pointer kept hiding the part of the month being read. Opening is a click, and
-  // with no hover route in there is no half-open card to keep alive or time out.
+  // Nothing opens on HOVER. A chip used to open a floating card there, and a
+  // card wide enough to hold a row covers the days around its chip, so crossing
+  // the grid with the pointer kept hiding the part of the month being read. The
+  // card is gone and opening is a click, so there is no half-open card to keep
+  // alive or time out.
   //
   // Two panels frame the grid, and both answer questions the grid cannot. They
   // are scoped differently on purpose. renderSummary totals the DISPLAYED MONTH
@@ -25,8 +27,8 @@
   // per row.
   //
   // EVERY change to a schedule goes through one dialog, openScheduleDialog:
-  // creating and editing, from the rail, from the card, and from a day cell's +.
-  // The card and the rail row only decide WHICH schedule; they never hold an
+  // creating and editing, from the rail, from a chip, and from a day cell's +.
+  // A chip and a rail row only decide WHICH schedule; they never hold an
   // editable copy of one.
   //
   // Detection/cycle-classification/projection is server-side (GET
@@ -47,9 +49,9 @@
   // the grid. Schedules are added by hand either from "Create Schedule", which
   // opens on today, or from the + a day cell reveals on hover, which opens on
   // that cell's date — the quicker route when the date is the thing being
-  // thought about. Editing is the rail row itself and removing is the trash can
-  // on it, the one surface that lists every schedule whatever month it falls in.
-  // See "Detect" and "Add / remove".
+  // thought about. Editing is a chip or a rail row; removing is the trash can on
+  // a rail row, the one surface that lists every schedule whatever month it
+  // falls in. See "Detect" and "Add / remove".
   //
   // Globals (loaded before this script): apiFetch (api.js), escapeHtml
   // (escape.js), formatCurrency/applyCurrencyFormat/stripCurrencyValue
@@ -142,16 +144,15 @@
   }
 
   /** One occurrence, as a chip in its day cell: merchant avatar, name, amount.
-   *  This is the schedule's home on the page, and it is a plain tile — not a
-   *  <button>, because there is nothing left for it to do. It used to open a
-   *  floating card with the same three fields on it; the chip already draws
-   *  them, the rail carries the cadence and the due date, and the editor holds
-   *  everything a schedule can be changed to, so the card was a fourth reading
-   *  of data that was already on screen and it covered the days around it.
+   *  This is the schedule's home on the page, so it is also where that schedule
+   *  is opened for editing: a <button>, opening the same dialog the rail row
+   *  does. It spent a while as a plain tile, from when clicking it opened a
+   *  floating card that only re-read the fields the chip already draws; the
+   *  editor is not that — it is the one thing the grid cannot show.
    *
-   *  `title` is what the card really added: the name is clipped on a narrow day
-   *  cell, and a projected charge has to say that it is one. The tooltip carries
-   *  both without taking any of the grid.
+   *  `title` carries what a narrow day cell cannot: the name ellipses first, and
+   *  a projected charge has to say that it is one. It stays a tooltip rather
+   *  than a line of text so it takes none of the grid.
    *
    *  The avatar is the same deterministic colour+initials circle the ledger uses
    *  (avatar.js), so a merchant renders identically everywhere. Direction is
@@ -162,12 +163,13 @@
     const cls = `rec-occ rec-occ-${occ.direction} rec-occ-${occ.actual ? 'actual' : 'projected'}`
       + (activeKey() === occ.key ? ' rec-occ-active' : '');
     const tip = `${label} — ${formatCurrency(occ.amount, true)}${occ.actual ? '' : ' (projected)'}`;
-    return `<div class="${cls}" data-key="${escapeHtml(occ.key)}" data-date="${escapeHtml(occ.date)}"
+    return `<button type="button" class="${cls}" aria-haspopup="dialog"
+      data-key="${escapeHtml(occ.key)}" data-date="${escapeHtml(occ.date)}"
       title="${escapeHtml(tip)}">
       ${merchantAvatarHtml(label)}
       <span class="rec-occ-name">${escapeHtml(label)}</span>
       <span class="rec-occ-amount">${escapeHtml(formatCurrency(occ.amount, true))}</span>
-    </div>`;
+    </button>`;
   }
 
   function renderCalendar() {
@@ -326,7 +328,7 @@
           <span class="rec-rail-head-label"></span>
           <span class="rec-rail-head-label">Schedule</span>
           <span class="rec-rail-head-label">Cadence</span>
-          <span class="rec-rail-head-label">Next due</span>
+          <span class="rec-rail-head-label">Next</span>
         </span>
         <span class="rec-rail-head-actions"></span>
       </div>${body}
@@ -355,14 +357,22 @@
    *  them, so pointing at either surface marks the schedule on both. */
   function applyActiveHighlight() {
     const key = activeKey();
-    UI.markActive('.rec-occ', 'rec-occ-active', (el) => key != null && el.dataset.key === key);
+    markChips(key);
     markRailRows(key);
   }
 
-  /** The rail's half of the same job. Not UI.markActive: a rail row is a <div>
-   *  wrapping the button, so the fill goes on the row. Class only, no ARIA
-   *  state: the mark mirrors where the pointer is and what the grid is showing,
-   *  and the row's button always does the one thing its label already says. */
+  /** The grid's half. Class only, no ARIA state — which is why this is not
+   *  UI.markActive: that toggles aria-expanded with the class, and a chip opens
+   *  a modal dialog rather than expanding anything. The mark says which schedule
+   *  the rail is pointing at, not that something is open. */
+  function markChips(key) {
+    document.querySelectorAll('.rec-occ').forEach((chip) => {
+      chip.classList.toggle('rec-occ-active', key != null && chip.dataset.key === key);
+    });
+  }
+
+  /** The rail's half of the same job, and class-only for the same reason. A rail
+   *  row is a <div> wrapping the button, so the fill goes on the row. */
   function markRailRows(key) {
     document.querySelectorAll('.rec-rail-row').forEach((row) => {
       row.classList.toggle('rec-rail-active', key != null && row.dataset.key === key);
@@ -417,14 +427,14 @@
   // ─── The editor ──────────────────────────────────────────────────────────
   // ONE dialog for every change a schedule can take, and the only one on the
   // page. Creating (the rail's Create Schedule, a day cell's +) and editing
-  // (clicking a rail row, a day cell's +) all open it, so there is a single form
-  // to read a schedule in and a single place a change is made.
+  // (clicking a chip or a rail row) all open it, so there is a single form to
+  // read a schedule in and a single place a change is made.
   //
   // It replaced an edit mode inside the chip's card. That card is one row wide,
   // which was enough for a name, a type, a cadence and an amount and is not
   // enough for a repeat rule: a frequency, an interval, a day or an nth
-  // weekday, an end date and the amount range. The card keeps DISPLAY mode and
-  // hands editing here.
+  // weekday, an end date and the amount range. The card is gone, and the chip
+  // that used to open it opens this instead.
   //
   // WHAT IS SENT. Editing sends only what the user actually changed (diffPatch).
   // That matters beyond saving bytes: a null field on a detected schedule means
@@ -1136,15 +1146,19 @@
 
     const calendar = document.getElementById('rec-calendar');
 
-    // ── The grid's own two controls ──
-    // A day's + and a day's "+n more", delegated so one listener covers every
-    // cell across every re-render. A CHIP is not one of them: it is a tile that
-    // reads, and pressing it does nothing at all.
+    // ── The grid's own three controls ──
+    // A chip, a day's + and a day's "+n more", delegated so one listener covers
+    // every cell across every re-render.
     calendar.addEventListener('click', (e) => {
       // The day's + — the schedule being added is due on that day, so the
       // dialog opens with the date already filled in.
       const add = e.target.closest('[data-add]');
       if (add) { openScheduleDialog({ dateIso: add.dataset.add }); return; }
+      // A chip opens its own schedule's editor. Which occurrence was clicked
+      // does not matter: a schedule's fields belong to the whole series, so the
+      // dialog is keyed by the schedule, not by the date under the pointer.
+      const chip = e.target.closest('.rec-occ');
+      if (chip) { openScheduleDialog({ key: chip.dataset.key }); return; }
       const expand = e.target.closest('[data-expand]');
       if (!expand) return;
       const iso = expand.dataset.expand;
