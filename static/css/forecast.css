@@ -889,17 +889,6 @@
 .fc-input-amount:hover { background: var(--frost-3); }
 .fc-input-amount:focus { border-color: var(--frost-focus); outline: none; }
 
-/* Replace the native date-picker glyph with the themed --calendar-icon SVG.
-   See the .tx-input rule in transactions.css. */
-.fc-input-date::-webkit-calendar-picker-indicator,
-.fc-dialog-input::-webkit-calendar-picker-indicator {
-    -webkit-appearance: none;
-            appearance: none;
-    width: 14px;
-    height: 14px;
-    cursor: pointer;
-    background: var(--calendar-icon) center / contain no-repeat;
-}
 
 /* A field the ✓ (or Add) attempt rejected. Shared with the dialog's inputs. */
 .fc-input.invalid,
@@ -907,7 +896,7 @@
 .fc-select.invalid { border-color: var(--accent-negative); }
 .fc-input-label.invalid { border-bottom-color: var(--accent-negative); }
 
-/* ─── Add dialog (mirrors .rec-add-dialog) ────────────────────────────────── */
+/* ─── Add dialog (mirrors .rec-edit-dialog, recurring.css) ────────────────── */
 .fc-add-dialog { width: 380px; max-width: 100%; }
 .fc-add-dialog p { margin: 0 0 8px; }
 

@@ -113,10 +113,9 @@ const { round2 } = require('../validate');
  * charge date with that day's split-merged amount), which the calendar view
  * uses to mark past charge days as well as the next projected one.
  * `today` is an ISO string (defaults to the current date). `keyOf` overrides
- * the grouping key so a user-built schedule can fold several bank spellings of
- * one merchant into a single series (services/recurringRules.js); passing it
- * does not change normaliseDesc, which stays the identity of every other
- * schedule. Returns
+ * the grouping key, which is how a caller reading the ledger several times over
+ * shares one memoized normaliseDesc across the passes
+ * (makeKeyResolver, services/recurringRules.js). Returns
  * [{key, description, amount, cycle, next_date, due_in_days, last_date, dates,
  * occurrences, confidence}], sorted soonest-due first.
  */

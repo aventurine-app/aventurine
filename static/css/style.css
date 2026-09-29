@@ -1097,6 +1097,27 @@ div.page::-webkit-scrollbar-thumb:hover {
     background: var(--text-tertiary);
 }
 
+/* ─── 7c. Shared form controls ─────────────────────────────────────────────
+ * The bits every form in the app needs identically, declared once here for the
+ * same reason §7 exists: each page file had its own byte-identical copy.
+ * Anything with a per-page value (widths, fills, which fields are numeric)
+ * stays in the page file. */
+
+/* The native date-picker glyph ignores color-scheme under Electron/Chromium and
+ * stays dark in the light themes, so it is replaced with the app's own
+ * --calendar-icon. Keyed on the INPUT TYPE rather than on a class, because every
+ * date field in the app wants this and one that forgets to opt in is simply a
+ * date field with a glyph nobody chose. */
+input[type="date"]::-webkit-calendar-picker-indicator {
+    -webkit-appearance: none;
+            appearance: none;
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    background: var(--calendar-icon) center / contain no-repeat;
+}
+
+
 /* ─── 7b. Confirm dialog + ⋮ kebab trigger ──────────────────────────────────
  * Promoted from tables.css: a second page (Recurring) needed the exact same
  * "confirm/prompt dialog" and "⋮ menu trigger" chrome tables.css originated,

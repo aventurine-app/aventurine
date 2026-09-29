@@ -4,24 +4,52 @@
   // ─── Recurring ──────────────────────────────────────────────────────────────
   // The calendar IS the page. Every occurrence of an adopted schedule — actual
   // past charges and projected future ones alike — renders as a chip in its
-  // day cell, and the chip is where that schedule's data lives: hovering one
-  // opens a card carrying the whole row (name, type, cadence, amount) with its
-  // pencil and trash can. There is no separate table to keep in sync with the
-  // grid; the two used to be the same data drawn twice.
+  // day cell, and the chip is where that schedule's data lives: CLICKING one
+  // opens a card carrying the whole row (name, amount, cadence).
+  // The card READS a schedule; the rail row is where one is changed. There is no
+  // separate table of the same rows to keep in sync with the grid; the two used
+  // to be the same data drawn twice.
+  //
+  // The card used to open on hover too. It does not any more: a card wide enough
+  // to hold a row covers the days around its chip, so crossing the grid with the
+  // pointer kept hiding the part of the month being read. Opening is a click, and
+  // with no hover route in there is no half-open card to keep alive or time out.
+  //
+  // Two panels frame the grid, and both answer questions the grid cannot. They
+  // are scoped differently on purpose. renderSummary totals the DISPLAYED MONTH
+  // by direction — money in, out and moved — which is not readable off 42 cells.
+  // renderRail lists EVERY schedule against its next due date, whatever month
+  // that falls in, so a quarterly bill or an annual renewal is visible from a
+  // month it has nothing in; clicking one takes the calendar to it. The rail
+  // also carries this page's two whole-list buttons at its foot, and a trash can
+  // per row.
+  //
+  // EVERY change to a schedule goes through one dialog, openScheduleDialog:
+  // creating and editing, from the rail, from the card, and from a day cell's +.
+  // The card and the rail row only decide WHICH schedule; they never hold an
+  // editable copy of one.
   //
   // Detection/cycle-classification/projection is server-side (GET
   // /api/recurring?month=YYYY-MM, backed by detectRecurringSeries in
   // services/predictions.js).
   //
+  // Cadence is a RULE, not one of five names (services/recurrence.js): every N
+  // weeks on a weekday, or every N months on a date or on an nth weekday, with
+  // an optional end date. ruleLabel/ruleSentence are the two readings of one —
+  // a word where there is room for a word, a line where there is room for a
+  // line.
+  //
   // The page starts EMPTY, however much recurring history the ledger holds:
   // detection is heuristic, so it does not populate the calendar on its own.
-  // The user runs it from the ⋮ menu ("Find recurring schedules"), ticks the
-  // patterns they recognize in the picker (openDetectDialog → GET
+  // The user runs it from the rail's "Detect Schedules", ticks the patterns
+  // they recognize in the picker (openDetectDialog → GET
   // /api/recurring/candidates, POST /api/recurring/adopt), and those appear on
-  // the grid. Schedules can also be added by hand from the + a day cell reveals
-  // on hover, so the due date is the cell pointed at rather than a field to fill
-  // in, and removed from the card's trash can, one at a time or all at once
-  // (⋮ → "Clear all recurring schedules"). See "Detect" and "Add / remove".
+  // the grid. Schedules are added by hand either from "Create Schedule", which
+  // opens on today, or from the + a day cell reveals on hover, which opens on
+  // that cell's date — the quicker route when the date is the thing being
+  // thought about. Editing is the rail row itself and removing is the trash can
+  // on it, the one surface that lists every schedule whatever month it falls in.
+  // See "Detect" and "Add / remove".
   //
   // Globals (loaded before this script): apiFetch (api.js), escapeHtml
   // (escape.js), formatCurrency/applyCurrencyFormat/stripCurrencyValue
@@ -32,10 +60,6 @@
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December',
   ];
-  const CYCLE_LABEL = {
-    weekly: 'Weekly', biweekly: 'Biweekly', monthly: 'Monthly', quarterly: 'Quarterly', yearly: 'Yearly',
-  };
-  const CYCLE_OPTIONS = Object.keys(CYCLE_LABEL);
   const DIRECTION_LABEL = { income: 'Income', expense: 'Expense', transfer: 'Transfer' };
   const DIRECTION_OPTIONS = Object.keys(DIRECTION_LABEL);
   // Chips per day before the cell collapses the rest behind a "+n more" the
@@ -43,18 +67,20 @@
   // stretch one row of the grid), but nothing may become unreachable: the
   // calendar is now the only way to get at a schedule.
   const MAX_CHIPS_PER_DAY = 3;
-  // Grace period before a card closes when the pointer leaves the chip — long
-  // enough to cross the gap into the card, so the pencil and trash can are
-  // reachable without clicking first.
-  const CLOSE_DELAY_MS = 180;
-
-  // Inlined so the card's actions do not depend on an icon font or external
+  // Inlined so the rail's row actions do not depend on an icon font or external
   // sprite. pencil/check/cross/trash are the same drawings (and the same 20-box,
   // 1.5-stroke style) the Transactions ledger uses for its row actions, since the
   // actions are the same; `plus` is the day cell's add button, drawn to match.
-  // The card glyphs and the card chrome below come from UI (shell/ui.js),
+  // These glyphs and the card chrome below come from UI (shell/ui.js),
   // shared with the Balance Forecast's pin cards.
   const ICONS = UI.CARD_ICONS;
+
+  // Trash / pencil / check / cross buttons, in the markup the rail's rows use
+  // (only the trash can, here — a row is its own edit control):
+  // `data-action` says which, `data-key` says whose. From the shared factory
+  // rather than hand-written, so these stay the same control the Transactions
+  // ledger and the Balance Forecast's pin cards draw.
+  const actionBtn = UI.cardActions('rec', 'key');
 
   function currentMonthKey() {
     const d = new Date();
@@ -78,19 +104,19 @@
 
   let month = currentMonthKey();
   let data = { series: [], occurrences: [] };
-  // The occurrence whose card is open, as {key, date} — an identity that
-  // survives a calendar rebuild, unlike a DOM node. `pinned` is set by a click
-  // and keeps the card open when the pointer leaves; hover alone doesn't.
-  let activeOcc = null;
-  let pinned = false;
-  // Key of the schedule being edited in the card, or null. Editing implies
-  // pinned, and freezes hover: the pointer wandering across the grid must not
-  // swap the card out from under a half-typed correction.
-  let editingKey = null;
+  // The schedule a rail row is being pointed at. Hovering the rail lights that
+  // schedule's chips up on the grid: the rail is for finding a schedule on the
+  // calendar, and the chips are where it is.
+  let railHoverKey = null;
+  // The schedule a rail row was CLICKED on, which is the same mark made to stay:
+  // the click takes the calendar to that schedule's month, and the highlight is
+  // then the whole answer — it is what says which of that month's chips is the
+  // one just asked for. It outlives the pointer. Another row, Escape, or
+  // stepping to another month by hand ends it.
+  let pickedKey = null;
   // ISO dates whose "+n more" the user expanded, so the extra chips stay put
   // across re-renders within the month.
   const expandedDays = new Set();
-  let closeTimer = null;
 
   // ─── Calendar ────────────────────────────────────────────────────────────
 
@@ -103,26 +129,45 @@
     return s.display_name || s.description || occ.key;
   }
 
-  /** One occurrence, as a chip in its day cell: merchant avatar, name, amount.
-   *  This is the schedule's home on the page — a <button> so it is focusable
-   *  and Enter/Space-activatable without re-implementing either.
+  /** The schedule marked on both surfaces, from the two things that can name
+   *  one: the rail row under the pointer, and the rail row last clicked (or
+   *  saved). Hover sits above the click deliberately — running the pointer down
+   *  the rail reads each schedule in turn, and the picked row takes the mark
+   *  back when the pointer leaves.
    *
-   *  The avatar is the same deterministic colour+initials circle the ledger and
-   *  the card use (avatar.js), so a merchant renders identically everywhere.
-   *  Direction is shown by the chip's tint (the rec-occ-<direction> class,
-   *  recurring.css), not by the circle. */
+   *  The markup builders and applyActiveHighlight both read it, so a re-render
+   *  and a re-mark can never disagree about what is lit. */
+  function activeKey() {
+    return railHoverKey || pickedKey;
+  }
+
+  /** One occurrence, as a chip in its day cell: merchant avatar, name, amount.
+   *  This is the schedule's home on the page, and it is a plain tile — not a
+   *  <button>, because there is nothing left for it to do. It used to open a
+   *  floating card with the same three fields on it; the chip already draws
+   *  them, the rail carries the cadence and the due date, and the editor holds
+   *  everything a schedule can be changed to, so the card was a fourth reading
+   *  of data that was already on screen and it covered the days around it.
+   *
+   *  `title` is what the card really added: the name is clipped on a narrow day
+   *  cell, and a projected charge has to say that it is one. The tooltip carries
+   *  both without taking any of the grid.
+   *
+   *  The avatar is the same deterministic colour+initials circle the ledger uses
+   *  (avatar.js), so a merchant renders identically everywhere. Direction is
+   *  shown by the chip's tint (the rec-occ-<direction> class, recurring.css),
+   *  not by the circle. */
   function chipHtml(occ) {
     const label = occLabel(occ);
-    const active = activeOcc && activeOcc.key === occ.key;
     const cls = `rec-occ rec-occ-${occ.direction} rec-occ-${occ.actual ? 'actual' : 'projected'}`
-      + (active ? ' rec-occ-active' : '');
+      + (activeKey() === occ.key ? ' rec-occ-active' : '');
     const tip = `${label} — ${formatCurrency(occ.amount, true)}${occ.actual ? '' : ' (projected)'}`;
-    return `<button type="button" class="${cls}" data-key="${escapeHtml(occ.key)}" data-date="${escapeHtml(occ.date)}"
-      aria-label="${escapeHtml(tip)}" aria-expanded="${active ? 'true' : 'false'}">
+    return `<div class="${cls}" data-key="${escapeHtml(occ.key)}" data-date="${escapeHtml(occ.date)}"
+      title="${escapeHtml(tip)}">
       ${merchantAvatarHtml(label)}
       <span class="rec-occ-name">${escapeHtml(label)}</span>
       <span class="rec-occ-amount">${escapeHtml(formatCurrency(occ.amount, true))}</span>
-    </button>`;
+    </div>`;
   }
 
   function renderCalendar() {
@@ -178,48 +223,125 @@
       <div class="rec-cal-grid">${cellHtml}</div>`;
   }
 
-  /** The empty state sits above the grid rather than replacing it, so the month
-   *  stays visible, and its CTA runs detection: nothing appears on the calendar
-   *  until detection is run. */
-  function renderEmpty() {
-    const host = document.getElementById('rec-empty');
-    if (!host) return;
-    host.hidden = data.series.length > 0;
-    if (host.hidden) { host.innerHTML = ''; return; }
-    host.innerHTML = UI.emptyState({
-      icon: 'calendar',
-      title: 'No recurring schedules yet',
-      desc: 'Look through your transactions for subscriptions, bills and paychecks that repeat on a steady schedule, and pick the ones to track. To add one by hand, hover the day it falls on and press the + in the corner.',
-      action: { label: 'Find recurring schedules', name: 'detect', primary: true },
-      compact: true,
-    });
+  // ─── Month totals ────────────────────────────────────────────────────────
+  // The three figures above the grid: what the displayed month is expected to
+  // bring in, pay out and move. They total the OCCURRENCES the calendar is
+  // drawing — recorded charges and projections alike — so the row can never
+  // disagree with the chips underneath it, and stepping to another month
+  // retotals with it.
+  //
+  // Ledger amounts are positive magnitudes (direction carries the sign), so all
+  // three figures are positive and it is the label and the colour that tell
+  // them apart, not a minus sign.
+
+  const SUMMARY_TILES = [
+    ['income', 'Expected income'],
+    ['expense', 'Expected expenses'],
+    ['transfer', 'Expected transfers'],
+  ];
+
+  function monthTotals() {
+    const totals = { income: 0, expense: 0, transfer: 0 };
+    for (const occ of data.occurrences) {
+      if (Object.hasOwn(totals, occ.direction)) totals[occ.direction] += occ.amount;
+    }
+    return totals;
   }
 
-  // ─── The card ────────────────────────────────────────────────────────────
-  // One floating element, reused for whichever chip is active. It carries the
-  // same row the old side table did — avatar + name, type, cadence, amount,
-  // pencil, trash — so the data reads identically, it just lives on the
-  // occurrence now. Parked on <body> and fixed-positioned so the calendar's
-  // scroll container can't clip it.
+  function renderSummary() {
+    const host = document.getElementById('rec-summary');
+    if (!host) return;
+    const totals = monthTotals();
+    host.innerHTML = SUMMARY_TILES.map(([direction, label]) => `<div class="rec-sum-tile">
+      <span class="rec-sum-label">${label}</span>
+      <span class="rec-sum-value rec-amount-${direction}">${escapeHtml(formatCurrency(totals[direction], true))}</span>
+    </div>`).join('');
+  }
 
-  const popEl = () => UI.floatingCard('rec-pop', 'rec-pop', 'Recurring schedule');
+  // ─── The rail ────────────────────────────────────────────────────────────
+  // EVERY adopted schedule, soonest due first, against the date its next charge
+  // falls on. Deliberately not month-scoped, unlike the totals above it: the
+  // month on screen shows what is due inside it, and the rail answers the other
+  // question, "what is running and what is coming", including a quarterly bill
+  // or an annual renewal that lands nowhere near the month being looked at.
+  //
+  // A row is the EDIT control for its schedule: clicking one opens the editor
+  // dialog. That is why there is no pencil beside it — a 28px button repeating
+  // what the whole row already does, on a row whose only other reading was a
+  // highlight, is one control too many.
+  //
+  // Hovering still wires the rail to the grid, which is the other half of what
+  // the panel is for: it lights that schedule's chips where the month on screen
+  // has any, so the rail finds a schedule on the calendar without opening
+  // anything. The mark is also what a saved edit leaves behind (goToSchedule),
+  // which is how the editor answers "where did that land".
 
+  /** A row is a <div>, not a <button>: it holds the button that opens the editor
+   *  AND the trash can, and a button cannot nest inside another one. The row
+   *  carries the schedule's key, so both controls act on the same schedule. No
+   *  date: the row is not tied to one occurrence.
+   *
+   *  Three fields: the merchant, the cadence and the next due date. Cadence is
+   *  the one that says whether a date months out is normal or a lapse, so the
+   *  rail answers "what is running, and how often" on its own — a chip's card is
+   *  only needed for the amount. ruleLabel is the short reading; the full
+   *  sentence (interval, day, end date) is the cell's tooltip. */
+  function railRowHtml(s) {
+    const label = s.display_name || s.description || s.key;
+    // The next occurrence on or after today — the backend walks a lapsed
+    // schedule forward (nextDueOnOrAfter). A schedule whose end date has passed
+    // has no next one at all, and says so: it stays listed, greyed, until the
+    // user deletes it, because a row that vanished on its end date would read as
+    // data the app lost.
+    const due = s.ended ? 'Ended' : (s.next_date ? fmtShortDate(s.next_date) : '');
+    const active = activeKey() === s.key;
+    return `<div class="rec-rail-row${active ? ' rec-rail-active' : ''}${s.ended ? ' rec-rail-ended' : ''}"
+      data-key="${escapeHtml(s.key)}">
+      <button type="button" class="rec-rail-open" aria-haspopup="dialog"
+        title="Edit ${escapeHtml(label)}">
+        ${merchantAvatarHtml(label)}
+        <span class="rec-rail-name">${escapeHtml(label)}</span>
+        <span class="rec-rail-cadence" title="${escapeHtml(ruleSentence(s.rule))}">${escapeHtml(ruleLabel(s.rule))}</span>
+        <span class="rec-rail-date">${escapeHtml(due)}</span>
+      </button>
+      <span class="rec-action-group">
+        ${actionBtn('delete', s.key, 'trash', `Delete ${label}`, 'rec-action-delete')}
+      </span>
+    </div>`;
+  }
+
+  /** The rail, head to foot. The two buttons at the bottom are the page's only
+   *  whole-list actions, and they sit here rather than in a menu on the toolbar
+   *  because this is the panel the schedules they create land in. Adding from a
+   *  day cell's + is still there, and still the quicker route when the date is
+   *  the thing the user is thinking about. */
+  function renderRail() {
+    const host = document.getElementById('rec-rail');
+    if (!host) return;
+    const body = data.series.length
+      ? `<div class="rec-rail-list">${data.series.map(railRowHtml).join('')}</div>`
+      : '<p class="rec-rail-empty">No schedules yet.</p>';
+    host.innerHTML = `<div class="rec-rail-head">
+        <span class="rec-rail-head-main">
+          <span class="rec-rail-head-label"></span>
+          <span class="rec-rail-head-label">Schedule</span>
+          <span class="rec-rail-head-label">Cadence</span>
+          <span class="rec-rail-head-label">Next due</span>
+        </span>
+        <span class="rec-rail-head-actions"></span>
+      </div>${body}
+      <div class="rec-rail-foot">
+        <button type="button" class="button-primary" data-rail-action="create">Create Schedule</button>
+        <button type="button" class="button-primary" data-rail-action="detect">Detect Schedules</button>
+      </div>`;
+  }
+
+  /** The chip for an occurrence, when the grid is drawing one. */
   function chipFor(ref) {
     if (!ref) return null;
     return document.querySelector(
       `.rec-occ[data-key="${CSS.escape(ref.key)}"][data-date="${CSS.escape(ref.date)}"]`
     );
-  }
-
-  function occFor(ref) {
-    if (!ref) return null;
-    return data.occurrences.find((o) => o.key === ref.key && o.date === ref.date) || null;
-  }
-
-  function cycleOptionsHtml(selected) {
-    return CYCLE_OPTIONS.map((c) =>
-      `<option value="${c}"${c === selected ? ' selected' : ''}>${CYCLE_LABEL[c]}</option>`
-    ).join('');
   }
 
   function typeOptionsHtml(selected) {
@@ -228,248 +350,614 @@
     ).join('');
   }
 
-  const actionBtn = UI.cardActions('rec', 'key');
-
-  /** The schedule's category, as the ledger draws it (transactions.js's
-   *  txRenderDisplayRow): the category NAME in a pill tinted by direction —
-   *  income green, expense red, transfer blue — with an uncategorized one
-   *  falling back to the amber "needs review" pill regardless of direction. */
-  function categoryPillHtml(s, direction) {
-    if (!s.category) return '<span class="rec-type-pill rec-type-empty">Uncategorized</span>';
-    return `<span class="rec-type-pill rec-type-${direction}" title="${escapeHtml(s.category)}">${escapeHtml(s.category)}</span>`;
-  }
-
-   /** The card's merchant — avatar + name — as a link into the ledger,
-   *  pre-filtered to this schedule's transactions. A chip on the calendar is a
-   *  projection with no visible source rows; this link opens them, and it lands
-   *  on the rows detection grouped (the backend supplies a search term derived
-   *  from their descriptions, not from the schedule's label, which may be a user
-   *  override that matches nothing).
-   *
-   *  It is on the card rather than the chip because a chip is a <button>: an <a>
-   *  nested in one is invalid, and a second click target inside it would compete
-   *  with the click that pins the card. The card already holds this schedule's
-   *  actions and is one hover away.
-   *
-   *  A hand-added schedule has no backing rows (search is null), so it renders as
-   *  plain text; a link would open an empty table. */
-  function merchantHtml(label, s) {
-    const inner = `${merchantAvatarHtml(label)}<span class="rec-pop-name">${escapeHtml(label)}</span>`;
-    if (!s.search) return `<span class="rec-pop-merchant" title="${escapeHtml(label)}">${inner}</span>`;
-    return `<a class="rec-pop-merchant rec-pop-merchant-link"
-      href="/transactions?name=${encodeURIComponent(s.search)}"
-      title="See ${escapeHtml(label)} transactions in the ledger">${inner}</a>`;
-  }
-
-  /** Display mode: one flat row — merchant · amount · category · cadence — then
-   *  the actions. Every field sits on the same line at the same rhythm; nothing
-   *  is a sub-line of anything else, and the order is the order the question is
-   *  asked in: who, how much, what kind, how often. The amount shown is the
-   *  OCCURRENCE's — a past charge keeps whatever really hit the account, which
-   *  is the whole reason to hover a specific day rather than read an average. */
-  function cardDisplayHtml(occ, s) {
-    const label = occLabel(occ);
-    return `<div class="rec-pop-row">
-      ${merchantHtml(label, s)}
-      <span class="rec-pop-amount rec-amount-${occ.direction}">${escapeHtml(formatCurrency(occ.amount, true))}</span>
-      ${categoryPillHtml(s, occ.direction)}
-      <span class="rec-pop-cadence">${escapeHtml(CYCLE_LABEL[s.cycle] || s.cycle || '')}</span>
-      <span class="rec-action-group">
-        ${actionBtn('edit', occ.key, 'pencil', `Edit ${label}`)}
-        ${actionBtn('delete', occ.key, 'trash', `Delete ${label}`, 'rec-action-delete')}
-      </span>
-    </div>`;
-  }
-
-  /** Edit mode: the same row as inputs. The amount here is the SCHEDULE's
-   *  predicted amount, not this occurrence's — an edit corrects the standing
-   *  schedule, and past charges are history that no correction rewrites. */
-  function cardEditHtml(occ, s) {
-    const label = s.display_name || s.description || occ.key;
-    // Two rows, unlike display mode: a name field plus three controls plus two
-    // buttons across one line leaves the name a few dozen pixels, and the name
-    // is the field most likely to be the reason the user opened this at all.
-    return `<div class="rec-pop-row rec-pop-editing">
-      <div class="rec-pop-edit-name">
-        ${merchantAvatarHtml(label)}
-        <span class="rec-pop-label">
-          <input type="text" class="rec-input rec-input-name" data-field="display_name"
-            value="${escapeHtml(label)}" maxlength="100" aria-label="Merchant name">
-          <span class="rec-pop-sub">Next ${escapeHtml(fmtShortDate(s.next_date || occ.date))}</span>
-        </span>
-      </div>
-      <div class="rec-pop-edit-fields">
-        <select class="rec-input rec-select" data-field="direction" aria-label="Type">
-          ${typeOptionsHtml(s.direction)}
-        </select>
-        <select class="rec-input rec-select" data-field="cycle" aria-label="Cadence">
-          ${cycleOptionsHtml(s.cycle)}
-        </select>
-        <input type="text" inputmode="decimal" class="rec-input rec-input-amount" data-field="amount"
-          value="${escapeHtml(formatCurrency(s.amount, true, { editable: true }))}" aria-label="Amount">
-        <span class="rec-action-group">
-          ${actionBtn('save', occ.key, 'check', 'Save changes', 'rec-action-save')}
-          ${actionBtn('cancel', occ.key, 'cross', 'Discard changes')}
-        </span>
-      </div>
-    </div>`;
-  }
-
-  // Below the chip by default, flipped above when the month's last rows would
-  // otherwise push the card off-screen.
-  const positionCard = (anchor) => UI.positionFloatingCard(popEl(), anchor, 8);
-
-  /** Draw (or redraw) the card for the active occurrence, anchored to its chip.
-   *  Closes if that occurrence is gone — deleted, or the month changed. */
-  function renderCard() {
-    const pop = popEl();
-    const occ = occFor(activeOcc);
-    const chip = chipFor(activeOcc);
-    if (!occ || !chip) { closeCard(); return; }
-    const s = seriesFor(occ.key);
-    pop.innerHTML = editingKey === occ.key ? cardEditHtml(occ, s) : cardDisplayHtml(occ, s);
-    pop.hidden = false;
-    pop.classList.toggle('rec-pop-pinned', pinned);
-    positionCard(chip);
-  }
-
   /** Light up every chip of the active SCHEDULE — a monthly bill's whole run
-   *  across the grid, not just the one under the pointer. */
+   *  across the grid, not just the one under the pointer — and its rail row with
+   *  them, so pointing at either surface marks the schedule on both. */
   function applyActiveHighlight() {
-    const key = activeOcc ? activeOcc.key : null;
-    UI.markActive('.rec-occ', 'rec-occ-active', (el) => key !== null && el.dataset.key === key);
+    const key = activeKey();
+    UI.markActive('.rec-occ', 'rec-occ-active', (el) => key != null && el.dataset.key === key);
+    markRailRows(key);
   }
 
-  function openCard(ref, { pin = false } = {}) {
-    clearTimeout(closeTimer);
-    activeOcc = ref;
-    if (pin) pinned = true;
-    applyActiveHighlight();
-    renderCard();
-  }
-
-  function closeCard() {
-    clearTimeout(closeTimer);
-    activeOcc = null;
-    pinned = false;
-    editingKey = null;
-    const pop = popEl();
-    pop.hidden = true;
-    pop.innerHTML = '';
-    applyActiveHighlight();
-  }
-
-  function scheduleClose() {
-    if (pinned || editingKey) return;
-    clearTimeout(closeTimer);
-    closeTimer = setTimeout(closeCard, CLOSE_DELAY_MS);
-  }
-
-  // ─── Editing ─────────────────────────────────────────────────────────────
-  // The pencil turns the card into inputs; ✓ commits all four fields in a
-  // single override POST, ✗ (or closing the card) throws the edits away.
-  // Nothing is written while the user types, so there is no debounce and no
-  // half-saved schedule: it is either what it was or what the user confirmed.
-
-  async function saveOverride(key, patch) {
-    const res = await apiFetch('/api/recurring/override', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key, ...patch }),
+  /** The rail's half of the same job. Not UI.markActive: a rail row is a <div>
+   *  wrapping the button, so the fill goes on the row. Class only, no ARIA
+   *  state: the mark mirrors where the pointer is and what the grid is showing,
+   *  and the row's button always does the one thing its label already says. */
+  function markRailRows(key) {
+    document.querySelectorAll('.rec-rail-row').forEach((row) => {
+      row.classList.toggle('rec-rail-active', key != null && row.dataset.key === key);
     });
-    if (!res.ok) {
-      window.UI?.toast?.("Couldn't save your change — it hasn't been stored.", { type: 'error' });
-      return false;
-    }
+  }
+
+  /** Mark `key` on the month currently on screen, uncollapsing its day if the
+   *  chip is hiding behind a "+n more". False when this month draws nothing for
+   *  it, which is the rail's normal case: it lists every schedule, most of which
+   *  are elsewhere. */
+  function markScheduleInMonth(key) {
+    const occ = data.occurrences.find((o) => o.key === key);
+    if (!occ) return false;
+    revealOccurrence({ key, date: occ.date });
+    pickedKey = key;
+    applyActiveHighlight();
     return true;
   }
 
-  function startEdit(key) {
-    editingKey = key;
-    pinned = true;
-    renderCard();
-    const input = popEl().querySelector('.rec-input-name');
-    if (input) { input.focus(); input.select(); }
-  }
-
-  function cancelEdit() {
-    if (!editingKey) return;
-    editingKey = null;
-    renderCard();
-  }
-
-  /** Read the card's inputs, marking (rather than auto-correcting) anything the
-   *  backend would reject — a blank name or a non-positive amount — so ✓ never
-   *  writes a value the user did not enter. */
-  function readEditCard() {
-    const pop = popEl();
-    const nameInput = pop.querySelector('.rec-input-name');
-    const amountInput = pop.querySelector('.rec-input-amount');
-    if (!nameInput || !amountInput) return null;
-    const name = nameInput.value.trim();
-    const amount = parseFloat(stripCurrencyValue(amountInput.value));
-
-    nameInput.classList.toggle('invalid', !name);
-    amountInput.classList.toggle('invalid', !(amount > 0));
-    if (!name || !(amount > 0)) return null;
-
-    return {
-      display_name: name,
-      amount,
-      direction: pop.querySelector('[data-field="direction"]').value,
-      cycle: pop.querySelector('[data-field="cycle"]').value,
-    };
-  }
-
-  async function commitEdit(key) {
-    const patch = readEditCard();
-    if (!patch) return;
-    if (!await saveOverride(key, patch)) return;
-    editingKey = null;
-    // A cadence or direction change moves and recolours this schedule's
-    // projected chips (placement is server-only logic), so re-fetch and let
-    // the card re-anchor to whatever chip now sits under it.
-    await load();
-    followSchedule(key);
-  }
-
-  /** Keep an edited schedule in sight. Re-cadencing "monthly" to "yearly" can
-   *  empty the month on screen of every chip that schedule had — and with the
-   *  calendar as the only surface, that reads as "my edit deleted it". So when
-   *  a schedule has nothing left in the visible month, the calendar follows it
-   *  to where its next occurrence actually falls and re-opens its card there. */
-  async function followSchedule(key) {
-    if (data.occurrences.some((o) => o.key === key)) { renderCard(); return; }
-    const s = seriesFor(key);
-    const target = s.next_date ? s.next_date.slice(0, 7) : null;
-    if (!target || target === month) { closeCard(); return; }
-
+  /** Follow a schedule to wherever it actually is: the calendar steps to the
+   *  month of its next charge, and its chips there light up. The highlight is
+   *  the whole answer — the grid draws every field a schedule has, so there is
+   *  nothing left for it to open. */
+  async function goToSchedule(key) {
+    if (markScheduleInMonth(key)) return true;
+    const target = seriesFor(key).next_date?.slice(0, 7);
+    if (!target || target === month) return false;
     month = target;
-    closeCard();
     expandedDays.clear();
     await load();
-    const occ = data.occurrences.find((o) => o.key === key);
-    if (occ) openCard({ key, date: occ.date }, { pin: true });
-    const [y, m] = target.split('-').map(Number);
-    window.UI?.toast?.(`${s.display_name || s.description} next lands in ${MONTHS[m - 1]} ${y}.`);
+    return markScheduleInMonth(key);
+  }
+
+  /** Make sure an occurrence has a chip on the grid before anything points at
+   *  it. A rail row can name one sitting behind its day's "+n more", and a mark
+   *  on a chip that is not drawn is no answer at all — so the day is expanded
+   *  first, which is also what shows the user where the schedule went. */
+  function revealOccurrence(ref) {
+    if (chipFor(ref)) return;
+    expandedDays.add(ref.date);
+    renderCalendar();
+  }
+
+  /** Drop the rail's mark, for Escape. The calendar stays where the click took
+   *  it: the month on screen is where the user asked to be, and only the
+   *  highlight was ever transient. */
+  function clearPick() {
+    pickedKey = null;
+    applyActiveHighlight();
+  }
+
+  // ─── The editor ──────────────────────────────────────────────────────────
+  // ONE dialog for every change a schedule can take, and the only one on the
+  // page. Creating (the rail's Create Schedule, a day cell's +) and editing
+  // (clicking a rail row, a day cell's +) all open it, so there is a single form
+  // to read a schedule in and a single place a change is made.
+  //
+  // It replaced an edit mode inside the chip's card. That card is one row wide,
+  // which was enough for a name, a type, a cadence and an amount and is not
+  // enough for a repeat rule: a frequency, an interval, a day or an nth
+  // weekday, an end date and the amount range. The card keeps DISPLAY mode and
+  // hands editing here.
+  //
+  // WHAT IS SENT. Editing sends only what the user actually changed (diffPatch).
+  // That matters beyond saving bytes: a null field on a detected schedule means
+  // "follow the ledger", so writing every field back on every save would quietly
+  // pin a schedule's name, amount and cadence the first time someone corrected
+  // its spelling.
+
+  const WEEKDAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const POSITION_LABELS = [[1, 'First'], [2, 'Second'], [3, 'Third'], [4, 'Fourth'], [-1, 'Last']];
+  const REPEAT_MODES = [
+    ['weekly', 'Weekly'],
+    ['monthly-date', 'Monthly (by date)'],
+    ['monthly-day', 'Monthly (by day)'],
+  ];
+  // Matches services/recurrence.js's MAX_INTERVAL. A larger number is a typo
+  // rather than a cadence.
+  const MAX_INTERVAL = 120;
+
+  /** The familiar name for a cadence, where one exists, and "every N" where it
+   *  does not. Used where there is room for a word and not for a sentence — the
+   *  card's cadence cell and the detection picker's detail line. */
+  function ruleLabel(rule) {
+    if (!rule) return '';
+    if (rule.freq === 'weekly') {
+      return { 1: 'Weekly', 2: 'Biweekly' }[rule.interval] || `Every ${rule.interval} weeks`;
+    }
+    return { 1: 'Monthly', 3: 'Quarterly', 12: 'Yearly' }[rule.interval] || `Every ${rule.interval} months`;
+  }
+
+  /** The whole rule in one line, for the editor's readout and for the tooltip on
+   *  surfaces that only have room for the short label. */
+  function ruleSentence(rule) {
+    if (!rule) return '';
+    const every = rule.freq === 'weekly'
+      ? (rule.interval === 1 ? 'Every week' : `Every ${rule.interval} weeks`)
+      : (rule.interval === 1 ? 'Every month' : `Every ${rule.interval} months`);
+    let on = '';
+    if (rule.freq === 'weekly') {
+      on = ` on ${WEEKDAY_LABELS[rule.weekday]}`;
+    } else if (rule.month_mode === 'day') {
+      const pos = (POSITION_LABELS.find(([v]) => v === rule.pos) || [1, 'First'])[1].toLowerCase();
+      on = ` on the ${pos} ${WEEKDAY_LABELS[rule.weekday]}`;
+    } else if (rule.day) {
+      on = ` on the ${ordinal(rule.day)}`;
+    }
+    return every + on + (rule.until ? `, until ${fmtShortDate(rule.until)}` : '');
+  }
+
+  function ordinal(n) {
+    const tens = n % 100;
+    if (tens >= 11 && tens <= 13) return `${n}th`;
+    return `${n}${{ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th'}`;
+  }
+
+  /** The rule as the form's controls hold it. The three repeat modes are one
+   *  control here and two fields in the rule (freq + month_mode), because
+   *  "monthly by date" and "monthly by day" are one choice to the user. */
+  function ruleToForm(rule) {
+    const base = { mode: 'monthly-date', interval: 1, weekday: 1, day: 1, pos: 1 };
+    if (!rule) return base;
+    if (rule.freq === 'weekly') {
+      return { ...base, mode: 'weekly', interval: rule.interval, weekday: rule.weekday ?? 1 };
+    }
+    if (rule.month_mode === 'day') {
+      return {
+        ...base, mode: 'monthly-day', interval: rule.interval,
+        weekday: rule.weekday ?? 1, pos: rule.pos ?? 1,
+      };
+    }
+    return { ...base, mode: 'monthly-date', interval: rule.interval, day: rule.day ?? 1 };
+  }
+
+  function formToRule(f, until) {
+    if (f.mode === 'weekly') {
+      return { freq: 'weekly', interval: f.interval, weekday: f.weekday, month_mode: null, day: null, pos: null, until };
+    }
+    if (f.mode === 'monthly-day') {
+      return { freq: 'monthly', interval: f.interval, weekday: f.weekday, month_mode: 'day', day: null, pos: f.pos, until };
+    }
+    return { freq: 'monthly', interval: f.interval, weekday: null, month_mode: 'date', day: f.day, pos: null, until };
+  }
+
+  /** A dropdown, drawn the way the rest of the app draws one: the platform
+   *  arrow off (see .rec-select) and the app's own caret over it. A <select>
+   *  cannot hold a child, so the caret is a sibling inside the wrapper — the
+   *  same arrangement the ledger's row selects use (transactions.css
+   *  .tx-select-wrap), and the same Phosphor glyph the report pickers carry. */
+  function selectHtml(attrs, inner) {
+    return `<span class="rec-select-wrap"><select class="rec-select" ${attrs}>${inner}</select>${UI.PICKER_CARET}</span>`;
+  }
+
+  const optionsHtml = (pairs, selected) => pairs
+    .map(([value, label]) =>
+      `<option value="${escapeHtml(String(value))}"${String(value) === String(selected) ? ' selected' : ''}>${escapeHtml(label)}</option>`)
+    .join('');
+
+  // The Name field's merchant suggestions. Two characters before the first
+  // lookup — one letter matches most of the lexicon — and a pause long enough
+  // that typing a full name costs one request rather than one per key.
+  const SUGGEST_DELAY_MS = 160;
+  const SUGGEST_MIN_CHARS = 2;
+
+  const dayOptions = Array.from({ length: 31 }, (_, i) => [i + 1, ordinal(i + 1)]);
+  const weekdayOptions = WEEKDAY_LABELS.map((label, i) => [i, label]);
+
+  /** The repeat block's second row, which is the one that changes with the mode:
+   *  a weekday, a day of the month, or a position and a weekday. */
+  function repeatDetailHtml(f) {
+    if (f.mode === 'weekly') {
+      return `<label class="rec-field">
+        <span class="rec-field-label">On</span>
+        ${selectHtml('data-form="weekday"', optionsHtml(weekdayOptions, f.weekday))}
+      </label>`;
+    }
+    if (f.mode === 'monthly-day') {
+      return `<label class="rec-field">
+        <span class="rec-field-label">On the</span>
+        <span class="rec-field-pair">
+          ${selectHtml('data-form="pos"', optionsHtml(POSITION_LABELS, f.pos))}
+          ${selectHtml('data-form="weekday"', optionsHtml(weekdayOptions, f.weekday))}
+        </span>
+      </label>`;
+    }
+    return `<label class="rec-field">
+      <span class="rec-field-label">On the</span>
+      ${selectHtml('data-form="day"', optionsHtml(dayOptions, f.day))}
+    </label>`;
+  }
+
+  function editorHtml(s, { creating, dateIso }) {
+    const f = ruleToForm(s.rule);
+    const label = s.display_name || s.description || '';
+    const until = s.rule && s.rule.until ? s.rule.until : '';
+    const unit = f.mode === 'weekly' ? 'weeks' : 'months';
+    // The anchor is only the user's on a schedule with no transactions behind
+    // it. A detected one takes its dates from the ledger, so there is nothing
+    // here to move.
+    const dateField = creating || s.manual ? `<label class="rec-field">
+        <span class="rec-field-label">Next charge</span>
+        <input type="date" class="rec-dialog-input" data-form="next_date"
+          value="${escapeHtml(creating ? dateIso : (s.next_date || dateIso))}">
+      </label>` : '';
+
+    // A rule between the bands and no headings over them: the form asks two
+    // questions (what is it, and how does it repeat), and a rule is enough to
+    // say where one ends. They are drawn edge to edge
+    // (.rec-edit-rule), so each band reads as a strip of the dialog rather than
+    // as a line floating inside it.
+    return `<p class="rec-edit-title"><strong>${creating ? 'New schedule' : 'Edit schedule'}</strong></p>
+      <hr class="rec-edit-rule">
+
+      <div class="rec-edit-grid">
+        <!-- Not a <label> wrapper like the fields below it: the suggestion list
+             is a sibling of the input rather than part of it, and a click
+             anywhere inside a label is forwarded to that label's control. -->
+        <div class="rec-field rec-field-wide rec-name-field">
+          <label class="rec-field-label" for="rec-name-input">Name</label>
+          <div class="rec-name-row">
+            <span class="rec-name-avatar" id="rec-name-avatar" aria-hidden="true">${merchantAvatarHtml(label)}</span>
+            <input type="text" class="rec-dialog-input" id="rec-name-input" data-form="display_name" maxlength="100"
+              value="${escapeHtml(label)}" placeholder="e.g. Gym Membership" autocomplete="off"
+              role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="rec-name-suggest">
+          </div>
+          <div class="rec-suggest" id="rec-name-suggest" role="listbox" aria-label="Matching merchants" hidden></div>
+        </div>
+        <label class="rec-field">
+          <span class="rec-field-label">Type</span>
+          ${selectHtml('data-form="direction"', typeOptionsHtml(s.direction || 'expense'))}
+        </label>
+        <label class="rec-field">
+          <span class="rec-field-label">Amount</span>
+          <input type="text" inputmode="decimal" class="rec-dialog-input rec-input-amount" data-form="amount"
+            value="${s.amount == null ? '' : escapeHtml(formatCurrency(s.amount, true, { editable: true }))}"
+            placeholder="${escapeHtml(formatCurrency(0, true, { editable: true }))}" autocomplete="off">
+        </label>
+      </div>
+
+      <hr class="rec-edit-rule">
+      <div class="rec-edit-grid">
+        <label class="rec-field">
+          <span class="rec-field-label">Repeat by</span>
+          ${selectHtml('data-form="mode"', optionsHtml(REPEAT_MODES, f.mode))}
+        </label>
+        <label class="rec-field">
+          <span class="rec-field-label">Every</span>
+          <span class="rec-field-pair">
+            <input type="number" class="rec-dialog-input rec-input-interval" data-form="interval"
+              min="1" max="${MAX_INTERVAL}" step="1" value="${f.interval}">
+            <span class="rec-field-unit" data-form="unit">${unit}</span>
+          </span>
+        </label>
+        <div class="rec-edit-detail">${repeatDetailHtml(f)}</div>
+        ${dateField}
+      </div>
+
+      <!-- Most schedules run until they are cancelled, so the end date is not a
+           field by default: it is one tick, and the date appears when it is
+           ticked. A Never/On pair asked every user to answer a question almost
+           none of them have. -->
+      <div class="rec-edit-ends">
+        <label class="rec-check">
+          <input type="checkbox" data-form="ends-on"${until ? ' checked' : ''}>
+          <span>Ends on</span>
+        </label>
+        <input type="date" class="rec-dialog-input rec-input-until" data-form="until"
+          value="${escapeHtml(until)}"${until ? '' : ' hidden'}>
+      </div>
+
+      <p class="rec-edit-readout" id="rec-edit-readout"></p>
+
+      <div class="confirm-actions">
+        <button class="db-btn confirm-cancel">Cancel</button>
+        <button class="db-btn db-btn-primary" id="rec-edit-save">${creating ? 'Create' : 'Save'}</button>
+      </div>`;
+  }
+
+  /** Only what changed, so a detected schedule keeps following the ledger on
+   *  every field the user did not touch. */
+  function diffPatch(before, after) {
+    const patch = {};
+    for (const [field, value] of Object.entries(after)) {
+      const was = before[field];
+      const same = field === 'rule'
+        ? JSON.stringify(was) === JSON.stringify(value)
+        : was === value;
+      if (!same) patch[field] = value;
+    }
+    return patch;
+  }
+
+  /**
+   * The editor. `key` names the schedule to edit; without one it creates,
+   * anchored on `dateIso` (a day cell's date, or today).
+   */
+  async function openScheduleDialog({ key = null, dateIso = null } = {}) {
+    const creating = !key;
+    const s = creating
+      ? { direction: 'expense', amount: null, rule: null, manual: true }
+      : seriesFor(key);
+    if (!creating && !s.key) return;
+    const anchor = dateIso || todayIso();
+
+    const { overlay, close } = UI.dialog(editorHtml(s, { creating, dateIso: anchor }), {
+      className: 'rec-edit-dialog',
+    });
+
+    const el = (sel) => overlay.querySelector(sel);
+    const form = ruleToForm(s.rule);
+
+    /** Read the controls back into the rule the form describes. */
+    function readForm() {
+      form.mode = el('[data-form="mode"]').value;
+      form.interval = Math.max(1, Math.min(MAX_INTERVAL, Number(el('[data-form="interval"]').value) || 1));
+      const pick = (name, fallback) => {
+        const node = el(`[data-form="${name}"]`);
+        return node ? Number(node.value) : fallback;
+      };
+      form.weekday = pick('weekday', form.weekday);
+      form.day = pick('day', form.day);
+      form.pos = pick('pos', form.pos);
+      const endsOn = el('[data-form="ends-on"]').checked;
+      const until = endsOn ? el('[data-form="until"]').value : '';
+      return formToRule(form, until || null);
+    }
+
+    function syncReadout() {
+      el('#rec-edit-readout').textContent = ruleSentence(readForm());
+    }
+
+    /** The mode control changes which fields exist, so its row is redrawn. */
+    function redrawDetail() {
+      readForm();
+      el('.rec-edit-detail').innerHTML = repeatDetailHtml(form);
+      el('[data-form="unit"]').textContent = form.mode === 'weekly' ? 'weeks' : 'months';
+      syncReadout();
+    }
+
+    // ── Name: avatar, and the merchants the lexicon knows ──────────────────
+    // Typing a name offers matching merchants (GET /api/recurring/brands, the
+    // bundled lexicon rather than the ledger). Picking one writes the merchant's
+    // canonical spelling, and that spelling is what draws the brand avatar —
+    // avatar.js slugs the label and looks it up in the icon manifest the same
+    // lexicon generated.
+    //
+    // It claims NOTHING. No transaction, no alias, no history: a suggestion
+    // fills in one field the user can immediately overwrite. A schedule is
+    // still joined to the ledger by its key alone, exactly as before.
+    const nameInput = el('#rec-name-input');
+    const avatarBox = el('#rec-name-avatar');
+    const suggestBox = el('#rec-name-suggest');
+    const typeSelect = el('[data-form="direction"]');
+
+    let suggestions = [];
+    let suggestIndex = -1;   // -1 = nothing highlighted; Enter then saves nothing
+    let suggestTimer = null;
+    let suggestGeneration = 0;
+    let avatarFor = null;    // the label the avatar currently draws
+
+    /** Keep the avatar showing the name as typed. Re-rendered only when the
+     *  name actually changed, so holding a key down does not rebuild it per
+     *  keystroke. */
+    function syncAvatar() {
+      const label = nameInput.value.trim();
+      if (label === avatarFor) return;
+      avatarFor = label;
+      avatarBox.innerHTML = merchantAvatarHtml(label);
+    }
+
+    function closeSuggest() {
+      suggestions = [];
+      suggestIndex = -1;
+      suggestBox.hidden = true;
+      suggestBox.innerHTML = '';
+      nameInput.setAttribute('aria-expanded', 'false');
+    }
+
+    function suggestRowHtml(b, i) {
+      // tabindex="-1": the arrow keys walk the list, Tab leaves it. A row that
+      // took a Tab stop would put eight of them between Name and Type.
+      return `<button type="button" class="rec-suggest-row" role="option" tabindex="-1" data-index="${i}"
+        aria-selected="${i === suggestIndex}">
+        ${merchantAvatarHtml(b.name)}
+        <span class="rec-suggest-name">${escapeHtml(b.name)}</span>
+      </button>`;
+    }
+
+    function renderSuggest() {
+      if (!suggestions.length) { closeSuggest(); return; }
+      suggestBox.innerHTML = suggestions.map(suggestRowHtml).join('');
+      suggestBox.hidden = false;
+      nameInput.setAttribute('aria-expanded', 'true');
+    }
+
+    /** Move the highlight, wrapping at both ends so one key reaches every row. */
+    function moveSuggest(step) {
+      if (!suggestions.length) return;
+      suggestIndex = (suggestIndex + step + suggestions.length) % suggestions.length;
+      [...suggestBox.children].forEach((row, i) => {
+        row.classList.toggle('rec-suggest-active', i === suggestIndex);
+        row.setAttribute('aria-selected', String(i === suggestIndex));
+      });
+      suggestBox.children[suggestIndex].scrollIntoView({ block: 'nearest' });
+    }
+
+    /** Take a suggestion: its name, and nothing else. The type, the amount and
+     *  the cadence are left alone — the lexicon knows what a merchant is called,
+     *  not what they charge this user. */
+    function applySuggestion(i) {
+      const brand = suggestions[i];
+      if (!brand) return;
+      nameInput.value = brand.name;
+      nameInput.classList.remove('invalid');
+      closeSuggest();
+      syncAvatar();
+      nameInput.focus();
+    }
+
+    async function searchBrands() {
+      const q = nameInput.value.trim();
+      if (q.length < SUGGEST_MIN_CHARS) { closeSuggest(); return; }
+      // Every keystroke can outrun the one before it; only the newest answer may
+      // paint, or a slow early response overwrites a fast later one.
+      const mine = ++suggestGeneration;
+      const res = await apiFetch(`/api/recurring/brands?q=${encodeURIComponent(q)}`);
+      if (mine !== suggestGeneration || !res.ok) return;
+      const { brands } = await res.json();
+      if (mine !== suggestGeneration) return;
+      // A name already spelled exactly as the one merchant offered is answered:
+      // re-opening the list over it would only be something else to dismiss.
+      suggestions = (brands.length === 1 && brands[0].name === nameInput.value.trim()) ? [] : brands;
+      suggestIndex = -1;
+      renderSuggest();
+    }
+
+    function queueSuggest() {
+      clearTimeout(suggestTimer);
+      suggestTimer = setTimeout(searchBrands, SUGGEST_DELAY_MS);
+    }
+
+    // mousedown, not click: it fires before the input loses focus, so picking a
+    // row cannot race the focusout that closes the list.
+    suggestBox.addEventListener('mousedown', (e) => {
+      const row = e.target.closest('.rec-suggest-row');
+      if (!row) return;
+      e.preventDefault();
+      applySuggestion(Number(row.dataset.index));
+    });
+
+    nameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        if (!suggestions.length) return;
+        e.preventDefault();
+        moveSuggest(e.key === 'ArrowDown' ? 1 : -1);
+        return;
+      }
+      if (e.key === 'Enter' && suggestIndex >= 0) {
+        e.preventDefault();
+        applySuggestion(suggestIndex);
+        return;
+      }
+      // Dismiss the list, not the dialog: the editor's Escape listener is on the
+      // document, so stopping here is what keeps an open list from closing the
+      // form the user is still filling in.
+      if (e.key === 'Escape' && !suggestBox.hidden) {
+        e.stopPropagation();
+        clearTimeout(suggestTimer);
+        suggestGeneration++;
+        closeSuggest();
+      }
+    });
+
+    el('.rec-name-field').addEventListener('focusout', (e) => {
+      if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return;
+      clearTimeout(suggestTimer);
+      suggestGeneration++;
+      closeSuggest();
+    });
+
+    syncReadout();
+    syncAvatar();
+    nameInput.focus();
+    nameInput.select();
+
+    overlay.addEventListener('change', (e) => {
+      if (e.target.matches('[data-form="mode"]')) { redrawDetail(); return; }
+      if (e.target.matches('[data-form="ends-on"]')) {
+        const on = e.target.checked;
+        const date = el('[data-form="until"]');
+        date.hidden = !on;
+        // An end date with nothing in it is not an end date. Offering the day
+        // the schedule next falls on is the only guess that is never wrong by a
+        // cycle, and it is one the user is about to move anyway.
+        if (on && !date.value) date.value = s.next_date || anchor;
+        if (on) date.focus();
+      }
+      syncReadout();
+    });
+    overlay.addEventListener('input', (e) => {
+      if (e.target === nameInput) { syncAvatar(); queueSuggest(); }
+      if (e.target.classList.contains('rec-input-amount')) applyCurrencyFormat(e.target);
+      if (e.target.matches('[data-form="interval"], [data-form="until"]')) syncReadout();
+      e.target.classList.remove('invalid');
+    });
+    el('#rec-edit-save').addEventListener('click', async () => {
+      const name = nameInput.value.trim();
+      const amount = parseFloat(stripCurrencyValue(el('[data-form="amount"]').value));
+      const rule = readForm();
+      const dateNode = el('[data-form="next_date"]');
+
+      // Marked rather than corrected: saving must never store a value the user
+      // did not type.
+      const mark = (node, ok) => { if (node) node.classList.toggle('invalid', !ok); return ok; };
+      let valid = mark(nameInput, !!name && !!normaliseDesc(name));
+      valid = mark(el('[data-form="amount"]'), amount > 0) && valid;
+      valid = mark(dateNode, !dateNode || !!dateNode.value) && valid;
+      valid = mark(el('[data-form="until"]'), !rule.until || rule.until >= (dateNode ? dateNode.value : rule.until)) && valid;
+      if (!valid) return;
+
+      let res;
+      if (creating) {
+        res = await apiFetch('/api/recurring/schedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            display_name: name, direction: typeSelect.value,
+            amount, next_date: dateNode.value, rule, until: rule.until,
+          }),
+        });
+      } else {
+        const after = {
+          display_name: name,
+          direction: typeSelect.value,
+          amount,
+          rule: { ...rule, until: null },
+          until: rule.until,
+        };
+        if (dateNode) after.next_date = dateNode.value;
+
+        const patch = diffPatch({
+          display_name: s.display_name || s.description,
+          direction: s.direction,
+          amount: s.amount,
+          rule: { ...ruleFromFormState(s), until: null },
+          until: (s.rule && s.rule.until) || null,
+          next_date: s.next_date,
+        }, after);
+        if (!Object.keys(patch).length) { close(); return; }
+        res = await apiFetch('/api/recurring/override', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: s.key, ...patch }),
+        });
+      }
+
+      if (!res.ok) {
+        window.UI?.toast?.("Couldn't save your change — it hasn't been stored.", { type: 'error' });
+        return;
+      }
+      const saved = creating ? (await res.json()).key : s.key;
+      close();
+      await load();
+      goToSchedule(saved);
+    });
+  }
+
+  /** The schedule's rule in the same shape readForm produces, so the two can be
+   *  compared field by field without one carrying nulls the other omits. */
+  function ruleFromFormState(s) {
+    return formToRule(ruleToForm(s.rule), null);
   }
 
   // ─── Detect ──────────────────────────────────────────────────────────────
   // Detection runs only on request. The picker lists what the backend found that
-  // is not yet adopted (GET /api/recurring/candidates), with every box ticked
-  // initially, and adopting the ticked ones (POST /api/recurring/adopt) puts them
-  // on the calendar. Opening the dialog writes nothing, so cancelling leaves the
-  // database unchanged.
+  // is not yet adopted (GET /api/recurring/candidates), and adopting the ticked
+  // ones (POST /api/recurring/adopt) puts them on the calendar. Opening the
+  // dialog writes nothing, so cancelling leaves the database unchanged.
+  //
+  // Nothing starts ticked. Detection is a heuristic reading of the ledger, so
+  // every row here is a guess the user is being asked about — and a pre-ticked
+  // list answers for them: the fast path becomes "Add", which adopts whatever
+  // the guess happened to include. Starting empty makes each schedule on the
+  // calendar one the user actually chose, and "Select all" is one click away
+  // for the run where the guess is right.
 
   function candidateRowHtml(s, i) {
     const label = s.display_name || s.description;
     const detail = [
-      CYCLE_LABEL[s.cycle] || s.cycle,
+      ruleLabel(s.rule),
       `${s.occurrences} charge${s.occurrences === 1 ? '' : 's'}`,
       `next ${fmtShortDate(s.next_date)}`,
     ].join(' · ');
     return `<label class="rec-cand-row">
-      <input type="checkbox" class="rec-cand-cb" data-key="${escapeHtml(s.key)}" data-index="${i}" checked>
+      <input type="checkbox" class="rec-cand-cb" data-key="${escapeHtml(s.key)}" data-index="${i}">
       ${merchantAvatarHtml(label)}
       <span class="rec-cand-text">
         <span class="rec-cand-name">${escapeHtml(label)}</span>
@@ -480,7 +968,6 @@
   }
 
   async function openDetectDialog() {
-    closeCard();
     const res = await apiFetch('/api/recurring/candidates');
     if (!res.ok) {
       window.UI?.toast?.("Couldn't scan your transactions — try again.", { type: 'error' });
@@ -489,17 +976,12 @@
     const { candidates } = await res.json();
 
     if (!candidates.length) {
-      const empty = UI.dialog(`
+      UI.dialog(`
         <p><strong>No new recurring schedules found</strong></p>
         <p class="rec-detect-note">A pattern needs a few charges at a steady interval before it can be spotted. Import more history, or add a schedule by hand with the + on the day it falls on.</p>
         <div class="confirm-actions">
           <button class="db-btn confirm-cancel">Close</button>
-          <button class="db-btn db-btn-primary" id="rec-build-open">Didn't find your schedule?</button>
         </div>`, { className: 'rec-detect-dialog' });
-      empty.overlay.querySelector('#rec-build-open').addEventListener('click', () => {
-        empty.close();
-        openBuildDialog();
-      });
       return;
     }
 
@@ -507,21 +989,14 @@
       <p><strong>Recurring schedules found</strong></p>
       <p class="rec-detect-note">These transactions look like they repeat. Keep the ones you want to track — you can correct any detail afterwards.</p>
       <label class="rec-cand-all">
-        <input type="checkbox" id="rec-cand-all" checked>
+        <input type="checkbox" id="rec-cand-all">
         <span>Select all (${candidates.length})</span>
       </label>
       <div class="rec-cand-list">${candidates.map(candidateRowHtml).join('')}</div>
-      <div class="confirm-actions rec-detect-actions">
-        <button class="db-btn rec-detect-build" id="rec-build-open">Didn't find your schedule?</button>
-        <span class="rec-detect-spacer"></span>
+      <div class="confirm-actions">
         <button class="db-btn confirm-cancel">Cancel</button>
         <button class="db-btn db-btn-primary confirm-add" id="rec-cand-ok">Add selected</button>
       </div>`, { className: 'rec-detect-dialog' });
-
-    overlay.querySelector('#rec-build-open').addEventListener('click', () => {
-      close();
-      openBuildDialog();
-    });
 
     const allBox = overlay.querySelector('#rec-cand-all');
     const boxes = [...overlay.querySelectorAll('.rec-cand-cb')];
@@ -563,257 +1038,6 @@
     });
   }
 
-  // ─── Build ───────────────────────────────────────────────────────────────
-  // The way out of the picker when detection found nothing, or found the wrong
-  // thing. Detection groups a ledger by one normalised description and counts
-  // every row under it, which loses a series the bank has renamed and breaks
-  // one whose merchant sends off-cycle extras under the same wording. Neither
-  // is reachable by loosening a threshold, so here the user names the merchant
-  // and the picked descriptions become the schedule's rule (aliases + an amount
-  // band, see services/recurringRules.js). It is deliberately reached FROM the
-  // detection picker rather than offered alongside it: detection stays the
-  // front door and this fills the gaps.
-  //
-  // There is no match-strength slider. Whether loose matching is safe depends on
-  // how distinctive the merchant's name is, which no number can express — a
-  // payroll line matches its own renamings and nothing else, while "Zelle
-  // payment from <person>" at the same score reaches a different person. The
-  // dialog shows every candidate with its charge count, date span and amount
-  // range and ticks only the exact one, so the judgement is made on the data.
-
-  const BUILD_PREVIEW_DELAY_MS = 180;
-
-  /** "Jan 2025 – Sep 2026", or a single month when a group spans one. */
-  function fmtSpan(first, last) {
-    const part = (iso) => {
-      const [y, m] = iso.split('-').map(Number);
-      return `${MONTHS[m - 1].slice(0, 3)} ${y}`;
-    };
-    const a = part(first);
-    const b = part(last);
-    return a === b ? a : `${a} – ${b}`;
-  }
-
-  function buildGroupRowHtml(g) {
-    const detail = [
-      `${g.count} charge${g.count === 1 ? '' : 's'}`,
-      fmtSpan(g.first_date, g.last_date),
-    ].join(' · ');
-    const range = g.amount_min === g.amount_max
-      ? formatCurrency(g.amount_min, true)
-      : `${formatCurrency(g.amount_min, true)} – ${formatCurrency(g.amount_max, true)}`;
-    // A description another schedule already owns is shown, not hidden: the
-    // user needs to know where it went, and why they cannot have it here.
-    const taken = g.claimed_by ? ' rec-build-row-taken' : '';
-    // Ticking a row that is its own schedule today folds it into this one, so
-    // the row says that instead of reading like any other candidate.
-    const note = g.claimed_by ? 'Already in another schedule'
-      : g.adopted ? `Its own schedule now · ${detail}`
-        : detail;
-    return `<label class="rec-build-row${taken}">
-      <input type="checkbox" class="rec-build-cb" data-key="${escapeHtml(g.key)}"
-        ${g.exact ? 'checked' : ''}${g.claimed_by ? ' disabled' : ''}>
-      <span class="rec-build-text">
-        <span class="rec-build-name">${escapeHtml(g.description)}</span>
-        <span class="rec-build-detail">${escapeHtml(note)}</span>
-      </span>
-      <span class="rec-build-amount">${escapeHtml(range)}</span>
-    </label>`;
-  }
-
-  function buildMerchantRowHtml(g) {
-    const detail = `${g.count} charge${g.count === 1 ? '' : 's'} · ${fmtSpan(g.first_date, g.last_date)}`;
-    return `<button type="button" class="rec-build-pick" data-key="${escapeHtml(g.key)}">
-      ${merchantAvatarHtml(g.description)}
-      <span class="rec-build-text">
-        <span class="rec-build-name">${escapeHtml(g.description)}</span>
-        <span class="rec-build-detail">${escapeHtml(detail)}</span>
-      </span>
-      <span class="rec-build-amount">${escapeHtml(formatCurrency(g.amount_median, true))}</span>
-    </button>`;
-  }
-
-  /** Step one: name the merchant. Searches descriptions rather than rows —
-   *  the user is identifying a merchant, not one particular charge. */
-  async function openBuildDialog() {
-    closeCard();
-    const { overlay, close } = UI.dialog(`
-      <p><strong>Build a schedule</strong></p>
-      <label class="rec-add-field">
-        <span class="rec-add-label">Merchant</span>
-        <input type="text" class="rec-dialog-input" id="rec-build-q" maxlength="100"
-          placeholder="Search your transactions" autocomplete="off">
-      </label>
-      <div class="rec-build-list" id="rec-build-results"></div>
-      <div class="confirm-actions">
-        <button class="db-btn confirm-cancel">Cancel</button>
-      </div>`, { className: 'rec-detect-dialog' });
-
-    const input = overlay.querySelector('#rec-build-q');
-    const results = overlay.querySelector('#rec-build-results');
-    let timer = null;
-    let generation = 0;
-
-    async function search() {
-      const q = input.value.trim();
-      if (!q) { results.innerHTML = ''; return; }
-      // Every keystroke can outrun the one before it; only the newest answer
-      // may paint, or a slow early response overwrites a fast later one.
-      const mine = ++generation;
-      const res = await apiFetch(`/api/recurring/merchants?q=${encodeURIComponent(q)}`);
-      if (mine !== generation) return;
-      if (!res.ok) { results.innerHTML = ''; return; }
-      const { merchants } = await res.json();
-      if (mine !== generation) return;
-      results.innerHTML = merchants.length
-        ? merchants.map(buildMerchantRowHtml).join('')
-        : '<p class="rec-detect-note">No transactions match that name.</p>';
-    }
-
-    input.addEventListener('input', () => {
-      clearTimeout(timer);
-      timer = setTimeout(search, BUILD_PREVIEW_DELAY_MS);
-    });
-    results.addEventListener('click', (e) => {
-      const pick = e.target.closest('.rec-build-pick');
-      if (!pick) return;
-      clearTimeout(timer);
-      generation++; // abandon any search still in flight
-      close();
-      openBuildMatchDialog(pick.dataset.key);
-    });
-    input.focus();
-  }
-
-  /** Step two: confirm which descriptions belong to the schedule, and on what
-   *  cadence. The preview line is produced by the same backend call that saves,
-   *  so what it reads is what gets stored. */
-  async function openBuildMatchDialog(seedKey) {
-    const res = await apiFetch(`/api/recurring/similar?key=${encodeURIComponent(seedKey)}`);
-    if (!res.ok) {
-      window.UI?.toast?.("Couldn't look up that merchant — try again.", { type: 'error' });
-      return;
-    }
-    const { seed, matches } = await res.json();
-
-    const { overlay, close } = UI.dialog(`
-      <p><strong>${escapeHtml(seed.description)}</strong></p>
-      <div class="rec-build-list">${matches.map(buildGroupRowHtml).join('')}</div>
-      <label class="rec-build-band">
-        <input type="checkbox" id="rec-build-band-on">
-        <span id="rec-build-band-text">Ignore unusual amounts</span>
-      </label>
-      <label class="rec-add-field" id="rec-build-cycle-field" hidden>
-        <span class="rec-add-label">Cadence</span>
-        <select class="rec-select" id="rec-build-cycle">${cycleOptionsHtml('monthly')}</select>
-      </label>
-      <p class="rec-build-summary" id="rec-build-summary"></p>
-      <div class="confirm-actions">
-        <button class="db-btn" id="rec-build-back">Back</button>
-        <button class="db-btn db-btn-primary confirm-add" id="rec-build-ok">Create schedule</button>
-      </div>`, { className: 'rec-detect-dialog rec-build-dialog' });
-
-    const boxes = [...overlay.querySelectorAll('.rec-build-cb')];
-    const bandBox = overlay.querySelector('#rec-build-band-on');
-    const bandText = overlay.querySelector('#rec-build-band-text');
-    const cycleField = overlay.querySelector('#rec-build-cycle-field');
-    const cycleSelect = overlay.querySelector('#rec-build-cycle');
-    const summary = overlay.querySelector('#rec-build-summary');
-    const okBtn = overlay.querySelector('#rec-build-ok');
-
-    // The last band the backend suggested for the current selection. Kept here
-    // rather than read back off the label so the checkbox means the same thing
-    // after the selection changes under it.
-    let band = null;
-    let timer = null;
-    let generation = 0;
-
-    const pickedKeys = () => boxes.filter((b) => b.checked).map((b) => b.dataset.key);
-    const bandFields = () => (bandBox.checked && band ? { amount_min: band.min, amount_max: band.max } : {});
-
-    async function refresh() {
-      const keys = pickedKeys();
-      if (!keys.length) {
-        summary.textContent = '';
-        bandText.textContent = 'Ignore unusual amounts';
-        okBtn.disabled = true;
-        return;
-      }
-      const mine = ++generation;
-      const res2 = await apiFetch('/api/recurring/preview', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keys, ...bandFields() }),
-      });
-      if (mine !== generation) return;
-      if (!res2.ok) { summary.textContent = ''; okBtn.disabled = true; return; }
-      const p = await res2.json();
-      if (mine !== generation) return;
-
-      band = p.suggested_band;
-      bandBox.disabled = !band;
-      bandText.textContent = band
-        ? `Ignore amounts outside ${formatCurrency(band.min, true)} – ${formatCurrency(band.max, true)}`
-        : 'Ignore unusual amounts';
-
-      // A cadence can only be asked for when it could not be measured; when it
-      // could, showing the picker would invite the user to overrule a reading
-      // taken from their own history.
-      cycleField.hidden = !p.needs_cycle;
-      okBtn.disabled = false;
-
-      const charges = `${p.matched_count - p.excluded_count} charge${p.matched_count - p.excluded_count === 1 ? '' : 's'}`;
-      summary.textContent = p.series
-        ? `${CYCLE_LABEL[p.series.cycle]} · ${formatCurrency(p.series.amount, true)} · next ${fmtShortDate(p.series.next_date)} · ${charges}`
-        : `${charges} · too few or too irregular to measure a cadence`;
-    }
-
-    function queueRefresh() {
-      clearTimeout(timer);
-      timer = setTimeout(refresh, BUILD_PREVIEW_DELAY_MS);
-    }
-
-    overlay.querySelector('.rec-build-list').addEventListener('change', queueRefresh);
-    bandBox.addEventListener('change', queueRefresh);
-
-    overlay.querySelector('#rec-build-back').addEventListener('click', () => {
-      clearTimeout(timer);
-      generation++;
-      close();
-      openBuildDialog();
-    });
-
-    okBtn.addEventListener('click', async () => {
-      const keys = pickedKeys();
-      if (!keys.length) return;
-      const body = { keys, ...bandFields() };
-      if (!cycleField.hidden) body.cycle = cycleSelect.value;
-
-      const saved = await apiFetch('/api/recurring/build', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      // One read of the body, whichever way it went: a Response can only be
-      // consumed once.
-      const payload = await saved.json().catch(() => ({}));
-      if (!saved.ok) {
-        window.UI?.toast?.(payload.error || "Couldn't build that schedule — try again.", { type: 'error' });
-        return;
-      }
-      clearTimeout(timer);
-      generation++;
-      close();
-      await load();
-      // The calendar is the only place a schedule appears, so land on the month
-      // its next charge falls in rather than leaving the user on a month that
-      // may not show it.
-      if (data.series.some((s) => s.key === payload.key)) await followSchedule(payload.key);
-    });
-
-    await refresh();
-  }
-
   // ─── Add / remove ─────────────────────────────────────────────────────────
 
   /** Small confirm dialog, same .confirm-* shell the rest of the app uses for
@@ -833,111 +1057,8 @@
       window.UI?.toast?.("Couldn't delete it — try again.", { type: 'error' });
       return;
     }
-    closeCard();
+    if (pickedKey === key) pickedKey = null;
     await load();
-  }
-
-  /** ⋮ → "Clear all recurring schedules": the card's trash can applied to every
-   *  schedule at once, under the same rule — detected ones are un-adopted (back
-   *  in the picker, corrections kept), hand-added ones are deleted. This clears
-   *  the CALENDAR only; the transactions behind it are untouched, and the wording
-   *  reflects that. */
-  async function confirmClearAll() {
-    closeCard();
-    const n = data.series.length;
-    const ok = await UI.confirm({
-      message: `
-      <p>Clear all <strong>${n}</strong> recurring schedule${n === 1 ? '' : 's'}?</p>
-      <p class="rec-detect-note">The calendar goes back to blank. Your transactions stay in the ledger, and detection can offer the ones it found again.</p>`,
-      confirmLabel: 'Clear all',
-    });
-    if (!ok) return;
-    const res = await apiFetch('/api/recurring/schedules', { method: 'DELETE' });
-    if (!res.ok) {
-      window.UI?.toast?.("Couldn't clear your schedules — nothing was removed.", { type: 'error' });
-      return;
-    }
-    expandedDays.clear();
-    await load();
-  }
-
-  /** Form dialog for a schedule with no backing transactions — a charge the user
-   *  expects but has not been billed for yet. Every field is required (unlike
-   *  editing an existing schedule, where each field is independently optional):
-   *  a manual schedule missing any of them cannot be projected, so the dialog
-   *  submits only once all five are valid.
-   *
-   *  Opened from a day cell's +, so `iso` is that day: the due date is pre-filled
-   *  and the cursor starts on the name. It stays an editable field rather than a
-   *  fixed caption so the date can still be changed. */
-  function openAddDialog(iso) {
-    closeCard();
-    const { overlay, close } = UI.dialog(`
-      <p><strong>Add a recurring schedule</strong></p>
-      <label class="rec-add-field">
-        <span class="rec-add-label">Name</span>
-        <input type="text" class="rec-dialog-input" id="rec-add-name" maxlength="100" placeholder="e.g. Gym Membership" autocomplete="off">
-      </label>
-      <label class="rec-add-field">
-        <span class="rec-add-label">Type</span>
-        <select class="rec-select" id="rec-add-type">${typeOptionsHtml('expense')}</select>
-      </label>
-      <label class="rec-add-field">
-        <span class="rec-add-label">Cadence</span>
-        <select class="rec-select" id="rec-add-cycle">${cycleOptionsHtml('monthly')}</select>
-      </label>
-      <label class="rec-add-field">
-        <span class="rec-add-label">Amount</span>
-        <input type="text" inputmode="decimal" class="rec-dialog-input" id="rec-add-amount"
-          placeholder="${escapeHtml(formatCurrency(0, true, { editable: true }))}" autocomplete="off">
-      </label>
-      <label class="rec-add-field">
-        <span class="rec-add-label">Next due date</span>
-        <input type="date" class="rec-dialog-input" id="rec-add-date" value="${escapeHtml(iso || '')}">
-      </label>
-      <div class="confirm-actions">
-        <button class="db-btn confirm-cancel">Cancel</button>
-        <button class="db-btn db-btn-primary confirm-add">Add</button>
-      </div>`, { className: 'rec-add-dialog' });
-
-    const nameInput   = overlay.querySelector('#rec-add-name');
-    const typeSelect  = overlay.querySelector('#rec-add-type');
-    const cycleSelect = overlay.querySelector('#rec-add-cycle');
-    const amountInput = overlay.querySelector('#rec-add-amount');
-    const dateInput   = overlay.querySelector('#rec-add-date');
-    amountInput.addEventListener('input', () => applyCurrencyFormat(amountInput));
-    nameInput.focus();
-
-    overlay.querySelector('.confirm-add').addEventListener('click', async () => {
-      const name = nameInput.value.trim();
-      const amount = parseFloat(stripCurrencyValue(amountInput.value));
-      let invalid = false;
-      const mark = (input, ok) => { input.classList.toggle('invalid', !ok); if (!ok) invalid = true; };
-      mark(nameInput, name && normaliseDesc(name));
-      mark(amountInput, amount > 0);
-      mark(dateInput, !!dateInput.value);
-      if (invalid) return;
-
-      const res = await apiFetch('/api/recurring/schedule', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          display_name: name, direction: typeSelect.value, cycle: cycleSelect.value,
-          amount, next_date: dateInput.value,
-        }),
-      });
-      if (!res.ok) {
-        window.UI?.toast?.("Couldn't add that schedule — try again.", { type: 'error' });
-        return;
-      }
-      close();
-      // Jump to the month the new schedule first lands in, so it is visible on
-      // the grid straight away — the calendar is the only place it appears.
-      // Usually a no-op now that the date comes from a cell in the visible
-      // month; it still matters when the user moves the date while in here.
-      month = dateInput.value.slice(0, 7);
-      await load();
-    });
   }
 
   // ─── Toolbar ─────────────────────────────────────────────────────────────
@@ -954,9 +1075,9 @@
 
   function render() {
     renderToolbar();
-    renderEmpty();
+    renderSummary();
+    renderRail();
     renderCalendar();
-    if (activeOcc) renderCard();
   }
 
   async function load() {
@@ -968,7 +1089,7 @@
 
   function goToMonth(key) {
     month = key;
-    closeCard();
+    pickedKey = null;
     expandedDays.clear();
     load();
   }
@@ -1013,128 +1134,76 @@
       UI.openMenu(e.currentTarget, items);
     });
 
-    // Whole-page actions only: adding by hand is tied to a date, so that control
-    // is on the day cells (see .rec-day-add).
-    //
-    // Clear-all is listed only when there is something to clear. UI.openMenu has
-    // no disabled state, and an item that opens a confirm dialog and then does
-    // nothing is worse than omitting it — the empty state already indicates the
-    // page is blank.
-    document.getElementById('rec-kebab-btn').addEventListener('click', (e) => {
-      const items = [{ label: 'Find recurring schedules', action: openDetectDialog }];
-      if (data.series.length) {
-        items.push({ label: 'Clear all recurring schedules', action: confirmClearAll, danger: true });
-      }
-      UI.openMenu(e.currentTarget, items);
-    });
-
     const calendar = document.getElementById('rec-calendar');
-    const pop = popEl();
 
-    // ── Chip → card ──
-    // mouseover/mouseout (they bubble, unlike mouseenter/leave) so one pair of
-    // listeners covers every chip across every re-render.
-    calendar.addEventListener('mouseover', (e) => {
-      const chip = e.target.closest('.rec-occ');
-      if (!chip || editingKey) return;
-      openCard({ key: chip.dataset.key, date: chip.dataset.date });
-    });
-    calendar.addEventListener('mouseout', (e) => {
-      if (!e.target.closest('.rec-occ')) return;
-      // Moving between two chips fires mouseout before the next mouseover — the
-      // delayed close lets that mouseover cancel it, so the card does not flicker
-      // as the pointer crosses a day cell.
-      scheduleClose();
-    });
-    // Tabbing to a chip previews it the same way hovering does, and does NOT pin
-    // it: focus also lands on a chip when it is clicked, and a pre-pinned card
-    // would make that click act as the dismissing half of a toggle.
-    calendar.addEventListener('focusin', (e) => {
-      const chip = e.target.closest('.rec-occ');
-      if (!chip || editingKey) return;
-      openCard({ key: chip.dataset.key, date: chip.dataset.date });
-    });
+    // ── The grid's own two controls ──
+    // A day's + and a day's "+n more", delegated so one listener covers every
+    // cell across every re-render. A CHIP is not one of them: it is a tile that
+    // reads, and pressing it does nothing at all.
     calendar.addEventListener('click', (e) => {
       // The day's + — the schedule being added is due on that day, so the
       // dialog opens with the date already filled in.
       const add = e.target.closest('[data-add]');
-      if (add) { openAddDialog(add.dataset.add); return; }
+      if (add) { openScheduleDialog({ dateIso: add.dataset.add }); return; }
       const expand = e.target.closest('[data-expand]');
-      if (expand) {
-        const iso = expand.dataset.expand;
-        if (expandedDays.has(iso)) expandedDays.delete(iso); else expandedDays.add(iso);
-        renderCalendar();
-        if (activeOcc) renderCard();
+      if (!expand) return;
+      const iso = expand.dataset.expand;
+      if (expandedDays.has(iso)) expandedDays.delete(iso); else expandedDays.add(iso);
+      renderCalendar();
+    });
+
+    // ── Rail → grid ──
+    // Hover marks the schedule wherever the month on screen draws it; the click
+    // does the same and makes it stay, following the schedule to another month
+    // if that is where it lives. Same delegation as the chip above: listeners
+    // that outlive every re-render.
+    const rail = document.getElementById('rec-rail');
+
+    function markRailHover(e) {
+      const row = e.target.closest('.rec-rail-row');
+      if (!row) return;
+      railHoverKey = row.dataset.key;
+      applyActiveHighlight();
+    }
+
+    function clearRailHover(e) {
+      if (!e.target.closest('.rec-rail-row')) return;
+      railHoverKey = null;
+      applyActiveHighlight();
+    }
+
+    rail.addEventListener('mouseover', markRailHover);
+    rail.addEventListener('mouseout', clearRailHover);
+    rail.addEventListener('focusin', markRailHover);
+    rail.addEventListener('focusout', clearRailHover);
+    rail.addEventListener('click', (e) => {
+      const foot = e.target.closest('[data-rail-action]');
+      if (foot) {
+        // A schedule created from here has no day cell behind it, so it opens on
+        // today and the user moves the date if it belongs elsewhere.
+        if (foot.dataset.railAction === 'create') openScheduleDialog({});
+        else openDetectDialog();
         return;
       }
-      const chip = e.target.closest('.rec-occ');
-      if (!chip) return;
-      // Clicking the open chip again puts the card away; otherwise a click
-      // pins it, so the pointer can leave the chip to reach the pencil/trash.
-      const same = activeOcc && activeOcc.key === chip.dataset.key && activeOcc.date === chip.dataset.date;
-      if (same && pinned) { closeCard(); return; }
-      openCard({ key: chip.dataset.key, date: chip.dataset.date }, { pin: true });
+
+      const row = e.target.closest('.rec-rail-row');
+      if (!row) return;
+      const { key } = row.dataset;
+
+      // The trash can acts on the whole schedule, so it needs nothing on the
+      // calendar to be pointing at: the confirm is a dialog, like the editor.
+      if (e.target.closest('.rec-action-btn')) { confirmRemoveSchedule(key); return; }
+
+      // Anything else on the row opens that schedule's editor.
+      openScheduleDialog({ key });
     });
 
-    // ── Inside the card ──
-    pop.addEventListener('mouseenter', () => clearTimeout(closeTimer));
-    pop.addEventListener('mouseleave', scheduleClose);
-    pop.addEventListener('click', (e) => {
-      const btn = e.target.closest('.rec-action-btn');
-      if (!btn) return;
-      const { action, key } = btn.dataset;
-      if (action === 'edit') startEdit(key);
-      else if (action === 'save') commitEdit(key);
-      else if (action === 'cancel') cancelEdit();
-      else if (action === 'delete') confirmRemoveSchedule(key);
-    });
-    // Enter commits the open card, so an edit can be finished from the keyboard
-    // without reaching for the ✓, matching the dialogs elsewhere in the app.
-    // Escape is handled once, at the document level below, so it cannot both
-    // cancel the edit and close the card.
-    pop.addEventListener('keydown', (e) => {
-      if (editingKey && e.key === 'Enter') { e.preventDefault(); commitEdit(editingKey); }
-    });
-    pop.addEventListener('input', (e) => {
-      if (e.target.classList.contains('rec-input-amount')) applyCurrencyFormat(e.target);
-      // Typing is the fix for whatever the ✓ attempt flagged, so clear it as
-      // soon as they start rather than leaving a red box under a corrected value.
-      if (e.target.classList.contains('rec-input')) e.target.classList.remove('invalid');
-    });
-
-    document.getElementById('rec-empty').addEventListener('click', (e) => {
-      if (e.target.closest('[data-empty-action="detect"]')) openDetectDialog();
-    });
-
-    // A pinned card is dismissed like every other transient surface in the app:
-    // Escape, or a click outside it.
-    //
-    // Capture phase: the card's buttons re-render it, which detaches the node that
-    // was clicked. By the time a bubbling listener ran, e.target would be detached
-    // and closest() would find no #rec-pop ancestor, so pressing the pencil would
-    // register as an outside click and close the card instead of opening the
-    // editor.
-    document.addEventListener('click', (e) => {
-      if (!pinned || e.target.closest('#rec-pop, .rec-occ, .confirm-overlay')) return;
-      closeCard();
-    }, true);
-    // Escape steps back one level at a time: out of an edit first, out of the
-    // card second. A dialog on top handles its own Escape.
+    // The rail's mark is the page's one piece of transient state, so Escape
+    // drops it. A dialog on top handles its own Escape first.
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape' || document.querySelector('.confirm-overlay')) return;
-      if (editingKey) cancelEdit();
-      else if (activeOcc) closeCard();
+      if (pickedKey) clearPick();
     });
-
-    // The card is fixed-positioned against its chip, so it has to follow the
-    // page under it (the .page scroll container scrolls, not the window).
-    const reanchor = () => {
-      if (!activeOcc) return;
-      const chip = chipFor(activeOcc);
-      if (chip) positionCard(chip); else closeCard();
-    };
-    window.addEventListener('resize', reanchor);
-    document.addEventListener('scroll', reanchor, true);
 
     window.addEventListener('currencychange', render);
     load();

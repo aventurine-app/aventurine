@@ -329,6 +329,10 @@ const MIGRATIONS = [
   // alias table that lets one schedule own several description keys. Both are
   // additive and default to the pre-v16 behaviour (no band, no aliases), so
   // every existing schedule keeps detecting exactly as it did.
+  //
+  // The alias table is dropped again at v19; this step still creates it because
+  // a migration is a record of what happened, and a database climbing from v15
+  // passes through the shape v17's rebuild was written against.
   [16, (db) => {
     const cols = db.prepare('PRAGMA table_info(recurring_overrides)').all().map((c) => c.name);
     if (!cols.includes('amount_min')) db.exec('ALTER TABLE recurring_overrides ADD COLUMN amount_min FLOAT');
@@ -342,6 +346,79 @@ const MIGRATIONS = [
        FOREIGN KEY ("key") REFERENCES recurring_overrides ("key")
      )`);
     db.exec('CREATE INDEX IF NOT EXISTS ix_recurring_aliases_key ON recurring_aliases ("key")');
+  }],
+  // v17 — cadence becomes a RULE (services/recurrence.js) instead of one of five
+  // fixed cycle names, so a schedule can repeat every N weeks on a chosen
+  // weekday, every N months on a date or on an nth weekday, and can carry an end
+  // date. A rebuild rather than ADD COLUMNs: `cycle` is fully replaced, and
+  // leaving a column nothing reads is how two sources of truth start.
+  //
+  // The conversion is exact. Each old name is the rule that produces the same
+  // dates, and the day/weekday parts are deliberately left NULL: they come from
+  // the schedule's anchor at read time, which is where the old stepper took them
+  // from too. So a database climbing to v17 draws the same calendar it did.
+  [17, (db) => {
+    const cols = db.pragma('table_info(recurring_overrides)').map((c) => c.name);
+    if (cols.includes('rule_freq')) return;
+    db.exec(`
+      CREATE TABLE recurring_overrides_new (
+        "key" VARCHAR(200) NOT NULL,
+        display_name VARCHAR(100),
+        direction VARCHAR(10) CHECK (direction IN ('income', 'expense', 'transfer')),
+        rule_freq VARCHAR(10) CHECK (rule_freq IN ('weekly', 'monthly')),
+        rule_interval INTEGER CHECK (rule_interval >= 1),
+        rule_month_mode VARCHAR(10) CHECK (rule_month_mode IN ('date', 'day')),
+        rule_month_day INTEGER CHECK (rule_month_day BETWEEN 1 AND 31),
+        rule_week_pos INTEGER CHECK (rule_week_pos IN (1, 2, 3, 4, -1)),
+        rule_weekday INTEGER CHECK (rule_weekday BETWEEN 0 AND 6),
+        rule_until DATE,
+        amount FLOAT CHECK (amount > 0),
+        last_date DATE,
+        adopted INTEGER DEFAULT 0 NOT NULL CHECK (adopted IN (0, 1)),
+        amount_min FLOAT,
+        amount_max FLOAT,
+        PRIMARY KEY ("key")
+      );
+      INSERT INTO recurring_overrides_new
+        ("key", display_name, direction,
+         rule_freq, rule_interval, rule_month_mode, rule_month_day, rule_week_pos, rule_weekday, rule_until,
+         amount, last_date, adopted, amount_min, amount_max)
+        SELECT "key", display_name, direction,
+               CASE WHEN cycle IN ('weekly', 'biweekly') THEN 'weekly'
+                    WHEN cycle IN ('monthly', 'quarterly', 'yearly') THEN 'monthly' END,
+               CASE cycle WHEN 'weekly' THEN 1 WHEN 'biweekly' THEN 2
+                          WHEN 'monthly' THEN 1 WHEN 'quarterly' THEN 3 WHEN 'yearly' THEN 12 END,
+               CASE WHEN cycle IN ('monthly', 'quarterly', 'yearly') THEN 'date' END,
+               NULL, NULL, NULL, NULL,
+               amount, last_date, adopted, amount_min, amount_max
+          FROM recurring_overrides;
+      DROP TABLE recurring_overrides;
+      ALTER TABLE recurring_overrides_new RENAME TO recurring_overrides;
+    `);
+  }],
+  // v18 — a schedule can carry a CHOSEN category. Detection reads one off the
+  // ledger, which leaves a hand-added schedule (no transactions) with no
+  // category at all and no way to give it one. NULL keeps the detected answer,
+  // so every existing row carries on reading exactly as it did.
+  [18, (db) => {
+    const cols = db.pragma('table_info(recurring_overrides)').map((c) => c.name);
+    if (cols.includes('category_id')) return;
+    db.exec('ALTER TABLE recurring_overrides ADD COLUMN category_id INTEGER');
+  }],
+  // v19 — folded descriptions are gone. The editor panel that picked them was
+  // the only thing that ever wrote recurring_aliases, so the table is dropped
+  // rather than left as a store nothing reads. A schedule is its own
+  // normaliseDesc key again, which is what every row in the table was already
+  // saying on a database where nobody used the panel.
+  //
+  // Dropping the table takes ix_recurring_aliases_key with it. Rows that DID
+  // exist are discarded: the folding they described cannot be honoured any
+  // more, and keeping them would mean a schedule whose stored membership
+  // silently stops applying. The schedules themselves (recurring_overrides) are
+  // untouched — each keeps its own key, and the descriptions that had been
+  // folded in go back to detecting as series of their own.
+  [19, (db) => {
+    db.exec('DROP TABLE IF EXISTS recurring_aliases');
   }],
 ];
 

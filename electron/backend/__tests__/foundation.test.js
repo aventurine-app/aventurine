@@ -292,6 +292,34 @@ const V13_RECURRING = `CREATE TABLE recurring_overrides (
    PRIMARY KEY ("key")
  )`;
 
+// The v16 shape: recurring_overrides still carrying one of five cycle names,
+// before cadence became a rule.
+const V16_RECURRING = `CREATE TABLE recurring_overrides (
+   "key" VARCHAR(200) NOT NULL,
+   display_name VARCHAR(100),
+   direction VARCHAR(10) CHECK (direction IN ('income', 'expense', 'transfer')),
+   cycle VARCHAR(20)
+     CHECK (cycle IN ('weekly', 'biweekly', 'monthly', 'quarterly', 'yearly')),
+   amount FLOAT CHECK (amount > 0),
+   last_date DATE,
+   adopted INTEGER DEFAULT 0 NOT NULL CHECK (adopted IN (0, 1)),
+   amount_min FLOAT,
+   amount_max FLOAT,
+   PRIMARY KEY ("key")
+ )`;
+
+/** The alias table as v16 created it, for rewinding a database to a version
+ *  that still had it. v19 drops it, so no version at or above that has one. */
+function addAliases(db) {
+  db.exec(`CREATE TABLE IF NOT EXISTS recurring_aliases (
+     alias_key VARCHAR(200) NOT NULL,
+     "key" VARCHAR(200) NOT NULL,
+     PRIMARY KEY (alias_key),
+     FOREIGN KEY ("key") REFERENCES recurring_overrides ("key")
+   )`);
+  db.exec('CREATE INDEX IF NOT EXISTS ix_recurring_aliases_key ON recurring_aliases ("key")');
+}
+
 test('migration ladder: SCHEMA_VERSION is the top of it, with no gaps', () => {
   const keys = MIGRATIONS.map(([v]) => v);
   assert.deepStrictEqual(keys, [...keys].sort((a, b) => a - b), 'migrations are in order');
@@ -315,8 +343,8 @@ test('migration ladder: SCHEMA_VERSION is the top of it, with no gaps', () => {
 // comment-only edit.) Then bump SCHEMA_VERSION, add the migration, and update
 // the hash below in the same commit.
 test('baseline schema is pinned: changing it requires a migration', () => {
-  const EXPECTED_SCHEMA_VERSION = 16;
-  const EXPECTED_DDL_HASH = 'aa5776d8b0e1ba1203a61e0a819f99e9323ea5432e2be07fc6329a4e5dfa52f0';
+  const EXPECTED_SCHEMA_VERSION = 19;
+  const EXPECTED_DDL_HASH = 'a590015baa8c56cf4d23f7ed131950f2d3ce6727efe9f4ffaea246b5b5901166';
 
   const actual = crypto.createHash('sha256').update(DDL.join('\n')).digest('hex');
   assert.equal(
@@ -357,12 +385,30 @@ test('a migrated database matches a fresh one', () => {
     // v14 — before the Cash Flow covering index (climbs v15 + v16).
     14: (db) => db.exec('DROP INDEX ix_transactions_month_cat'),
     // v15 — before built schedules: no alias table, no amount band columns.
-    // ADD COLUMN appends, so the baseline declares these two last on purpose.
+    // ADD COLUMN appends, so the baseline declares every column a later
+    // migration adds last, in the order the ladder adds them: the band first
+    // (v16), then the chosen category (v18). Winding one back without the other
+    // would climb to the same columns in a different order.
     15: (db) => {
-      db.exec('DROP TABLE recurring_aliases');
       db.exec('ALTER TABLE recurring_overrides DROP COLUMN amount_min');
       db.exec('ALTER TABLE recurring_overrides DROP COLUMN amount_max');
+      db.exec('ALTER TABLE recurring_overrides DROP COLUMN category_id');
     },
+    // v16 — cadence as one of five cycle names, before it became a rule.
+    16: (db) => {
+      db.exec('DROP TABLE recurring_overrides');
+      db.exec(V16_RECURRING);
+      addAliases(db);
+    },
+    // v17 — before a schedule could carry a category of its own.
+    17: (db) => {
+      db.exec('ALTER TABLE recurring_overrides DROP COLUMN category_id');
+      addAliases(db);
+    },
+    // v18 — with the alias table v19 drops. The three cases above climb through
+    // v16, which creates it, so this one exists for the database that starts
+    // above that step and would otherwise never exercise the drop.
+    18: addAliases,
   };
 
   for (const [version, rewind] of Object.entries(cases)) {

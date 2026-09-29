@@ -184,12 +184,11 @@
       { key: 'netflix', description: 'NETFLIX.COM', display_name: 'Netflix', direction: 'expense', category_id: 5, category: 'Entertainment', search: 'NETFLIX.COM', amount: 15.49, cycle: 'monthly', occurrences: 6, confidence: 0.92, last_date: iso(14), next_date: iso(14) },
       { key: 'city_fitness', description: 'CITY FITNESS CLUB', display_name: 'City Fitness', direction: 'expense', category_id: 6, category: 'Health & Fitness', search: 'CITY FITNESS CLUB', amount: 42.0, cycle: 'monthly', occurrences: 5, confidence: 0.85, last_date: iso(3), next_date: iso(3) },
       { key: 'rent', description: 'RENT', display_name: null, direction: 'expense', category_id: 2, category: 'Rent / Mortgage', search: 'RENT', amount: 1500, cycle: 'monthly', occurrences: 8, confidence: 0.98, last_date: iso(1), next_date: iso(1) },
-      // Uncategorized — the card's amber "needs review" pill (.rec-type-empty).
       { key: 'spotify', description: 'SPOTIFY', display_name: 'Spotify', direction: 'expense', category_id: null, category: null, search: 'SPOTIFY', amount: 11.99, cycle: 'monthly', occurrences: 6, confidence: 0.9, last_date: iso(24), next_date: iso(24) },
       { key: 'acme_payroll', description: 'ACME PAYROLL', display_name: 'Acme Corp', direction: 'income', category_id: 1, category: 'Primary Income', search: 'ACME PAYROLL', amount: 3000, cycle: 'biweekly', occurrences: 10, confidence: 0.95, last_date: iso(15), next_date: iso(15) },
-      // Hand-added: no transactions behind it, so no occurrence count, no
-      // category and no `search` — the card shows its name as plain text
-      // rather than as a link to a ledger view that would come back empty.
+      // Hand-added: no transactions behind it, so no occurrence count and no
+      // `search` — the card shows its name as plain text rather than as a link
+      // to a ledger view that would come back empty.
       { key: 'locker rental', description: 'Locker Rental', display_name: 'Locker Rental', direction: 'expense', category_id: null, category: null, search: null, amount: 8, cycle: 'monthly', occurrences: 0, confidence: 1, last_date: iso(26), next_date: iso(26) },
     ];
     const occurrences = series.map((s) => ({
@@ -512,6 +511,17 @@
     },
     '/api/recurring': recurringFixture,
     '/api/recurring/candidates': recurringCandidatesFixture,
+    // static/js/pages/recurring.js — the editor's Name-field suggestions, from
+    // the bundled merchant lexicon. The query string is ignored here (fixtures
+    // key on the path), so the list is the same whatever is typed: enough to
+    // style and keyboard-test the popover without a backend.
+    '/api/recurring/brands': {
+      brands: [
+        { name: 'Whole Foods', category_id: 5, category: 'Food', direction: 'expense' },
+        { name: 'Chipotle', category_id: 5, category: 'Food', direction: 'expense' },
+        { name: 'Verizon', category_id: 6, category: 'Utilities', direction: 'expense' },
+      ],
+    },
     // static/js/pages/trends.js — 12-month per-category spend series for
     // the Spending Trends chart.
     '/api/trends': {
