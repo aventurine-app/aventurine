@@ -77,6 +77,8 @@ const appGlobals = {
   aventurineZoom: 'readonly',
   // widgets/chart.js
   FinanceChart: 'readonly',
+  // widgets/donut.js
+  DonutChart: 'readonly',
   // widgets/cellselect.js
   enableCellSelection: 'readonly',
   // widgets/bubblefield.js (the Budgets page's circles)

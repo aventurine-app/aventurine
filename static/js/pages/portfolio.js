@@ -14,8 +14,7 @@
 //     thead, entry rows, totals tfoot)
 //   - Per-row arrow-key navigation (by row + column index, since portfolio rows
 //     are not keyed by month like year tables are)
-//   - The "Rename Table" / "Duplicate Table" / "Delete Table" ⋮ menu and
-//     the "Remove Asset" modal
+//   - The "Rename Table" / "Delete Table" ⋮ menu and the "Remove Row" modal
 //
 // What it borrows from tables.js / currency.js (both already loaded):
 //   - escapeHtml (core/escape.js); debounce, formatDisplay, applyCommaFormat
@@ -68,7 +67,6 @@
         return {
             getAll:           ()                  => apiFetch('/api/portfolio/data').then(r => r.json()),
             renameAccount:    (id, name)          => sendJson(`/api/portfolio/account/${id}`, 'PUT', { name }).then(r => r.json()),
-            duplicateAccount: (id)                => apiFetch(`/api/portfolio/account/${id}/duplicate`, { method: 'POST' }).then(r => r.json()),
             deleteAccount:    (id)                => guardWrite(apiFetch(`/api/portfolio/account/${id}`, { method: 'DELETE' })),
             createAccount:    (name)              => sendJson('/api/portfolio/account', 'POST', { name }).then(r => r.json()),
             createEntry:      (accountId)         => sendJson('/api/portfolio/entry', 'POST', { account_id: accountId }).then(r => r.json()),
@@ -88,15 +86,92 @@
         const data = await portfolioApi.getAll();
         ACCOUNTS   = data.accounts;
         renderTables();
+        renderSummary({ animate: true });
     }
+
+    // ─── Allocation donut ───────────────────────────────────────────────────────
+    // One slice per account, sized by its market value (sum of amount × market
+    // price). Colours walk the grey balance ramp in account order: an account is
+    // an identity rather than a magnitude, and holdings are money held still, the
+    // same reading the Dashboard's Balances donut gives that ramp. Colour follows
+    // the account's place in the page, not its size, so a slice keeps its colour
+    // while the figures change under it.
+    const BALANCE_RAMP_SIZE = 8;
+    const BALANCE_FALLBACK = [
+        '#4e5153', '#5c5f61', '#6a6d70', '#787b7e',
+        '#878a8d', '#989b9e', '#a9acaf', '#bcbfc2',
+    ];
+
+    function readBalanceRamp() {
+        const cs = getComputedStyle(document.documentElement);
+        return BALANCE_FALLBACK.map((fallback, i) =>
+            cs.getPropertyValue(`--chart-balance-${i + 1}`).trim() || fallback);
+    }
+
+    const accountMarketValue = (account) =>
+        account.entries.reduce((sum, e) => sum + (e.amount || 0) * (e.market_price || 0), 0);
+
+    /** Redraw the donut and its legend from ACCOUNTS. `animate` is true for the
+     *  first paint and false for edits, so typing never replays the sweep. */
+    function renderSummary({ animate }) {
+        const pieEl    = document.getElementById('portfolio-pie');
+        const legendEl = document.getElementById('portfolio-legend');
+        const ramp     = readBalanceRamp();
+
+        const slices = ACCOUNTS
+            .map((account, i) => ({
+                label:  account.name,
+                color:  ramp[i % BALANCE_RAMP_SIZE],
+                value:  accountMarketValue(account),
+            }))
+            .filter(s => s.value > 0)
+            .map(s => ({ ...s, valueText: formatCurrency(s.value, true) }));
+
+        const total = slices.reduce((sum, s) => sum + s.value, 0);
+        if (total === 0) {
+            pieEl.style.display = 'none';
+            pieEl.innerHTML = '';
+            legendEl.innerHTML = UI.emptyState({
+                icon: null, compact: true,
+                title: 'No holdings to chart yet',
+            });
+            return;
+        }
+
+        pieEl.style.display = '';
+        DonutChart.render(pieEl, {
+            slices,
+            centerLabel: 'Total',
+            centerValue: formatCurrency(total, true),
+            animate,
+        });
+
+        legendEl.innerHTML = slices.map(s => `
+            <div class="accounts-legend-item">
+                <span class="accounts-legend-dot" style="background:${escapeHtml(s.color)}"></span>
+                <div class="accounts-legend-text">
+                    <div class="accounts-legend-head">
+                        <div class="accounts-legend-label">${escapeHtml(s.label)}</div>
+                        <div class="accounts-legend-pct">${((s.value / total) * 100).toFixed(1)}%</div>
+                    </div>
+                    <div class="accounts-legend-value">${escapeHtml(s.valueText)}</div>
+                </div>
+            </div>`).join('');
+    }
+
+    // Typing in a price or amount changes a slice on every keystroke; coalesce
+    // the redraws the same way the saves are.
+    const refreshSummaryAfterEdit = debounce(() => renderSummary({ animate: false }), 250);
 
     /** Rebuild the tables container from ACCOUNTS. Order matches the API response. */
     function renderTables() {
         const container = document.querySelector('.db-tables-container');
         container.innerHTML = '';
-        for (const account of ACCOUNTS) {
-            container.appendChild(buildTable(account));
-        }
+        // Only the first account opens expanded; the rest start collapsed so a
+        // long list of accounts doesn't push the first one's assets off screen.
+        ACCOUNTS.forEach((account, i) => {
+            container.appendChild(buildTable(account, { collapsed: i > 0 }));
+        });
     }
 
     // ─── Table builder ──────────────────────────────────────────────────────────
@@ -105,11 +180,11 @@
      * tables.js (db-outer > db-wrapper > db-table > thead+tbody+tfoot) but with
      * a portfolio-specific 7-column header and forehead button bar:
      *
-     *   forehead: [account name] ………………… [+ Add Asset] [− Remove Asset] [⋮]
+     *   forehead: [account name] ………………… [+ Add Row] [− Remove Row] [⋮]
      *
      * Selecting the ⋮ menu opens Rename Table / Duplicate Table / Delete Table.
      */
-    function buildTable(account) {
+    function buildTable(account, { collapsed = false } = {}) {
         const outer = document.createElement('div');
         outer.className = 'db-outer';
         outer.dataset.accountId = account.id;
@@ -138,7 +213,22 @@
         const nameSpan = document.createElement('span');
         nameSpan.className = 'db-title-label';
         nameSpan.textContent = account.name;
-        titleInner.appendChild(nameSpan);
+
+        // The chevron is the keyboard-reachable toggle; a click anywhere on the
+        // forehead (outside the button group) does the same, handled below.
+        const collapseBtn = document.createElement('button');
+        collapseBtn.type = 'button';
+        collapseBtn.className = 'p-collapse-btn';
+        collapseBtn.title = 'Collapse or expand';
+        collapseBtn.setAttribute('aria-expanded', String(!collapsed));
+        outer.classList.toggle('is-collapsed', collapsed);
+        collapseBtn.setAttribute('aria-label', 'Collapse or expand account');
+        collapseBtn.innerHTML = '<svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"></path></svg>';
+
+        const titleLeft = document.createElement('div');
+        titleLeft.className = 'p-title-left';
+        titleLeft.append(collapseBtn, nameSpan);
+        titleInner.appendChild(titleLeft);
 
         // ── Right-aligned button group: [+ Add] [− Remove] [⋮] ─────────────────
         const btnGroup = document.createElement('div');
@@ -146,13 +236,13 @@
 
         const addBtn = document.createElement('button');
         addBtn.className   = 'button-secondary';
-        addBtn.textContent = '+ Add Asset';
+        addBtn.textContent = '+ Add Row';
         addBtn.addEventListener('click', () => addEntry(account.id, wrapper));
         btnGroup.appendChild(addBtn);
 
         const removeBtn = document.createElement('button');
         removeBtn.className   = 'button-secondary';
-        removeBtn.textContent = '− Remove Asset';
+        removeBtn.textContent = '− Remove Row';
         removeBtn.addEventListener('click', () => showRemoveEntryModal(account, wrapper));
         btnGroup.appendChild(removeBtn);
 
@@ -161,9 +251,6 @@
         menuBtn.textContent = '⋮';
         menuBtn.title       = 'Table options';
         menuBtn.addEventListener('click', e => {
-            // The forehead has a click handler (toggle collapse) on year tables;
-            // portfolio does not toggle on title click, but propagation is stopped
-            // in case that changes later.
             e.stopPropagation();
             openAccountMenu(account, menuBtn, nameSpan);
         });
@@ -172,6 +259,11 @@
         titleInner.appendChild(btnGroup);
         titleTh.appendChild(titleInner);
         titleRow.appendChild(titleTh);
+        titleRow.addEventListener('click', e => {
+            if (e.target.closest('.p-forehead-btns')) return;
+            const collapsed = outer.classList.toggle('is-collapsed');
+            collapseBtn.setAttribute('aria-expanded', String(!collapsed));
+        });
         thead.appendChild(titleRow);
 
         // ── thead row 2: column headers ────────────────────────────────────────
@@ -221,16 +313,14 @@
     // ─── ⋮ account options menu ─────────────────────────────────────────────────
 
     /**
-     * Open the ⋮ dropdown for an account. Portfolio has three options where year
-     * tables have only two — Rename Table is meaningful here because the account
-     * name is user-controlled (year tables can't be renamed because the year IS
-     * the identifier).
+     * Open the ⋮ dropdown for an account. Rename Table is meaningful here because
+     * the account name is user-controlled (year tables can't be renamed because
+     * the year IS the identifier).
      */
     function openAccountMenu(account, menuBtn, nameSpan) {
         UI.openMenu(menuBtn, [
-            { label: 'Rename Table',    action: () => renameAccountDialog(account, nameSpan) },
-            { label: 'Duplicate Table', action: () => duplicateAccount(account) },
-            { label: 'Delete Table',    action: () => confirmDeleteAccount(account), danger: true },
+            { label: 'Rename Table', action: () => renameAccountDialog(account, nameSpan) },
+            { label: 'Delete Table', action: () => confirmDeleteAccount(account), danger: true },
         ]);
     }
 
@@ -258,7 +348,11 @@
             const name = input.value.trim();
             if (name && name !== account.name) {
                 const result = await portfolioApi.renameAccount(account.id, name);
-                if (result.ok) { account.name = name; nameSpan.textContent = name; }
+                if (result.ok) {
+                    account.name = name;
+                    nameSpan.textContent = name;
+                    renderSummary({ animate: false });
+                }
             }
             close();
         };
@@ -267,19 +361,6 @@
         input.addEventListener('keydown', e => {
             if (e.key === 'Enter')  { e.preventDefault(); commit(); }
         });
-    }
-
-    /**
-     * Server-side duplicate of an account (copies name + all entries with a
-     * " (Copy)" suffix). On success the new account table is appended directly
-     * rather than re-rendering the whole page, so the existing tables keep their
-     * input focus and cursor position.
-     */
-    async function duplicateAccount(account) {
-        const data = await portfolioApi.duplicateAccount(account.id);
-        if (!data.ok) return;
-        ACCOUNTS.push(data.account);
-        document.querySelector('.db-tables-container').appendChild(buildTable(data.account));
     }
 
     // ─── Arrow-key navigation ───────────────────────────────────────────────────
@@ -474,12 +555,14 @@
             clampDecimals(amountInp, AMOUNT_DP);
             applyCommaFormat(amountInp);
             updateComputed();
+            refreshSummaryAfterEdit();
             debouncedSave();
         });
         [avgInp, mktInp].forEach(inp => {
             inp.addEventListener('input', () => {
                 applyCurrencyFormat(inp);
                 updateComputed();
+                refreshSummaryAfterEdit();
                 debouncedSave();
             });
         });
@@ -627,6 +710,7 @@
         if (account) account.entries.push(data.entry);
         wrapper.querySelector('tbody').appendChild(buildEntryRow(data.entry, accountId, wrapper));
         refreshFooter(wrapper, account ? account.entries : []);
+        renderSummary({ animate: false });
     }
 
     /** Create a new account on the backend and append its empty table. */
@@ -635,6 +719,7 @@
         if (!data.ok) return;
         ACCOUNTS.push(data.account);
         document.querySelector('.db-tables-container').appendChild(buildTable(data.account));
+        renderSummary({ animate: false });
     }
 
     /**
@@ -649,42 +734,75 @@
      */
     function showRemoveEntryModal(account, wrapper) {
         const entries = account.entries;
-        const listHtml = entries.length
-            ? entries.map(e => `
-            <div class="remove-entry-item" data-id="${e.id}">
-                <span class="remove-entry-name">${escapeHtml(e.asset_name || 'Unnamed')}</span>
-                <span class="remove-entry-ticker">${escapeHtml(e.ticker || '—')}</span>
-            </div>`).join('')
-            : '<p class="remove-entry-empty">No assets in this account.</p>';
 
+        // Nothing to pick from: the shared picker's empty form, one Close button.
+        if (!entries.length) {
+            UI.dialog(`
+                <p><strong>No assets to remove</strong></p>
+                <div class="confirm-actions">
+                    <button class="db-btn confirm-cancel">Close</button>
+                </div>`, { className: 'pick-dialog' });
+            return;
+        }
+
+        const rowsHtml = entries.map(e => {
+            const value = (e.amount || 0) * (e.market_price || 0);
+            return `<label class="pick-row">
+                <input type="checkbox" class="pick-cb" data-id="${e.id}">
+                <span class="pick-text">
+                    <span class="pick-name">${escapeHtml(e.asset_name || 'Unnamed')}</span>
+                    <span class="pick-detail">${escapeHtml(e.ticker || '—')}</span>
+                </span>
+                <span class="pick-amount">${value ? escapeHtml(formatCurrency(value, true)) : ''}</span>
+            </label>`;
+        }).join('');
+
+        // The multi-select dialog shared with Detect Schedules (picker.css). It
+        // has no Cancel button: the dialog's × and Escape already close it.
         const { overlay, close } = UI.dialog(`
-            <p style="margin-bottom:10px">Select an asset to remove:</p>
-            <div class="remove-entry-list">${listHtml}</div>
-            <div class="confirm-actions" style="margin-top:14px">
-                <button class="db-btn confirm-cancel">Cancel</button>
-                <button class="db-btn db-btn-danger confirm-delete" disabled>Remove</button>
-            </div>`);
+            <p><strong>Select assets to remove</strong></p>
+            <label class="pick-all">
+                <input type="checkbox" id="p-remove-all">
+                <span>Select all (${entries.length})</span>
+            </label>
+            <div class="pick-list">${rowsHtml}</div>
+            <div class="confirm-actions">
+                <button class="db-btn db-btn-danger confirm-delete" disabled>Remove selected</button>
+            </div>`, { className: 'pick-dialog' });
 
-        let selectedId  = null;
+        const allBox    = overlay.querySelector('#p-remove-all');
+        const boxes     = [...overlay.querySelectorAll('.pick-cb')];
         const removeBtn = overlay.querySelector('.confirm-delete');
+        const checked   = () => boxes.filter(b => b.checked);
 
-        overlay.querySelectorAll('.remove-entry-item').forEach(item => {
-            item.addEventListener('click', () => {
-                overlay.querySelectorAll('.remove-entry-item').forEach(i => i.classList.remove('selected'));
-                item.classList.add('selected');
-                selectedId = parseInt(item.dataset.id, 10);
-                removeBtn.disabled = false;
-            });
+        // Remove with nothing ticked has nothing to do, so the button is disabled
+        // rather than left to do nothing on click.
+        const syncState = () => {
+            const n = checked().length;
+            allBox.checked       = n === boxes.length;
+            allBox.indeterminate = n > 0 && n < boxes.length;
+            removeBtn.disabled   = n === 0;
+            removeBtn.textContent = n ? `Remove ${n} row${n === 1 ? '' : 's'}` : 'Remove selected';
+        };
+
+        allBox.addEventListener('change', () => {
+            boxes.forEach(b => { b.checked = allBox.checked; });
+            syncState();
         });
+        overlay.querySelector('.pick-list').addEventListener('change', syncState);
 
         removeBtn.addEventListener('click', async () => {
-            if (!selectedId) return;
+            const ids = checked().map(b => parseInt(b.dataset.id, 10));
+            if (ids.length === 0) return;
+            const selectedIds = new Set(ids);
             close();
-            await portfolioApi.deleteEntry(selectedId);
-            account.entries = account.entries.filter(e => e.id !== selectedId);
-            const tr = wrapper.querySelector(`tr[data-entry-id="${selectedId}"]`);
-            if (tr) tr.remove();
+            await Promise.all(ids.map(id => portfolioApi.deleteEntry(id)));
+            account.entries = account.entries.filter(e => !selectedIds.has(e.id));
+            for (const id of ids) {
+                wrapper.querySelector(`tr[data-entry-id="${id}"]`)?.remove();
+            }
             refreshFooter(wrapper, account.entries);
+            renderSummary({ animate: false });
         });
     }
 
@@ -702,5 +820,6 @@
         await portfolioApi.deleteAccount(account.id);
         ACCOUNTS = ACCOUNTS.filter(a => a.id !== account.id);
         document.querySelector(`.db-outer[data-account-id="${account.id}"]`)?.remove();
+        renderSummary({ animate: false });
     }
 }());

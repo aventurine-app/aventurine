@@ -5,6 +5,7 @@
     <title>Aventurine | Portfolio</title>
     <!-- @include head -->
     <link rel="stylesheet" href="/static/css/tables.css">
+    <link rel="stylesheet" href="/static/css/donut.css">
     <link rel="stylesheet" href="/static/css/portfolio.css">
 </head>
 <body>
@@ -16,15 +17,25 @@
         <div class="page">
              
 <div class="db-page">
-    <div class="db-actions">
-        <button class="button-primary">Add Account</button>
+    <div class="portfolio-layout">
+        <aside class="portfolio-summary" aria-labelledby="portfolio-summary-title">
+            <h2 class="portfolio-summary-title" id="portfolio-summary-title">Allocation</h2>
+            <div id="portfolio-pie" class="accounts-pie"></div>
+            <div id="portfolio-legend" class="accounts-legend"></div>
+        </aside>
+        <div class="portfolio-main">
+            <div class="db-tables-container"></div>
+            <div class="db-actions">
+                <button class="button-primary">Add Account</button>
+            </div>
+        </div>
     </div>
-    <div class="db-tables-container"></div>
 </div>
         </div>
     </div>
 
     <!-- @include scripts -->
+    <script src="/static/js/widgets/donut.js"></script>
     <script src="/static/js/widgets/cellselect.js"></script>
     <script src="/static/js/widgets/tables.js"></script>
     <script src="/static/js/pages/portfolio.js"></script>
