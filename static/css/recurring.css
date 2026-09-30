@@ -21,9 +21,8 @@
    drawn twice, and it went — but a next-due date is frequently in a month the
    grid is not showing, and a month's total is not readable off 42 cells.
 
-   The confirm-dialog shell (.confirm-*) and the ⋮ menu trigger (.p-menu-btn)
-   the Detect/Add/Remove flows use are shared globals (style.css §7b) —
-   nothing to restate here.
+   The confirm-dialog shell (.confirm-*) the Detect/Add/Remove flows use is a
+   shared global (style.css §7b) — nothing to restate here.
    ============================================================================ */
 
 /* Anchor to the top so the cards never scroll out of reach when zoomed in
@@ -786,7 +785,7 @@ html[data-theme="dark"] {
 .rec-amount-transfer { color: var(--accent-info); }
 
 /* ─── Detection picker ──────────────────────────────────────────────────────
-   The ⋮ → "Find recurring schedules" dialog: what detection turned up, one
+   The rail's "Detect Schedules" dialog: what detection turned up, one
    tickable row each. Wider than the Add form since each row carries a name,
    a cadence/history line and an amount; the list itself scrolls so a big
    first import can't push the buttons off-screen. */
@@ -942,9 +941,6 @@ html[data-theme="dark"] {
     min-width: 0;
 }
 .rec-field-wide { grid-column: 1 / -1; }
-/* A field standing on its own in a dialog rather than in the grid, so it
-   carries the row spacing the grid's gap would have given it. */
-.rec-field-spaced { margin-bottom: var(--space-12); }
 
 .rec-field-label {
     color: var(--text-tertiary);

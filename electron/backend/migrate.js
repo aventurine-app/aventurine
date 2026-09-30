@@ -420,6 +420,28 @@ const MIGRATIONS = [
   [19, (db) => {
     db.exec('DROP TABLE IF EXISTS recurring_aliases');
   }],
+  // v20 — the amount band (v16) and the chosen category (v18) are dropped. Both
+  // were written for surfaces that no longer exist: the band by the schedule
+  // builder that v19 already took the alias table from, and the category by an
+  // editor field that never shipped. Neither had anything left that could write
+  // one, and the Recurring page draws no category at all, so both columns were
+  // stores with no writer AND no reader.
+  //
+  // Dropped rather than left in place for the reason v17 rebuilt instead of
+  // adding: a column nothing reads is how two sources of truth start, and the
+  // next person to find one has to work out which half is live. Any value a
+  // database does hold is discarded, which is the honest outcome — a band that
+  // is no longer honoured on read would otherwise silently stop applying, and a
+  // category no surface shows cannot be told apart from none.
+  //
+  // DROP COLUMN, not a rebuild: neither column carries a constraint, an index or
+  // the primary key, which is the case SQLite can drop in place.
+  [20, (db) => {
+    const cols = db.pragma('table_info(recurring_overrides)').map((c) => c.name);
+    for (const col of ['amount_min', 'amount_max', 'category_id']) {
+      if (cols.includes(col)) db.exec(`ALTER TABLE recurring_overrides DROP COLUMN ${col}`);
+    }
+  }],
 ];
 
 /**

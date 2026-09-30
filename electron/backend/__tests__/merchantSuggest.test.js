@@ -1,10 +1,9 @@
 'use strict';
 
 // services/merchantSuggest.js — the brand index behind the Recurring editor's
-// Name suggestions. The endpoint that serves them (GET /api/recurring/brands,
-// which resolves each category key against the user's own taxonomy) is covered
-// in recurring.test.js; this file pins the pure half: what counts as a match,
-// and the order the matches come back in.
+// Name suggestions. The endpoint that serves them (GET /api/recurring/brands) is
+// covered in recurring.test.js; this file pins the pure half: what counts as a
+// match, and the order the matches come back in.
 //
 // Order is the part worth pinning. The list is short and the top row is what a
 // user takes with one Enter, so a query that plainly names one merchant has to
@@ -15,7 +14,7 @@ const assert = require('node:assert');
 
 const { suggestMerchants, BRANDS } = require('../services/merchantSuggest');
 
-const names = (q, limit) => suggestMerchants(q, limit).map((b) => b.name);
+const names = (q, limit) => suggestMerchants(q, limit);
 
 test('merchant suggest: a prefix of the name puts that merchant first', () => {
   assert.equal(names('netfl')[0], 'Netflix');
@@ -62,11 +61,10 @@ test('merchant suggest: the same query twice gives the same list, in the same or
   assert.deepStrictEqual(names('ma'), names('ma'), 'a list that reshuffled would move the row under the pointer');
 });
 
-test('merchant suggest: every brand carries a name and a category key to offer', () => {
+test('merchant suggest: every brand carries a name and something to find it by', () => {
   assert.ok(BRANDS.length > 100, 'the lexicon is the whole point');
   for (const brand of BRANDS) {
     assert.ok(brand.name && typeof brand.name === 'string', `named: ${JSON.stringify(brand)}`);
-    assert.ok(brand.category_key, `categorized: ${brand.name}`);
     assert.ok(brand.needles.length, `searchable: ${brand.name}`);
   }
 });

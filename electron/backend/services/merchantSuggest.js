@@ -3,25 +3,24 @@
 // Merchant name suggestions, drawn from the BUNDLED lexicon
 // (services/merchantCategories.js) rather than from the user's ledger.
 //
-// The two are different questions and both have a place. GET
-// /api/recurring/similar searches the ledger: "which of my transactions is
-// this?". This one searches the brand list the app ships with: "what is this
-// merchant called, and what kind of spending is it?" — which is the only
+// The two are different questions and both have a place. Detection searches the
+// ledger: "which of my transactions is this?". This one searches the brand list
+// the app ships with: "what is this merchant called?" — which is the only
 // question a schedule for a charge that has never posted can ask, since there
 // are no transactions to search.
 //
-// Two things come back with the name, and both are free consequences of getting
-// the spelling right:
-//   - the CATEGORY, because the lexicon is a needle -> category-key table to
-//     begin with (it is what cold-start auto-categorization runs on);
-//   - the AVATAR, because static/js/core/avatar.js slugs a label and looks it
-//     up in the generated icon manifest, and the lexicon's display names are
-//     what generated that manifest (electron/scripts/fetch-merchant-icons.js).
-//     So nothing here mentions icons: naming the merchant exactly is what draws
-//     one, on the calendar chip and everywhere else the schedule appears.
+// A NAME IS THE WHOLE ANSWER, and it is worth more than it looks: the AVATAR
+// comes free with it, because static/js/core/avatar.js slugs a label and looks
+// it up in the generated icon manifest, and the lexicon's display names are what
+// generated that manifest (electron/scripts/fetch-merchant-icons.js). So nothing
+// here mentions icons — naming the merchant exactly is what draws one, on the
+// calendar chip and everywhere else the schedule appears.
 //
-// Nothing is associated with any transaction. A suggestion fills in two form
-// fields; it does not claim a row, an alias or a history.
+// The lexicon is a needle -> category-key table, and the category half is
+// deliberately left behind: the schedule editor offers no category field, so a
+// suggestion that carried one would be an answer with nowhere to go. Nothing is
+// associated with any transaction either. A suggestion fills in one form field;
+// it does not claim a row, a category or a history.
 
 const { MERCHANTS, merchantDisplayFor } = require('./merchantCategories');
 
@@ -34,22 +33,18 @@ const { MERCHANTS, merchantDisplayFor } = require('./merchantCategories');
  * Generic needles (merchantDisplayFor returns null for "grocery", "payroll", …)
  * categorize but must never rename, so they are not names to suggest.
  *
- * The FIRST needle's category wins where a brand's spellings disagree. The
- * lexicon is written one brand at a time, so its spellings share a category in
- * practice; taking the first keeps the tie-break stated rather than accidental.
- *
  * Built once at require time. ~1600 brands of a few words each — a few hundred
  * KB of strings held for the life of the process, against rebuilding the index
  * on every keystroke.
  */
 const BRANDS = (() => {
-  const byName = new Map(); // display name -> { name, lower, category_key, needles }
-  for (const [needle, categoryKey] of MERCHANTS) {
+  const byName = new Map(); // display name -> { name, lower, needles }
+  for (const [needle] of MERCHANTS) {
     const name = merchantDisplayFor(needle);
     if (!name) continue;
     let brand = byName.get(name);
     if (!brand) {
-      brand = { name, lower: name.toLowerCase(), category_key: categoryKey, needles: [] };
+      brand = { name, lower: name.toLowerCase(), needles: [] };
       byName.set(name, brand);
     }
     brand.needles.push(needle);
@@ -75,7 +70,7 @@ function matchRank(brand, q) {
 }
 
 /**
- * The merchants matching `q`, best first, capped at `limit`.
+ * The display names matching `q`, best first, capped at `limit`.
  *
  * A linear scan of the brand list. At ~1600 short strings per keystroke this
  * measures well under a millisecond, and an index would have to be rebuilt
@@ -95,10 +90,7 @@ function suggestMerchants(q, limit = 8) {
     if (rank >= 0) hits.push({ rank, brand });
   }
   hits.sort((a, b) => a.rank - b.rank);
-  return hits.slice(0, limit).map(({ brand }) => ({
-    name: brand.name,
-    category_key: brand.category_key,
-  }));
+  return hits.slice(0, limit).map(({ brand }) => brand.name);
 }
 
 module.exports = { suggestMerchants, BRANDS };

@@ -647,187 +647,23 @@ test('recurring clear all: an unadopted candidate is left alone', (t) => {
   assert.equal(row.display_name, 'Streaming', 'an untouched row keeps its corrections');
 });
 
-// ─── Category (the card's pill) ───────────────────────────────────────────────
-
-test('recurring category: a series carries the category its transactions have', (t) => {
-  const c = makeClient(t);
-  const food = catId(c, 'food');
-  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
-    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
-  }
-  adoptAll(c);
-  const s = c.get('/api/recurring').body.series[0];
-  assert.equal(s.category_id, food);
-  assert.equal(s.category, 'Food');
-});
-
-test('recurring category: uncategorized transactions leave it null, not guessed', (t) => {
-  const c = makeClient(t);
-  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
-    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM' });
-  }
-  adoptAll(c);
-  const s = c.get('/api/recurring').body.series[0];
-  assert.equal(s.category_id, null);
-  assert.equal(s.category, null);
-});
-
-test('recurring category: the majority category wins when a series is split', (t) => {
-  const c = makeClient(t);
-  const food = catId(c, 'food');
-  const entertainment = catId(c, 'entertainment');
-  // Three of four rows are Entertainment; one Food row must not decide the
-  // category.
-  insertTx(c, { date: daysAgoIso(95), amount: 15.49, description: 'NETFLIX.COM', category_id: food });
-  for (const date of [daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
-    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: entertainment });
-  }
-  adoptAll(c);
-  assert.equal(c.get('/api/recurring').body.series[0].category, 'Entertainment');
-});
-
-test('recurring category: an uncategorized row does not outvote a categorized one', (t) => {
-  const c = makeClient(t);
-  const food = catId(c, 'food');
-  insertTx(c, { date: daysAgoIso(95), amount: 15.49, description: 'NETFLIX.COM' });
-  insertTx(c, { date: daysAgoIso(65), amount: 15.49, description: 'NETFLIX.COM' });
-  insertTx(c, { date: daysAgoIso(35), amount: 15.49, description: 'NETFLIX.COM', category_id: food });
-  insertTx(c, { date: daysAgoIso(5), amount: 15.49, description: 'NETFLIX.COM' });
-  adoptAll(c);
-  assert.equal(c.get('/api/recurring').body.series[0].category, 'Food',
-    'rows with no category abstain rather than voting for "none"');
-});
-
-test('recurring category: a hand-added schedule has none', (t) => {
-  const c = makeClient(t);
-  c.post('/api/recurring/schedule', {
-    display_name: 'Gym Membership', direction: 'expense', cycle: 'monthly', amount: 45, next_date: daysAgoIso(-14),
-  });
-  const s = c.get('/api/recurring').body.series[0];
-  assert.equal(s.category, null, 'nothing backs it, so there is nothing to read a category from');
-});
-
-test('recurring category: candidates carry it too, for the picker', (t) => {
-  const c = makeClient(t);
-  const food = catId(c, 'food');
-  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
-    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
-  }
-  assert.equal(c.get('/api/recurring/candidates').body.candidates[0].category, 'Food');
-});
-
-// ─── Category: the user's own answer ──────────────────────────────────────────
-// A schedule can be FILED under a category rather than only inheriting one from
-// its transactions. That is the only way a hand-added schedule gets a category
-// at all (it has no transactions to read one off), and on a detected schedule it
-// is an override like any other: absent means "keep following the ledger".
-
-test('recurring category: a chosen category outranks the one the transactions carry', (t) => {
-  const c = makeClient(t);
-  const food = catId(c, 'food');
-  const entertainment = catId(c, 'entertainment');
-  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
-    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
-  }
-  const [key] = adoptAll(c);
-  c.post('/api/recurring/override', { key, category_id: entertainment });
-  const s = c.get('/api/recurring').body.series[0];
-  assert.equal(s.category_id, entertainment);
-  assert.equal(s.category, 'Entertainment');
-});
-
-test('recurring category: clearing the choice goes back to what the transactions say', (t) => {
-  const c = makeClient(t);
-  const food = catId(c, 'food');
-  const entertainment = catId(c, 'entertainment');
-  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
-    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
-  }
-  const [key] = adoptAll(c);
-  c.post('/api/recurring/override', { key, category_id: entertainment });
-  c.post('/api/recurring/override', { key, category_id: null });
-  assert.equal(c.get('/api/recurring').body.series[0].category, 'Food');
-});
-
-test('recurring category: the chosen one owns the direction, as it does on a transaction', (t) => {
-  const c = makeClient(t);
-  const salary = catId(c, 'income');
-  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
-    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM' });
-  }
-  const [key] = adoptAll(c);
-  assert.equal(c.get('/api/recurring').body.series[0].direction, 'expense');
-  c.post('/api/recurring/override', { key, category_id: salary });
-  const s = c.get('/api/recurring').body.series[0];
-  assert.equal(s.direction, 'income', 'filed under an income category, so it is income');
-  const month = currentMonthKey();
-  const occ = c.get(`/api/recurring?month=${month}`).body.occurrences.filter((o) => o.key === key);
-  assert.ok(occ.length && occ.every((o) => o.direction === 'income'), 'and the calendar agrees');
-});
-
-test('recurring category: a hand-added schedule can be created with one', (t) => {
-  const c = makeClient(t);
-  const food = catId(c, 'food');
-  c.post('/api/recurring/schedule', {
-    display_name: 'Gym Membership', direction: 'expense', cycle: 'monthly',
-    amount: 45, next_date: daysAgoIso(-14), category_id: food,
-  });
-  const s = c.get('/api/recurring').body.series[0];
-  assert.equal(s.category_id, food);
-  assert.equal(s.category, 'Food');
-});
-
-test('recurring category: a hand-added schedule can be given one afterwards', (t) => {
-  const c = makeClient(t);
-  const food = catId(c, 'food');
-  c.post('/api/recurring/schedule', {
-    display_name: 'Gym Membership', direction: 'expense', cycle: 'monthly', amount: 45, next_date: daysAgoIso(-14),
-  });
-  const key = c.get('/api/recurring').body.series[0].key;
-  c.post('/api/recurring/override', { key, category_id: food });
-  assert.equal(c.get('/api/recurring').body.series[0].category, 'Food');
-});
-
-test('recurring category: an id this database does not have is rejected, not stored', (t) => {
-  const c = makeClient(t);
-  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
-    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM' });
-  }
-  const [key] = adoptAll(c);
-  assert.equal(c.post('/api/recurring/override', { key, category_id: 99999 }).status, 400);
-  assert.equal(c.post('/api/recurring/override', { key, category_id: 'food' }).status, 400);
-  assert.equal(c.post('/api/recurring/schedule', {
-    display_name: 'Gym', direction: 'expense', cycle: 'monthly',
-    amount: 45, next_date: daysAgoIso(-14), category_id: 99999,
-  }).status, 400);
-});
-
-test('recurring category: a schedule filed under a since-deleted category reads as uncategorized', (t) => {
-  const c = makeClient(t);
-  const food = catId(c, 'food');
-  c.post('/api/recurring/schedule', {
-    display_name: 'Gym Membership', direction: 'expense', cycle: 'monthly',
-    amount: 45, next_date: daysAgoIso(-14), category_id: food,
-  });
-  c.conn.db().prepare('DELETE FROM categories WHERE id = ?').run(food);
-  const s = c.get('/api/recurring').body.series[0];
-  assert.equal(s.category, null, 'a dangling id is a blank pill, not a 500 on a page being looked at');
-  assert.equal(s.direction, 'expense', 'and the stored direction carries it');
-});
-
 // ─── Brand suggestions (the editor's Name field) ──────────────────────────────
 // GET /api/recurring/brands searches the BUNDLED lexicon, not the ledger, so it
-// can name a charge that has never posted. It answers with a name and a
-// category; it never touches a transaction.
+// can name a charge that has never posted. A name is the whole answer: the editor
+// has one field to fill from a suggestion, and it never touches a transaction.
 
-test('recurring brands: a partial name suggests the merchant and its category', (t) => {
+test('recurring brands: a partial name suggests the merchant', (t) => {
   const c = makeClient(t);
   const { brands } = c.get('/api/recurring/brands?q=netfl').body;
   assert.ok(brands.length, 'the lexicon knows this one');
   assert.equal(brands[0].name, 'Netflix');
-  assert.equal(brands[0].category, 'Entertainment');
-  assert.equal(brands[0].direction, 'expense');
-  assert.equal(brands[0].category_id, catId(c, 'entertainment'));
+});
+
+test('recurring brands: a suggestion is a name and nothing else', (t) => {
+  const c = makeClient(t);
+  const { brands } = c.get('/api/recurring/brands?q=netfl').body;
+  assert.deepStrictEqual(Object.keys(brands[0]), ['name'],
+    'a field the editor cannot fill is an answer with nowhere to go');
 });
 
 test('recurring brands: a name the lexicon does not have comes back empty', (t) => {
@@ -852,99 +688,6 @@ test('recurring brands: suggesting is read-only — no schedule, no transaction,
   c.get('/api/recurring/brands?q=netflix');
   assert.deepStrictEqual(c.get('/api/recurring').body.series, []);
   assert.equal(c.conn.db().prepare('SELECT COUNT(*) AS n FROM recurring_overrides').get().n, 0);
-});
-
-// ─── Search term (the card's merchant link) ───────────────────────────────────
-// `search` is what the card's merchant link puts in the ledger's Name filter.
-// The required property is RECALL: the term must be a substring of every
-// transaction in the series, or the linked ledger view shows fewer charges than
-// the calendar drew. The ledger's filter is a case-insensitive substring match on
-// description/display_name (txRowMatchesFilters), which is what these assert.
-
-/** Every description sharing `key`'s grouping, as the ledger stores them. */
-function descriptionsFor(c) {
-  return c.conn.db().prepare('SELECT description FROM transactions').all().map((r) => r.description);
-}
-
-function assertFindsEvery(term, descriptions) {
-  assert.ok(term, 'a detected series always has a search term');
-  for (const d of descriptions) {
-    assert.ok(d.toLowerCase().includes(term.toLowerCase()),
-      `"${term}" must match "${d}" — the ledger filter is a plain substring search`);
-  }
-}
-
-test('recurring search: a term that finds every charge, not just the one description kept', (t) => {
-  const c = makeClient(t);
-  // The case this exists for: one merchant, a trailing reference number that
-  // moves every month. Searching any single row's description would come back
-  // with exactly that row.
-  const descs = [
-    'NETFLIX.COM 8667797', 'NETFLIX.COM 8667812', 'NETFLIX.COM 8667955', 'NETFLIX.COM 8668043',
-  ];
-  descs.forEach((description, i) => {
-    insertTx(c, { date: daysAgoIso(95 - i * 30), amount: 15.49, description });
-  });
-  adoptAll(c);
-  const s = c.get('/api/recurring').body.series[0];
-  assertFindsEvery(s.search, descriptionsFor(c));
-  assert.equal(s.search, 'NETFLIX.COM',
-    'the half-matched reference number is dropped — it buys no precision the letters do not');
-});
-
-test('recurring search: the shared part need not be at the front of the description', (t) => {
-  const c = makeClient(t);
-  // A leading auth number varies instead of a trailing one, so the common
-  // prefix is the useless "POS " — the merchant is in the middle.
-  const descs = [
-    'POS 4421 CORNER MARKET', 'POS 8890 CORNER MARKET', 'POS 1207 CORNER MARKET', 'POS 6634 CORNER MARKET',
-  ];
-  descs.forEach((description, i) => {
-    insertTx(c, { date: daysAgoIso(95 - i * 30), amount: 62.5, description });
-  });
-  adoptAll(c);
-  const s = c.get('/api/recurring').body.series[0];
-  assertFindsEvery(s.search, descriptionsFor(c));
-  assert.equal(s.search, 'CORNER MARKET');
-});
-
-test('recurring search: identical descriptions keep the whole thing', (t) => {
-  const c = makeClient(t);
-  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
-    insertTx(c, { date, amount: 42, description: 'CITY FITNESS CLUB' });
-  }
-  adoptAll(c);
-  assert.equal(c.get('/api/recurring').body.series[0].search, 'CITY FITNESS CLUB');
-});
-
-test('recurring search: a renamed schedule still searches its real descriptions', (t) => {
-  const c = makeClient(t);
-  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
-    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM' });
-  }
-  adoptAll(c);
-  c.post('/api/recurring/override', { key: 'netflix com', display_name: 'Movie Night' });
-  const s = c.get('/api/recurring').body.series[0];
-  assert.equal(s.display_name, 'Movie Night');
-  assert.equal(s.search, 'NETFLIX.COM',
-    'the label is the user\'s word for it; the ledger only knows the description');
-});
-
-test('recurring search: a hand-added schedule has none', (t) => {
-  const c = makeClient(t);
-  c.post('/api/recurring/schedule', {
-    display_name: 'Gym Membership', direction: 'expense', cycle: 'monthly', amount: 45, next_date: daysAgoIso(-14),
-  });
-  const s = c.get('/api/recurring').body.series[0];
-  assert.equal(s.search, null, 'no transactions behind it, so the card offers no link to go and see them');
-});
-
-test('recurring search: candidates carry it too', (t) => {
-  const c = makeClient(t);
-  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
-    insertTx(c, { date, amount: 11.99, description: 'SPOTIFY P1A4C9' });
-  }
-  assert.equal(c.get('/api/recurring/candidates').body.candidates[0].search, 'SPOTIFY P1A4C9');
 });
 
 // ─── Detection / adoption (the mini-onboarding) ───────────────────────────────

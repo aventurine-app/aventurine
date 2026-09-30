@@ -534,10 +534,10 @@
    They are now pins ON the projected line at the date they fall, and the pin is
    where that item's data lives: hovering opens a card carrying the whole row
    (label, date, amount) with its pencil and trash. That is deliberately the
-   Recurring calendar's interaction (.rec-occ chip → #rec-pop card, see
-   recurring.css) applied to a chart instead of a grid — same reason there: the
-   thing you point at should be the thing you edit, and a list beside the visual
-   is the same data drawn twice.
+   Recurring calendar's interaction (.rec-occ chip → that schedule's own editor,
+   see recurring.css) applied to a chart instead of a grid — same reason there:
+   the thing you point at should be the thing you edit, and a list beside the
+   visual is the same data drawn twice.
 
    The classes are restated here rather than shared because recurring.css is not
    loaded on this page (Recurring has its own route now), and this file already
@@ -666,8 +666,10 @@
     .fc-pin, .fc-guide-add { transition: none; }
 }
 
-/* ─── The hover card (mirrors .rec-pop) ──────────────────────────────────────
-   One floating element reused for whichever pin is active. Fixed-positioned by
+/* ─── The hover card ────────────────────────────────────────────────────────
+   One floating element reused for whichever pin is active. The Recurring
+   calendar drew the same card until its chips began opening the schedule
+   editor instead, which leaves this the only one in the app. Fixed-positioned by
    forecast.js against the pin's rect so the page's scroll container can't clip
    it; a fixed width keeps that measurement stable on the very first show. */
 .fc-pop {
@@ -888,7 +890,6 @@
 }
 .fc-input-amount:hover { background: var(--frost-3); }
 .fc-input-amount:focus { border-color: var(--frost-focus); outline: none; }
-
 
 /* A field the ✓ (or Add) attempt rejected. Shared with the dialog's inputs. */
 .fc-input.invalid,

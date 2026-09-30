@@ -292,8 +292,22 @@ const V13_RECURRING = `CREATE TABLE recurring_overrides (
    PRIMARY KEY ("key")
  )`;
 
-// The v16 shape: recurring_overrides still carrying one of five cycle names,
-// before cadence became a rule.
+// The v15 shape: one of five cycle names, and none of the columns the steps
+// above v15 add. `adopted` is what v14 renamed `removed` to.
+const V15_RECURRING = `CREATE TABLE recurring_overrides (
+   "key" VARCHAR(200) NOT NULL,
+   display_name VARCHAR(100),
+   direction VARCHAR(10) CHECK (direction IN ('income', 'expense', 'transfer')),
+   cycle VARCHAR(20)
+     CHECK (cycle IN ('weekly', 'biweekly', 'monthly', 'quarterly', 'yearly')),
+   amount FLOAT CHECK (amount > 0),
+   last_date DATE,
+   adopted INTEGER DEFAULT 0 NOT NULL CHECK (adopted IN (0, 1)),
+   PRIMARY KEY ("key")
+ )`;
+
+// The v16 shape: the v15 one plus the amount band, still carrying one of five
+// cycle names, before cadence became a rule.
 const V16_RECURRING = `CREATE TABLE recurring_overrides (
    "key" VARCHAR(200) NOT NULL,
    display_name VARCHAR(100),
@@ -343,8 +357,8 @@ test('migration ladder: SCHEMA_VERSION is the top of it, with no gaps', () => {
 // comment-only edit.) Then bump SCHEMA_VERSION, add the migration, and update
 // the hash below in the same commit.
 test('baseline schema is pinned: changing it requires a migration', () => {
-  const EXPECTED_SCHEMA_VERSION = 19;
-  const EXPECTED_DDL_HASH = 'a590015baa8c56cf4d23f7ed131950f2d3ce6727efe9f4ffaea246b5b5901166';
+  const EXPECTED_SCHEMA_VERSION = 20;
+  const EXPECTED_DDL_HASH = '8eecbed64c0986f57c31f343bdb6cbde864717497031d9f2f8496c2897687f6d';
 
   const actual = crypto.createHash('sha256').update(DDL.join('\n')).digest('hex');
   assert.equal(
@@ -384,31 +398,35 @@ test('a migrated database matches a fresh one', () => {
     },
     // v14 — before the Cash Flow covering index (climbs v15 + v16).
     14: (db) => db.exec('DROP INDEX ix_transactions_month_cat'),
-    // v15 — before built schedules: no alias table, no amount band columns.
-    // ADD COLUMN appends, so the baseline declares every column a later
-    // migration adds last, in the order the ladder adds them: the band first
-    // (v16), then the chosen category (v18). Winding one back without the other
-    // would climb to the same columns in a different order.
+    // v15 — before built schedules: no alias table, no band, cadence still one
+    // of five cycle names. The longest climb through the recurring steps, and
+    // the only case that exercises v17's table rebuild from a real v15 shape.
     15: (db) => {
-      db.exec('ALTER TABLE recurring_overrides DROP COLUMN amount_min');
-      db.exec('ALTER TABLE recurring_overrides DROP COLUMN amount_max');
-      db.exec('ALTER TABLE recurring_overrides DROP COLUMN category_id');
+      db.exec('DROP TABLE recurring_overrides');
+      db.exec(V15_RECURRING);
     },
-    // v16 — cadence as one of five cycle names, before it became a rule.
+    // v16 — the band added, cadence still a cycle name.
     16: (db) => {
       db.exec('DROP TABLE recurring_overrides');
       db.exec(V16_RECURRING);
       addAliases(db);
     },
-    // v17 — before a schedule could carry a category of its own.
-    17: (db) => {
-      db.exec('ALTER TABLE recurring_overrides DROP COLUMN category_id');
-      addAliases(db);
-    },
-    // v18 — with the alias table v19 drops. The three cases above climb through
-    // v16, which creates it, so this one exists for the database that starts
-    // above that step and would otherwise never exercise the drop.
+    // v17 — cadence is a rule, but no chosen category yet.
+    17: addAliases,
+    // v18 — with the alias table v19 drops. The cases above climb through v16,
+    // which creates it, so this one exists for the database that starts above
+    // that step and would otherwise never exercise the drop.
     18: addAliases,
+    // v19 — the top of the previous release's ladder, and the shape a database
+    // that ran this branch before v20 is actually sitting at. ADD COLUMN
+    // appends, so the band and the category go back on in the order v16 and v18
+    // added them; v20 then drops all three, which is the step this case exists
+    // to exercise.
+    19: (db) => {
+      db.exec('ALTER TABLE recurring_overrides ADD COLUMN amount_min FLOAT');
+      db.exec('ALTER TABLE recurring_overrides ADD COLUMN amount_max FLOAT');
+      db.exec('ALTER TABLE recurring_overrides ADD COLUMN category_id INTEGER');
+    },
   };
 
   for (const [version, rewind] of Object.entries(cases)) {

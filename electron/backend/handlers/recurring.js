@@ -25,8 +25,8 @@
 const { bad, cleanLabel, isFiniteNumber, round2, parseIsoDate } = require('../validate');
 const { serialiseTx } = require('../services/transactions');
 const {
-  detectRecurringSeries, normaliseDesc, localTodayIso, addDays, daysBetween,
-  CYCLE_DAYS,
+  detectRecurringSeries, normaliseDesc, makeKeyResolver, localTodayIso, addDays,
+  daysBetween, CYCLE_DAYS,
 } = require('../services/predictions');
 const { addMonthKey } = require('../services/forecast');
 // Cadence lives here now. placeRecurring (services/forecast.js) is deliberately
@@ -38,14 +38,10 @@ const {
   normaliseRule, ruleFromCycle, nextOccurrence, occurrencesBetween, hasEnded,
   FREQ_NAMES, MONTH_MODES, WEEK_POSITIONS, MAX_INTERVAL,
 } = require('../services/recurrence');
-const { withinBand, makeKeyResolver } = require('../services/recurringRules');
 // Brand-name suggestions for the editor's Name field, from the bundled lexicon
 // rather than from the ledger — the only source a schedule for a charge that has
 // never posted can be named from. See services/merchantSuggest.js.
 const { suggestMerchants } = require('../services/merchantSuggest');
-// The merchant link's search term — the same rule the Top Merchants report
-// links its bars through (services/merchantSearch.js, extracted from here).
-const { searchTermByKey } = require('../services/merchantSearch');
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 const CYCLE_NAMES = Object.keys(CYCLE_DAYS);
@@ -96,32 +92,6 @@ function seriesNextDue(rule, anchorIso, todayIso, { afterAnchor }) {
 }
 
 /**
- * id -> category row, for resolving a schedule's chosen category_id into the
- * name it shows and the direction it implies. One query, read once per request.
- */
-function categoriesById(db) {
-  return new Map(
-    db.prepare('SELECT id, name, cat_type FROM categories').all().map((c) => [c.id, c])
-  );
-}
-
-/**
- * The category the user PICKED for this schedule, or null when they picked none
- * — which is the ordinary case, and means the schedule keeps reading whatever
- * category its transactions carry (categoryByKey).
- *
- * Null too when the picked category has since been deleted: a schedule pointing
- * at a category that no longer exists reads as uncategorized, the same way a
- * transaction does. There is no foreign key to have prevented it (foreign_keys
- * is off app-wide, see db.js), and the alternative — an error on a page the user
- * only wanted to look at — is worse than a blank pill.
- */
-function chosenCategory(ov, cats) {
-  if (!ov || ov.category_id == null || !cats) return null;
-  return cats.get(ov.category_id) || null;
-}
-
-/**
  * Layer a user override (recurring_overrides row, or undefined) on top of a
  * detected series. Only display_name/direction/cadence/amount are ever
  * overridden — the real transaction history (dates, occurrence count, past
@@ -132,18 +102,15 @@ function chosenCategory(ov, cats) {
  * overridden: "this stops in March" is not a statement about how often it
  * repeats, and making the user restate the cadence to say it would be absurd.
  */
-function withOverride(s, ov, todayIso, cats) {
+function withOverride(s, ov, todayIso) {
   if (!ov) return s;
   const overridden = normaliseRule(ruleFromRow(ov), s.last_date);
   const rule = { ...(overridden || s.rule), until: ov.rule_until ?? null };
   const next_date = seriesNextDue(rule, s.last_date, todayIso, { afterAnchor: true });
-  const chosen = chosenCategory(ov, cats);
   return {
     ...s,
     display_name: ov.display_name ?? s.display_name,
-    direction: chosen ? chosen.cat_type : (ov.direction ?? s.direction),
-    category_id: chosen ? chosen.id : s.category_id,
-    category: chosen ? chosen.name : s.category,
+    direction: ov.direction ?? s.direction,
     rule,
     amount: ov.amount ?? s.amount,
     next_date,
@@ -166,21 +133,18 @@ function withOverride(s, ov, todayIso, cats) {
  * added long ago still reads "next Aug 15", "next Sep 15", … rather than staying
  * at the date first entered.
  */
-function manualSeries(ov, todayIso, cats) {
+function manualSeries(ov, todayIso) {
   if (!ov.display_name || !ov.direction || !ov.rule_freq || ov.amount == null || !ov.last_date) return null;
   const rule = normaliseRule(ruleFromRow(ov), ov.last_date);
   if (!rule) return null;
   // The anchor counts here, unlike a detected series': nothing has posted
   // against it, so the date the user entered is itself still ahead of them.
   const next_date = seriesNextDue(rule, ov.last_date, todayIso, { afterAnchor: false });
-  const chosen = chosenCategory(ov, cats);
   return {
     key: ov.key,
     description: ov.display_name,
     display_name: ov.display_name,
-    direction: chosen ? chosen.cat_type : ov.direction,
-    category_id: chosen ? chosen.id : null,
-    category: chosen ? chosen.name : null,
+    direction: ov.direction,
     amount: ov.amount,
     rule,
     dates: [], // no real occurrences ever posted
@@ -193,96 +157,34 @@ function manualSeries(ov, todayIso, cats) {
   };
 }
 
-/**
- * The category a detection key's transactions actually carry, as a
- * key -> category_id map. A series is a group of transactions, not one row, so
- * its category is the one MOST of them share; ties go to whichever was used
- * most recently, since a re-categorization is the newer decision. Rows with no
- * category don't vote — a schedule half-categorized still reads as its
- * category, and one with nothing categorized comes back absent.
- */
-function categoryByKey(rows, keyOf) {
-  const counts = new Map(); // detection key -> Map(category_id -> {n, last})
-  for (const t of rows) {
-    if (t.category_id == null) continue;
-    const key = keyOf(t);
-    if (!key) continue;
-    let byCat = counts.get(key);
-    if (!byCat) { byCat = new Map(); counts.set(key, byCat); }
-    const prev = byCat.get(t.category_id);
-    byCat.set(t.category_id, { n: (prev ? prev.n : 0) + 1, last: t.date });
-  }
-
-  const winners = new Map();
-  for (const [key, byCat] of counts) {
-    let bestId = null;
-    let best = null;
-    for (const [id, tally] of byCat) {
-      if (!best || tally.n > best.n || (tally.n === best.n && tally.last > best.last)) {
-        bestId = id;
-        best = tally;
-      }
-    }
-    winners.set(key, bestId);
-  }
-  return winners;
-}
-
-/**
- * Every series detectRecurringSeries finds in the ledger right now, each
- * tagged with the direction of the bucket it was detected in, the category its
- * transactions carry, and the term that finds those transactions in the
- * ledger. No override layering and no adoption filter — the raw detection
- * result, shared by the listing (which then keeps the adopted ones), the
- * candidate picker (which keeps the rest) and delete (which only checks whether
- * a key is detected at all).
- */
-/**
- * What a schedule carries beyond its own key: schedule key -> its amount band.
- * Empty on every database today (nothing writes a band any more — see
- * services/recurringRules.js), and an empty map reproduces plain
- * one-key-per-schedule behaviour exactly.
- */
-function loadBands(db) {
-  const bands = new Map();
-  for (const r of db.prepare('SELECT "key", amount_min, amount_max FROM recurring_overrides').all()) {
-    if (r.amount_min != null || r.amount_max != null) {
-      bands.set(r.key, { min: r.amount_min, max: r.amount_max });
-    }
-  }
-  return bands;
-}
-
 /** Every transaction, serialised, with each row's direction resolved from its
  *  category. The one full read the page costs. */
 function loadLedger(db) {
-  const cats = db.prepare('SELECT id, name, cat_type FROM categories').all();
-  const catTypeById = new Map(cats.map((c) => [c.id, c.cat_type]));
-  const rows = db
+  const catTypeById = new Map(
+    db.prepare('SELECT id, cat_type FROM categories').all().map((c) => [c.id, c.cat_type])
+  );
+  return db
     .prepare('SELECT * FROM transactions ORDER BY date')
     .all()
     .map((t) => serialiseTx(t, catTypeById));
-  return { catTypeById, catNameById: new Map(cats.map((c) => [c.id, c.name])), rows };
 }
 
+/**
+ * Every series detectRecurringSeries finds in the ledger right now, each tagged
+ * with the direction of the bucket it was detected in. No override layering and
+ * no adoption filter — the raw detection result, shared by the listing (which
+ * then keeps the adopted ones), the candidate picker (which keeps the rest) and
+ * delete (which only checks whether a key is detected at all).
+ */
 function detectAll(db, todayIso) {
-  const { catNameById, rows: allRows } = loadLedger(db);
-  const bands = loadBands(db);
+  const rows = loadLedger(db);
+  // One memoized normaliseDesc across all three passes below: a real ledger
+  // holds far fewer distinct descriptions than rows.
   const keyOf = makeKeyResolver();
-
-  // Drop rows outside their schedule's amount band BEFORE detection: the band
-  // decides what counts as an occurrence, and detection measures its cadence
-  // from the occurrences it is given. Filtering afterwards would leave the
-  // cadence measured from rows the user excluded.
-  const rows = bands.size ? allRows.filter((t) => withinBand(t.amount, bands.get(keyOf(t)))) : allRows;
-
-  const catByKey = categoryByKey(rows, keyOf);
-  const searchByKey = searchTermByKey(rows);
 
   return DIRECTION_NAMES.flatMap((direction) =>
     detectRecurringSeries(rows.filter((t) => t.tx_type === direction), { today: todayIso, keyOf })
       .map((s) => {
-        const categoryId = catByKey.has(s.key) ? catByKey.get(s.key) : null;
         // Detection speaks in five cadence names; the rest of this file speaks
         // in rules. Converting here, once, means a detected schedule and an
         // edited one are the same kind of thing everywhere downstream.
@@ -303,9 +205,6 @@ function detectAll(db, todayIso) {
           ended: false, // only an end date ends a schedule, and detection sets none
           due_in_days: next_date ? daysBetween(todayIso, next_date) : null,
           direction,
-          category_id: categoryId,
-          category: categoryId == null ? null : catNameById.get(categoryId) ?? null,
-          search: searchByKey.get(s.key) ?? null,
         };
       })
   );
@@ -318,14 +217,6 @@ function serialiseSeries(s) {
     description: s.description,
     display_name: s.display_name,
     direction: s.direction,
-    // The category its transactions carry, for the card's pill. Null on a
-    // hand-added schedule (no backing transactions) or an uncategorized one.
-    category_id: s.category_id ?? null,
-    category: s.category ?? null,
-    // The ledger Name-filter term that matches this schedule's transactions
-    // (searchTermByKey). Null on a hand-added schedule, which has no backing
-    // transactions.
-    search: s.search ?? null,
     amount: s.amount,
     // The cadence rule (services/recurrence.js), fully resolved: the day of the
     // month or the weekday is filled in from the anchor even when the stored
@@ -353,7 +244,6 @@ function recurringGet(ctx, { query }) {
   if (!MONTH_RE.test(month)) bad('invalid month (expected YYYY-MM)');
 
   const todayIso = localTodayIso();
-  const cats = categoriesById(db);
   const overrides = new Map(
     db.prepare('SELECT * FROM recurring_overrides WHERE adopted = 1').all().map((o) => [o.key, o])
   );
@@ -362,7 +252,7 @@ function recurringGet(ctx, { query }) {
   // accepted (or has since deleted), and never renders here.
   const detected = detectAll(db, todayIso)
     .filter((s) => overrides.has(s.key))
-    .map((s) => withOverride(s, overrides.get(s.key), todayIso, cats));
+    .map((s) => withOverride(s, overrides.get(s.key), todayIso));
 
   // Any adopted override key that ISN'T a currently-detected series is a
   // manual schedule — synthesize a series-shaped object for it.
@@ -370,7 +260,7 @@ function recurringGet(ctx, { query }) {
   const manual = [];
   for (const ov of overrides.values()) {
     if (detectedKeys.has(ov.key)) continue;
-    const m = manualSeries(ov, todayIso, cats);
+    const m = manualSeries(ov, todayIso);
     if (m) manual.push(m);
   }
 
@@ -512,25 +402,13 @@ function parseRulePatch(raw) {
     rule_month_mode: raw.freq === 'monthly' ? (raw.month_mode ?? 'date') : null,
     rule_month_day: raw.freq === 'monthly' ? int(raw.day, 1, 31, 'day') : null,
     rule_week_pos: raw.freq === 'monthly' && raw.month_mode === 'day' ? (raw.pos ?? 1) : null,
-    rule_weekday: int(raw.weekday, 0, 6, 'weekday'),
+    // Only the two modes that repeat on a weekday keep one. A monthly-by-date
+    // rule that stored one would be a column normaliseRule then ignores, which
+    // is a stored value with no reader.
+    rule_weekday: raw.freq === 'weekly' || raw.month_mode === 'day'
+      ? int(raw.weekday, 0, 6, 'weekday')
+      : null,
   };
-}
-
-/**
- * A category_id from a request, as a value to store: an id this database
- * actually has, or null to clear the choice and go back to whatever the
- * schedule's transactions say.
- *
- * Checked against the table rather than merely type-checked, because a stored id
- * that matches no category reads back as uncategorized — the schedule would
- * silently lose the answer the user just gave it.
- */
-function parseCategoryId(db, raw) {
-  if (raw === null || raw === '') return null;
-  if (!Number.isInteger(raw)) bad('invalid category_id');
-  const row = db.prepare('SELECT id FROM categories WHERE id = ?').get(raw);
-  if (!row) bad('unknown category_id');
-  return raw;
 }
 
 /** The empty cadence patch: back to whatever detection measures. */
@@ -543,12 +421,9 @@ const NO_RULE = {
  * Upsert a user override for one recurring schedule (POST body: {key,
  * display_name?, direction?, cycle?|rule?, until?, amount?, next_date?} — any
  * subset, each null clearing that field back to auto-detected).
- * The amount BAND is not among them: it decides which transactions a cadence is
- * measured from, which is a question about detecting a schedule rather than
- * about writing one, and nothing writes one any more (see
- * services/recurringRules.js). Recurring rows have no surrogate id (a
- * detected series is recomputed from transactions on every read — see
- * detectRecurringSeries), so the grouping key is the identifier, the same way
+ * Recurring rows have no surrogate id (a detected series is recomputed from
+ * transactions on every read — see detectRecurringSeries), so the grouping key
+ * is the identifier, the same way
  * Cash Flow's /api/entry keys on a category string rather than a row id.
  * Editing a manual schedule's date is not supported here — only
  * POST /api/recurring/schedule (create) sets last_date; delete and re-add to
@@ -575,12 +450,6 @@ function recurringOverrideUpsert(ctx, { body }) {
     if (body.direction !== null && !DIRECTION_NAMES.includes(body.direction)) bad('invalid direction');
     patch.direction = body.direction;
   }
-  // The category the schedule is FILED under, which is not the same question as
-  // the direction above: null here means "read it off my transactions again",
-  // and a set one outranks both the detected category and the stored direction
-  // (withOverride), since a category owns the direction of everything filed
-  // under it.
-  if (hasField('category_id')) patch.category_id = parseCategoryId(db, body.category_id);
   // `cycle` and `rule` are two spellings of the same patch; null clears the
   // cadence override so the schedule follows whatever detection measures again.
   if (hasField('cycle') || hasField('rule')) {
@@ -651,10 +520,6 @@ function recurringScheduleCreate(ctx, { body }) {
   if (!key) bad('name must contain letters');
 
   if (!DIRECTION_NAMES.includes(body.direction)) bad('invalid direction');
-  // Optional: a schedule can be created uncategorized, and a manual one has no
-  // transactions to read a category off later, so leaving it out is a real
-  // answer rather than an omission.
-  const categoryId = body.category_id == null ? null : parseCategoryId(db, body.category_id);
   if (!isFiniteNumber(body.amount) || body.amount <= 0) bad('invalid amount');
   const nextDate = parseIsoDate(body.next_date);
   if (!nextDate) bad('invalid next_date');
@@ -665,19 +530,18 @@ function recurringScheduleCreate(ctx, { body }) {
 
   db.prepare(
     `INSERT INTO recurring_overrides
-       ("key", display_name, direction, category_id, amount, last_date, adopted, rule_until,
+       ("key", display_name, direction, amount, last_date, adopted, rule_until,
         rule_freq, rule_interval, rule_month_mode, rule_month_day, rule_week_pos, rule_weekday)
-       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)
+       VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT("key") DO UPDATE SET
        display_name = excluded.display_name, direction = excluded.direction,
-       category_id = excluded.category_id,
        amount = excluded.amount, last_date = excluded.last_date, adopted = 1,
        rule_until = excluded.rule_until,
        rule_freq = excluded.rule_freq, rule_interval = excluded.rule_interval,
        rule_month_mode = excluded.rule_month_mode, rule_month_day = excluded.rule_month_day,
        rule_week_pos = excluded.rule_week_pos, rule_weekday = excluded.rule_weekday`
   ).run(
-    key, name, body.direction, categoryId, round2(body.amount), nextDate, until,
+    key, name, body.direction, round2(body.amount), nextDate, until,
     rule.rule_freq, rule.rule_interval, rule.rule_month_mode,
     rule.rule_month_day, rule.rule_week_pos, rule.rule_weekday
   );
@@ -691,38 +555,49 @@ const MAX_BRAND_RESULTS = 8;
 
 /**
  * Brand-name suggestions for the editor's Name field (GET
- * /api/recurring/brands?q=). The ANSWER TO A DIFFERENT QUESTION from
- * /api/recurring/similar below, which searches the ledger: this searches the
- * bundled merchant lexicon, so it can name a charge that has never posted —
- * which is precisely the schedule the user is writing by hand.
+ * /api/recurring/brands?q=). This searches the BUNDLED merchant lexicon rather
+ * than the ledger, which is the only source that can name a charge that has
+ * never posted — precisely the schedule the user is writing by hand. Detection
+ * answers the other question, "which of my transactions is this?", and it
+ * answers it from the ledger.
  *
- * Nothing is associated with any transaction. The suggestion fills in a name and
- * a category, and the name is what draws the merchant's avatar (avatar.js slugs
- * the label and looks it up in the icon manifest the same lexicon generated).
+ * A NAME AND NOTHING ELSE. Not a transaction, not a category, not a history: the
+ * suggestion fills in one field the user can immediately overwrite. Getting the
+ * spelling right is what draws the merchant's avatar, since avatar.js slugs the
+ * label and looks it up in the icon manifest this same lexicon generated.
  *
- * A brand whose category key this database no longer has — the user deleted or
- * renamed the default — still comes back, named, with a null category. The name
- * is the useful half and the category is an offer.
+ * Reads no table, so it costs nothing per keystroke beyond the lexicon scan. The
+ * locked-database rule still applies: the 423 gate is in router.js, ahead of
+ * every handler, and does not depend on one touching the database.
  */
 function recurringBrands(ctx, { query }) {
-  const db = ctx.db();
-  const hits = suggestMerchants(query.q, MAX_BRAND_RESULTS);
-  if (!hits.length) return { brands: [] };
+  return { brands: suggestMerchants(query.q, MAX_BRAND_RESULTS).map((name) => ({ name })) };
+}
 
-  const byKey = new Map(
-    db.prepare('SELECT id, "key" AS key, name, cat_type FROM categories').all().map((c) => [c.key, c])
+/**
+ * Which of `keys` detection can still produce. It is the one question both
+ * deletes ask, and the answer decides between un-adopting a row and dropping it,
+ * so it lives here once rather than being spelled out at each call site.
+ *
+ * Detection is not cheap — a full ledger read, then a pass per direction — and it
+ * is the only thing that can answer, since whether a group of transactions
+ * qualifies as a series is what detection decides. A cheaper pre-filter was
+ * tried and removed: narrowing by "does any description normalise to this key"
+ * costs its own scan of every description, which measured at about a third of
+ * the detection it was meant to avoid, so it made deleting a DETECTED schedule
+ * slower (10.0ms against 8.3ms on a 1,628-row ledger) to make deleting a
+ * hand-added one faster. Neither is perceptible on a single user action, and the
+ * simpler path is the one worth keeping.
+ *
+ * No keys is answered without asking, which is the one case that is free: it is
+ * how clearing an already-empty page costs nothing.
+ */
+function detectedAmong(db, keys) {
+  if (!keys.length) return new Set();
+  const wanted = new Set(keys);
+  return new Set(
+    detectAll(db, localTodayIso()).map((s) => s.key).filter((key) => wanted.has(key))
   );
-  return {
-    brands: hits.map(({ name, category_key: categoryKey }) => {
-      const cat = byKey.get(categoryKey) || null;
-      return {
-        name,
-        category_id: cat ? cat.id : null,
-        category: cat ? cat.name : null,
-        direction: cat ? cat.cat_type : null,
-      };
-    }),
-  };
 }
 
 /**
@@ -739,11 +614,7 @@ function recurringScheduleDelete(ctx, { params }) {
   const key = params.key;
   if (!key) bad('key required');
 
-  const isDetected = detectAll(db, localTodayIso()).some((s) => s.key === key);
-  if (isDetected) {
-    // Un-adopt only. The amount band stays with the row: it is a correction like
-    // any other, and the schedule returns to the picker measuring the same
-    // occurrences it did here.
+  if (detectedAmong(db, [key]).has(key)) {
     db.prepare('UPDATE recurring_overrides SET adopted = 0 WHERE "key" = ?').run(key);
   } else {
     db.prepare('DELETE FROM recurring_overrides WHERE "key" = ?').run(key);
@@ -764,11 +635,11 @@ function recurringScheduleDelete(ctx, { params }) {
  */
 function recurringClearAll(ctx) {
   const db = ctx.db();
-  const detected = new Set(detectAll(db, localTodayIso()).map((s) => s.key));
   const adopted = db
     .prepare('SELECT "key" FROM recurring_overrides WHERE adopted = 1')
     .all()
     .map((o) => o.key);
+  const detected = detectedAmong(db, adopted);
 
   const unadopt = db.prepare('UPDATE recurring_overrides SET adopted = 0 WHERE "key" = ?');
   const dropRow = db.prepare('DELETE FROM recurring_overrides WHERE "key" = ?');

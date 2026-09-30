@@ -667,9 +667,9 @@
     border: var(--border-width) solid var(--border);
     border-radius: 8px;
     background: var(--surface1);
-    /* The chart rung of the elevation ladder, shared with the Recurring day card
-       (.rec-pop): this is raised off the chart it is reading, not out of a menu
-       button, so --shadow-menu reads as detached from what it describes. */
+    /* The chart rung of the elevation ladder, shared with the Balance Forecast's
+       pin card (.fc-pop): this is raised off the chart it is reading, not out of
+       a menu button, so --shadow-menu reads as detached from what it describes. */
     box-shadow: var(--shadow-popover);
     pointer-events: none;
     opacity: 0;

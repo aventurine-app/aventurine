@@ -7,7 +7,7 @@
 // dialog's own wiring is not testable anywhere else, which is what this is for.
 // The couplings it guards are the ones that break silently -- a suggestion fills
 // in the name and claims nothing else, and a schedule carries no category at
-// all, so nothing in the editor may offer one.
+// all, on the wire as well as in the editor.
 //
 // Same isolation contract as verify-e2e.js: close `npm start` first, or the
 // single-instance lock makes this exit without asserting anything.
@@ -106,9 +106,13 @@ app.whenReady().then(async () => {
     await js(`document.getElementById('rec-edit-save').click()`);
     await wait(1400);
     check('the dialog closed after creating', await js(`!document.querySelector('.rec-edit-dialog')`));
-    const saved = await js(`window.financeApi.request('GET','/api/recurring').then(r => r.body.series.map(s => ({n:s.display_name, c:s.category, d:s.direction})))`);
-    check('the schedule saved with its name and direction and no category',
-      saved.length === 1 && saved[0].n === 'Netflix' && saved[0].d === 'expense' && saved[0].c === null, saved);
+    const saved = await js(`window.financeApi.request('GET','/api/recurring').then(r => r.body.series.map(s => ({n:s.display_name, d:s.direction, keys:Object.keys(s)})))`);
+    check('the schedule saved with its name and direction',
+      saved.length === 1 && saved[0].n === 'Netflix' && saved[0].d === 'expense', saved);
+    // No category ANYWHERE in the payload: the editor offers no field for one, so
+    // a schedule that came back carrying one would be an answer nobody gave.
+    check('and the payload carries no category at all',
+      saved.length === 1 && !saved[0].keys.some((k) => k.startsWith('category')), saved);
 
     // Re-open it: the fields must come back on the stored answers. The rail row
     // IS the edit control -- there is no pencil beside it any more.

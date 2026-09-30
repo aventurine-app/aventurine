@@ -32,8 +32,6 @@
 // over recorded history filter out anything at or before it (see
 // handlers/recurring.js), because those days already have real charges on them.
 
-const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
 const FREQ_NAMES = ['weekly', 'monthly'];
 const MONTH_MODES = ['date', 'day'];
 // 1st through 4th, plus last. There is deliberately no 5th: a month has a fifth
@@ -208,16 +206,30 @@ function periodEstimate(rule, anchorIso, targetIso) {
 }
 
 /**
+ * Walk forward from periodEstimate's guess to the first occurrence at or after
+ * `startIso`, returning [occurrence number, date]. The estimate deliberately
+ * undershoots by a period and is then walked rather than trusted, because the
+ * clamped day of a short month can put a date a period either side of it.
+ *
+ * Both generators below start here, so they can never disagree about which
+ * occurrence is the first one in a window.
+ */
+function seekFrom(rule, anchorIso, startIso) {
+  let k = Math.max(0, periodEstimate(rule, anchorIso, startIso));
+  let date = occurrenceAt(rule, anchorIso, k);
+  let guard = 0;
+  while (date < startIso && guard++ < 1000) date = occurrenceAt(rule, anchorIso, ++k);
+  return [k, date];
+}
+
+/**
  * The schedule's first occurrence on or after `fromIso`, or null once the rule
  * has ended (`until` passed). Never returns a date before the anchor: a
  * schedule does not project backwards past the date it is anchored on.
  */
 function nextOccurrence(rule, anchorIso, fromIso) {
   const start = fromIso < anchorIso ? anchorIso : fromIso;
-  let k = Math.max(0, periodEstimate(rule, anchorIso, start));
-  let date = occurrenceAt(rule, anchorIso, k);
-  let guard = 0;
-  while (date < start && guard++ < 1000) date = occurrenceAt(rule, anchorIso, ++k);
+  const [, date] = seekFrom(rule, anchorIso, start);
   if (date < start) return null;
   if (rule.until && date > rule.until) return null;
   return date;
@@ -232,10 +244,7 @@ function occurrencesBetween(rule, anchorIso, fromIso, toIso, { limit = 500 } = {
   const out = [];
   if (!rule || !anchorIso || toIso <= fromIso) return out;
   const start = fromIso < anchorIso ? anchorIso : fromIso;
-  let k = Math.max(0, periodEstimate(rule, anchorIso, start));
-  let date = occurrenceAt(rule, anchorIso, k);
-  let guard = 0;
-  while (date < start && guard++ < 1000) date = occurrenceAt(rule, anchorIso, ++k);
+  let [k, date] = seekFrom(rule, anchorIso, start);
   while (date < toIso && out.length < limit) {
     if (rule.until && date > rule.until) break;
     out.push(date);
@@ -262,6 +271,5 @@ module.exports = {
   FREQ_NAMES,
   MONTH_MODES,
   WEEK_POSITIONS,
-  WEEKDAY_NAMES,
   MAX_INTERVAL,
 };

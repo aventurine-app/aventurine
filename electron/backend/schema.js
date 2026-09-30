@@ -17,7 +17,7 @@
 //   - the v_* views pre-join the normalized tables into human-readable,
 //     chronologically-sortable shapes for ad-hoc querying.
 
-const SCHEMA_VERSION = 19;
+const SCHEMA_VERSION = 20;
 
 // Months persist as 1-12 integers so `ORDER BY year, month` sorts
 // chronologically (the app translates to/from English names at its API
@@ -254,35 +254,6 @@ const DDL = [
      amount FLOAT CHECK (amount > 0),
      last_date DATE,  -- anchor date for a MANUAL schedule's own projection
      adopted INTEGER DEFAULT 0 NOT NULL CHECK (adopted IN (0, 1)),
-     -- Amount band for a schedule (services/recurringRules.js): rows
-     -- outside it are not occurrences of this series. It exists because a
-     -- merchant can send something else under the same description, such as an
-     -- off-cycle expense reimbursement among paychecks, which detection
-     -- otherwise counts as a charge and measures a broken cadence from. NULL on
-     -- both ends means no band, which is every schedule on a database today:
-     -- the column is honoured on read, but the surface that set one has gone.
-     -- Declared bare, with no CHECK, and last: the v16 migration adds these with
-     -- ALTER TABLE ADD COLUMN, which can carry neither, and foundation.test.js
-     -- pins a migrated database to have the same shape as a fresh one.
-     amount_min FLOAT,
-     amount_max FLOAT,
-     -- The category the user CHOSE for this schedule, as opposed to the one its
-     -- transactions happen to carry. Detection reads a category off the ledger
-     -- (categoryByKey in handlers/recurring.js) and that stays the default, so
-     -- this is NULL on every schedule nobody has answered for -- including every
-     -- one predating the picker. A hand-added schedule has no transactions to
-     -- read a category from, which is the case this column exists for.
-     --
-     -- It also owns the schedule's DIRECTION while it is set, the same way a
-     -- transaction's category owns its tx_type: a schedule filed under Groceries
-     -- is an expense, and the two cannot be allowed to disagree.
-     --
-     -- No foreign key (foreign_keys is off app-wide, see db.js) and no CHECK:
-     -- the v18 migration adds it with ALTER TABLE ADD COLUMN, which can carry
-     -- neither, and foundation.test.js pins a migrated database to the same
-     -- shape as a fresh one. A row pointing at a deleted category reads back as
-     -- uncategorized rather than as an error.
-     category_id INTEGER,
      PRIMARY KEY ("key")
    )`,
   `CREATE INDEX ix_balance_entries_year ON balance_entries (year)`,

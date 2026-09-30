@@ -106,6 +106,10 @@
 
   let month = currentMonthKey();
   let data = { series: [], occurrences: [] };
+  // key -> schedule, rebuilt whenever `data` is. Every chip on the grid asks for
+  // its schedule by key (occLabel), so a scan per chip would make one render
+  // cost chips x schedules.
+  let seriesByKey = new Map();
   // The schedule a rail row is being pointed at. Hovering the rail lights that
   // schedule's chips up on the grid: the rail is for finding a schedule on the
   // calendar, and the chips are where it is.
@@ -123,7 +127,7 @@
   // ─── Calendar ────────────────────────────────────────────────────────────
 
   function seriesFor(key) {
-    return data.series.find((s) => s.key === key) || {};
+    return seriesByKey.get(key) || {};
   }
 
   function occLabel(occ) {
@@ -1078,7 +1082,7 @@
     const label = document.getElementById('rec-month-label');
     if (label) UI.setPickerLabel(label, `${MONTHS[m - 1]} ${y}`);
     // Nothing to go back to while we're already there — disabled rather than
-    // hidden, so the arrows and the ⋮ never move under the pointer.
+    // hidden, so the stepper's controls never move under the pointer.
     const today = document.getElementById('rec-month-today');
     if (today) today.disabled = month === currentMonthKey();
   }
@@ -1094,6 +1098,7 @@
     const res = await apiFetch(`/api/recurring?month=${encodeURIComponent(month)}`);
     if (!res.ok) return;
     data = await res.json();
+    seriesByKey = new Map(data.series.map((s) => [s.key, s]));
     render();
   }
 
