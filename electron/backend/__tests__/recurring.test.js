@@ -40,6 +40,16 @@ function adoptAll(c) {
   return keys;
 }
 
+/** The old five-name reading of a rule, so a test can still say "monthly".
+ *  Cadence is a rule now (services/recurrence.js); these five are the subset of
+ *  it that had names, and they are what detection still measures. */
+function cycleOf(series) {
+  const r = series.rule;
+  if (!r) return null;
+  if (r.freq === 'weekly') return r.interval === 2 ? 'biweekly' : 'weekly';
+  return { 1: 'monthly', 3: 'quarterly', 12: 'yearly' }[r.interval] || null;
+}
+
 function daysAgoIso(n) {
   const d = new Date();
   d.setDate(d.getDate() - n);
@@ -95,7 +105,7 @@ test('recurring: monthly expense series — actual occurrence in its month, proj
   const s = r.body.series[0];
   assert.equal(s.display_name, 'Netflix');
   assert.equal(s.direction, 'expense');
-  assert.equal(s.cycle, 'monthly');
+  assert.equal(cycleOf(s), 'monthly');
 
   const actualOcc = r.body.occurrences.find((o) => o.date === d4);
   assert.ok(actualOcc, 'actual occurrence present in its own month');
@@ -195,13 +205,161 @@ test('recurring override: a cadence edit recomputes next_date from the real last
   }
   adoptAll(c);
   const before = c.get('/api/recurring').body.series[0];
-  assert.equal(before.cycle, 'monthly');
+  assert.equal(cycleOf(before), 'monthly');
 
   c.post('/api/recurring/override', { key: before.key, cycle: 'weekly' });
 
   const after = c.get('/api/recurring').body.series[0];
-  assert.equal(after.cycle, 'weekly');
+  assert.equal(cycleOf(after), 'weekly');
   assert.notEqual(after.next_date, before.next_date);
+});
+
+test('recurring: next_date is the next occurrence from today, in ascending order', (t) => {
+  const c = makeClient(t);
+  const food = catId(c, 'food');
+  // Lapsed but still detected: the newest charge is more than one cycle old, so
+  // a single cadence step off it lands in the PAST. The schedule is still the
+  // user's, and what they are asking is when it comes round next.
+  for (const date of [daysAgoIso(160), daysAgoIso(130), daysAgoIso(100), daysAgoIso(70)]) {
+    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
+  }
+  // Current, for the ordering: two schedules whose next dates differ.
+  for (const date of [daysAgoIso(92), daysAgoIso(62), daysAgoIso(32), daysAgoIso(2)]) {
+    insertTx(c, { date, amount: 42, description: 'CITY FITNESS CLUB', category_id: food });
+  }
+  adoptAll(c);
+
+  const today = daysAgoIso(0);
+  const { series } = c.get('/api/recurring').body;
+  assert.equal(series.length, 2);
+  for (const s of series) {
+    assert.ok(s.next_date >= today, `${s.key} reads next due ${s.next_date}, before today (${today})`);
+  }
+  const dates = series.map((s) => s.next_date);
+  assert.deepEqual(dates, [...dates].sort(), 'soonest due first');
+});
+
+// ── Cadence rules ────────────────────────────────────────────────────────────
+// The editor sends a whole rule; the five old cycle names are still accepted as
+// shorthand (detection measures in them). Both end up in the same columns.
+
+/** Four monthly charges on the same day, adopted. Returns its key. */
+function adoptMonthly(c, description = 'NETFLIX.COM') {
+  const food = catId(c, 'food');
+  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
+    insertTx(c, { date, amount: 15.49, description, category_id: food });
+  }
+  return adoptAll(c)[0];
+}
+
+test('recurring rule: an nth-weekday cadence moves the schedule onto that weekday', (t) => {
+  const c = makeClient(t);
+  const key = adoptMonthly(c);
+
+  const res = c.post('/api/recurring/override', {
+    key, rule: { freq: 'monthly', interval: 1, month_mode: 'day', pos: 3, weekday: 5 },
+  });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+
+  const month = addMonthKey(currentMonthKey(), 2); // clear of any recorded charge
+  const { series, occurrences } = c.get(`/api/recurring?month=${month}`).body;
+  assert.deepEqual(series[0].rule, {
+    freq: 'monthly', interval: 1, weekday: 5, month_mode: 'day', day: null, pos: 3, until: null,
+  });
+
+  const projected = occurrences.filter((o) => o.key === key);
+  assert.equal(projected.length, 1, 'one charge in the month');
+  const iso = projected[0].date;
+  const day = Number(iso.slice(8, 10));
+  assert.equal(new Date(`${iso}T00:00:00Z`).getUTCDay(), 5, `${iso} is not a Friday`);
+  assert.ok(day >= 15 && day <= 21, `${iso} is not the third Friday`);
+});
+
+test('recurring rule: every 2 weeks projects fortnightly, not weekly', (t) => {
+  const c = makeClient(t);
+  const key = adoptMonthly(c);
+  c.post('/api/recurring/override', { key, rule: { freq: 'weekly', interval: 2, weekday: 1 } });
+
+  const month = addMonthKey(currentMonthKey(), 2);
+  const dates = c.get(`/api/recurring?month=${month}`).body.occurrences
+    .filter((o) => o.key === key).map((o) => o.date);
+  assert.ok(dates.length >= 2, 'a fortnightly schedule lands at least twice in a month');
+  for (let i = 1; i < dates.length; i++) {
+    const gap = (Date.parse(dates[i]) - Date.parse(dates[i - 1])) / 86400000;
+    assert.equal(gap, 14, `${dates[i - 1]} to ${dates[i]}`);
+  }
+});
+
+test('recurring rule: an end date stops the projection and marks the schedule ended', (t) => {
+  const c = makeClient(t);
+  const key = adoptMonthly(c);
+  const until = daysAgoIso(1);
+
+  const res = c.post('/api/recurring/override', { key, until });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+
+  const { series } = c.get('/api/recurring').body;
+  const s = series.find((x) => x.key === key);
+  assert.equal(s.ended, true, 'its end date has passed');
+  assert.equal(s.next_date, null, 'an ended schedule has no next charge');
+  assert.ok(s.rule, 'it keeps the cadence it had');
+
+  const month = addMonthKey(currentMonthKey(), 2);
+  const after = c.get(`/api/recurring?month=${month}`).body.occurrences.filter((o) => o.key === key);
+  assert.equal(after.length, 0, 'nothing is projected past the end date');
+});
+
+test('recurring rule: an end date leaves the cadence alone, and clearing it revives the schedule', (t) => {
+  const c = makeClient(t);
+  const key = adoptMonthly(c);
+  const before = c.get('/api/recurring').body.series[0];
+
+  c.post('/api/recurring/override', { key, until: daysAgoIso(1) });
+  c.post('/api/recurring/override', { key, until: null });
+
+  const after = c.get('/api/recurring').body.series[0];
+  assert.equal(after.ended, false);
+  assert.deepEqual(after.rule, before.rule, 'the cadence was never part of ending it');
+  assert.equal(after.next_date, before.next_date);
+});
+
+test('recurring rule: an ended schedule sorts below the live ones rather than above', (t) => {
+  const c = makeClient(t);
+  const ending = adoptMonthly(c, 'NETFLIX.COM');
+  insertTx(c, { date: daysAgoIso(60), amount: 42, description: 'CITY FITNESS CLUB' });
+  insertTx(c, { date: daysAgoIso(30), amount: 42, description: 'CITY FITNESS CLUB' });
+  insertTx(c, { date: daysAgoIso(2), amount: 42, description: 'CITY FITNESS CLUB' });
+  adoptAll(c);
+  c.post('/api/recurring/override', { key: ending, until: daysAgoIso(1) });
+
+  const keys = c.get('/api/recurring').body.series.map((s) => s.key);
+  assert.equal(keys[keys.length - 1], ending, 'the ended one is last');
+});
+
+test('recurring rule: invalid parts are refused, not stored', (t) => {
+  const c = makeClient(t);
+  const key = adoptMonthly(c);
+  const refuse = (rule) => assert.equal(
+    c.post('/api/recurring/override', { key, rule }).status, 400, JSON.stringify(rule)
+  );
+  refuse({ freq: 'daily' });
+  refuse({ freq: 'monthly', interval: 0 });
+  refuse({ freq: 'monthly', month_mode: 'date', day: 32 });
+  refuse({ freq: 'monthly', month_mode: 'day', pos: 5, weekday: 1 });
+  refuse({ freq: 'weekly', weekday: 9 });
+  assert.equal(c.post('/api/recurring/override', { key, until: 'someday' }).status, 400);
+});
+
+test('recurring rule: clearing it hands the cadence back to detection', (t) => {
+  const c = makeClient(t);
+  const key = adoptMonthly(c);
+  const detected = c.get('/api/recurring').body.series[0].rule;
+
+  c.post('/api/recurring/override', { key, rule: { freq: 'weekly', interval: 2, weekday: 1 } });
+  assert.equal(c.get('/api/recurring').body.series[0].rule.freq, 'weekly');
+
+  c.post('/api/recurring/override', { key, rule: null });
+  assert.deepEqual(c.get('/api/recurring').body.series[0].rule, detected);
 });
 
 test('recurring override: invalid cycle/amount/display_name are rejected', (t) => {
@@ -276,7 +434,7 @@ test('recurring add: a manual schedule with no transactions appears in the listi
   const s = r.body.series[0];
   assert.equal(s.display_name, 'Gym Membership');
   assert.equal(s.direction, 'expense');
-  assert.equal(s.cycle, 'monthly');
+  assert.equal(cycleOf(s), 'monthly');
   assert.equal(s.amount, 45);
   assert.equal(s.next_date, nextDate);
   assert.equal(s.occurrences, 0, 'no real transactions back it');
@@ -489,166 +647,47 @@ test('recurring clear all: an unadopted candidate is left alone', (t) => {
   assert.equal(row.display_name, 'Streaming', 'an untouched row keeps its corrections');
 });
 
-// ─── Category (the card's pill) ───────────────────────────────────────────────
+// ─── Brand suggestions (the editor's Name field) ──────────────────────────────
+// GET /api/recurring/brands searches the BUNDLED lexicon, not the ledger, so it
+// can name a charge that has never posted. A name is the whole answer: the editor
+// has one field to fill from a suggestion, and it never touches a transaction.
 
-test('recurring category: a series carries the category its transactions have', (t) => {
+test('recurring brands: a partial name suggests the merchant', (t) => {
   const c = makeClient(t);
-  const food = catId(c, 'food');
-  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
-    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
-  }
-  adoptAll(c);
-  const s = c.get('/api/recurring').body.series[0];
-  assert.equal(s.category_id, food);
-  assert.equal(s.category, 'Food');
+  const { brands } = c.get('/api/recurring/brands?q=netfl').body;
+  assert.ok(brands.length, 'the lexicon knows this one');
+  assert.equal(brands[0].name, 'Netflix');
 });
 
-test('recurring category: uncategorized transactions leave it null, not guessed', (t) => {
+test('recurring brands: a suggestion is a name and nothing else', (t) => {
   const c = makeClient(t);
-  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
-    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM' });
-  }
-  adoptAll(c);
-  const s = c.get('/api/recurring').body.series[0];
-  assert.equal(s.category_id, null);
-  assert.equal(s.category, null);
+  const { brands } = c.get('/api/recurring/brands?q=netfl').body;
+  assert.deepStrictEqual(Object.keys(brands[0]), ['name'],
+    'a field the editor cannot fill is an answer with nowhere to go');
 });
 
-test('recurring category: the majority category wins when a series is split', (t) => {
+test('recurring brands: a name the lexicon does not have comes back empty', (t) => {
   const c = makeClient(t);
-  const food = catId(c, 'food');
-  const entertainment = catId(c, 'entertainment');
-  // Three of four rows are Entertainment; one Food row must not decide the
-  // category.
-  insertTx(c, { date: daysAgoIso(95), amount: 15.49, description: 'NETFLIX.COM', category_id: food });
-  for (const date of [daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
-    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: entertainment });
-  }
-  adoptAll(c);
-  assert.equal(c.get('/api/recurring').body.series[0].category, 'Entertainment');
+  assert.deepStrictEqual(c.get('/api/recurring/brands?q=zzzqqxnotabrand').body.brands, []);
 });
 
-test('recurring category: an uncategorized row does not outvote a categorized one', (t) => {
+test('recurring brands: one letter is not a suggestion, and a missing q is not an error', (t) => {
   const c = makeClient(t);
-  const food = catId(c, 'food');
-  insertTx(c, { date: daysAgoIso(95), amount: 15.49, description: 'NETFLIX.COM' });
-  insertTx(c, { date: daysAgoIso(65), amount: 15.49, description: 'NETFLIX.COM' });
-  insertTx(c, { date: daysAgoIso(35), amount: 15.49, description: 'NETFLIX.COM', category_id: food });
-  insertTx(c, { date: daysAgoIso(5), amount: 15.49, description: 'NETFLIX.COM' });
-  adoptAll(c);
-  assert.equal(c.get('/api/recurring').body.series[0].category, 'Food',
-    'rows with no category abstain rather than voting for "none"');
+  assert.deepStrictEqual(c.get('/api/recurring/brands?q=n').body.brands, []);
+  assert.deepStrictEqual(c.get('/api/recurring/brands').body.brands, []);
 });
 
-test('recurring category: a hand-added schedule has none', (t) => {
+test('recurring brands: a merchant with several lexicon spellings is offered once', (t) => {
   const c = makeClient(t);
-  c.post('/api/recurring/schedule', {
-    display_name: 'Gym Membership', direction: 'expense', cycle: 'monthly', amount: 45, next_date: daysAgoIso(-14),
-  });
-  const s = c.get('/api/recurring').body.series[0];
-  assert.equal(s.category, null, 'nothing backs it, so there is nothing to read a category from');
+  const names = c.get('/api/recurring/brands?q=wendy').body.brands.map((b) => b.name);
+  assert.deepStrictEqual(names, ["Wendy's"], "'wendys' and \"wendy's\" are one merchant, not two");
 });
 
-test('recurring category: candidates carry it too, for the picker', (t) => {
+test('recurring brands: suggesting is read-only — no schedule, no transaction, no adoption', (t) => {
   const c = makeClient(t);
-  const food = catId(c, 'food');
-  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
-    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM', category_id: food });
-  }
-  assert.equal(c.get('/api/recurring/candidates').body.candidates[0].category, 'Food');
-});
-
-// ─── Search term (the card's merchant link) ───────────────────────────────────
-// `search` is what the card's merchant link puts in the ledger's Name filter.
-// The required property is RECALL: the term must be a substring of every
-// transaction in the series, or the linked ledger view shows fewer charges than
-// the calendar drew. The ledger's filter is a case-insensitive substring match on
-// description/display_name (txRowMatchesFilters), which is what these assert.
-
-/** Every description sharing `key`'s grouping, as the ledger stores them. */
-function descriptionsFor(c) {
-  return c.conn.db().prepare('SELECT description FROM transactions').all().map((r) => r.description);
-}
-
-function assertFindsEvery(term, descriptions) {
-  assert.ok(term, 'a detected series always has a search term');
-  for (const d of descriptions) {
-    assert.ok(d.toLowerCase().includes(term.toLowerCase()),
-      `"${term}" must match "${d}" — the ledger filter is a plain substring search`);
-  }
-}
-
-test('recurring search: a term that finds every charge, not just the one description kept', (t) => {
-  const c = makeClient(t);
-  // The case this exists for: one merchant, a trailing reference number that
-  // moves every month. Searching any single row's description would come back
-  // with exactly that row.
-  const descs = [
-    'NETFLIX.COM 8667797', 'NETFLIX.COM 8667812', 'NETFLIX.COM 8667955', 'NETFLIX.COM 8668043',
-  ];
-  descs.forEach((description, i) => {
-    insertTx(c, { date: daysAgoIso(95 - i * 30), amount: 15.49, description });
-  });
-  adoptAll(c);
-  const s = c.get('/api/recurring').body.series[0];
-  assertFindsEvery(s.search, descriptionsFor(c));
-  assert.equal(s.search, 'NETFLIX.COM',
-    'the half-matched reference number is dropped — it buys no precision the letters do not');
-});
-
-test('recurring search: the shared part need not be at the front of the description', (t) => {
-  const c = makeClient(t);
-  // A leading auth number varies instead of a trailing one, so the common
-  // prefix is the useless "POS " — the merchant is in the middle.
-  const descs = [
-    'POS 4421 CORNER MARKET', 'POS 8890 CORNER MARKET', 'POS 1207 CORNER MARKET', 'POS 6634 CORNER MARKET',
-  ];
-  descs.forEach((description, i) => {
-    insertTx(c, { date: daysAgoIso(95 - i * 30), amount: 62.5, description });
-  });
-  adoptAll(c);
-  const s = c.get('/api/recurring').body.series[0];
-  assertFindsEvery(s.search, descriptionsFor(c));
-  assert.equal(s.search, 'CORNER MARKET');
-});
-
-test('recurring search: identical descriptions keep the whole thing', (t) => {
-  const c = makeClient(t);
-  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
-    insertTx(c, { date, amount: 42, description: 'CITY FITNESS CLUB' });
-  }
-  adoptAll(c);
-  assert.equal(c.get('/api/recurring').body.series[0].search, 'CITY FITNESS CLUB');
-});
-
-test('recurring search: a renamed schedule still searches its real descriptions', (t) => {
-  const c = makeClient(t);
-  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
-    insertTx(c, { date, amount: 15.49, description: 'NETFLIX.COM' });
-  }
-  adoptAll(c);
-  c.post('/api/recurring/override', { key: 'netflix com', display_name: 'Movie Night' });
-  const s = c.get('/api/recurring').body.series[0];
-  assert.equal(s.display_name, 'Movie Night');
-  assert.equal(s.search, 'NETFLIX.COM',
-    'the label is the user\'s word for it; the ledger only knows the description');
-});
-
-test('recurring search: a hand-added schedule has none', (t) => {
-  const c = makeClient(t);
-  c.post('/api/recurring/schedule', {
-    display_name: 'Gym Membership', direction: 'expense', cycle: 'monthly', amount: 45, next_date: daysAgoIso(-14),
-  });
-  const s = c.get('/api/recurring').body.series[0];
-  assert.equal(s.search, null, 'no transactions behind it, so the card offers no link to go and see them');
-});
-
-test('recurring search: candidates carry it too', (t) => {
-  const c = makeClient(t);
-  for (const date of [daysAgoIso(95), daysAgoIso(65), daysAgoIso(35), daysAgoIso(5)]) {
-    insertTx(c, { date, amount: 11.99, description: 'SPOTIFY P1A4C9' });
-  }
-  assert.equal(c.get('/api/recurring/candidates').body.candidates[0].search, 'SPOTIFY P1A4C9');
+  c.get('/api/recurring/brands?q=netflix');
+  assert.deepStrictEqual(c.get('/api/recurring').body.series, []);
+  assert.equal(c.conn.db().prepare('SELECT COUNT(*) AS n FROM recurring_overrides').get().n, 0);
 });
 
 // ─── Detection / adoption (the mini-onboarding) ───────────────────────────────
@@ -669,7 +708,7 @@ test('recurring detect: history alone shows nothing until the user adopts a cand
   assert.equal(cand.body.candidates.length, 1);
   const s = cand.body.candidates[0];
   assert.equal(s.display_name, 'Netflix');
-  assert.equal(s.cycle, 'monthly');
+  assert.equal(cycleOf(s), 'monthly');
   assert.equal(s.amount, 15.49);
   assert.equal(s.occurrences, 4);
 

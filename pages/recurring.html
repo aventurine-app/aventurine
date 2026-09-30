@@ -16,9 +16,11 @@
 
 <div class="rec-page">
 
-    <!-- This page's cards are the calendar/list pair below, so its controls
-         ride a toolbar row instead of a card header: stepper hard left, ⋮ hard
-         right. The month label is a picker (recurring.js), same as Dashboard's
+    <!-- This page's cards are the calendar/rail pair below, so its month
+         control rides a toolbar row instead of a card header. Adding and
+         detecting schedules live at the foot of the rail, next to the list they
+         act on, so nothing sits on the right of this row.
+         The month label is a picker (recurring.js), same as Dashboard's
          stepper — the caret .stepper-label draws is not decoration.
          Today rides beside the stepper as the one-hop way back from any month
          the arrows wandered into; it stays in place and goes disabled on the
@@ -33,16 +35,25 @@
             </div>
             <button type="button" class="button-secondary rec-today-btn" id="rec-month-today" title="Back to the current month">Today</button>
         </div>
-        <button type="button" class="p-menu-btn" id="rec-kebab-btn" title="Recurring options" aria-label="Recurring options" aria-haspopup="menu">⋮</button>
     </div>
 
     <!-- The calendar is the listing: each occurrence is a chip carrying its
-         schedule's data, and hovering (or clicking, which pins it) opens the full
-         row in #rec-pop — built by recurring.js and appended to <body> so it is
-         not clipped by the page's scroll container. #rec-empty appears only while
-         no schedule has been adopted. -->
-    <div class="rec-empty" id="rec-empty" hidden></div>
-    <div class="rec-calendar" id="rec-calendar"></div>
+         schedule's data — the merchant, the amount, and the rest in its
+         tooltip. Clicking a chip opens that schedule's editor, the same dialog a
+         rail row opens; nothing opens on hover. -->
+
+    <!-- Totals, calendar and rail are one grid rather than three stacked blocks:
+         the totals row spans both columns, so the rail's first row starts level
+         with the calendar's top edge instead of with the totals above it.
+         #rec-summary and #rec-rail are empty until recurring.js has a month to
+         total. The rail is never hidden: its foot carries the only Add and
+         Detect controls on the page, so a calendar with nothing on it yet still
+         has both of them in reach. -->
+    <div class="rec-main" id="rec-main">
+        <div class="rec-summary" id="rec-summary"></div>
+        <div class="rec-calendar" id="rec-calendar"></div>
+        <aside class="rec-rail" id="rec-rail" aria-label="Schedules this month"></aside>
+    </div>
 
 </div>
 

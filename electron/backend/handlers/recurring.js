@@ -25,12 +25,23 @@
 const { bad, cleanLabel, isFiniteNumber, round2, parseIsoDate } = require('../validate');
 const { serialiseTx } = require('../services/transactions');
 const {
-  detectRecurringSeries, normaliseDesc, localTodayIso, addMonths, addDays, daysBetween, CYCLE_MONTHS, CYCLE_DAYS,
+  detectRecurringSeries, normaliseDesc, makeKeyResolver, localTodayIso, addDays,
+  daysBetween, CYCLE_DAYS,
 } = require('../services/predictions');
-const { addMonthKey, placeRecurring } = require('../services/forecast');
-// The merchant link's search term — the same rule the Top Merchants report
-// links its bars through (services/merchantSearch.js, extracted from here).
-const { searchTermByKey } = require('../services/merchantSearch');
+const { addMonthKey } = require('../services/forecast');
+// Cadence lives here now. placeRecurring (services/forecast.js) is deliberately
+// NOT used any more: it steps a nominal gap, which is all the Balance Forecast's
+// own privately detected patterns need, and it has no model of a chosen weekday,
+// an nth-weekday month or an end date. Leaving it alone keeps that report's
+// detection uncoupled from this page's, which is the arrangement it is built on.
+const {
+  normaliseRule, ruleFromCycle, nextOccurrence, occurrencesBetween, hasEnded,
+  FREQ_NAMES, MONTH_MODES, WEEK_POSITIONS, MAX_INTERVAL,
+} = require('../services/recurrence');
+// Brand-name suggestions for the editor's Name field, from the bundled lexicon
+// rather than from the ledger — the only source a schedule for a charge that has
+// never posted can be named from. See services/merchantSuggest.js.
+const { suggestMerchants } = require('../services/merchantSuggest');
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 const CYCLE_NAMES = Object.keys(CYCLE_DAYS);
@@ -42,43 +53,69 @@ function currentMonthKey() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
-/** iso + one cycle step (mirror of forecast.js's stepDate, kept local since
- *  this file needs it both forwards, here, and backwards in reverseStepCycle
- *  below). */
-function stepCycle(iso, cycle) {
-  return cycle in CYCLE_MONTHS ? addMonths(iso, CYCLE_MONTHS[cycle]) : addDays(iso, CYCLE_DAYS[cycle]);
+/**
+ * The cadence rule stored on an override row, or null when the row carries no
+ * cadence of its own (the ordinary case for a detected schedule the user has
+ * only renamed). The day/weekday parts may be NULL here: normaliseRule fills
+ * them from the schedule's anchor, which is where the old stepper took them
+ * from too.
+ */
+function ruleFromRow(ov) {
+  if (!ov || !ov.rule_freq) return null;
+  return {
+    freq: ov.rule_freq,
+    interval: ov.rule_interval,
+    month_mode: ov.rule_month_mode,
+    day: ov.rule_month_day,
+    pos: ov.rule_week_pos,
+    weekday: ov.rule_weekday,
+    until: ov.rule_until,
+  };
 }
 
-/** iso - one cycle step — turns a user-entered "next due" date into the
- *  last_date anchor a schedule is stored/projected from. */
-function reverseStepCycle(iso, cycle) {
-  return cycle in CYCLE_MONTHS ? addMonths(iso, -CYCLE_MONTHS[cycle]) : addDays(iso, -CYCLE_DAYS[cycle]);
+/**
+ * What "next due" means on every surface that shows it: the first occurrence
+ * that has not happened yet.
+ *
+ * For a DETECTED series the anchor is its last recorded charge, so the next one
+ * is strictly after that AND on or after today — a series survives detection for
+ * up to LAPSED_GRACE_DAYS past its due date, so one step off the anchor can
+ * still be weeks in the past. For a MANUAL one the anchor is a date the user
+ * declared and nothing has posted against, so the anchor itself counts.
+ *
+ * Null once the rule's end date has passed: the schedule is over, and saying so
+ * is the honest answer. It stays on the page, greyed.
+ */
+function seriesNextDue(rule, anchorIso, todayIso, { afterAnchor }) {
+  const from = afterAnchor && addDays(anchorIso, 1) > todayIso ? addDays(anchorIso, 1) : todayIso;
+  return nextOccurrence(rule, anchorIso, from);
 }
 
 /**
  * Layer a user override (recurring_overrides row, or undefined) on top of a
- * detected series. Only display_name/direction/cycle/amount are ever
+ * detected series. Only display_name/direction/cadence/amount are ever
  * overridden — the real transaction history (dates, occurrence count, past
- * actual amounts) always stays what was actually detected. A cadence
- * override recomputes next_date/due_in_days from the series' real last_date,
- * so the calendar's future projection follows the new cycle immediately;
- * PAST occurrences (services/predictions.js's `dates`) are untouched, so an
- * override never rewrites recorded history.
+ * actual amounts) always stays what was actually detected, so an override never
+ * rewrites recorded history.
+ *
+ * An END DATE applies on top of whichever cadence is in force, detected or
+ * overridden: "this stops in March" is not a statement about how often it
+ * repeats, and making the user restate the cadence to say it would be absurd.
  */
 function withOverride(s, ov, todayIso) {
   if (!ov) return s;
-  const cycle = ov.cycle ?? s.cycle;
-  const cycle_days = ov.cycle ? CYCLE_DAYS[cycle] : s.cycle_days;
-  const next_date = ov.cycle ? stepCycle(s.last_date, cycle) : s.next_date;
+  const overridden = normaliseRule(ruleFromRow(ov), s.last_date);
+  const rule = { ...(overridden || s.rule), until: ov.rule_until ?? null };
+  const next_date = seriesNextDue(rule, s.last_date, todayIso, { afterAnchor: true });
   return {
     ...s,
     display_name: ov.display_name ?? s.display_name,
     direction: ov.direction ?? s.direction,
-    cycle,
-    cycle_days,
+    rule,
     amount: ov.amount ?? s.amount,
     next_date,
-    due_in_days: daysBetween(todayIso, next_date),
+    ended: hasEnded(rule, s.last_date, todayIso),
+    due_in_days: next_date ? daysBetween(todayIso, next_date) : null,
   };
 }
 
@@ -90,101 +127,84 @@ function withOverride(s, ov, todayIso) {
  * /api/recurring/override directly rather than through the normal
  * POST /api/recurring/schedule create flow.
  *
- * Unlike withOverride's single-step cadence recompute (safe there because a
- * DETECTED series' last_date is always recent — LAPSED_GRACE_DAYS caps it at 90
- * days), a manual schedule's last_date never advances, since no transactions
- * post against it, so it can become arbitrarily old. next_date is therefore
- * walked forward with the same catch-up loop placeRecurring uses, so a schedule
- * added once continues to read "next Aug 15", "next Sep 15", … rather than
- * staying at the date first entered.
+ * A manual schedule's last_date never advances, since no transactions ever post
+ * against it, so it can become arbitrarily old — which is why next_date is
+ * walked forward (nextDueOnOrAfter) rather than stepped once, and a schedule
+ * added long ago still reads "next Aug 15", "next Sep 15", … rather than staying
+ * at the date first entered.
  */
 function manualSeries(ov, todayIso) {
-  if (!ov.display_name || !ov.direction || !ov.cycle || ov.amount == null || !ov.last_date) return null;
-  let next_date = stepCycle(ov.last_date, ov.cycle);
-  let guard = 0;
-  while (next_date < todayIso && guard++ < 1000) next_date = stepCycle(next_date, ov.cycle);
+  if (!ov.display_name || !ov.direction || !ov.rule_freq || ov.amount == null || !ov.last_date) return null;
+  const rule = normaliseRule(ruleFromRow(ov), ov.last_date);
+  if (!rule) return null;
+  // The anchor counts here, unlike a detected series': nothing has posted
+  // against it, so the date the user entered is itself still ahead of them.
+  const next_date = seriesNextDue(rule, ov.last_date, todayIso, { afterAnchor: false });
   return {
     key: ov.key,
     description: ov.display_name,
     display_name: ov.display_name,
     direction: ov.direction,
     amount: ov.amount,
-    cycle: ov.cycle,
-    cycle_days: CYCLE_DAYS[ov.cycle],
+    rule,
     dates: [], // no real occurrences ever posted
     occurrences: 0,
     confidence: 1, // user-declared, not statistically inferred
     last_date: ov.last_date,
     next_date,
-    due_in_days: daysBetween(todayIso, next_date),
+    ended: hasEnded(rule, ov.last_date, todayIso),
+    due_in_days: next_date ? daysBetween(todayIso, next_date) : null,
   };
 }
 
-/**
- * The category a detection key's transactions actually carry, as a
- * key -> category_id map. A series is a group of transactions, not one row, so
- * its category is the one MOST of them share; ties go to whichever was used
- * most recently, since a re-categorization is the newer decision. Rows with no
- * category don't vote — a schedule half-categorized still reads as its
- * category, and one with nothing categorized comes back absent.
- */
-function categoryByKey(rows) {
-  const counts = new Map(); // detection key -> Map(category_id -> {n, last})
-  for (const t of rows) {
-    if (t.category_id == null) continue;
-    const key = normaliseDesc(t.description);
-    if (!key) continue;
-    let byCat = counts.get(key);
-    if (!byCat) { byCat = new Map(); counts.set(key, byCat); }
-    const prev = byCat.get(t.category_id);
-    byCat.set(t.category_id, { n: (prev ? prev.n : 0) + 1, last: t.date });
-  }
-
-  const winners = new Map();
-  for (const [key, byCat] of counts) {
-    let bestId = null;
-    let best = null;
-    for (const [id, tally] of byCat) {
-      if (!best || tally.n > best.n || (tally.n === best.n && tally.last > best.last)) {
-        bestId = id;
-        best = tally;
-      }
-    }
-    winners.set(key, bestId);
-  }
-  return winners;
-}
-
-/**
- * Every series detectRecurringSeries finds in the ledger right now, each
- * tagged with the direction of the bucket it was detected in, the category its
- * transactions carry, and the term that finds those transactions in the
- * ledger. No override layering and no adoption filter — the raw detection
- * result, shared by the listing (which then keeps the adopted ones), the
- * candidate picker (which keeps the rest) and delete (which only checks whether
- * a key is detected at all).
- */
-function detectAll(db, todayIso) {
-  const cats = db.prepare('SELECT id, name, cat_type FROM categories').all();
-  const catTypeById = new Map(cats.map((c) => [c.id, c.cat_type]));
-  const catNameById = new Map(cats.map((c) => [c.id, c.name]));
-  const rows = db
+/** Every transaction, serialised, with each row's direction resolved from its
+ *  category. The one full read the page costs. */
+function loadLedger(db) {
+  const catTypeById = new Map(
+    db.prepare('SELECT id, cat_type FROM categories').all().map((c) => [c.id, c.cat_type])
+  );
+  return db
     .prepare('SELECT * FROM transactions ORDER BY date')
     .all()
     .map((t) => serialiseTx(t, catTypeById));
-  const catByKey = categoryByKey(rows);
-  const searchByKey = searchTermByKey(rows);
+}
+
+/**
+ * Every series detectRecurringSeries finds in the ledger right now, each tagged
+ * with the direction of the bucket it was detected in. No override layering and
+ * no adoption filter — the raw detection result, shared by the listing (which
+ * then keeps the adopted ones), the candidate picker (which keeps the rest) and
+ * delete (which only checks whether a key is detected at all).
+ */
+function detectAll(db, todayIso) {
+  const rows = loadLedger(db);
+  // One memoized normaliseDesc across all three passes below: a real ledger
+  // holds far fewer distinct descriptions than rows.
+  const keyOf = makeKeyResolver();
 
   return DIRECTION_NAMES.flatMap((direction) =>
-    detectRecurringSeries(rows.filter((t) => t.tx_type === direction), { today: todayIso })
+    detectRecurringSeries(rows.filter((t) => t.tx_type === direction), { today: todayIso, keyOf })
       .map((s) => {
-        const categoryId = catByKey.has(s.key) ? catByKey.get(s.key) : null;
+        // Detection speaks in five cadence names; the rest of this file speaks
+        // in rules. Converting here, once, means a detected schedule and an
+        // edited one are the same kind of thing everywhere downstream.
+        //
+        // It also fixes next_date. Detection dates the next charge one step past
+        // the last one it recorded, which can be in the PAST — a series stays
+        // detected for up to LAPSED_GRACE_DAYS overdue, so a bill whose latest
+        // charge was never imported would read as "next" on a day that has gone.
+        // The CALENDAR is unaffected: its projected chips still run from
+        // last_date (see recurringGet), which is what fills that overdue gap with
+        // faint chips rather than hiding it.
+        const rule = ruleFromCycle(s.cycle, s.last_date);
+        const next_date = seriesNextDue(rule, s.last_date, todayIso, { afterAnchor: true });
         return {
           ...s,
+          rule,
+          next_date,
+          ended: false, // only an end date ends a schedule, and detection sets none
+          due_in_days: next_date ? daysBetween(todayIso, next_date) : null,
           direction,
-          category_id: categoryId,
-          category: categoryId == null ? null : catNameById.get(categoryId) ?? null,
-          search: searchByKey.get(s.key) ?? null,
         };
       })
   );
@@ -197,20 +217,23 @@ function serialiseSeries(s) {
     description: s.description,
     display_name: s.display_name,
     direction: s.direction,
-    // The category its transactions carry, for the card's pill. Null on a
-    // hand-added schedule (no backing transactions) or an uncategorized one.
-    category_id: s.category_id ?? null,
-    category: s.category ?? null,
-    // The ledger Name-filter term that matches this schedule's transactions
-    // (searchTermByKey). Null on a hand-added schedule, which has no backing
-    // transactions.
-    search: s.search ?? null,
     amount: s.amount,
-    cycle: s.cycle,
+    // The cadence rule (services/recurrence.js), fully resolved: the day of the
+    // month or the weekday is filled in from the anchor even when the stored
+    // override left it open, so the client never has to re-derive it to draw the
+    // control the user edits it with.
+    rule: s.rule || null,
+    // Its end date has passed. The schedule stays listed, greyed: a row that
+    // vanished on its end date would read as data the app lost.
+    ended: !!s.ended,
+    // No backing transactions, so its anchor date is the user's rather than the
+    // ledger's — which is what makes the date editable in the editor.
+    manual: s.occurrences === 0,
     occurrences: s.occurrences,
     confidence: s.confidence,
     last_date: s.last_date,
-    next_date: s.next_date,
+    // Null once the schedule has ended: there is no next one.
+    next_date: s.next_date ?? null,
   };
 }
 
@@ -241,8 +264,13 @@ function recurringGet(ctx, { query }) {
     if (m) manual.push(m);
   }
 
-  const series = [...detected, ...manual]
-    .sort((a, b) => (a.next_date < b.next_date ? -1 : a.next_date > b.next_date ? 1 : b.confidence - a.confidence));
+  // Soonest due first. An ENDED schedule has no next date at all, so it sorts
+  // to the bottom rather than to the top, where a null would otherwise put it.
+  const series = [...detected, ...manual].sort((a, b) => {
+    if (!a.next_date || !b.next_date) return (a.next_date ? 0 : 1) - (b.next_date ? 0 : 1);
+    if (a.next_date !== b.next_date) return a.next_date < b.next_date ? -1 : 1;
+    return b.confidence - a.confidence;
+  });
 
   const monthStart = `${month}-01`;
   const monthEndExclusive = `${addMonthKey(month, 1)}-01`;
@@ -256,32 +284,27 @@ function recurringGet(ctx, { query }) {
         });
       }
     }
-    // Project forward from the series' OWN last recorded charge, not from
-    // today. Projecting from today left every month between the last real
-    // charge and now drawing nothing at all: no actual chips (the ledger has
-    // none) and no projected ones (they were skipped as past), so a schedule
-    // whose merchant string changed — a bank renaming a payroll line, an
-    // un-imported recent statement — read as months in which the charge simply
-    // never happened, while the months either side of the gap rendered fine.
-    // A series survives detection for up to LAPSED_GRACE_DAYS past its next due
-    // date, so that gap can be three months wide. Stepping from last_date fills
-    // it with the ordinary projected (faint) chip, which is the honest reading:
-    // expected here, nothing recorded. No chip can collide with an actual one,
-    // since the first step lands strictly after last_date, the newest date in
-    // `dates`. placeRecurring's catch-up loop then no-ops (nothing precedes the
-    // start bound) and its end bound still leaves months earlier than the last
-    // recorded charge empty.
-    const projected = placeRecurring(
-      [{ key: s.key, name: s.cycle, days: s.cycle_days, amount: s.amount, last: s.last_date }],
-      s.last_date,
-      monthEndExclusive
-    );
-    for (const o of projected) {
-      if (o.date >= monthStart) {
-        occurrences.push({
-          date: o.date, key: s.key, direction: s.direction, amount: o.amount, actual: false,
-        });
-      }
+    // Project from the series' OWN anchor, not from today. Projecting from
+    // today left every month between the last real charge and now drawing
+    // nothing at all: no actual chips (the ledger has none) and no projected
+    // ones (they were skipped as past), so a schedule whose merchant string
+    // changed — a bank renaming a payroll line, an un-imported recent statement
+    // — read as months in which the charge simply never happened, while the
+    // months either side of the gap rendered fine. A series survives detection
+    // for up to LAPSED_GRACE_DAYS past its next due date, so that gap can be
+    // three months wide. Generating from the anchor fills it with the ordinary
+    // projected (faint) chip, which is the honest reading: expected here,
+    // nothing recorded. Months EARLIER than the anchor stay empty, since
+    // occurrencesBetween never runs backwards past it.
+    //
+    // A projection landing on a day that already has a real charge is dropped:
+    // that day's answer is what actually happened, not what was expected.
+    const recorded = new Set(s.dates.map((d) => d.date));
+    for (const date of occurrencesBetween(s.rule, s.last_date, monthStart, monthEndExclusive)) {
+      if (recorded.has(date)) continue;
+      occurrences.push({
+        date, key: s.key, direction: s.direction, amount: s.amount, actual: false,
+      });
     }
   }
   occurrences.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
@@ -337,11 +360,70 @@ function recurringAdopt(ctx, { body }) {
 }
 
 /**
+ * The rule columns a request describes, as a column -> value patch.
+ *
+ * Two spellings are accepted and both mean the same thing. `cycle` is the old
+ * five-name shorthand, kept because it is the shortest way to say the common
+ * cases and because detection still measures cadences in those terms; it sets
+ * the frequency and interval only, leaving the day and weekday to be resolved
+ * from the schedule's anchor at read time, exactly as it always was. `rule` is
+ * the full form the editor sends, where any part may still be left null to mean
+ * "take it from the anchor".
+ *
+ * Each field is checked on its own rather than through normaliseRule: that one
+ * needs an anchor to fill the gaps, and the anchor of a DETECTED schedule is its
+ * last recorded charge, which is only knowable by running detection. Saving an
+ * edit should not have to.
+ */
+function parseRulePatch(raw) {
+  if (CYCLE_NAMES.includes(raw)) {
+    const weekly = { weekly: 1, biweekly: 2 }[raw];
+    return weekly
+      ? { rule_freq: 'weekly', rule_interval: weekly, rule_month_mode: null,
+          rule_month_day: null, rule_week_pos: null, rule_weekday: null }
+      : { rule_freq: 'monthly', rule_interval: { monthly: 1, quarterly: 3, yearly: 12 }[raw],
+          rule_month_mode: 'date', rule_month_day: null, rule_week_pos: null, rule_weekday: null };
+  }
+  if (!raw || typeof raw !== 'object') bad('invalid cadence');
+
+  if (!FREQ_NAMES.includes(raw.freq)) bad('invalid freq');
+  const int = (v, lo, hi, name) => {
+    if (v == null) return null;
+    if (!Number.isInteger(v) || v < lo || v > hi) bad(`invalid ${name}`);
+    return v;
+  };
+  const interval = raw.interval == null ? 1 : int(raw.interval, 1, MAX_INTERVAL, 'interval');
+  if (raw.month_mode != null && !MONTH_MODES.includes(raw.month_mode)) bad('invalid month_mode');
+  if (raw.pos != null && !WEEK_POSITIONS.includes(raw.pos)) bad('invalid pos');
+
+  return {
+    rule_freq: raw.freq,
+    rule_interval: interval,
+    rule_month_mode: raw.freq === 'monthly' ? (raw.month_mode ?? 'date') : null,
+    rule_month_day: raw.freq === 'monthly' ? int(raw.day, 1, 31, 'day') : null,
+    rule_week_pos: raw.freq === 'monthly' && raw.month_mode === 'day' ? (raw.pos ?? 1) : null,
+    // Only the two modes that repeat on a weekday keep one. A monthly-by-date
+    // rule that stored one would be a column normaliseRule then ignores, which
+    // is a stored value with no reader.
+    rule_weekday: raw.freq === 'weekly' || raw.month_mode === 'day'
+      ? int(raw.weekday, 0, 6, 'weekday')
+      : null,
+  };
+}
+
+/** The empty cadence patch: back to whatever detection measures. */
+const NO_RULE = {
+  rule_freq: null, rule_interval: null, rule_month_mode: null,
+  rule_month_day: null, rule_week_pos: null, rule_weekday: null,
+};
+
+/**
  * Upsert a user override for one recurring schedule (POST body: {key,
- * display_name?, direction?, cycle?, amount?} — any subset, each null clears
- * that field back to auto-detected). Recurring rows have no surrogate id (a
- * detected series is recomputed from transactions on every read — see
- * detectRecurringSeries), so the grouping key is the identifier, the same way
+ * display_name?, direction?, cycle?|rule?, until?, amount?, next_date?} — any
+ * subset, each null clearing that field back to auto-detected).
+ * Recurring rows have no surrogate id (a detected series is recomputed from
+ * transactions on every read — see detectRecurringSeries), so the grouping key
+ * is the identifier, the same way
  * Cash Flow's /api/entry keys on a category string rather than a row id.
  * Editing a manual schedule's date is not supported here — only
  * POST /api/recurring/schedule (create) sets last_date; delete and re-add to
@@ -368,9 +450,26 @@ function recurringOverrideUpsert(ctx, { body }) {
     if (body.direction !== null && !DIRECTION_NAMES.includes(body.direction)) bad('invalid direction');
     patch.direction = body.direction;
   }
-  if (hasField('cycle')) {
-    if (body.cycle !== null && !CYCLE_NAMES.includes(body.cycle)) bad('invalid cycle');
-    patch.cycle = body.cycle;
+  // `cycle` and `rule` are two spellings of the same patch; null clears the
+  // cadence override so the schedule follows whatever detection measures again.
+  if (hasField('cycle') || hasField('rule')) {
+    const raw = hasField('rule') ? body.rule : body.cycle;
+    Object.assign(patch, raw === null ? NO_RULE : parseRulePatch(raw));
+  }
+  // The end date is its OWN field, not part of the cadence: "this stops in
+  // March" says nothing about how often it repeats, and making the user restate
+  // the cadence in order to say it would be absurd. withOverride applies it on
+  // top of whichever cadence is in force.
+  if (hasField('until')) {
+    if (body.until !== null && !parseIsoDate(body.until)) bad('invalid until');
+    patch.rule_until = body.until;
+  }
+  // The anchor, for a MANUAL schedule: the date it next falls on. A detected
+  // schedule's dates come from its transactions, so there is nothing here to
+  // move and the editor does not offer it.
+  if (hasField('next_date')) {
+    if (body.next_date !== null && !parseIsoDate(body.next_date)) bad('invalid next_date');
+    patch.last_date = body.next_date;
   }
   if (hasField('amount')) {
     if (body.amount === null) {
@@ -387,9 +486,11 @@ function recurringOverrideUpsert(ctx, { body }) {
   // row, which is the normal case.
   patch.adopted = 1;
 
-  db.prepare('INSERT INTO recurring_overrides ("key") VALUES (?) ON CONFLICT("key") DO NOTHING').run(key);
-  const sets = Object.keys(patch).map((f) => `${f} = ?`).join(', ');
-  db.prepare(`UPDATE recurring_overrides SET ${sets} WHERE "key" = ?`).run(...Object.values(patch), key);
+  db.transaction(() => {
+    db.prepare('INSERT INTO recurring_overrides ("key") VALUES (?) ON CONFLICT("key") DO NOTHING').run(key);
+    const sets = Object.keys(patch).map((f) => `${f} = ?`).join(', ');
+    db.prepare(`UPDATE recurring_overrides SET ${sets} WHERE "key" = ?`).run(...Object.values(patch), key);
+  })();
 
   const row = db.prepare('SELECT * FROM recurring_overrides WHERE "key" = ?').get(key);
   return { ok: true, override: row };
@@ -402,9 +503,10 @@ function recurringOverrideUpsert(ctx, { body }) {
  * The key is derived from display_name via normaliseDesc — the SAME grouping key
  * real transactions for that merchant would produce — so once matching
  * transactions are imported, detection takes over and this row continues to
- * apply as an override on top of it (withOverride). `next_date` is what the user
- * enters, but a schedule is stored and projected the same way a detected series
- * is (last_date + cycle), so it is reverse-stepped once here.
+ * apply as an override on top of it (withOverride). `next_date` is stored as the
+ * schedule's ANCHOR: a rule generates from its anchor inclusive, so the date the
+ * user entered is itself the first occurrence, and nothing has to be
+ * reverse-stepped to make that true.
  * A hand-added schedule is adopted on the spot — the user just declared it,
  * there is nothing left to confirm in a detection picker.
  */
@@ -418,21 +520,84 @@ function recurringScheduleCreate(ctx, { body }) {
   if (!key) bad('name must contain letters');
 
   if (!DIRECTION_NAMES.includes(body.direction)) bad('invalid direction');
-  if (!CYCLE_NAMES.includes(body.cycle)) bad('invalid cycle');
   if (!isFiniteNumber(body.amount) || body.amount <= 0) bad('invalid amount');
   const nextDate = parseIsoDate(body.next_date);
   if (!nextDate) bad('invalid next_date');
-  const lastDate = reverseStepCycle(nextDate, body.cycle);
+  const until = body.until == null ? null : parseIsoDate(body.until);
+  if (body.until != null && !until) bad('invalid until');
+  if (until && until < nextDate) bad('the end date is before the first charge');
+  const rule = parseRulePatch(body.rule ?? body.cycle);
 
   db.prepare(
-    `INSERT INTO recurring_overrides ("key", display_name, direction, cycle, amount, last_date, adopted)
-       VALUES (?, ?, ?, ?, ?, ?, 1)
+    `INSERT INTO recurring_overrides
+       ("key", display_name, direction, amount, last_date, adopted, rule_until,
+        rule_freq, rule_interval, rule_month_mode, rule_month_day, rule_week_pos, rule_weekday)
+       VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT("key") DO UPDATE SET
-       display_name = excluded.display_name, direction = excluded.direction, cycle = excluded.cycle,
-       amount = excluded.amount, last_date = excluded.last_date, adopted = 1`
-  ).run(key, name, body.direction, body.cycle, round2(body.amount), lastDate);
+       display_name = excluded.display_name, direction = excluded.direction,
+       amount = excluded.amount, last_date = excluded.last_date, adopted = 1,
+       rule_until = excluded.rule_until,
+       rule_freq = excluded.rule_freq, rule_interval = excluded.rule_interval,
+       rule_month_mode = excluded.rule_month_mode, rule_month_day = excluded.rule_month_day,
+       rule_week_pos = excluded.rule_week_pos, rule_weekday = excluded.rule_weekday`
+  ).run(
+    key, name, body.direction, round2(body.amount), nextDate, until,
+    rule.rule_freq, rule.rule_interval, rule.rule_month_mode,
+    rule.rule_month_day, rule.rule_week_pos, rule.rule_weekday
+  );
 
   return { ok: true, key };
+}
+
+// ── Naming ──────────────────────────────────────────────────────────────────
+
+const MAX_BRAND_RESULTS = 8;
+
+/**
+ * Brand-name suggestions for the editor's Name field (GET
+ * /api/recurring/brands?q=). This searches the BUNDLED merchant lexicon rather
+ * than the ledger, which is the only source that can name a charge that has
+ * never posted — precisely the schedule the user is writing by hand. Detection
+ * answers the other question, "which of my transactions is this?", and it
+ * answers it from the ledger.
+ *
+ * A NAME AND NOTHING ELSE. Not a transaction, not a category, not a history: the
+ * suggestion fills in one field the user can immediately overwrite. Getting the
+ * spelling right is what draws the merchant's avatar, since avatar.js slugs the
+ * label and looks it up in the icon manifest this same lexicon generated.
+ *
+ * Reads no table, so it costs nothing per keystroke beyond the lexicon scan. The
+ * locked-database rule still applies: the 423 gate is in router.js, ahead of
+ * every handler, and does not depend on one touching the database.
+ */
+function recurringBrands(ctx, { query }) {
+  return { brands: suggestMerchants(query.q, MAX_BRAND_RESULTS).map((name) => ({ name })) };
+}
+
+/**
+ * Which of `keys` detection can still produce. It is the one question both
+ * deletes ask, and the answer decides between un-adopting a row and dropping it,
+ * so it lives here once rather than being spelled out at each call site.
+ *
+ * Detection is not cheap — a full ledger read, then a pass per direction — and it
+ * is the only thing that can answer, since whether a group of transactions
+ * qualifies as a series is what detection decides. A cheaper pre-filter was
+ * tried and removed: narrowing by "does any description normalise to this key"
+ * costs its own scan of every description, which measured at about a third of
+ * the detection it was meant to avoid, so it made deleting a DETECTED schedule
+ * slower (10.0ms against 8.3ms on a 1,628-row ledger) to make deleting a
+ * hand-added one faster. Neither is perceptible on a single user action, and the
+ * simpler path is the one worth keeping.
+ *
+ * No keys is answered without asking, which is the one case that is free: it is
+ * how clearing an already-empty page costs nothing.
+ */
+function detectedAmong(db, keys) {
+  if (!keys.length) return new Set();
+  const wanted = new Set(keys);
+  return new Set(
+    detectAll(db, localTodayIso()).map((s) => s.key).filter((key) => wanted.has(key))
+  );
 }
 
 /**
@@ -449,8 +614,7 @@ function recurringScheduleDelete(ctx, { params }) {
   const key = params.key;
   if (!key) bad('key required');
 
-  const isDetected = detectAll(db, localTodayIso()).some((s) => s.key === key);
-  if (isDetected) {
+  if (detectedAmong(db, [key]).has(key)) {
     db.prepare('UPDATE recurring_overrides SET adopted = 0 WHERE "key" = ?').run(key);
   } else {
     db.prepare('DELETE FROM recurring_overrides WHERE "key" = ?').run(key);
@@ -471,16 +635,19 @@ function recurringScheduleDelete(ctx, { params }) {
  */
 function recurringClearAll(ctx) {
   const db = ctx.db();
-  const detected = new Set(detectAll(db, localTodayIso()).map((s) => s.key));
   const adopted = db
     .prepare('SELECT "key" FROM recurring_overrides WHERE adopted = 1')
     .all()
     .map((o) => o.key);
+  const detected = detectedAmong(db, adopted);
 
   const unadopt = db.prepare('UPDATE recurring_overrides SET adopted = 0 WHERE "key" = ?');
-  const drop = db.prepare('DELETE FROM recurring_overrides WHERE "key" = ?');
+  const dropRow = db.prepare('DELETE FROM recurring_overrides WHERE "key" = ?');
   db.transaction(() => {
-    for (const key of adopted) (detected.has(key) ? unadopt : drop).run(key);
+    for (const key of adopted) {
+      if (detected.has(key)) unadopt.run(key);
+      else dropRow.run(key);
+    }
   })();
 
   return { ok: true, cleared: adopted.length };
@@ -489,6 +656,7 @@ function recurringClearAll(ctx) {
 const routes = [
   ['GET', '/api/recurring', recurringGet],
   ['GET', '/api/recurring/candidates', recurringCandidates],
+  ['GET', '/api/recurring/brands', recurringBrands],
   ['POST', '/api/recurring/adopt', recurringAdopt],
   ['POST', '/api/recurring/override', recurringOverrideUpsert],
   ['POST', '/api/recurring/schedule', recurringScheduleCreate],

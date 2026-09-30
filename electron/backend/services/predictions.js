@@ -39,6 +39,28 @@ function normaliseDesc(desc) {
   return lowered.replace(/[^a-z]+/g, ' ').trim();
 }
 
+/**
+ * normaliseDesc over a transaction, memoized per description string, for a
+ * caller that reads the ledger more than once.
+ *
+ * The cache is the point: the Recurring page detects each direction bucket in
+ * turn, so it keys every row three times, while a real ledger holds far fewer
+ * distinct descriptions than rows (963 across 1,628 in the ledger this was
+ * measured on). Pass the result as `keyOf` to detectRecurringSeries.
+ */
+function makeKeyResolver() {
+  const cache = new Map();
+  return function keyOf(tx) {
+    const desc = tx.description || '';
+    let key = cache.get(desc);
+    if (key === undefined) {
+      key = normaliseDesc(desc);
+      cache.set(desc, key);
+    }
+    return key;
+  };
+}
+
 // ── ISO-date arithmetic (dates stay 'YYYY-MM-DD' strings) ────────────────────
 
 function toUTC(iso) {
@@ -105,22 +127,27 @@ const { round2 } = require('../validate');
 
 /**
  * Find every currently-active recurring series in one direction's transactions.
- * Rows are grouped by normaliseDesc, same-day rows are merged into one charge,
+ * Rows are grouped by `keyOf` (normaliseDesc by default), same-day rows are
+ * merged into one charge,
  * and a group qualifies when its median gap matches a cycle (classifyCycle)
  * and at least MIN_REGULARITY of its gaps sit within that cycle's tolerance.
  * Each series keeps its full occurrence history (`dates`, one entry per real
  * charge date with that day's split-merged amount), which the calendar view
  * uses to mark past charge days as well as the next projected one.
- * `today` is an ISO string (defaults to the current date). Returns
+ * `today` is an ISO string (defaults to the current date). `keyOf` overrides
+ * the grouping key, which is how a caller reading the ledger several times over
+ * shares one memoized normaliseDesc across the passes (makeKeyResolver, above).
+ * Returns
  * [{key, description, amount, cycle, next_date, due_in_days, last_date, dates,
  * occurrences, confidence}], sorted soonest-due first.
  */
-function detectRecurringSeries(transactions, { today = null } = {}) {
+function detectRecurringSeries(transactions, { today = null, keyOf = null } = {}) {
   const todayIso = today || localTodayIso();
+  const groupKey = keyOf || ((t) => normaliseDesc(t.description));
 
   const groups = new Map();
   for (const t of transactions) {
-    const key = normaliseDesc(t.description);
+    const key = groupKey(t);
     if (!key) continue;
     let arr = groups.get(key);
     if (!arr) { arr = []; groups.set(key, arr); }
@@ -156,7 +183,7 @@ function detectRecurringSeries(transactions, { today = null } = {}) {
     const latestRow = rows.reduce((a, b) => (a.date > b.date ? a : b));
 
     results.push({
-      key: normaliseDesc(latestRow.description),
+      key: groupKey(latestRow),
       description: latestRow.description,
       display_name: latestRow.display_name ?? null,
       amount,
@@ -180,6 +207,7 @@ function detectRecurringSeries(transactions, { today = null } = {}) {
 module.exports = {
   detectRecurringSeries,
   normaliseDesc,
+  makeKeyResolver,
   addMonths,
   addDays,
   daysBetween,

@@ -163,6 +163,32 @@
     };
   })();
 
+  // Shared by both Recurring fixtures below: dates inside the current month, and
+  // the cycle-name -> cadence-rule conversion the backend does once per detected
+  // series (ruleFromCycle, electron/backend/services/recurrence.js). Kept in step
+  // with that function — a fixture carrying a shape the page no longer reads is
+  // how pure-UI work starts drawing something the real backend never sends.
+  function recurringFixtureDates() {
+    const pad = (n) => String(n).padStart(2, '0');
+    const today = new Date();
+    const ym = `${today.getFullYear()}-${pad(today.getMonth() + 1)}`;
+    // Clamped to 28 so every day exists in February too.
+    const iso = (day) => `${ym}-${pad(Math.min(day, 28))}`;
+    const weekdayOf = (isoDate) => {
+      const [y, m, d] = isoDate.split('-').map(Number);
+      return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+    };
+    const ruleFor = (cycle, anchorIso, until) => {
+      const weeks = { weekly: 1, biweekly: 2 }[cycle];
+      if (weeks) {
+        return { freq: 'weekly', interval: weeks, weekday: weekdayOf(anchorIso), month_mode: null, day: null, pos: null, until };
+      }
+      const months = { monthly: 1, quarterly: 3, yearly: 12 }[cycle];
+      return { freq: 'monthly', interval: months, weekday: null, month_mode: 'date', day: Number(anchorIso.slice(8, 10)), pos: null, until };
+    };
+    return { ym, iso, ruleFor, today };
+  }
+
   // static/js/pages/recurring.js — a handful of recurring series + this
   // month's occurrences (calendar dots + list). The real backend recomputes
   // per `month`; this fixture returns the same shape for any month, since query
@@ -173,50 +199,60 @@
   // candidates are in recurringCandidatesFixture below). A populated list is
   // what pure-UI work on the list and calendar needs.
   const recurringFixture = (() => {
-    const pad = (n) => String(n).padStart(2, '0');
-    const today = new Date();
-    const ym = `${today.getFullYear()}-${pad(today.getMonth() + 1)}`;
-    const iso = (day) => `${ym}-${pad(Math.min(day, 28))}`;
-    // `search` is the term the card's merchant link passes to the Transactions
-    // ledger — the substring shared by every transaction in the series, which
-    // for these single-description fixtures is the description itself.
+    const { ym, iso, ruleFor, today } = recurringFixtureDates();
+    // A schedule's cadence is a RULE, not a cycle name (services/recurrence.js),
+    // and `ruleFor` is the same conversion the backend applies to a detected
+    // series. The names below are only the shorthand this file writes it in.
     const series = [
-      { key: 'netflix', description: 'NETFLIX.COM', display_name: 'Netflix', direction: 'expense', category_id: 5, category: 'Entertainment', search: 'NETFLIX.COM', amount: 15.49, cycle: 'monthly', occurrences: 6, confidence: 0.92, last_date: iso(14), next_date: iso(14) },
-      { key: 'city_fitness', description: 'CITY FITNESS CLUB', display_name: 'City Fitness', direction: 'expense', category_id: 6, category: 'Health & Fitness', search: 'CITY FITNESS CLUB', amount: 42.0, cycle: 'monthly', occurrences: 5, confidence: 0.85, last_date: iso(3), next_date: iso(3) },
-      { key: 'rent', description: 'RENT', display_name: null, direction: 'expense', category_id: 2, category: 'Rent / Mortgage', search: 'RENT', amount: 1500, cycle: 'monthly', occurrences: 8, confidence: 0.98, last_date: iso(1), next_date: iso(1) },
-      // Uncategorized — the card's amber "needs review" pill (.rec-type-empty).
-      { key: 'spotify', description: 'SPOTIFY', display_name: 'Spotify', direction: 'expense', category_id: null, category: null, search: 'SPOTIFY', amount: 11.99, cycle: 'monthly', occurrences: 6, confidence: 0.9, last_date: iso(24), next_date: iso(24) },
-      { key: 'acme_payroll', description: 'ACME PAYROLL', display_name: 'Acme Corp', direction: 'income', category_id: 1, category: 'Primary Income', search: 'ACME PAYROLL', amount: 3000, cycle: 'biweekly', occurrences: 10, confidence: 0.95, last_date: iso(15), next_date: iso(15) },
-      // Hand-added: no transactions behind it, so no occurrence count, no
-      // category and no `search` — the card shows its name as plain text
-      // rather than as a link to a ledger view that would come back empty.
-      { key: 'locker rental', description: 'Locker Rental', display_name: 'Locker Rental', direction: 'expense', category_id: null, category: null, search: null, amount: 8, cycle: 'monthly', occurrences: 0, confidence: 1, last_date: iso(26), next_date: iso(26) },
+      { key: 'netflix', description: 'NETFLIX.COM', display_name: 'Netflix', direction: 'expense', amount: 15.49, cycle: 'monthly', occurrences: 6, confidence: 0.92, last_date: iso(14), next_date: iso(14) },
+      { key: 'city_fitness', description: 'CITY FITNESS CLUB', display_name: 'City Fitness', direction: 'expense', amount: 42.0, cycle: 'monthly', occurrences: 5, confidence: 0.85, last_date: iso(3), next_date: iso(3) },
+      { key: 'rent', description: 'RENT', display_name: null, direction: 'expense', amount: 1500, cycle: 'monthly', occurrences: 8, confidence: 0.98, last_date: iso(1), next_date: iso(1) },
+      { key: 'spotify', description: 'SPOTIFY', display_name: 'Spotify', direction: 'expense', amount: 11.99, cycle: 'monthly', occurrences: 6, confidence: 0.9, last_date: iso(24), next_date: iso(24) },
+      { key: 'acme_payroll', description: 'ACME PAYROLL', display_name: 'Acme Corp', direction: 'income', amount: 3000, cycle: 'biweekly', occurrences: 10, confidence: 0.95, last_date: iso(15), next_date: iso(15) },
+      // Hand-added: no transactions behind it, so no occurrence count, and the
+      // rail lets its date be edited (`manual`, derived below).
+      { key: 'locker rental', description: 'Locker Rental', display_name: 'Locker Rental', direction: 'expense', amount: 8, cycle: 'monthly', occurrences: 0, confidence: 1, last_date: iso(26), next_date: iso(26) },
+      // Ended: its end date has passed, so there is no next one. It stays listed
+      // and greyed (.rec-rail-ended), which is otherwise a state no pure-UI pass
+      // could reach.
+      { key: 'old gym', description: 'DOWNTOWN GYM', display_name: 'Downtown Gym', direction: 'expense', amount: 29.5, cycle: 'monthly', occurrences: 5, confidence: 0.87, last_date: iso(8), next_date: null, ended: true, until: `${today.getFullYear() - 1}-12-31` },
     ];
-    const occurrences = series.map((s) => ({
+    for (const s of series) {
+      s.rule = ruleFor(s.cycle, s.last_date, s.until ?? null);
+      s.ended = !!s.ended;
+      s.manual = s.occurrences === 0;
+      delete s.cycle;
+      delete s.until;
+    }
+    // An ended schedule projects nothing, the same way occurrencesBetween stops
+    // once the rule's end date has passed.
+    const occurrences = series.filter((s) => s.next_date).map((s) => ({
       date: s.next_date, key: s.key, direction: s.direction, amount: s.amount,
       actual: Number(s.next_date.slice(-2)) <= today.getDate(),
     }));
     return { month: ym, series, occurrences };
   })();
 
-  // The Recurring page's detection picker (⋮ → "Find recurring schedules").
+  // The Recurring page's detection picker (the rail's "Detect Schedules").
   // Disjoint from recurringFixture above — these are detected patterns NOT yet
   // on the page, which is what the dialog lists. POST /api/recurring/adopt is
   // not modeled (fixtures are read-only), so in a plain browser the dialog
   // opens, ticks and closes without the list growing.
   const recurringCandidatesFixture = (() => {
-    const pad = (n) => String(n).padStart(2, '0');
-    const today = new Date();
-    const ym = `${today.getFullYear()}-${pad(today.getMonth() + 1)}`;
-    const iso = (day) => `${ym}-${pad(Math.min(day, 28))}`;
-    return {
-      candidates: [
-        { key: 'metro power', description: 'METRO POWER & LIGHT', display_name: null, direction: 'expense', search: 'METRO POWER & LIGHT', amount: 88.4, cycle: 'monthly', occurrences: 7, confidence: 0.94, last_date: iso(9), next_date: iso(9) },
-        { key: 'brightline internet', description: 'BRIGHTLINE INTERNET', display_name: 'Brightline', direction: 'expense', search: 'BRIGHTLINE INTERNET', amount: 59.99, cycle: 'monthly', occurrences: 5, confidence: 0.88, last_date: iso(19), next_date: iso(19) },
-        { key: 'lakeside storage', description: 'LAKESIDE STORAGE UNIT', display_name: null, direction: 'expense', search: 'LAKESIDE STORAGE UNIT', amount: 75, cycle: 'monthly', occurrences: 4, confidence: 0.81, last_date: iso(27), next_date: iso(27) },
-        { key: 'vault auto save', description: 'VAULT AUTO SAVE', display_name: null, direction: 'transfer', search: 'VAULT AUTO SAVE', amount: 250, cycle: 'biweekly', occurrences: 9, confidence: 0.76, last_date: iso(12), next_date: iso(26) },
-      ],
-    };
+    const { iso, ruleFor } = recurringFixtureDates();
+    const candidates = [
+      { key: 'metro power', description: 'METRO POWER & LIGHT', display_name: null, direction: 'expense', amount: 88.4, cycle: 'monthly', occurrences: 7, confidence: 0.94, last_date: iso(9), next_date: iso(9) },
+      { key: 'brightline internet', description: 'BRIGHTLINE INTERNET', display_name: 'Brightline', direction: 'expense', amount: 59.99, cycle: 'monthly', occurrences: 5, confidence: 0.88, last_date: iso(19), next_date: iso(19) },
+      { key: 'lakeside storage', description: 'LAKESIDE STORAGE UNIT', display_name: null, direction: 'expense', amount: 75, cycle: 'monthly', occurrences: 4, confidence: 0.81, last_date: iso(27), next_date: iso(27) },
+      { key: 'vault auto save', description: 'VAULT AUTO SAVE', display_name: null, direction: 'transfer', amount: 250, cycle: 'biweekly', occurrences: 9, confidence: 0.76, last_date: iso(12), next_date: iso(26) },
+    ];
+    for (const s of candidates) {
+      s.rule = ruleFor(s.cycle, s.last_date, null);
+      s.ended = false;
+      s.manual = false;
+      delete s.cycle;
+    }
+    return { candidates };
   })();
 
   // Static GET responses keyed by path (query strings are stripped before
@@ -512,6 +548,14 @@
     },
     '/api/recurring': recurringFixture,
     '/api/recurring/candidates': recurringCandidatesFixture,
+    // static/js/pages/recurring.js — the editor's Name-field suggestions, from
+    // the bundled merchant lexicon. A name is the whole answer, as it is on the
+    // real route. The query string is ignored here (fixtures key on the path), so
+    // the list is the same whatever is typed: enough to style and keyboard-test
+    // the popover without a backend.
+    '/api/recurring/brands': {
+      brands: [{ name: 'Whole Foods' }, { name: 'Chipotle' }, { name: 'Verizon' }],
+    },
     // static/js/pages/trends.js — 12-month per-category spend series for
     // the Spending Trends chart.
     '/api/trends': {

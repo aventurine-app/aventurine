@@ -66,12 +66,15 @@
 //   UI.positionFloatingCard(card, anchor, gap = 8)
 //   UI.cardActions(prefix, dataAttr)  → actionBtn(action, value, icon, label, extra)
 //   UI.markActive(selector, activeClass, isActive)
-//       The hover-card chrome shared by the Recurring calendar's chip cards
-//       (#rec-pop) and the Balance Forecast's pin cards (#fc-pop). Both are the
-//       same idiom — a floating row anchored to a mark, with a display mode and
-//       an edit mode — and both held their own copy of the element factory, the
-//       flip-and-clamp positioning, the action-button markup and the
-//       active-marker toggle, plus a byte-identical icon set. The CONTENT of
+//       The hover-card chrome. It was promoted here when the Recurring
+//       calendar's chip cards (#rec-pop) and the Balance Forecast's pin cards
+//       (#fc-pop) were the same idiom — a floating row anchored to a mark, with a
+//       display mode and an edit mode — and each held its own copy of the element
+//       factory, the flip-and-clamp positioning, the action-button markup and the
+//       active-marker toggle, plus a byte-identical icon set. Recurring's chips
+//       now open that schedule's editor instead, so floatingCard,
+//       positionFloatingCard and markActive have one caller left (#fc-pop) while
+//       CARD_ICONS and cardActions still serve both pages. The CONTENT of
 //       each card stays in its own file: one describes a merchant and a
 //       cadence, the other a label and a date, and they have no rows in common.
 //

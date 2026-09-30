@@ -560,7 +560,8 @@
   // One floating element, reused for whichever pin is active — the row the
   // Planned Items table used to hold, now anchored to the pin it describes.
   // Parked on <body> and fixed-positioned so the page's scroll container can't
-  // clip it. Mirrors #rec-pop on the Recurring page.
+  // clip it. The Recurring calendar drew the same card until its chips began
+  // opening the schedule editor, so this is the last one in the app.
 
   const popEl = () => UI.floatingCard('fc-pop', 'fc-pop', 'Planned item');
 

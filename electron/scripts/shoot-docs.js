@@ -994,37 +994,22 @@ app.whenReady().then(async () => {
       await unhover();
       await shotEl('site-transactions', '.tx-wrapper', 0);
 
-      // Month stepper and the calendar with its occurrence chips — the whole
-      // feature, minus the chrome around it. Shot with one schedule's card
-      // pinned open: the chips carry only a name and an amount, so a bare
-      // calendar shows the shape of the feature but none of its data, and the
-      // card is where type/cadence/amount live now. Which chip is pinned is
-      // load-bearing for the crop: the card is a fixed 460px centred on its
-      // chip and clamped to the WINDOW, so one on an edge column overhangs
-      // .rec-page and gets cut by the crop — it has to be a middle column. The
-      // name is the card's only flexible field (~130px before it ellipses), so
-      // a short merchant keeps the shot free of "…". A monthly subscription is
-      // both, and is what the site's caption is about.
+      // Month stepper, the calendar with its occurrence chips, and the rail
+      // beside it — the whole feature, minus the chrome around it. This used to
+      // be shot with a chip's floating card held open, because the chips carry
+      // only a name and an amount; the card is gone, and the rail is where the
+      // rest of a schedule reads now (cadence and next due, a column each), so
+      // the page shows its own data with nothing opened over it.
       await adoptRecurring();
       await nav('/recurring', 3200);
       if (!(await js(`(() => document.querySelectorAll('.rec-occ').length)()`))) {
         throw new Error('recurring calendar showed no occurrences');
       }
-      await unhover();
-      const pinned = await js(`(() => {
-        const chip = [...document.querySelectorAll('.rec-occ')].find((el) =>
-          (el.querySelector('.rec-occ-name')?.textContent || '').includes('STREAMBOX'));
-        if (chip) chip.click();
-        return !!chip;
-      })()`);
-      if (!pinned) throw new Error('no STREAMBOX chip to pin the card on');
-      await sleep(400);
-      if (!(await js(`(() => { const p = document.getElementById('rec-pop'); return p && !p.hidden; })()`))) {
-        throw new Error('recurring card did not open');
+      if (!(await js(`(() => document.querySelectorAll('.rec-rail-row').length)()`))) {
+        throw new Error('recurring rail listed no schedules');
       }
+      await unhover();
       await shotEl('site-recurring', '.rec-page', 0);
-      await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
-      await sleep(200);
 
       // The Sankey card alone — the tab bar above it is page furniture.
       await nav('/reports', 3200);
@@ -1107,32 +1092,20 @@ app.whenReady().then(async () => {
       await unhover();
       await shotWin(`frame-cash-flow${FRAME_SUFFIX}`);
 
-      // The Recurring calendar, shot with one schedule's card pinned open for
-      // the reason the `site` crop is: a chip carries only a name and an amount,
-      // so a bare calendar shows the shape of the feature and none of its data.
-      // Same STREAMBOX chip too — the card is a fixed 460px centred on its chip
-      // and clamped to the window, so an edge column overhangs and gets cut, and
-      // a short merchant name keeps the card free of an ellipsis.
+      // The Recurring page, calendar and rail together, for the reason the
+      // `site` crop is shot that way: the chips carry a name and an amount, and
+      // the rail's columns carry the cadence and the next due date, so the two
+      // panels side by side are the whole feature with nothing opened over it.
       await adoptRecurring();
       await nav('/recurring', 3200);
       if (!(await js(`(() => document.querySelectorAll('.rec-occ').length)()`))) {
         throw new Error('recurring calendar showed no occurrences');
       }
-      await unhover();
-      const framePinned = await js(`(() => {
-        const chip = [...document.querySelectorAll('.rec-occ')].find((el) =>
-          (el.querySelector('.rec-occ-name')?.textContent || '').includes('STREAMBOX'));
-        if (chip) chip.click();
-        return !!chip;
-      })()`);
-      if (!framePinned) throw new Error('no STREAMBOX chip to pin the card on');
-      await sleep(400);
-      if (!(await js(`(() => { const p = document.getElementById('rec-pop'); return p && !p.hidden; })()`))) {
-        throw new Error('recurring card did not open');
+      if (!(await js(`(() => document.querySelectorAll('.rec-rail-row').length)()`))) {
+        throw new Error('recurring rail listed no schedules');
       }
+      await unhover();
       await shotWin(`frame-recurring${FRAME_SUFFIX}`);
-      await esc();
-      await sleep(200);
 
       // The Budgets field. Stepped back one month for the reason the dashboard
       // is: the circles' fill is the shown month's spend, and the seeded ledger
@@ -1184,18 +1157,16 @@ app.whenReady().then(async () => {
       await shotPage('recurring-page', '.rec-calendar');
       await shotEl('recurring-calendar', '#rec-calendar', 8);
 
-      // The hover card, which is where a schedule's data lives now. Clicking a
-      // chip pins it, which is the only way to hold it open for a capture —
-      // capturePage doesn't carry a synthetic hover. Shot with padding so the
-      // card is framed with the chip it points at.
-      await js(`document.querySelector('.rec-occ').click()`);
-      await sleep(400);
-      if (!(await js(`(() => { const p = document.getElementById('rec-pop'); return p && !p.hidden; })()`))) {
-        throw new Error('recurring hover card did not open');
+      // The rail, which is where a schedule is read in full and managed: a row
+      // per schedule with its cadence and next due date, the trash can, and the
+      // page's two whole-list buttons at the foot. It replaces the shot of the
+      // floating card the chips used to open (recurring-card.png), which no
+      // longer exists — the docs page that embeds that file needs repointing at
+      // this one.
+      if (!(await js(`(() => document.querySelectorAll('.rec-rail-row').length)()`))) {
+        throw new Error('recurring rail listed no schedules');
       }
-      await shotEl('recurring-card', '#rec-pop', 12);
-      await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
-      await sleep(200);
+      await shotEl('recurring-rail', '#rec-rail', 12);
     }
 
     // ═══ Phase 10: tools ═════════════════════════════════════════════════════

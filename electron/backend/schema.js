@@ -17,7 +17,7 @@
 //   - the v_* views pre-join the normalized tables into human-readable,
 //     chronologically-sortable shapes for ad-hoc querying.
 
-const SCHEMA_VERSION = 15;
+const SCHEMA_VERSION = 20;
 
 // Months persist as 1-12 integers so `ORDER BY year, month` sorts
 // chronologically (the app translates to/from English names at its API
@@ -224,15 +224,33 @@ const DDL = [
      -- schedules: a row whose key matches no currently-detected series is
      -- synthesized into one of its own (handlers/recurring.js), using
      -- last_date as the anchor to project from — so display_name, direction,
-     -- cycle, amount, and last_date are all required together for a manual
-     -- row to actually surface. If real transactions for that merchant
+     -- the cadence rule, amount, and last_date are all required together for a
+     -- manual row to actually surface. If real transactions for that merchant
      -- appear later, detection naturally takes over (the row keeps applying
      -- as a plain override on top of it).
+     --
+     -- CADENCE is a RULE (services/recurrence.js), not one of five fixed cycle
+     -- names: a frequency, how many of them between charges, and for a monthly
+     -- one either a day of the month or an nth weekday. rule_until ends the
+     -- schedule; NULL means perpetual. The old five names are all expressible
+     -- (biweekly = weekly every 2, quarterly = monthly every 3), which is what
+     -- the v17 migration converts them into.
+     --
+     -- rule_month_day / rule_weekday / rule_week_pos may be NULL while rule_freq
+     -- is set: they are then taken from the schedule's own anchor date, which
+     -- for a DETECTED series is its last recorded charge and so is not knowable
+     -- here. "Every 3 months" therefore stays "every 3 months on whatever day it
+     -- lands on", and only an explicit edit pins the day.
      "key" VARCHAR(200) NOT NULL,
      display_name VARCHAR(100),
      direction VARCHAR(10) CHECK (direction IN ('income', 'expense', 'transfer')),
-     cycle VARCHAR(20)
-       CHECK (cycle IN ('weekly', 'biweekly', 'monthly', 'quarterly', 'yearly')),
+     rule_freq VARCHAR(10) CHECK (rule_freq IN ('weekly', 'monthly')),
+     rule_interval INTEGER CHECK (rule_interval >= 1),
+     rule_month_mode VARCHAR(10) CHECK (rule_month_mode IN ('date', 'day')),
+     rule_month_day INTEGER CHECK (rule_month_day BETWEEN 1 AND 31),
+     rule_week_pos INTEGER CHECK (rule_week_pos IN (1, 2, 3, 4, -1)),
+     rule_weekday INTEGER CHECK (rule_weekday BETWEEN 0 AND 6),
+     rule_until DATE,
      amount FLOAT CHECK (amount > 0),
      last_date DATE,  -- anchor date for a MANUAL schedule's own projection
      adopted INTEGER DEFAULT 0 NOT NULL CHECK (adopted IN (0, 1)),

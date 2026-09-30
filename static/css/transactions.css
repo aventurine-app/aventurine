@@ -1025,18 +1025,6 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     text-align: right;
 }
 
-/* Replace the native date-picker glyph with our themed --calendar-icon SVG
-   (see style.css) so it tracks --text-primary. Targets .tx-input so both the
-   row date cells and the search-range dates are covered. */
-.tx-input::-webkit-calendar-picker-indicator {
-    -webkit-appearance: none;
-            appearance: none;
-    width: 14px;
-    height: 14px;
-    cursor: pointer;
-    background: var(--calendar-icon) center / contain no-repeat;
-}
-
 /* Native <select> caret. appearance:none drops the platform arrow; the glyph
    that replaces it is the same Phosphor caret-down (.picker-caret, ui.css) the
    report pickers and the group chevrons use, so every caret in the app is one

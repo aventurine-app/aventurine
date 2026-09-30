@@ -13,6 +13,7 @@
     "lint": "eslint ..",
     "smoke": "electron scripts/smoke.js",
     "verify:lock": "electron scripts/verify-lock.js",
+    "verify:naming": "electron scripts/verify-naming.js",
     "check:package": "node scripts/check-package-files.js",
     "pack": "node scripts/check-package-files.js && electron-builder --dir",
     "dist:linux": "node scripts/check-package-files.js && electron-builder --linux",
