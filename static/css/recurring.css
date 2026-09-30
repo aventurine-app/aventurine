@@ -111,13 +111,16 @@
    would leave the rail a different width on every window size, which is the
    same reason trends.css pins its rail. The rail's width IS its name column's
    allowance: everything else in a row is a fixed field (avatar, cadence, due
-   date, the trash can), so the 432px is those fields plus about 116px of name,
-   which still holds a two-word merchant before the ellipsis. `align-items: start` keeps each card
-   at its own height — a rail holding four schedules should not be stretched to
-   a six-week calendar's height and left three quarters empty. */
+   date), so the 388px is those fields plus about 116px of name, which still
+   holds a two-word merchant before the ellipsis. It was 432px while a 28px
+   trash can and its 16px gap sat on the end of every row; deleting moved into
+   the editor, and those 44px went to the day cells rather than to the name,
+   which the calendar needs more than the rail does. `align-items: start` keeps
+   each card at its own height — a rail holding four schedules should not be
+   stretched to a six-week calendar's height and left three quarters empty. */
 .rec-main {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) var(--rec-rail-w, 432px);
+    grid-template-columns: minmax(0, 1fr) var(--rec-rail-w, 388px);
     grid-template-areas:
         "summary summary"
         "calendar rail";
@@ -129,8 +132,8 @@
 /* Below this the rail cannot hold its three fields side by side without the
    calendar's day cells going too narrow for a chip, so it folds under the grid.
    It folds earlier than the Spending Trends rail (1100px) because it is nearly
-   twice that rail's width: at 1100px a 432px rail leaves the seven day columns
-   about 60px each, which is under a chip's minimum. */
+   twice that rail's width: at 1100px a 388px rail leaves the seven day columns
+   about 66px each, which is under a chip's minimum. */
 @media (max-width: 1200px) {
     .rec-main {
         grid-template-columns: minmax(0, 1fr);
@@ -218,27 +221,20 @@
    date are two bare values with nothing saying which is which. Same micro-caps
    as the calendar's weekday strip, so the two panels start on the same note.
 
-   It mirrors the row's own two columns — the fields, then the actions — so the
-   headings sit over what they name. The action column is headed by an empty
-   box: a trash can labels itself, and "Actions" over it would be the widest
-   word in the panel. */
+   It takes the ROW's field template, not a flex row: there are three values of
+   different lengths per row, so each heading has to sit over a column of known
+   width rather than wherever space-between leaves it. Its first cell is the
+   empty span over the avatars. The horizontal padding carries the rows'
+   transparent border as well as their padding, since the rows are bordered
+   buttons and this is not — without it every heading sits a pixel left of the
+   column it names. */
 .rec-rail-head {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) var(--rec-rail-actions-w);
-    gap: var(--space-16);
-    padding: 0 var(--space-8) var(--space-8);
-    margin-bottom: var(--space-4);
-}
-
-/* The headings take the ROW's field template, not a flex row: there are three
-   values of different lengths per row now, so each heading has to sit over a
-   column of known width rather than wherever space-between leaves it. Its first
-   cell is the empty span over the avatars. */
-.rec-rail-head-main {
     display: grid;
     grid-template-columns: var(--rec-rail-fields);
     align-items: baseline;
     gap: var(--space-8);
+    padding: 0 calc(var(--space-8) + var(--border-width)) var(--space-8);
+    margin-bottom: var(--space-4);
     min-width: 0;
 }
 
@@ -262,52 +258,38 @@
     overflow-y: auto;
 }
 
-/* A row is where a schedule is managed: the fields open its editor, the trash
-   can removes it. Two columns, the second holding the row's action button
-   (.rec-action-btn, 28px = --rec-rail-actions-w) — a token because the
-   head above has to reserve the same strip to stay lined up with the rows.
-   --rec-rail-fields is the same bargain one level in: the headings and the rows
-   are two separate grids, so the three field columns are FIXED widths and the
-   name takes what is left. Sizing any of them to content would let the two grids
-   disagree, and the headings would sit over nothing in particular. Each is cut
-   to its longest real value: 96px fits "Every 4 months" (the widest cadence
-   ruleLabel produces before the interval stops being plausible) and 88px fits a
-   due date carrying a year, which one falling outside this year does. */
+/* --rec-rail-fields is shared because the headings and the rows are two
+   separate grids: the three field columns are FIXED widths and the name takes
+   what is left. Sizing any of them to content would let the two grids disagree,
+   and the headings would sit over nothing in particular. Each is cut to its
+   longest real value: 96px fits "Every 4 months" (the widest cadence ruleLabel
+   produces before the interval stops being plausible) and 88px fits a due date
+   carrying a year, which one falling outside this year does. */
 :root {
-    --rec-rail-actions-w: 28px;
     --rec-rail-cadence-w: 96px;
     --rec-rail-due-w: 88px;
     --rec-rail-fields: 20px minmax(0, 1fr) var(--rec-rail-cadence-w) var(--rec-rail-due-w);
 }
 
+/* The row is the button: one hit target over the whole strip, opening this
+   schedule's editor, which is where deleting now lives too. Name and cadence
+   ellipse, the date never does — a truncated date is unreadable, while a
+   truncated merchant name is still a hint and a clipped cadence has its full
+   sentence in a tooltip. */
 .rec-rail-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) var(--rec-rail-actions-w);
-    align-items: center;
-    /* Wide enough that the trash can reads as a separate control rather than as
-       punctuation on the end of the date. */
-    gap: var(--space-16);
-    padding: var(--space-4) var(--space-8);
-    border: var(--border-width) solid transparent;
-    border-radius: 6px;
-    transition: background 0.12s ease;
-}
-
-/* The fields, as one hit target: it opens this schedule's editor, which is what
-   the pencil beside it used to do. Name and cadence ellipse, the date never
-   does: a truncated date is unreadable, while a truncated merchant name is still
-   a hint and a clipped cadence has its full sentence in a tooltip. */
-.rec-rail-open {
     display: grid;
     grid-template-columns: var(--rec-rail-fields);
     align-items: center;
     gap: var(--space-8);
+    width: 100%;
     min-width: 0;
-    padding: 0;
-    border: 0;
+    padding: var(--space-4) var(--space-8);
+    border: var(--border-width) solid transparent;
+    border-radius: 6px;
     background: transparent;
     text-align: left;
     cursor: pointer;
+    transition: background 0.12s ease;
 }
 
 /* The active row keeps the hover fill and takes a border, so the mark survives
@@ -319,14 +301,13 @@
     background: var(--frost-2);
     border-color: var(--stroke-medium);
 }
-.rec-rail-open:active { background: var(--surface3); }
-.rec-rail-open:focus-visible {
+.rec-rail-row:active { background: var(--surface3); }
+.rec-rail-row:focus-visible {
     outline: 2px solid var(--accent-primary);
     outline-offset: 2px;
-    border-radius: 4px;
 }
 
-.rec-rail-open .avatar-circle {
+.rec-rail-row .avatar-circle {
     width: 20px;
     height: 20px;
     font-size: 9px;
@@ -365,9 +346,9 @@
 }
 
 /* The due column is the panel's right edge, so its heading and its dates sit
-   flush to it. Left-aligned in a fixed column, a short date would leave a gap in
-   front of the trash can on most rows. */
-.rec-rail-head-main > :last-child,
+   flush to it. Left-aligned in a fixed column, a short date would float in the
+   middle of the widest one it has to make room for. */
+.rec-rail-head > :last-child,
 .rec-rail-date { text-align: right; }
 
 /* The panel's two actions, under the list they act on. Stacked and full width
@@ -728,50 +709,6 @@ html[data-theme="dark"] {
 }
 .rec-day-more:hover { background: var(--surface3); color: var(--text-primary); }
 
-/* ─── Row actions (the trash can) ───────────────────────────────────────────
-   The same square icon button as the Transactions ledger's row actions
-   (transactions.css .tx-action-btn), sized down a step, on every rail row — the
-   rail being where the whole list of schedules is managed. It stays neutral
-   until hover, when it turns destructive: a trash can sitting permanently red
-   would read as an alarm rather than an action.
-   It is the only button on the row because the row IS the edit control: what a
-   pencil here would open, clicking the fields opens. The group keeps its flex
-   shell and its gap for whenever a second action earns its place. */
-.rec-action-group {
-    flex: 0 0 auto;
-    display: inline-flex;
-    gap: 6px;
-    justify-content: flex-end;
-}
-
-.rec-action-btn {
-    width: 28px;
-    height: 28px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: var(--border-width) solid var(--border);
-    border-radius: 6px;
-    background: var(--surface2);
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-.rec-action-btn:hover {
-    background: var(--surface3);
-    color: var(--text-primary);
-    border-color: var(--text-tertiary);
-}
-.rec-action-btn svg { width: 15px; height: 15px; }
-
-.rec-action-btn.rec-action-delete:hover {
-    background: var(--accent-negative);
-    border-color: var(--accent-negative);
-    color: var(--danger-text);
-}
-
-
 /* ─── Amounts by direction ──────────────────────────────────────────────────
    Same red/green/blue mapping the calendar chips use (see .rec-occ above). There
    is no legend, so this colour pairing is what conveys direction, and it is used
@@ -923,6 +860,13 @@ html[data-theme="dark"] {
 /* The action row sits on plain space, like every other dialog in the app — a
    rule immediately above two buttons reads as a line drawn through them. */
 .rec-edit-dialog .confirm-actions { margin-top: var(--space-20); }
+
+/* Delete is pushed to the row's left edge and Save stays at the right, so the
+   destructive button is the dialog's width away from the one the user reaches
+   for on every other pass through this form. margin-right: auto rather than
+   space-between, because the creating form has no Delete and its Save must
+   still sit at the right. */
+.rec-edit-dialog .rec-edit-delete { margin-right: auto; }
 
 /* Two columns, with the fields that hold a sentence spanning both. Fixed rather
    than auto-fit: a repeat row that rewraps as the mode changes moves every

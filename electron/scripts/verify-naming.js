@@ -115,8 +115,8 @@ app.whenReady().then(async () => {
       saved.length === 1 && !saved[0].keys.some((k) => k.startsWith('category')), saved);
 
     // Re-open it: the fields must come back on the stored answers. The rail row
-    // IS the edit control -- there is no pencil beside it any more.
-    await js(`document.querySelector('.rec-rail-row .rec-rail-open').click()`);
+    // IS the edit control -- it is the row's only button now.
+    await js(`document.querySelector('.rec-rail-row').click()`);
     await wait(900);
     check('re-opening shows the stored name',
       await js(`document.getElementById('rec-name-input').value`) === 'Netflix',

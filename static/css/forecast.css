@@ -764,7 +764,7 @@
    where the pencil just was. */
 .fc-pop-edit-fields .fc-action-group { margin-left: auto; }
 
-/* ─── Card actions (pencil / trash, ✓ / ✗) — mirrors .rec-action-btn ───────── */
+/* ─── Card actions (pencil / trash, ✓ / ✗) — mirrors .tx-action-btn ────────── */
 .fc-action-group {
     flex: 0 0 auto;
     display: inline-flex;

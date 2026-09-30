@@ -23,8 +23,7 @@
   // renderRail lists EVERY schedule against its next due date, whatever month
   // that falls in, so a quarterly bill or an annual renewal is visible from a
   // month it has nothing in; clicking one takes the calendar to it. The rail
-  // also carries this page's two whole-list buttons at its foot, and a trash can
-  // per row.
+  // also carries this page's two whole-list buttons at its foot.
   //
   // EVERY change to a schedule goes through one dialog, openScheduleDialog:
   // creating and editing, from the rail, from a chip, and from a day cell's +.
@@ -49,9 +48,10 @@
   // the grid. Schedules are added by hand either from "Create Schedule", which
   // opens on today, or from the + a day cell reveals on hover, which opens on
   // that cell's date — the quicker route when the date is the thing being
-  // thought about. Editing is a chip or a rail row; removing is the trash can on
-  // a rail row, the one surface that lists every schedule whatever month it
-  // falls in. See "Detect" and "Add / remove".
+  // thought about. Editing is a chip or a rail row, and removing is the Delete
+  // button inside that same editor — the one surface that already names the
+  // schedule and shows what is about to be lost. See "Detect" and
+  // "Add / remove".
   //
   // Globals (loaded before this script): apiFetch (api.js), escapeHtml
   // (escape.js), formatCurrency/applyCurrencyFormat/stripCurrencyValue
@@ -69,20 +69,11 @@
   // stretch one row of the grid), but nothing may become unreachable: the
   // calendar is now the only way to get at a schedule.
   const MAX_CHIPS_PER_DAY = 3;
-  // Inlined so the rail's row actions do not depend on an icon font or external
-  // sprite. pencil/check/cross/trash are the same drawings (and the same 20-box,
-  // 1.5-stroke style) the Transactions ledger uses for its row actions, since the
-  // actions are the same; `plus` is the day cell's add button, drawn to match.
-  // These glyphs and the card chrome below come from UI (shell/ui.js),
-  // shared with the Balance Forecast's pin cards.
+  // Inlined so the day cell's add button does not depend on an icon font or an
+  // external sprite. `plus` is drawn in the same 20-box, 1.5-stroke style the
+  // Transactions ledger uses for its row actions. These glyphs come from UI
+  // (shell/ui.js), shared with the Balance Forecast's pin cards.
   const ICONS = UI.CARD_ICONS;
-
-  // Trash / pencil / check / cross buttons, in the markup the rail's rows use
-  // (only the trash can, here — a row is its own edit control):
-  // `data-action` says which, `data-key` says whose. From the shared factory
-  // rather than hand-written, so these stay the same control the Transactions
-  // ledger and the Balance Forecast's pin cards draw.
-  const actionBtn = UI.cardActions('rec', 'key');
 
   function currentMonthKey() {
     const d = new Date();
@@ -271,10 +262,11 @@
   // question, "what is running and what is coming", including a quarterly bill
   // or an annual renewal that lands nowhere near the month being looked at.
   //
-  // A row is the EDIT control for its schedule: clicking one opens the editor
-  // dialog. That is why there is no pencil beside it — a 28px button repeating
-  // what the whole row already does, on a row whose only other reading was a
-  // highlight, is one control too many.
+  // A row is the EDIT control for its schedule, and its only control: clicking
+  // one opens the editor dialog, and every change to that schedule, deleting it
+  // included, is made in there. A pencil would repeat what the whole row already
+  // does, and the trash can that used to sit at the end took a column of width
+  // off a panel whose one scarce field is the merchant name.
   //
   // Hovering still wires the rail to the grid, which is the other half of what
   // the panel is for: it lights that schedule's chips where the month on screen
@@ -282,10 +274,9 @@
   // anything. The mark is also what a saved edit leaves behind (goToSchedule),
   // which is how the editor answers "where did that land".
 
-  /** A row is a <div>, not a <button>: it holds the button that opens the editor
-   *  AND the trash can, and a button cannot nest inside another one. The row
-   *  carries the schedule's key, so both controls act on the same schedule. No
-   *  date: the row is not tied to one occurrence.
+  /** The row IS the button: it is one control now that the trash can beside it
+   *  is gone, so there is nothing left for a wrapper to hold. It carries the
+   *  schedule's key, and no date — the row is not tied to one occurrence.
    *
    *  Three fields: the merchant, the cadence and the next due date. Cadence is
    *  the one that says whether a date months out is normal or a lapse, so the
@@ -301,19 +292,14 @@
     // data the app lost.
     const due = s.ended ? 'Ended' : (s.next_date ? fmtShortDate(s.next_date) : '');
     const active = activeKey() === s.key;
-    return `<div class="rec-rail-row${active ? ' rec-rail-active' : ''}${s.ended ? ' rec-rail-ended' : ''}"
+    return `<button type="button" aria-haspopup="dialog" title="Edit ${escapeHtml(label)}"
+      class="rec-rail-row${active ? ' rec-rail-active' : ''}${s.ended ? ' rec-rail-ended' : ''}"
       data-key="${escapeHtml(s.key)}">
-      <button type="button" class="rec-rail-open" aria-haspopup="dialog"
-        title="Edit ${escapeHtml(label)}">
-        ${merchantAvatarHtml(label)}
-        <span class="rec-rail-name">${escapeHtml(label)}</span>
-        <span class="rec-rail-cadence" title="${escapeHtml(ruleSentence(s.rule))}">${escapeHtml(ruleLabel(s.rule))}</span>
-        <span class="rec-rail-date">${escapeHtml(due)}</span>
-      </button>
-      <span class="rec-action-group">
-        ${actionBtn('delete', s.key, 'trash', `Delete ${label}`, 'rec-action-delete')}
-      </span>
-    </div>`;
+      ${merchantAvatarHtml(label)}
+      <span class="rec-rail-name">${escapeHtml(label)}</span>
+      <span class="rec-rail-cadence" title="${escapeHtml(ruleSentence(s.rule))}">${escapeHtml(ruleLabel(s.rule))}</span>
+      <span class="rec-rail-date">${escapeHtml(due)}</span>
+    </button>`;
   }
 
   /** The rail, head to foot. The two buttons at the bottom are the page's only
@@ -328,13 +314,10 @@
       ? `<div class="rec-rail-list">${data.series.map(railRowHtml).join('')}</div>`
       : '<p class="rec-rail-empty">No schedules yet.</p>';
     host.innerHTML = `<div class="rec-rail-head">
-        <span class="rec-rail-head-main">
-          <span class="rec-rail-head-label"></span>
-          <span class="rec-rail-head-label">Schedule</span>
-          <span class="rec-rail-head-label">Cadence</span>
-          <span class="rec-rail-head-label">Next</span>
-        </span>
-        <span class="rec-rail-head-actions"></span>
+        <span class="rec-rail-head-label"></span>
+        <span class="rec-rail-head-label">Schedule</span>
+        <span class="rec-rail-head-label">Cadence</span>
+        <span class="rec-rail-head-label">Next</span>
       </div>${body}
       <div class="rec-rail-foot">
         <button type="button" class="button-primary" data-rail-action="create">Create Schedule</button>
@@ -375,8 +358,7 @@
     });
   }
 
-  /** The rail's half of the same job, and class-only for the same reason. A rail
-   *  row is a <div> wrapping the button, so the fill goes on the row. */
+  /** The rail's half of the same job, and class-only for the same reason. */
   function markRailRows(key) {
     document.querySelectorAll('.rec-rail-row').forEach((row) => {
       row.classList.toggle('rec-rail-active', key != null && row.dataset.key === key);
@@ -649,8 +631,14 @@
 
       <p class="rec-edit-readout" id="rec-edit-readout"></p>
 
+      <!-- Delete is here because this is where a schedule is read: the form
+           names it and shows what it repeats. It sits at the far left of the
+           row, the dialog's width away from Save. There is no Cancel button —
+           the x and Escape both back out, and a third button on a row that now
+           holds a destructive one is a third place to misclick. Creating has
+           nothing to delete yet. -->
       <div class="confirm-actions">
-        <button class="db-btn confirm-cancel">Cancel</button>
+        ${creating ? '' : '<button class="db-btn db-btn-danger rec-edit-delete" id="rec-edit-delete">Delete</button>'}
         <button class="db-btn db-btn-primary" id="rec-edit-save">${creating ? 'Create' : 'Save'}</button>
       </div>`;
   }
@@ -882,6 +870,14 @@
       if (e.target.matches('[data-form="interval"], [data-form="until"]')) syncReadout();
       e.target.classList.remove('invalid');
     });
+    // Backing out of the confirm returns to the form with everything still in
+    // it, so a mis-hit Delete costs nothing that was typed.
+    el('#rec-edit-delete')?.addEventListener('click', async () => {
+      if (!await confirmRemoveSchedule(s.key)) return;
+      close();
+      await load();
+    });
+
     el('#rec-edit-save').addEventListener('click', async () => {
       const name = nameInput.value.trim();
       const amount = parseFloat(stripCurrencyValue(el('[data-form="amount"]').value));
@@ -1054,9 +1050,13 @@
 
   // ─── Add / remove ─────────────────────────────────────────────────────────
 
-  /** Small confirm dialog, same .confirm-* shell the rest of the app uses for
-   *  destructive prompts. The wording names what is actually lost: the
-   *  schedule, not the transactions it was detected from. */
+  /** Confirm, then delete. Same .confirm-* shell the rest of the app uses for
+   *  destructive prompts, stacked over the editor it is called from. The
+   *  wording names what is actually lost: the schedule, not the transactions it
+   *  was detected from.
+   *
+   *  Returns true once the schedule is gone. Reloading is the caller's, so the
+   *  editor can close before the rail redraws without the row it was editing. */
   async function confirmRemoveSchedule(key) {
     const s = seriesFor(key);
     const label = s.display_name || s.description || key;
@@ -1065,14 +1065,14 @@
       <p>Delete the <strong>${escapeHtml(label)}</strong> schedule?</p>
       <p class="rec-detect-note">Its transactions stay in your ledger, and detection can offer it again later.</p>`,
     });
-    if (!ok) return;
+    if (!ok) return false;
     const res = await apiFetch(`/api/recurring/schedule/${encodeURIComponent(key)}`, { method: 'DELETE' });
     if (!res.ok) {
       window.UI?.toast?.("Couldn't delete it — try again.", { type: 'error' });
-      return;
+      return false;
     }
     if (pickedKey === key) pickedKey = null;
-    await load();
+    return true;
   }
 
   // ─── Toolbar ─────────────────────────────────────────────────────────────
@@ -1205,16 +1205,9 @@
         return;
       }
 
+      // A row has one reading: it opens that schedule's editor.
       const row = e.target.closest('.rec-rail-row');
-      if (!row) return;
-      const { key } = row.dataset;
-
-      // The trash can acts on the whole schedule, so it needs nothing on the
-      // calendar to be pointing at: the confirm is a dialog, like the editor.
-      if (e.target.closest('.rec-action-btn')) { confirmRemoveSchedule(key); return; }
-
-      // Anything else on the row opens that schedule's editor.
-      openScheduleDialog({ key });
+      if (row) openScheduleDialog({ key: row.dataset.key });
     });
 
     // The rail's mark is the page's one piece of transient state, so Escape
