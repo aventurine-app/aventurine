@@ -40,6 +40,9 @@
   background: transparent;
   border-color: var(--accent-negative);
   color: var(--accent-negative);
+  /* .db-btn only transitions background and border, so the text colour snapped
+     while the fill faded. */
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
 /* Matches the negation shape of dbmodal.css's generic .db-btn hover so this

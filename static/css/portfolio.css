@@ -15,11 +15,122 @@
      --track-wide / wider              — letter-spacing tracking scale
 */
 
-.db-page .db-title-row {
-    cursor: default;
+/* == Collapsible accounts ==
+   The forehead row toggles its table (tables.css already gives it the pointer
+   cursor and hover fill). Collapsing keeps the forehead and hides the column
+   headers, the asset rows and the totals row. */
+.p-title-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
 }
-.db-page .db-title-row:hover th {
-    background-color: unset;
+
+.p-collapse-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition: color 0.15s ease;
+}
+
+.p-collapse-btn:hover { color: var(--text-primary); }
+.p-collapse-btn:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 1px;
+}
+
+.p-collapse-btn svg {
+    width: 14px;
+    height: 14px;
+    transition: transform 0.15s ease;
+}
+
+.db-outer.is-collapsed .p-collapse-btn svg { transform: rotate(-90deg); }
+
+.db-outer.is-collapsed .db-header-row,
+.db-outer.is-collapsed tbody,
+.db-outer.is-collapsed tfoot {
+    display: none;
+}
+
+/* Add Row, Remove Row and the ⋮ menu all go with the rows. */
+.db-outer.is-collapsed .p-forehead-btns { display: none; }
+
+/* The forehead's bottom border is the table's only edge once the rest is hidden. */
+.db-outer.is-collapsed .db-title-row th { border-bottom: none; }
+
+@media (prefers-reduced-motion: reduce) {
+    .p-collapse-btn svg { transition: none; }
+}
+
+/* == Page split: allocation donut | account tables ==
+   One quarter of the row for the donut, three quarters for the tables. The
+   tables column is min-width:0 so a wide table scrolls inside its own wrapper
+   instead of stretching the grid track. The summary card sticks to the top of
+   the scrolling page, so the donut stays in view while a long list of accounts
+   scrolls past. Below 1100px the two stack, since a quarter of a narrow window
+   is too small to hold a legible ring. */
+.portfolio-layout {
+    display: grid;
+    grid-template-columns: 1fr 3fr;
+    align-items: start;
+    gap: 16px;
+}
+
+/* The tables, then the Add Account button beneath the last one. */
+.portfolio-main {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.portfolio-main .db-actions .button-primary { flex: 1; }
+
+@media (max-width: 1100px) {
+    .portfolio-layout { grid-template-columns: 1fr; }
+}
+
+.portfolio-summary {
+    position: sticky;
+    top: 0;
+    min-width: 0;
+    box-sizing: border-box;
+    border: var(--border-width) solid var(--border);
+    border-radius: 12px;
+    background: var(--surface1);
+    box-shadow: var(--shadow-card);
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* The same all-caps eyebrow the Dashboard's card titles use. */
+.portfolio-summary-title {
+    margin: 0;
+    color: var(--color-base-500);
+    font-family: var(--font-h3);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+    line-height: var(--lh-tight);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+}
+
+.portfolio-summary .accounts-pie {
+    width: 100%;
+    max-width: 220px;
+    aspect-ratio: 1;
+    align-self: center;
 }
 
 /* == Table sizing == */
@@ -48,10 +159,10 @@
 /* == Column widths == */
 /* Fixed widths keep all account tables visually aligned even when their
    asset names vary in length. */
-.col-asset-name { width: 180px; min-width: 150px; }
-.col-ticker     { width: 80px;  min-width: 70px; max-width: 100px; }
-.col-number     { width: 130px; min-width: 110px; }
-.col-roi        { width: 90px;  min-width: 80px; }
+.col-asset-name { width: 175px; min-width: 145px; }
+.col-ticker     { width: 75px;  min-width: 65px; max-width: 95px; }
+.col-number     { width: 125px; min-width: 105px; }
+.col-roi        { width: 85px;  min-width: 75px; }
 
 /* == Forehead height override ==
    Portfolio foreheads are slightly more compact than year-table foreheads
@@ -159,51 +270,4 @@
     color: var(--text-primary);
     padding: 10px 16px 10px var(--col-first-pad);
     white-space: nowrap;
-}
-
-/* == Remove-asset modal entry list ==
-   Used by showRemoveEntryModal() in portfolio.js — a scrollable selectable
-   list of all assets in the account, paired with a Remove button that
-   stays disabled until a row is selected. */
-.remove-entry-list {
-    max-height: 240px;
-    overflow-y: auto;
-    border: var(--border-width) solid var(--border);
-    border-radius: 6px;
-}
-
-.remove-entry-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 9px 14px;
-    cursor: pointer;
-    border-bottom: var(--border-width) solid var(--border);
-    transition: background 0.12s ease;
-}
-
-.remove-entry-item:last-child { border-bottom: none; }
-.remove-entry-item:hover      { background: var(--frost-2); }
-.remove-entry-item.selected   { background: var(--frost-3); }
-
-.remove-entry-name {
-    font-family: var(--font-h3);
-    font-size: var(--size-small);
-    color: var(--text-primary);
-}
-
-.remove-entry-ticker {
-    font-family: var(--font-h3);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wider);
-    text-transform: uppercase;
-    color: var(--text-tertiary);
-}
-
-.remove-entry-empty {
-    padding: 12px 14px;
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: var(--size-small);
 }

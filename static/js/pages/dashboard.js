@@ -241,56 +241,22 @@
             return;
         }
 
-        // Segmented stroke ring: each slice is a circle stroke with a dash the
-        // length of its arc, rotated to start at 12 o'clock. Slices meet edge to
-        // edge — their colours are what separate them, and a gap in a ring that
-        // sums to a whole reads as missing money. Stroke dashes can be
-        // transitioned, which is what drives the sweep-in animation below.
-        const size = 280, cx = size / 2, cy = size / 2;
-        const sw   = 34;                              // ring thickness
-        const r    = (size - sw) / 2 - 2;
-        const C    = 2 * Math.PI * r;
-        const f2   = (n) => Math.round(n * 100) / 100;
-
-        let acc = 0;
-        const arcs = slices.map((s, i) => {
-            const len   = Math.max((s.value / total) * C, 3);
-            const start = (acc / total) * C;
-            acc += s.value;
-            // Arcs render at zero length (dasharray "0 C") and transition to
-            // data-dash after insertion — a staggered clockwise sweep. The
-            // transition is inline because the per-arc stagger delay must only
-            // apply to the dash, never to the opacity hover (dashboard.css §6).
-            return `<a class="donut-link" href="${BALANCE_SHEET_HREF}" tabindex="0" role="link"
-            aria-label="${escapeHtml(`${s.label}: ${fmtValue(s.signed)} — open the Balance Sheet`)}">
-            <circle class="donut-arc" cx="${cx}" cy="${cy}" r="${r}" fill="none"
-            stroke="${s.color}" stroke-width="${sw}"
-            stroke-dasharray="0 ${f2(C)}" data-dash="${f2(len)} ${f2(C - len)}"
-            stroke-dashoffset="${f2(-start)}"
-            style="transition: stroke-dasharray 0.9s cubic-bezier(0.25, 0.1, 0.25, 1) ${i * 110}ms, opacity 0.15s ease 0s">
-            <title>${escapeHtml(s.label)}: ${fmtValue(s.signed)}</title>
-        </circle></a>`;
-        }).join('');
-
         // Centre readout: assets minus debt at the displayed month — the same
         // sign convention computeNetWorth() uses for the Net Worth chart.
         const net = raw.reduce((t, s) => t + (s.label === 'Debt' ? -s.signed : s.signed), 0);
 
-        pieEl.innerHTML = `
-        <svg viewBox="0 0 ${size} ${size}" preserveAspectRatio="xMidYMid meet" class="accounts-pie-svg">
-            <g transform="rotate(-90 ${cx} ${cy})">${arcs}</g>
-            <text class="donut-center-label" x="${cx}" y="${cy - 10}" text-anchor="middle">Net</text>
-            <text class="donut-center-value" x="${cx}" y="${cy + 16}" text-anchor="middle">${fmtValue(net)}</text>
-        </svg>
-    `;
-
-        // Kick the sweep: double rAF guarantees one frame paints at zero length
-        // before the dash targets are set, so the transition always runs.
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-            pieEl.querySelectorAll('.donut-arc').forEach(arc => {
-                arc.setAttribute('stroke-dasharray', arc.dataset.dash);
-            });
-        }));
+        DonutChart.render(pieEl, {
+            slices: slices.map(s => ({
+                label: s.label,
+                color: s.color,
+                value: s.value,
+                valueText: fmtValue(s.signed),
+                href: BALANCE_SHEET_HREF,
+            })),
+            centerLabel: 'Net',
+            centerValue: fmtValue(net),
+            linkHint: 'open the Balance Sheet',
+        });
 
         legendEl.innerHTML = slices.map(s => {
             const pct = (s.value / total) * 100;
