@@ -277,6 +277,21 @@
     height: 16px;
 }
 
+/* Edit and Add take the shared outlined button (.button-secondary, the Statements
+   Manage Years / Manage Columns look). Only the square icon-only footprint is
+   set here; the two-class selector outranks .button-secondary's 8/16 padding
+   regardless of stylesheet order. */
+.button-secondary.tx-icon-btn {
+    width: 32px;
+    padding: 0;
+}
+
+.tx-icon-btn svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
 /* ── Filter chips ──────────────────────────────────────────────────────────
    The chip is the visual unit; its two child buttons (clear ×, label) sit
    transparently inside the shared border. Inactive → solid outline, grayed,
