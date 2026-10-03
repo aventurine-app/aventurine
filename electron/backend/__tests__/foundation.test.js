@@ -357,8 +357,8 @@ test('migration ladder: SCHEMA_VERSION is the top of it, with no gaps', () => {
 // comment-only edit.) Then bump SCHEMA_VERSION, add the migration, and update
 // the hash below in the same commit.
 test('baseline schema is pinned: changing it requires a migration', () => {
-  const EXPECTED_SCHEMA_VERSION = 20;
-  const EXPECTED_DDL_HASH = '8eecbed64c0986f57c31f343bdb6cbde864717497031d9f2f8496c2897687f6d';
+  const EXPECTED_SCHEMA_VERSION = 21;
+  const EXPECTED_DDL_HASH = '7361035a7bc907aadd7badf9224b8dd4ec5b5ad8776019eaf4d3b22973b70358';
 
   const actual = crypto.createHash('sha256').update(DDL.join('\n')).digest('hex');
   assert.equal(
@@ -427,6 +427,8 @@ test('a migrated database matches a fresh one', () => {
       db.exec('ALTER TABLE recurring_overrides ADD COLUMN amount_max FLOAT');
       db.exec('ALTER TABLE recurring_overrides ADD COLUMN category_id INTEGER');
     },
+    // v20 — before saved Dashboard layouts (climbs v21 alone).
+    20: (db) => db.exec('DROP TABLE dashboard_layouts'),
   };
 
   for (const [version, rewind] of Object.entries(cases)) {

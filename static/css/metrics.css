@@ -25,7 +25,7 @@
    which is why it sits in the shell's header and not in a section's. */
 .met-shell {
     min-width: 0;
-    border: var(--border-width) solid var(--border);
+    border: var(--card-border-width) solid var(--border);
     border-radius: 12px;
     background: var(--surface1);
     box-shadow: var(--shadow-card);
@@ -59,7 +59,7 @@
    reads as a card floating on a card. */
 .met-card {
     min-width: 0;
-    border: var(--border-width) solid var(--border);
+    border: var(--card-border-width) solid var(--border);
     border-radius: 8px;
     background: var(--surface1);
     padding: var(--space-24) 28px;

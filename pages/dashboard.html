@@ -11,6 +11,9 @@
          shared import-results summary). -->
     <link rel="stylesheet" href="/static/css/transactions.css">
     <link rel="stylesheet" href="/static/css/onboarding.css">
+    <!-- The Customize panel's widget list is the Categories editor's
+         collapsible group cards (.cat-group). -->
+    <link rel="stylesheet" href="/static/css/categories.css">
 </head>
 <body>
     <!-- @include chrome -->
@@ -41,133 +44,35 @@
         </div>
     </div>
 
-
-    <!-- The dashboard is two stacked sections, both on the page at once: Year
-         to Year and Month to Month (they used to be two tabs of one panel).
-         Each owns a heading row — title left, the one control that scopes that
-         section's three cards right — and a 3×1 card grid. Layout in
-         dashboard.css §1. -->
-
-    <section class="dashboard-section" id="dashboard-section-overtime" aria-labelledby="dashboard-heading-overtime">
-        <div class="dashboard-section-header">
-            <h2 class="dashboard-section-title" id="dashboard-heading-overtime">Year to Year</h2>
-            <!-- The stepper's counterpart: one range scoping every card in this
-                 section. Five buttons drawn as a single joined control
-                 (.range-group, ui.css), the shape the month stepper below uses.
-                 The visible labels are abbreviations, so each button carries the
-                 spelled-out range as its accessible name. -->
-            <div class="range-group" id="dashboard-range" role="group" aria-label="Year to Year range">
-                <button class="range-group-btn" data-range="year" type="button" aria-pressed="true"  aria-label="Year to Date">YTD</button>
-                <button class="range-group-btn" data-range="6mo"  type="button" aria-pressed="false" aria-label="Last 6 Months">6M</button>
-                <button class="range-group-btn" data-range="12mo" type="button" aria-pressed="false" aria-label="Last Year">1Y</button>
-                <button class="range-group-btn" data-range="36mo" type="button" aria-pressed="false" aria-label="Last 3 Years">3Y</button>
-                <button class="range-group-btn" data-range="5yr"  type="button" aria-pressed="false" aria-label="Last 5 Years">5Y</button>
+    <!-- The dashboard: a toolbar (layout tabs, Customize) over a grid of cards,
+         with the Customize panel beside both while customizing, its heading level
+         with the toolbar. dashboard.js builds the tabs, the buttons,
+         the cards and the panel's contents from the saved layouts; the cards
+         themselves are defined in dashcards.js. -->
+    <div class="dash-shell">
+        <div class="dash-toolbar" id="dash-toolbar">
+            <div class="dash-layouts" id="dash-layouts"></div>
+            <div class="dash-actions" id="dash-actions"></div>
+        </div>
+        <div class="dash-main">
+            <div class="dash-canvas" id="dash-canvas" role="tabpanel">
+                <div class="dash-placeholder" id="dash-placeholder" hidden></div>
             </div>
+            <div class="dash-empty" id="dash-empty" hidden></div>
         </div>
 
-    <div class="dashboard-grid">
-
-            <div class="dashboard-card networth-card">
-                <div class="dashboard-card-header">
-                    <span class="dashboard-card-title">Net Worth<span class="fc-info" tabindex="0" role="note"
-                        aria-label="Computed from the most recent entries in your Balance Sheet."
-                        data-tip="Computed from the most recent entries in your Balance Sheet.">i</span></span>
-                </div>
-                <div class="networth-summary">
-                    <div class="networth-value" id="networth-value">—</div>
-                    <div class="networth-change" id="networth-change">—</div>
-                </div>
-                <div class="chart-area networth-chart-area">
-                    <div id="networth-chart"></div>
-                </div>
+        <aside class="dash-drawer" id="dash-drawer" aria-label="Customize">
+            <div class="dash-drawer-head">
+                <h2 class="dash-drawer-title">Widgets</h2>
+                <button type="button" class="button-primary" data-act="done">Save</button>
             </div>
-
-            <div class="dashboard-card">
-                <div class="dashboard-card-header">
-                    <span class="dashboard-card-title">Account Balances</span>
-                </div>
-                <div id="account-selector" class="account-selector"></div>
-                <div class="chart-area">
-                    <div id="account-chart"></div>
-                </div>
+            <div class="dash-drawer-card">
+                <div class="dash-drawer-body" id="dash-drawer-body"></div>
             </div>
-
-            <div class="dashboard-card">
-                <div class="dashboard-card-header">
-                    <span class="dashboard-card-title">Income & Expenses</span>
-                </div>
-                <div id="ie-selector" class="account-selector"></div>
-                <div class="chart-area">
-                    <div id="ie-chart"></div>
-                </div>
-            </div>
-
+        </aside>
     </div>
 
-    </section><!-- /#dashboard-section-overtime -->
-
-    <section class="dashboard-section" id="dashboard-section-month" aria-labelledby="dashboard-heading-month">
-        <div class="dashboard-section-header">
-            <h2 class="dashboard-section-title" id="dashboard-heading-month">Month to Month</h2>
-            <!-- The stepper scopes every card in this section: current month by
-                 default. Two pickers reach any month the ledger holds directly
-                 (year, then month within it); the arrows still walk one month at
-                 a time and roll over the year boundary themselves. .stepper-joined
-                 (ui.css) closes the gaps so the arrows and both pickers read as
-                 one control, the shape the Cash Flow year+month pair uses. -->
-            <div class="stepper stepper-joined" id="dashboard-month" aria-label="Dashboard month">
-                <button class="stepper-btn button-primary" id="dashboard-month-prev" type="button" aria-label="Previous month"><svg class="stepper-btn-icon" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"></path></svg></button>
-                <span class="stepper-picker" id="dashboard-year-picker">
-                    <button class="stepper-label" id="dashboard-year-label" type="button" aria-live="polite"
-                        aria-haspopup="menu" title="Choose year">&nbsp;<svg class="picker-caret" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"></path></svg></button>
-                </span>
-                <span class="stepper-picker">
-                    <button class="stepper-label" id="dashboard-month-label" type="button" aria-live="polite"
-                        aria-haspopup="menu" title="Choose month">&nbsp;<svg class="picker-caret" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"></path></svg></button>
-                </span>
-                <button class="stepper-btn button-primary" id="dashboard-month-next" type="button" aria-label="Next month" disabled><svg class="stepper-btn-icon" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"></path></svg></button>
-            </div>
-        </div>
-
-    <div class="dashboard-grid">
-
-            <div class="dashboard-card mcf-card">
-                <div class="dashboard-card-header">
-                    <span class="dashboard-card-title">Monthly Cash Flow<span class="fc-info" tabindex="0" role="note"
-                        aria-label="Where the shown month's money went: total income, expenses, and transfers from your transactions ledger. Transfers are money moved to your own savings or brokerage accounts — neither income nor spending."
-                        data-tip="Where the shown month's money went: total income, expenses, and transfers from your transactions ledger. Transfers are money moved to your own savings or brokerage accounts — neither income nor spending.">i</span></span>
-                </div>
-                <div class="chart-area">
-                    <div id="mcf-chart"></div>
-                </div>
-            </div>
-
-            <div class="dashboard-card accounts-card">
-                <div class="dashboard-card-header">
-                    <span class="dashboard-card-title">Balances<span class="fc-info" tabindex="0" role="note"
-                        aria-label="How your Balance Sheet splits across account types in the shown month — cash, investment, retirement, and debt. Each account contributes its most recent balance from that month or earlier, carried forward until you record a newer one."
-                        data-tip="How your Balance Sheet splits across account types in the shown month — cash, investment, retirement, and debt. Each account contributes its most recent balance from that month or earlier, carried forward until you record a newer one.">i</span></span>
-                </div>
-                <div class="accounts-body">
-                    <div id="accounts-legend" class="accounts-legend"></div>
-                    <div id="accounts-pie" class="accounts-pie"></div>
-                </div>
-            </div>
-
-            <div class="dashboard-card spending-card">
-                <div class="dashboard-card-header">
-                    <span class="dashboard-card-title">Spending<span class="fc-info" tabindex="0" role="note"
-                        aria-label="What you've spent in each category in the shown month, from your transactions ledger."
-                        data-tip="What you've spent in each category in the shown month, from your transactions ledger.">i</span></span>
-                </div>
-                <div class="chart-area">
-                    <div id="spending-chart"></div>
-                </div>
-            </div>
-
-    </div>
-
-    </section><!-- /#dashboard-section-month -->
+    <div class="dash-sr-only" id="dash-live" aria-live="polite"></div>
 
 </div>
         </div>
@@ -179,9 +84,19 @@
          four would parse it for nothing. It has no dependencies and must load
          before any script that draws. -->
     <script src="/static/js/core/chartmath.js"></script>
-    <!-- The line renderer (widgets/chart.js) the Year to Year charts share with
-         /reports. -->
+    <!-- The line renderer (widgets/chart.js) the line cards share with /reports. -->
     <script src="/static/js/widgets/chart.js"></script>
+    <!-- The grid engine and the period rules: pure, and read by the cards and
+         the page script below. -->
+    <script src="/static/js/widgets/dashgrid.js"></script>
+    <script src="/static/js/widgets/dashperiod.js"></script>
+    <script src="/static/js/widgets/monthstepper.js"></script>
+    <!-- Merchant avatars (Top Merchants, Recent Transactions, Upcoming Bills):
+         the generated manifest, then the renderer that reads it. -->
+    <script src="/static/js/core/merchant-icons.js"></script>
+    <script src="/static/js/core/avatar.js"></script>
+    <!-- Every card the dashboard can hold, then the page that places them. -->
+    <script src="/static/js/pages/dashcards.js"></script>
     <script src="/static/js/widgets/txparse.js"></script>
     <script src="/static/js/widgets/txfileimport.js"></script>
     <script src="/static/js/widgets/onboarding.js"></script>

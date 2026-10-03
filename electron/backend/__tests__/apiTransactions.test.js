@@ -49,6 +49,29 @@ function setSetting(c, key, value) {
 
 // ── Transactions ─────────────────────────────────────────────────────────────
 
+test('list: limit bounds the read, newest first; no query reads everything', (t) => {
+  const c = makeClient(t);
+  for (const d of ['2026-03-31', '2026-04-01', '2026-04-15', '2026-04-30', '2026-05-01']) {
+    createTx(c, `ROW ${d}`, { d });
+  }
+  const dates = (q) => {
+    const r = c.get(`/api/transactions${q}`);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    return r.body.transactions.map((x) => x.date);
+  };
+  assert.deepEqual(dates(''), ['2026-05-01', '2026-04-30', '2026-04-15', '2026-04-01', '2026-03-31']);
+  assert.deepEqual(dates('?limit=2'), ['2026-05-01', '2026-04-30']);
+  // The category list still comes with a bounded read: rows carry ids only.
+  assert.ok(c.get('/api/transactions?limit=1').body.categories.length > 0);
+});
+
+test('list: a malformed limit is a 400', (t) => {
+  const c = makeClient(t);
+  assert.equal(c.get('/api/transactions?limit=0').status, 400);
+  assert.equal(c.get('/api/transactions?limit=2.5').status, 400);
+  assert.equal(c.get('/api/transactions?limit=101').status, 400);
+});
+
 test('tx_type derived from category', (t) => {
   const c = makeClient(t);
   const income = firstCat(c, 'income');

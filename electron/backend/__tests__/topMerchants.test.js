@@ -275,6 +275,47 @@ test('top merchants: the window bounds which months are ranked', (t) => {
   assert.equal(c.get('/api/top-merchants?window=all').body.from, null);
 });
 
+test('top merchants: an explicit month range bounds both ends', (t) => {
+  const c = makeClient(t);
+  const m0 = monthsAgo(0);
+  const m2 = monthsAgo(2);
+  const m3 = monthsAgo(3);
+  const m4 = monthsAgo(4);
+
+  insertTx(c, { date: m0.date, description: 'RECENT SHOP', amount: 10, tx_type: 'expense' });
+  insertTx(c, { date: m2.date, description: 'TWO BACK SHOP', amount: 20, tx_type: 'expense' });
+  insertTx(c, { date: m3.date, description: 'THREE BACK SHOP', amount: 30, tx_type: 'expense' });
+  insertTx(c, { date: m4.date, description: 'FOUR BACK SHOP', amount: 40, tx_type: 'expense' });
+
+  // One month: only that month's spending, and the total is that month's too.
+  const one = c.get(`/api/top-merchants?start=${m3.ym}&end=${m3.ym}`);
+  assert.equal(one.status, 200, JSON.stringify(one.body));
+  assert.deepEqual(one.body.merchants.map((m) => m.name), ['THREE BACK SHOP']);
+  assert.equal(one.body.total, 30);
+  assert.equal(one.body.window, null);
+  assert.equal(one.body.from, m3.ym);
+  assert.equal(one.body.to, m3.ym);
+
+  // A span drops what falls on either side of it.
+  const span = c.get(`/api/top-merchants?start=${m3.ym}&end=${m2.ym}`).body;
+  assert.deepEqual(span.merchants.map((m) => m.name), ['THREE BACK SHOP', 'TWO BACK SHOP']);
+
+  // No end runs to the current month.
+  const open = c.get(`/api/top-merchants?start=${m2.ym}`).body;
+  assert.deepEqual(open.merchants.map((m) => m.name), ['TWO BACK SHOP', 'RECENT SHOP']);
+  assert.equal(open.to, m0.ym);
+
+  // The trailing-window form is unchanged, and still open at the present.
+  assert.equal(c.get('/api/top-merchants?window=3').body.to, null);
+});
+
+test('top merchants: a malformed or backwards range is a 400', (t) => {
+  const c = makeClient(t);
+  assert.equal(c.get('/api/top-merchants?start=2026-13').status, 400);
+  assert.equal(c.get('/api/top-merchants?start=2026-05&end=26-05').status, 400);
+  assert.equal(c.get('/api/top-merchants?start=2026-05&end=2026-04').status, 400);
+});
+
 test('top merchants: window clamps to {3,6,12,24,60,all}', (t) => {
   const c = makeClient(t);
   assert.equal(c.get('/api/top-merchants').body.window, 12); // default

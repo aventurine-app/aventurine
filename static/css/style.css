@@ -713,6 +713,12 @@
        scrollbar spacer tricks) keep their own literal values. */
     --border-width: 1px;
 
+    /* Stroke weight for the raised content cards (dashboard, trends, forecast,
+       recurring, metrics, transfers, categories). Split from --border-width so
+       the cards can go borderless while inputs, menus and modals keep theirs.
+       Table frames use --table-border-width. */
+    --card-border-width: 0;
+
     /* Data-table grid stroke — the dedicated weight for the lines that make up a
        table grid (the Trackers spreadsheet `.db-table` and the Transactions
        `.tx-table`: their frame, row/header/footer dividers, and cell/column

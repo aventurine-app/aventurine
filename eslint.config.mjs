@@ -77,6 +77,12 @@ const appGlobals = {
   aventurineZoom: 'readonly',
   // widgets/chart.js
   FinanceChart: 'readonly',
+  // widgets/dashgrid.js / dashperiod.js (the Dashboard's grid engine and period
+  // rules; pure, and also require()d by the backend test suite)
+  DashGrid: 'readonly',
+  DashPeriod: 'readonly',
+  // pages/dashcards.js (the Dashboard's card registry)
+  DashCards: 'readonly',
   // widgets/cellselect.js
   enableCellSelection: 'readonly',
   // widgets/bubblefield.js (the Budgets page's circles)
@@ -153,11 +159,11 @@ export default [
     },
   },
 
-  // txparse.js is dual-environment — a browser classic script that also
-  // module.exports itself for the backend test suite. Declare `module` so
-  // its typeof-guarded CJS branch lints.
+  // txparse.js, dashgrid.js and dashperiod.js are dual-environment — browser
+  // classic scripts that also module.exports themselves for the backend test
+  // suite. Declare `module` so their typeof-guarded CJS branches lint.
   {
-    files: ['static/js/widgets/txparse.js'],
+    files: ['static/js/widgets/txparse.js', 'static/js/widgets/dashgrid.js', 'static/js/widgets/dashperiod.js'],
     languageOptions: { globals: { module: 'readonly' } },
   },
 
