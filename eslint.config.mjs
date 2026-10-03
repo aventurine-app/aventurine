@@ -83,6 +83,8 @@ const appGlobals = {
   DashPeriod: 'readonly',
   // pages/dashcards.js (the Dashboard's card registry)
   DashCards: 'readonly',
+  // widgets/donut.js
+  DonutChart: 'readonly',
   // widgets/cellselect.js
   enableCellSelection: 'readonly',
   // widgets/bubblefield.js (the Budgets page's circles)

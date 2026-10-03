@@ -722,94 +722,20 @@ html[data-theme="dark"] {
 .rec-amount-transfer { color: var(--accent-info); }
 
 /* ─── Detection picker ──────────────────────────────────────────────────────
-   The rail's "Detect Schedules" dialog: what detection turned up, one
-   tickable row each. Wider than the Add form since each row carries a name,
-   a cadence/history line and an amount; the list itself scrolls so a big
-   first import can't push the buttons off-screen. */
-.rec-detect-dialog { width: 440px; max-width: 100%; }
-.rec-detect-dialog p { margin: 0 0 8px; }
+   The rail's "Detect Schedules" dialog is the shared multi-select dialog
+   (picker.css, .pick-*); only the amount colours below are this page's. */
 
-.rec-detect-note {
-    color: var(--text-secondary);
-    font-size: var(--size-small);
-    margin-bottom: 12px;
-}
-
-/* Every checkbox this page draws, in one place: the detection picker's and the
-   editor's. accent-color, like every other checkbox in the app
+/* Every checkbox this page draws, in one place: the page's and the editor's.
+   accent-color, like every other checkbox in the app
    (the DB modal's, the ledger's row checkboxes) — the browser default blue
-   belongs to no theme here. The four separate copies of these five lines this
-   replaced were four chances for one of them to drift. */
+   belongs to no theme here. The picker's checkboxes are styled in picker.css. */
 .rec-page input[type="checkbox"],
-.rec-detect-dialog input[type="checkbox"],
 .rec-edit-dialog input[type="checkbox"] {
     accent-color: var(--accent-primary);
     width: 15px;
     height: 15px;
     flex: 0 0 auto;
     cursor: pointer;
-}
-
-.rec-cand-all {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 0 8px;
-    border-bottom: var(--border-width) solid var(--border);
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: var(--size-micro);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--track-wide);
-    text-transform: uppercase;
-    cursor: pointer;
-}
-
-.rec-cand-list {
-    max-height: 320px;
-    overflow-y: auto;
-    margin-bottom: 16px;
-}
-
-.rec-cand-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 4px;
-    border-bottom: var(--border-width) solid var(--border);
-    cursor: pointer;
-}
-.rec-cand-row:last-child { border-bottom: none; }
-.rec-cand-row:hover { background: var(--surface3); }
-
-.rec-cand-text {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    min-width: 0;
-    flex: 1;
-}
-.rec-cand-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--text-primary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    font-weight: var(--weight-medium);
-}
-.rec-cand-detail {
-    color: var(--text-tertiary);
-    font-family: var(--font-h3);
-    font-size: var(--size-micro);
-}
-
-.rec-cand-amount {
-    flex: 0 0 auto;
-    font-family: var(--font-numeric);
-    font-size: var(--size-small);
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
 }
 
 /* Nothing ticked → nothing to add, so the confirm button is disabled rather than

@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <title>Aventurine | Dashboard</title>
     <!-- @include head -->
+    <link rel="stylesheet" href="/static/css/donut.css">
     <link rel="stylesheet" href="/static/css/dashboard.css">
     <!-- First-run setup runs the ordinary import flow inside its modal, so
          Dashboard also loads the import widget's styles (transactions.css defines
@@ -86,6 +87,8 @@
     <script src="/static/js/core/chartmath.js"></script>
     <!-- The line renderer (widgets/chart.js) the line cards share with /reports. -->
     <script src="/static/js/widgets/chart.js"></script>
+    <!-- The ring the Balances card draws (shared with /portfolio). -->
+    <script src="/static/js/widgets/donut.js"></script>
     <!-- The grid engine and the period rules: pure, and read by the cards and
          the page script below. -->
     <script src="/static/js/widgets/dashgrid.js"></script>

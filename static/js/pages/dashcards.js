@@ -618,26 +618,6 @@
             return;
         }
 
-        // A segmented stroke ring: each slice is a circle stroke dashed to its
-        // arc, edge to edge, since a gap in a ring that sums to a whole reads as
-        // missing money. Dashes can transition, which drives the sweep-in.
-        const size = 280, cx = size / 2, cy = size / 2, sw = 34;
-        const r = (size - sw) / 2 - 2;
-        const C = 2 * Math.PI * r;
-        const f2 = (n) => Math.round(n * 100) / 100;
-        let acc = 0;
-        const arcs = slices.map((s, i) => {
-            const len = Math.max((s.value / total) * C, 3);
-            const start = (acc / total) * C;
-            acc += s.value;
-            const dash = `${f2(len)} ${f2(C - len)}`;
-            return `<a class="donut-link" href="${BALANCE_SHEET_HREF}" tabindex="0" role="link"
-                aria-label="${escapeHtml(`${s.label}: ${fmtValue(s.signed)} — open the Balance Sheet`)}">
-                <circle class="donut-arc" cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="${sw}"
-                    stroke-dasharray="${ctx.animate ? `0 ${f2(C)}` : dash}" data-dash="${dash}" stroke-dashoffset="${f2(-start)}"
-                    style="transition: stroke-dasharray 0.9s cubic-bezier(0.25, 0.1, 0.25, 1) ${i * 110}ms, opacity 0.15s ease 0s">
-                    <title>${escapeHtml(s.label)}: ${fmtValue(s.signed)}</title></circle></a>`;
-        }).join('');
         // Assets minus debt at the shown month: Net Worth's sign convention.
         const net = raw.reduce((t, s) => t + (s.label === 'Debt' ? -s.signed : s.signed), 0);
         const legend = slices.map((s) => `<a class="accounts-legend-item" href="${BALANCE_SHEET_HREF}">
@@ -651,19 +631,22 @@
             </div></a>`).join('');
         // A card too narrow for the ring beside the legend keeps the legend: the
         // figures are the reading, and the ring is their picture.
-        const ring = ctx.w >= 300 ? `<div class="accounts-pie"><svg viewBox="0 0 ${size} ${size}" preserveAspectRatio="xMidYMid meet" class="accounts-pie-svg">
-            <g transform="rotate(-90 ${cx} ${cy})">${arcs}</g>
-            <text class="donut-center-label" x="${cx}" y="${cy - 10}" text-anchor="middle">Net</text>
-            <text class="donut-center-value" x="${cx}" y="${cy + 16}" text-anchor="middle">${fmtValue(net)}</text>
-        </svg></div>` : '';
-        host.innerHTML = `<div class="accounts-body"><div class="accounts-legend">${legend}</div>${ring}</div>`;
-        // Double rAF: one frame paints at zero length before the targets are set,
-        // so the sweep always runs. A resize redraw sets them directly instead.
-        if (ctx.animate && ring) {
-            requestAnimationFrame(() => requestAnimationFrame(() => {
-                host.querySelectorAll('.donut-arc').forEach((arc) => arc.setAttribute('stroke-dasharray', arc.dataset.dash));
-            }));
-        }
+        const showRing = ctx.w >= 300;
+        host.innerHTML = `<div class="accounts-body"><div class="accounts-legend">${legend}</div>${showRing ? '<div class="accounts-pie"></div>' : ''}</div>`;
+        if (!showRing) return;
+        DonutChart.render(host.querySelector('.accounts-pie'), {
+            slices: slices.map((s) => ({
+                label: s.label,
+                color: s.color,
+                value: s.value,
+                valueText: fmtValue(s.signed),
+                href: BALANCE_SHEET_HREF,
+            })),
+            centerLabel: 'Net',
+            centerValue: fmtValue(net),
+            linkHint: 'open the Balance Sheet',
+            animate: Boolean(ctx.animate),   // a resize redraw skips the sweep
+        });
     }
 
     // ─── Lists ───────────────────────────────────────────────────────────────

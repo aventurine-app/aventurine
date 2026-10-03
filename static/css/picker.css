@@ -1,0 +1,96 @@
+/* ============================================================================
+   picker.css — the multi-select dialog, shared by every page that has one.
+   ============================================================================
+   A title, an optional note, a "Select all" row, a scrolling list of tickable
+   rows, and the action buttons. Recurring's "Detect Schedules" and Portfolio's
+   "Remove Row" both use it, so a list of things to tick looks the same
+   wherever it appears. Pass `className: 'pick-dialog'` to UI.dialog().
+
+   Wider than the app's other dialogs since each row carries a name, a detail
+   line and an amount; the list itself scrolls so a long list can't push the
+   buttons off-screen. .confirm-dialog caps every dialog at 340px, so the
+   width is set here.
+   ============================================================================ */
+
+.pick-dialog { width: 440px; max-width: 100%; }
+.pick-dialog p { margin: 0 0 8px; }
+
+.pick-note {
+    color: var(--text-secondary);
+    font-size: var(--size-small);
+    margin-bottom: 12px;
+}
+
+/* accent-color, like every other checkbox in the app: the browser default blue
+   belongs to no theme here. */
+.pick-dialog input[type="checkbox"] {
+    accent-color: var(--accent-primary);
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+    cursor: pointer;
+}
+
+.pick-all {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0 8px;
+    border-bottom: var(--border-width) solid var(--border);
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-wide);
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.pick-list {
+    max-height: 320px;
+    overflow-y: auto;
+    margin-bottom: 16px;
+}
+
+.pick-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 4px;
+    border-bottom: var(--border-width) solid var(--border);
+    cursor: pointer;
+}
+.pick-row:last-child { border-bottom: none; }
+.pick-row:hover { background: var(--surface3); }
+
+.pick-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    flex: 1;
+}
+
+.pick-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-medium);
+}
+
+.pick-detail {
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+}
+
+.pick-amount {
+    flex: 0 0 auto;
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}

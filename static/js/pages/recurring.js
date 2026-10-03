@@ -966,14 +966,14 @@
       `${s.occurrences} charge${s.occurrences === 1 ? '' : 's'}`,
       `next ${fmtShortDate(s.next_date)}`,
     ].join(' · ');
-    return `<label class="rec-cand-row">
-      <input type="checkbox" class="rec-cand-cb" data-key="${escapeHtml(s.key)}" data-index="${i}">
+    return `<label class="pick-row">
+      <input type="checkbox" class="pick-cb" data-key="${escapeHtml(s.key)}" data-index="${i}">
       ${merchantAvatarHtml(label)}
-      <span class="rec-cand-text">
-        <span class="rec-cand-name">${escapeHtml(label)}</span>
-        <span class="rec-cand-detail">${escapeHtml(detail)}</span>
+      <span class="pick-text">
+        <span class="pick-name">${escapeHtml(label)}</span>
+        <span class="pick-detail">${escapeHtml(detail)}</span>
       </span>
-      <span class="rec-cand-amount rec-amount-${s.direction}">${escapeHtml(formatCurrency(s.amount, true))}</span>
+      <span class="pick-amount rec-amount-${s.direction}">${escapeHtml(formatCurrency(s.amount, true))}</span>
     </label>`;
   }
 
@@ -988,28 +988,28 @@
     if (!candidates.length) {
       UI.dialog(`
         <p><strong>No new recurring schedules found</strong></p>
-        <p class="rec-detect-note">A pattern needs a few charges at a steady interval before it can be spotted. Import more history, or add a schedule by hand with the + on the day it falls on.</p>
+        <p class="pick-note">A pattern needs a few charges at a steady interval before it can be spotted. Import more history, or add a schedule by hand with the + on the day it falls on.</p>
         <div class="confirm-actions">
           <button class="button-secondary confirm-cancel">Close</button>
-        </div>`, { className: 'rec-detect-dialog' });
+        </div>`, { className: 'pick-dialog' });
       return;
     }
 
     const { overlay, close } = UI.dialog(`
       <p><strong>Recurring schedules found</strong></p>
-      <p class="rec-detect-note">These transactions look like they repeat. Keep the ones you want to track — you can correct any detail afterwards.</p>
-      <label class="rec-cand-all">
+      <p class="pick-note">These transactions look like they repeat. Keep the ones you want to track — you can correct any detail afterwards.</p>
+      <label class="pick-all">
         <input type="checkbox" id="rec-cand-all">
         <span>Select all (${candidates.length})</span>
       </label>
-      <div class="rec-cand-list">${candidates.map(candidateRowHtml).join('')}</div>
+      <div class="pick-list">${candidates.map(candidateRowHtml).join('')}</div>
       <div class="confirm-actions">
         <button class="button-secondary confirm-cancel">Cancel</button>
         <button class="button-primary confirm-add" id="rec-cand-ok">Add selected</button>
-      </div>`, { className: 'rec-detect-dialog' });
+      </div>`, { className: 'pick-dialog' });
 
     const allBox = overlay.querySelector('#rec-cand-all');
-    const boxes = [...overlay.querySelectorAll('.rec-cand-cb')];
+    const boxes = [...overlay.querySelectorAll('.pick-cb')];
     const okBtn = overlay.querySelector('#rec-cand-ok');
     const checked = () => boxes.filter((b) => b.checked);
 
@@ -1029,7 +1029,7 @@
       boxes.forEach((b) => { b.checked = allBox.checked; });
       syncState();
     });
-    overlay.querySelector('.rec-cand-list').addEventListener('change', syncState);
+    overlay.querySelector('.pick-list').addEventListener('change', syncState);
 
     okBtn.addEventListener('click', async () => {
       const keys = checked().map((b) => b.dataset.key);
@@ -1063,7 +1063,7 @@
     const ok = await UI.confirm({
       message: `
       <p>Delete the <strong>${escapeHtml(label)}</strong> schedule?</p>
-      <p class="rec-detect-note">Its transactions stay in your ledger, and detection can offer it again later.</p>`,
+      <p class="pick-note">Its transactions stay in your ledger, and detection can offer it again later.</p>`,
     });
     if (!ok) return false;
     const res = await apiFetch(`/api/recurring/schedule/${encodeURIComponent(key)}`, { method: 'DELETE' });

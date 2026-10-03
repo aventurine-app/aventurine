@@ -107,38 +107,38 @@ function buildRows(catId) {
   months.forEach(({ year, month }, i) => {
     const raise = 1 + i * 0.004;   // a slow, believable drift upward
 
-    push(year, month, 1,  'PAYROLL DEPOSIT NORTHWIND', 'income', Math.round(2780 * raise * 100) / 100, 'income');
-    push(year, month, 15, 'PAYROLL DEPOSIT NORTHWIND', 'income', Math.round(2780 * raise * 100) / 100, 'income');
-    if (rnd() > 0.6) push(year, month, 22, 'REFUND CLEARWATER GOODS', 'other_income', between(60, 380), 'income');
+    push(year, month, 1,  'PAYCHECK', 'income', Math.round(2780 * raise * 100) / 100, 'income');
+    push(year, month, 15, 'PAYCHECK', 'income', Math.round(2780 * raise * 100) / 100, 'income');
+    if (rnd() > 0.6) push(year, month, 22, 'REFUND', 'other_income', between(60, 380), 'income');
 
-    push(year, month, 2,  'HARBOR RIDGE PROPERTY MGMT', 'rent', 1850, 'expense');
-    push(year, month, 6,  'CITY POWER & WATER DEPT', 'utilities', between(96, 178), 'expense');
-    push(year, month, 8,  'FIBERLINE INTERNET', 'utilities', 74.99, 'expense');
-    push(year, month, 12, 'MERIDIAN MUTUAL AUTO POLICY', 'insurance', 142, 'expense');
-    push(year, month, 4,  'STREAMBOX MONTHLY', 'entertainment', 15.49, 'expense');
-    push(year, month, 9,  'TIDEWATER MUSIC', 'entertainment', 11.99, 'expense');
-    push(year, month, 3,  'IRONWORKS FITNESS', 'health', 42, 'expense');
+    push(year, month, 2,  'MORTGAGE', 'rent', 1850, 'expense');
+    push(year, month, 6,  'ELECTRIC & WATER', 'utilities', between(96, 178), 'expense');
+    push(year, month, 8,  'INTERNET', 'utilities', 74.99, 'expense');
+    push(year, month, 12, 'CAR INSURANCE', 'insurance', 142, 'expense');
+    push(year, month, 4,  'STREAMING SERVICE', 'entertainment', 15.49, 'expense');
+    push(year, month, 9,  'MUSIC SUBSCRIPTION', 'entertainment', 11.99, 'expense');
+    push(year, month, 3,  'GYM MEMBERSHIP', 'health', 42, 'expense');
 
     for (let k = 0; k < 7; k++) {
-      push(year, month, 2 + k * 4, 'NORTHGATE FARMERS MARKET', 'food', between(48, 142), 'expense');
+      push(year, month, 2 + k * 4, 'GROCERIES', 'food', between(48, 142), 'expense');
     }
     for (let k = 0; k < 6; k++) {
-      push(year, month, 3 + k * 4, ['CORNER COFFEE HOUSE', 'PALOMA TAQUERIA', 'BRICK OVEN PIZZERIA'][k % 3],
+      push(year, month, 3 + k * 4, ['COFFEE SHOP', 'RESTAURANT', 'PIZZA'][k % 3],
         'food', between(9, 47), 'expense');
     }
 
     for (let k = 0; k < 3; k++) {
-      push(year, month, 5 + k * 9, 'WESTVIEW FUEL', 'automobile', between(36, 68), 'expense');
+      push(year, month, 5 + k * 9, 'GAS STATION', 'automobile', between(36, 68), 'expense');
     }
-    if (rnd() > 0.5) push(year, month, 17, 'METRO TRANSIT PASS', 'automobile', 68, 'expense');
-    if (rnd() > 0.8) push(year, month, 21, 'CEDAR AUTO REPAIR', 'automobile', between(120, 480), 'expense');
+    if (rnd() > 0.5) push(year, month, 17, 'TRANSIT PASS', 'automobile', 68, 'expense');
+    if (rnd() > 0.8) push(year, month, 21, 'CAR REPAIR', 'automobile', between(120, 480), 'expense');
 
     for (let k = 0; k < 3; k++) {
-      push(year, month, 7 + k * 7, ['LANTERN DEPARTMENT STORE', 'PAPERTRAIL BOOKS', 'FIELDSTONE OUTFITTERS'][k],
+      push(year, month, 7 + k * 7, ['DEPARTMENT STORE', 'BOOKSTORE', 'CLOTHING STORE'][k],
         'shopping', between(22, 165), 'expense');
     }
-    if (rnd() > 0.75) push(year, month, 14, 'SUMMIT AIR LINES', 'travel', between(280, 890), 'expense');
-    if (rnd() > 0.55) push(year, month, 19, 'HARBOR PHARMACY', 'health', between(14, 95), 'expense');
+    if (rnd() > 0.75) push(year, month, 14, 'AIRLINE TICKET', 'travel', between(280, 890), 'expense');
+    if (rnd() > 0.55) push(year, month, 19, 'PHARMACY', 'health', between(14, 95), 'expense');
     push(year, month, 24, 'MISC HOUSEHOLD', 'general', between(18, 90), 'expense');
 
     push(year, month, 16, 'TRANSFER TO EMERGENCY FUND', 'savings', 600, 'transfer');
