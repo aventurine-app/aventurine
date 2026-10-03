@@ -1281,9 +1281,8 @@ a.dash-row:focus-visible {
     border-color: var(--border);
 }
 
-/* Hover and pressed both fill with the button's own border colour, so a
-   hovered pressed button looks the same as it did. */
-.dash-customize:not(:disabled):hover,
+/* Hover is the shared .button-secondary fill. Pressed (the panel is open) fills
+   with the button's own border colour, and stays that way under the pointer. */
 .dash-customize[aria-pressed="true"]:not(:disabled):hover,
 .dash-customize[aria-pressed="true"] {
     background: var(--accent-neutral-border);
