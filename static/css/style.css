@@ -527,13 +527,16 @@
       the primary. */
    --accent-neutral:      var(--color-base-800);   /* idle text + border */
    --accent-neutral-fill: var(--color-base-800);   /* hover fill */
-   /* Idle BORDER, split from --accent-neutral above because the line and the
-      label want different weights and the two themes disagree about which
-      token gets there. Here it is plain --border, the app-wide control line,
-      which lands the border at 1.82:1 on the --surface1 table fill. The dark
-      theme has to name a different token to reach that same ratio — see the
-      note in themes.css. */
-   --accent-neutral-border: var(--border);
+   /* Idle BORDER. The same colour as the hover fill, so the button's edge and
+      its filled state are one colour and hover adds no second tone at the rim.
+      The dark theme names its own pair — see the note in themes.css. */
+   --accent-neutral-border: var(--accent-neutral-fill);
+
+   /* Square icon buttons (.button-icon, buttons.css): the widget surface with a
+      primary-ink glyph. Both follow the theme through the tokens they name, so
+      the dark theme does not restate them. */
+   --icon-button-fill: var(--surface1);
+   --icon-button-ink:  var(--text-primary);
 
 
    /* Frost layer — flip from white-tinted to black-tinted */
@@ -550,10 +553,6 @@
    --stroke-soft:      rgba(0,0,0, 0.12);
    --stroke-medium:    rgba(0,0,0, 0.16);
    --stroke-strong:    rgba(0,0,0, 0.22);
-
-   /* Dialog chrome — opaque surface/border rather than translucent tints. */
-   --dialog-surface:        var(--surface1);
-   --dialog-stroke:         var(--border);
 
    /* Segmented control (Statements/Dashboard/Reports tabs) — a grey track holding
       the options, outlined with the same hairline as every other bordered
@@ -712,6 +711,12 @@
        not its thickness). Thicker, deliberate strokes (2px tab indicators,
        scrollbar spacer tricks) keep their own literal values. */
     --border-width: 1px;
+
+    /* Stroke weight for the raised content cards (dashboard, trends, forecast,
+       recurring, metrics, transfers, categories). Split from --border-width so
+       the cards can go borderless while inputs, menus and modals keep theirs.
+       Table frames use --table-border-width. */
+    --card-border-width: 0;
 
     /* Data-table grid stroke — the dedicated weight for the lines that make up a
        table grid (the Trackers spreadsheet `.db-table` and the Transactions
@@ -998,15 +1003,30 @@ div.page::-webkit-scrollbar-thumb:hover {
     justify-content: center;
 }
 
-/* Modal frame — only `width` differs between the three. */
+/* Modal frame surface — the fill, line, corner and elevation of every modal and
+   dialog. The confirm, import, similar, edit and onboarding dialogs used to
+   carry their own copy on a separate pair of tokens that only differed on dark;
+   they take the modal's now. Sizes and layout stay with each one. */
 .db-modal,
 .settings-modal,
 .bud-modal,
-.cat-manager {
+.cat-manager,
+.confirm-dialog,
+.tx-import-dialog,
+.tx-similar-dialog,
+.tx-edit-dialog,
+.onb-dialog {
     background: var(--surface1);
     border: var(--border-width) solid var(--border);
     border-radius: 10px;
     box-shadow: var(--shadow-modal);
+}
+
+/* Modal frame layout — only `width` differs between the four. */
+.db-modal,
+.settings-modal,
+.bud-modal,
+.cat-manager {
     max-width: calc(100vw - 64px);
     max-height: calc(100vh - 96px);
     display: flex;
@@ -1111,13 +1131,8 @@ div.page::-webkit-scrollbar-thumb:hover {
 
 .confirm-dialog {
     position: relative;
-    background: var(--dialog-surface);
-    border: var(--border-width) solid var(--dialog-stroke);
-    /* 10px, the radius every other modal frame in the app uses. */
-    border-radius: 10px;
     padding: 24px 28px;
     max-width: 340px;
-    box-shadow: var(--shadow-modal);
 }
 
 .confirm-dialog p {
@@ -1159,53 +1174,26 @@ div.page::-webkit-scrollbar-thumb:hover {
 
 .confirm-actions {
     display: flex;
+    align-items: center;
     justify-content: flex-end;
     gap: 10px;
 }
 
-/* The buttons inside .confirm-actions carry the app's dialog button classes
-   (.db-btn / .db-btn-primary / .db-btn-danger — dbmodal.css + settings.css),
-   the same ones the DB, Preferences, Set Budget and Delete All Transactions
-   footers use. They used to paint their own uppercase eyebrow shape in frost
-   tints here, which put a visibly different button in these dialogs than in
-   every other modal. .confirm-cancel / .confirm-add / .confirm-delete are now
+/* The buttons inside .confirm-actions carry the app's button classes: the
+   action shape for the primary and for Cancel (.button-primary /
+   .button-secondary, buttons.css) and the dialog shape for Delete
+   (.db-btn-danger — dbmodal.css + settings.css), the same ones the DB,
+   Preferences, Set Budget and Delete All Transactions footers use. They used
+   to paint their own uppercase eyebrow shape in frost tints here, which put a
+   visibly different button in these dialogs than in every other modal.
+   .confirm-cancel / .confirm-add / .confirm-delete are now
    only the hooks each dialog's JS wires its click handler to, so nothing is
    declared for them: fill, hover, focus ring and the disabled affordance all
    come from the shared button rules. */
 
-/* ⋮ menu trigger — a rounded-square button anchoring UI.openMenu's dropdown.
-   The glyph is centred by the flex box, so no padding/margin. focus-visible and
-   :active states live in buttons.css (grouped with the other eyebrow
-   controls); only the resting/hover shape is here. The 6px radius is the one
-   the stepper and range-selector controls beside it already use (ui.css), so a
-   toolbar row reads as one set of controls rather than a pill among boxes. */
-.p-menu-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--control-height);
-    height: var(--control-height);
-    padding: 0;
-    margin: 0;
-    border-radius: 6px;
-    background: var(--surface1);
-    border: var(--border-width) solid var(--border);
-    color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-h3);
-    line-height: 1;
-    cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-/* surface3 is the hover rung (see the surface token comments); the surface1 →
-   surface2 step this used to make is a no-op on dark, where both resolve to
-   base-900, leaving only the colour and border deltas. */
-.p-menu-btn:hover {
-    background: var(--surface3);
-    color: var(--text-primary);
-    border-color: var(--text-tertiary);
-}
+/* ⋮ menu trigger (.p-menu-btn) — anchors UI.openMenu's dropdown. It wears the
+   square icon button (.button-icon, buttons.css) for its look; the class stays as
+   the hook the menu code and the Dashboard toolbar find it by. */
 
 /* ─── 7c. Shared form controls ─────────────────────────────────────────────
  * The bits every form in the app needs identically, declared once here for the

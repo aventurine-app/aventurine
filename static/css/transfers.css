@@ -51,7 +51,7 @@
    is built from. */
 .tfr-card {
     min-width: 0;
-    border: var(--border-width) solid var(--border);
+    border: var(--card-border-width) solid var(--border);
     border-radius: 12px;
     background: var(--surface1);
     box-shadow: var(--shadow-card);

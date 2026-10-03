@@ -10,6 +10,7 @@
 //   const stepper = MonthStepper.create(container, {
 //       label: 'Budget month',
 //       yearOptions: () => [2026, 2025],   // newest first; today's is added
+//       initial: { year, monthIdx },       // optional; the current month if omitted
 //       onChange: ({ year, monthIdx }) => …,
 //   });
 //   stepper.value();   // { year, monthIdx }
@@ -20,11 +21,7 @@
 // its menus through UI.openMenu (shell/ui.js), the same as every other picker
 // in the app.
 //
-// LIFTED FROM the Dashboard's "Month to Month" stepper, which still carries its
-// own copy inline (static/js/pages/dashboard.js), as does the Recurring page's
-// simpler single-label variant. This file is where those two should eventually
-// fold in; it was written as a widget rather than a third page-local copy so
-// there is somewhere for them to go.
+// Used by the Budgets page and the Dashboard's card period picker.
 //
 // Globals it needs (loaded before it): UI (shell/ui.js), escapeHtml is not
 // required — every string it writes is a number or a month name from the list
@@ -54,8 +51,8 @@
         return year * 12 + monthIdx >= now.getFullYear() * 12 + now.getMonth();
     }
 
-    function create(container, { label = 'Month', yearOptions = () => [], onChange } = {}) {
-        let month = currentMonth();
+    function create(container, { label = 'Month', yearOptions = () => [], initial, onChange } = {}) {
+        let month = initial ? { ...initial } : currentMonth();
 
         container.classList.add('stepper', 'stepper-joined');
         container.setAttribute('aria-label', label);

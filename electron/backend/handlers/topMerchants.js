@@ -17,6 +17,13 @@
 // no merchant gets a null key and is skipped here, since a bar has to be
 // labelled.
 //
+// AN EXPLICIT RANGE (`?start=YYYY-MM&end=YYYY-MM`, both months inclusive)
+// replaces the trailing window when `start` is given. The Dashboard's Top
+// Merchants card asks for one month, or a span of months, so its figures cover
+// exactly the period its header names; the Reports card keeps sending `window`.
+// `end` defaults to the current month, and a range that ends before it starts is
+// a 400 rather than an empty card, since only a bug on the way in sends one.
+//
 // THE WINDOW is a count of CALENDAR MONTHS ending with the current, partial one.
 // Trends excludes the running month because a half-finished month distorts a
 // per-month trend line; a ranking has no per-month shape, and excluding
@@ -71,6 +78,8 @@ const { commonSearchTerm } = require('../services/merchantSearch');
 const { addMonthKey } = require('../services/forecast');
 const { round2, bad } = require('../validate');
 
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
 // Allowed trailing windows, in months, plus the un-windowed 'all'.
 const ALLOWED_WINDOWS = new Set([3, 6, 12, 24, 60]);
 const DEFAULT_WINDOW = 12;
@@ -104,7 +113,19 @@ function topMerchantsGet(ctx, { query }) {
   }
   const thisMonth = currentMonthKey();
   // First month included: `window` months ending with the current one.
-  const from = window === 'all' ? null : addMonthKey(thisMonth, -(window - 1));
+  let from = window === 'all' ? null : addMonthKey(thisMonth, -(window - 1));
+  // Last month included. Open (the present) unless an explicit range ends it.
+  let to = null;
+
+  const startRaw = String(query.start == null ? '' : query.start).trim();
+  if (startRaw) {
+    const endRaw = String(query.end == null ? '' : query.end).trim() || thisMonth;
+    if (!MONTH_RE.test(startRaw) || !MONTH_RE.test(endRaw)) bad('invalid month (expected YYYY-MM)');
+    if (endRaw < startRaw) bad('the range ends before it starts');
+    window = null;
+    from = startRaw;
+    to = endRaw;
+  }
 
   // A category key narrows the ranking to that category. An unknown key is a
   // 404 rather than an empty ranking: the only caller picks the key out of the
@@ -149,10 +170,11 @@ function topMerchantsGet(ctx, { query }) {
          LEFT JOIN categories c ON c.id = t.category_id
         WHERE (CASE WHEN t.category_id IS NULL THEN t.tx_type ELSE c.cat_type END) = 'expense'
           ${from ? 'AND substr(t.date, 1, 7) >= ?' : ''}
+          ${to ? 'AND substr(t.date, 1, 7) <= ?' : ''}
           ${catSql}
         ORDER BY t.date`
     )
-    .all(...(from ? [from] : []), ...catParams);
+    .all(...(from ? [from] : []), ...(to ? [to] : []), ...catParams);
 
   const groups = new Map(); // key -> { key, named, name, total, count, last_date, cats }
   // Every expense in the window, whether or not it named a merchant. This is
@@ -228,7 +250,7 @@ function topMerchantsGet(ctx, { query }) {
     search: g.named ? g.name : commonSearchTerm(wanted.get(g.key) || []),
   }));
 
-  return { ok: true, window, from, category, exclude, limit: TOP_N, total: round2(windowTotal), merchants };
+  return { ok: true, window, from, to, category, exclude, limit: TOP_N, total: round2(windowTotal), merchants };
 }
 
 const routes = [['GET', '/api/top-merchants', topMerchantsGet]];

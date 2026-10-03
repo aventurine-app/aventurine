@@ -347,6 +347,34 @@ app.whenReady().then(async () => {
       await sleep(250);
     };
 
+    /** A Dashboard card's period picker (pages/dashboard.js), open and closed. */
+    const openDashboardPicker = async (type) => {
+      await click(`.dash-card[data-type="${type}"] [data-act="period"]`);
+      await sleep(400);
+    };
+    const closeDashboardPicker = async () => {
+      await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
+      await sleep(250);
+    };
+
+    /** The Dashboard's month cards on the month before this one. The seeded
+     *  ledger stops at today, so the current month is a part-month and the
+     *  cards would open on a half paycheque against a half month of spending. */
+    const dashboardPreviousMonth = async () => {
+      const now = new Date();
+      const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const key = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`;
+      for (const type of ['cashflow', 'balances', 'spending']) {
+        await openDashboardPicker(type);
+        if (prev.getFullYear() !== now.getFullYear()) {
+          await click('.dash-period-pop [data-pp="year:-1"]');
+          await sleep(150);
+        }
+        await click(`.dash-period-pop [data-pp="month:${key}"]`);
+        await sleep(300);
+      }
+    };
+
     /** Park the pointer where it can't tint anything (OS hover artifacts). */
     const unhover = async () => {
       win.webContents.sendInputEvent({ type: 'mouseMove', x: W - 4, y: H - 4 });
@@ -486,30 +514,33 @@ app.whenReady().then(async () => {
       console.log('\n— dashboard —');
       await nav('/', 3200);
       const filled = await js(`(() => ({
-        cashflow: !!document.querySelector('#mcf-chart svg'),
-        spending: !!document.querySelector('#spending-chart svg'),
-        snapshot: !!document.querySelector('#accounts-pie svg'),
+        cashflow: !!document.querySelector('.dash-card[data-type="cashflow"] svg'),
+        spending: !!document.querySelector('.dash-card[data-type="spending"] svg'),
+        snapshot: !!document.querySelector('.dash-card[data-type="balances"] .accounts-pie-svg'),
       }))()`);
       if (!filled.cashflow || !filled.spending || !filled.snapshot) {
         throw new Error('month cards did not render data: ' + JSON.stringify(filled));
       }
+      // The file names predate per-card periods and are kept for the site's
+      // references: the month stepper and the range group are each card's
+      // period picker now, and the two bands are the default layout's rows.
       await unhover();
-      await shotPage('dashboard-month-to-month', '#dashboard-section-month .dashboard-card');
-      await shotEl('dashboard-month-stepper', '#dashboard-month', 8);
-      await shotEl('dashboard-monthly-cash-flow', '#dashboard-section-month .dashboard-card:nth-child(1)');
-      await shotEl('dashboard-capital-snapshot', '#dashboard-section-month .accounts-card');
-      await shotEl('dashboard-spending', '#dashboard-section-month .dashboard-card:nth-child(3)');
+      await shotPage('dashboard-month-to-month', '.dash-card');
+      await openDashboardPicker('cashflow');
+      await shotEl('dashboard-month-stepper', '.dash-period-pop', 8);
+      await closeDashboardPicker();
+      await shotEl('dashboard-monthly-cash-flow', '.dash-card[data-type="cashflow"]');
+      await shotEl('dashboard-capital-snapshot', '.dash-card[data-type="balances"]');
+      await shotEl('dashboard-spending', '.dash-card[data-type="spending"]');
 
-      // Year to Year is the second section down the same page (it used to be a
-      // tab), so it has to be scrolled to rather than clicked to.
-      await scrollTo('#dashboard-section-overtime');
-      await sleep(2600);
       await unhover();
-      await shotEl('dashboard-year-to-year', '#dashboard-section-overtime', 24);
-      await shotEl('dashboard-range-picker', '#dashboard-range', 8);
-      await shotEl('dashboard-net-worth', '.networth-card');
-      await shotEl('dashboard-account-balances', '#dashboard-section-overtime .dashboard-card:nth-child(2)');
-      await shotEl('dashboard-income-expenses', '#dashboard-section-overtime .dashboard-card:nth-child(3)');
+      await shotEl('dashboard-year-to-year', '.dash-canvas', 24);
+      await openDashboardPicker('networth');
+      await shotEl('dashboard-range-picker', '.dash-period-pop', 8);
+      await closeDashboardPicker();
+      await shotEl('dashboard-net-worth', '.dash-card[data-type="networth"]');
+      await shotEl('dashboard-account-balances', '.dash-card[data-type="accounts"]');
+      await shotEl('dashboard-income-expenses', '.dash-card[data-type="incomeExpenses"]');
     }
 
     // ═══ Phase 3: window chrome ══════════════════════════════════════════════
@@ -965,22 +996,22 @@ app.whenReady().then(async () => {
       await setTheme('');
       await setGraphTheme('gemstone');
 
-      // Both dashboard bands — Month to Month over Year to Year, six cards.
+      // The default dashboard — two rows, six cards, under its toolbar.
       // Unlike the crops below this one is padded: those are cards, whose own
-      // rounded edge is the frame, while the dashboard's outermost things are a
-      // section heading and a stepper, and text flush to the crop edge reads as
-      // clipped. 20 is the most that fits — the page's own gutter is 20 either
+      // rounded edge is the frame, while the dashboard's outermost things are
+      // the layout tabs and the Customize button, and text flush to the crop
+      // edge reads as clipped. 20 is the most that fits — the page's own gutter is 20 either
       // side, so any more and the rect is clamped to the window and the frame
       // goes lopsided. Needs SHOT_H ≥ 1400: at 1150 the second band is cut.
       // Stepped back one month first: the seeded ledger stops at today, so the
-      // current month is a part-month and the top band would open on a half
+      // current month is a part-month and the month cards would open on a half
       // paycheque against a half month of spending. The month before it is the
-      // whole picture the card is meant to show.
+      // whole picture the cards are meant to show.
       await nav('/', 3200);
       if (await js(`document.documentElement.dataset.graphTheme !== 'gemstone'`)) {
         throw new Error('dashboard did not load in the gemstone palette');
       }
-      await click('#dashboard-month-prev');
+      await dashboardPreviousMonth();
       await sleep(900);
       await unhover();
       await shotEl('site-dashboard', '.dashboard-page', 20);
@@ -1065,13 +1096,14 @@ app.whenReady().then(async () => {
       await setGraphTheme('gemstone');
 
       // Stepped back one month for the reason the site dashboard is: the seeded
-      // ledger stops at today, so the current month is a part-month and the top
-      // band would open on a half paycheque against a half month of spending.
+      // ledger stops at today, so the current month is a part-month and the
+      // month cards would open on a half paycheque against a half month of
+      // spending.
       await nav('/', 3200);
       if (await js(`document.documentElement.dataset.graphTheme !== 'gemstone'`)) {
         throw new Error('dashboard did not load in the gemstone palette');
       }
-      await click('#dashboard-month-prev');
+      await dashboardPreviousMonth();
       await sleep(900);
       await unhover();
       await shotWin(`frame-dashboard${FRAME_SUFFIX}`);

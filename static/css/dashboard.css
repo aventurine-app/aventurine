@@ -6,21 +6,31 @@
    "all-caps micro eyebrow" treatment from those tokens directly. No
    hard-coded rem values in this file.
 
+   The page is a toolbar (layout tabs, Customize) over a grid of cards, with
+   the Customize panel beside the grid while customizing (dashboard.js). Each
+   card is drawn by its widget in dashcards.js.
+
    Section layout:
-     1. Page layout (two stacked sections, each a one-row three-column card grid)
+     1. Page layout + first-run hero
      2. Card shell
-     3. Card header — eyebrow title + optional right-side widget
-     4. Shared chart container + empty state
+     3. Card header — eyebrow title left, gear and period picker right
+     4. Card body + empty state
      5. Net Worth card
-     6. Accounts card (donut + legend)
-     7. Income & Expenses + Account Balances charts (legend, selector)
-     9. Charts: unified frame chrome + entrance animation
-    10. Active hover on the line charts (hit columns, guide, floating reading)
-    11. Month to Month section (month stepper, cash-flow + spending bar charts)
+     6. Balances card (donut + legend)
+     7. Selector chips + the card gear
+     8. Charts: unified frame chrome + entrance animation
+     9. Active hover on the line charts (hit columns, guide, floating reading)
+    10. Bar charts (cash-flow + spending), the goal rule
+    11. List cards (budgets, merchants, transactions, bills)
+    12. Balance Forecast card
+    13. Toolbar (layout tabs + actions)
+    14. The grid, and the cards' Customize chrome
+    15. Popovers (menus, the period picker, the gear)
+    16. Customize panel (widgets, settings, widget thumbnails)
    ============================================================================ */
 
 
-/* ─── 1. Page layout ─────────────────────────────────────────────────────── */
+/* ─── 1. Page layout + first-run hero ───────────────────────────────────── */
 .page:has(.dashboard-page) {
     align-items: flex-start;
     padding: var(--page-pad);
@@ -36,8 +46,8 @@
 
 /* ─── First-run hero ──────────────────────────────────────────────────────────
    Shown INSTEAD of the dashboard while the database holds nothing the user put
-   there (dashboard.js maybeOfferOnboarding). Both dashboard sections are
-   marked .is-preempted rather than removed, so skipping restores them without a
+   there (dashboard.js maybeOfferOnboarding). The dashboard (.dash-shell) is
+   marked .is-preempted rather than removed, so skipping restores it without a
    reload — and so a database with data never has to wait on the check.
 
    One card, one sentence, one obvious action: at this point the user has no data
@@ -102,75 +112,13 @@
 
 .dashboard-firstrun-skip:hover { color: var(--text-primary); text-decoration: underline; }
 
-/* A section = one heading row + one row of cards. Both sections are on the
-   page at once, so each carries its own title and its own scope control
-   (the month stepper / the range picker) instead of a shared toolbar. */
-.dashboard-section {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-/* Title left, scope control right. min-height keeps the two heading rows the
-   same height even though a stepper and a range button measure differently,
-   so the sections read as siblings down the page. */
-.dashboard-section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    min-height: 32px;
-}
-
-/* One step above the cards' all-caps eyebrow titles (§3), which is what makes
-   the three cards below read as belonging to this heading. */
-.dashboard-section-title {
-    margin: 0;
-    color: var(--text-primary);
-    font-family: var(--font-h2);
-    font-size: var(--size-h2);
-    font-weight: var(--weight-semibold);
-    line-height: var(--lh-tight);
-    letter-spacing: var(--track-tight);
-}
-
-/* Both sections hold exactly three cards, laid out as one row of three equal
-   columns. Cards are direct grid children and stretch to the row's height, so
-   the row reads as one band.
-   The fold points are generous rather than last-possible: the sidebar and page
-   padding take ~280px off the viewport, so the row keeps three columns only on a
-   genuinely wide window — above 1600px, where each card still clears ~430px —
-   drops to two below that, and goes single-column below 1100px rather than
-   squeezing a third card in. */
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    align-items: stretch;
-    gap: 16px;
-}
-
-@media (max-width: 1600px) {
-    .dashboard-grid { grid-template-columns: 1fr 1fr; }
-}
-
-@media (max-width: 1100px) {
-    .dashboard-grid { grid-template-columns: 1fr; }
-}
-
-/* Sections need more space between them than between a section's heading and its
-   cards, or the page reads as six separate cards rather than two groups. This is
-   added on top of .dashboard-page's 16px gap. */
-.dashboard-section + .dashboard-section { margin-top: 16px; }
-
 
 /* ─── 2. Card shell ──────────────────────────────────────────────────────── */
-/* Flex column so the chart/body inside can be pushed to the bottom of the
-   card via margin-top: auto. When the grid row stretches a card taller than
-   its content (driven by a taller neighbour), the chart pins to the bottom
-   edge instead of floating below the header. */
+/* Flex column: the header row, then the body taking the rest of the box the
+   grid gives the card (§4, §14). */
 .dashboard-card {
     min-width: 0;
-    border: var(--border-width) solid var(--border);
+    border: var(--card-border-width) solid var(--border);
     border-radius: 12px;
     background: var(--surface1);
     box-shadow: var(--shadow-card);
@@ -206,82 +154,136 @@
     text-transform: uppercase;
 }
 
-
-/* ─── 4. Shared chart container ──────────────────────────────────────────── */
-/* A chart's height is derived from its width, so it can't stretch to fill a
-   card the grid row has made taller than its content. margin-top:auto drops it
-   to the card's bottom edge instead of leaving it stranded under the header —
-   which also puts every card's chart on one baseline across the row. */
-.chart-area {
-    width: 100%;
-    overflow: hidden;
-    margin-top: auto;
+/* A card's header row: the title (ellipsed, never wrapped) on the left, then
+   where the card has one its gear, then the period picker, on the right. The
+   picker is the Reports cards' header picker (.range-selector, ui.css), sized to
+   its label. */
+.dash-card-head {
+    gap: var(--space-8);
+    flex: none;
 }
 
-#networth-chart {
-    width: 100%;
-    height: 100%;
-}
-
-/* Monthly Cash Flow is the exception to the bottom-pinning above: its height is
-   a fixed three rows rather than a width-derived aspect, so there is nothing to
-   line up with and pinning just left a band of dead space under the header
-   whenever the taller Balances card set the row's height. Instead the chart
-   host takes whatever height the row gave the card and buildHBarChartSVG()
-   spreads its three bands over it. The two lengths are what keep that from
-   oscillating: flex-basis 0 keeps the SVG out of the card's height, and the
-   explicit min-height replaces a column flex item's automatic content-based
-   minimum, which would otherwise let the SVG we just drew push the card taller
-   and ask for a taller SVG. Its value is the chart's natural three-band size
-   (8 top + 3 x 44 + 30 axis), so the card also still stands up on its own in
-   the single-column layout, where no neighbour is stretching anything. */
-.mcf-card .chart-area {
-    flex: 1 1 0;
-    min-height: 170px;
-    margin-top: 0;
-}
-
-/* Spending fills its card the same way, and for the same reason: the bars are
-   read against one another rather than against a shape over time, so there is no
-   aspect ratio to honour and the width-derived height only left a band of dead
-   space under a row the taller Balances card had stretched. Same two lengths as
-   above — flex-basis 0 keeps the SVG out of the card's own height so a drawn
-   chart can never ask for a taller card, and the explicit min-height replaces the
-   content-based minimum that would let it. Its value is the tallest the chart can
-   need on its own: the 170px floor plus the ~60px a fully tilted set of category
-   labels takes out of the bottom padding, so the SVG is never taller than the host
-   clipping it. */
-.spending-card .chart-area {
-    flex: 1 1 0;
-    min-height: 230px;
-    margin-top: 0;
-}
-
-/* Empty states are the exception to the bottom-pinning above: with no chart to
-   line up, `margin-top: auto` left the notice sitting on the card's bottom edge
-   while the space above it stayed blank. When the body holds one, the host
-   grows into the height the grid row gave the card and centres its child in it,
-   so the heading + CTA land in the middle of whatever space is left under the
-   header (and under the selector chips, where a card has them). The min-height
-   is for the all-empty dashboard, where no neighbour is stretching the row and
-   the cards would otherwise collapse to a line of text. */
-.dashboard-card .chart-area:has(.empty-state),
-.dashboard-card .accounts-body:has(.empty-state) {
+.dash-card-title {
+    display: flex;
+    align-items: center;
     flex: 1 1 auto;
-    margin-top: 0;
+    min-width: 0;
+    margin: 0;
+}
+
+.dash-card-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dash-card-title .fc-info { flex: none; }
+
+.dash-card-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    flex: none;
+    min-width: 0;
+}
+
+/* The link colours. A fixed palette that reads on both themes. */
+:root {
+    --dash-link-red: #e5484d;
+    --dash-link-orange: #f08a24;
+    --dash-link-green: #30a46c;
+    --dash-link-blue: #3e8bff;
+    --dash-link-purple: #9b6bde;
+    --dash-link-pink: #e5549f;
+}
+
+/* A linked card's period button takes its colour as the border, so cards
+   sharing a period read as a set. */
+.dash-period-btn[data-color] { border-width: calc(var(--border-width) + 1px); }
+.dash-period-btn[data-color="red"]    { border-color: var(--dash-link-red); }
+.dash-period-btn[data-color="orange"] { border-color: var(--dash-link-orange); }
+.dash-period-btn[data-color="green"]  { border-color: var(--dash-link-green); }
+.dash-period-btn[data-color="blue"]   { border-color: var(--dash-link-blue); }
+.dash-period-btn[data-color="purple"] { border-color: var(--dash-link-purple); }
+.dash-period-btn[data-color="pink"]   { border-color: var(--dash-link-pink); }
+
+.dash-swatch[data-color="red"]    { background: var(--dash-link-red); }
+.dash-swatch[data-color="orange"] { background: var(--dash-link-orange); }
+.dash-swatch[data-color="green"]  { background: var(--dash-link-green); }
+.dash-swatch[data-color="blue"]   { background: var(--dash-link-blue); }
+.dash-swatch[data-color="purple"] { background: var(--dash-link-purple); }
+.dash-swatch[data-color="pink"]   { background: var(--dash-link-pink); }
+
+/* In the picker, the chosen range segment is filled with the picker's own
+   border colour instead of the accent. */
+.dash-period-pop .range-group-btn[aria-pressed="true"],
+.dash-period-pop .range-group-btn[aria-pressed="true"]:hover {
+    background-color: var(--border);
+    border-color: var(--border);
+    color: var(--text-primary);
+}
+
+.dash-swatches {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-8);
+}
+.dash-swatch {
+    flex: 1 1 0;
+    max-width: 32px;
+    height: 28px;
+    padding: 0;
+    box-sizing: border-box;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    cursor: pointer;
+}
+.dash-swatch:hover { transform: scale(1.08); }
+.dash-swatch:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+.dash-swatch.is-selected { border-color: var(--text-primary); box-shadow: 0 0 0 2px var(--surface1, var(--background)) inset; }
+
+.dash-period { --stepper-label-min: 0px; min-width: 0; }
+.dash-period .range-selector-btn { white-space: nowrap; }
+.dash-period[hidden] { display: none; }
+
+/* On a narrow card a range reads by its short name (YTD, 6M) instead of its
+   dates, so the title keeps its room; the dates stay in the button's tooltip. */
+.dash-card { container: dash-card / inline-size; }
+.dash-period-short { display: none; }
+@container dash-card (max-width: 340px) {
+    .dash-period-btn.has-short .dash-period-long { display: none; }
+    .dash-period-btn.has-short .dash-period-short { display: inline; }
+}
+
+
+/* ─── 4. Card body ───────────────────────────────────────────────────────── */
+/* Everything under the header: the widget draws into this box and sizes itself
+   to it (dashcards.js). A chart takes .dash-plot, whatever height is left under
+   its chips or headline figure. */
+.dash-card-body {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    min-height: 180px;
+    gap: var(--space-8);
+    overflow: hidden;
 }
 
-/* The net-worth chart is the one 100%-height chart host; that height resolves
-   against a stretched parent, which the centring flex above no longer is. */
-#networth-chart:has(.empty-state) { height: auto; }
+.dash-plot {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+}
 
-/* The legend is flex: 1 in the row layout, which in the column above would make
-   it grow to the full height and strand the notice at its top. */
-.accounts-body:has(.empty-state) .accounts-legend { flex: 0 0 auto; }
+/* A card's empty state takes the whole body and centres in it. */
+.dash-card-body > .empty-state { flex: 1 1 auto; max-width: none; }
+
+/* The chips and the headline figure space themselves through the body's gap. */
+.dash-card-body .account-selector,
+.dash-card-body .networth-summary { margin-bottom: 0; flex: none; }
 
 /* .empty-state's default padding is sized for a chart area. Inside a card it is
    already vertically centred, so that padding only offsets the centring on short
@@ -289,23 +291,12 @@
 .dashboard-card .empty-state { padding: var(--space-16) var(--space-8); }
 
 /* ─── 5. Net Worth card ──────────────────────────────────────────────────── */
-/* Same title-to-content gap the sibling cards give their selector chips, so
-   the three card bodies start on one line. */
-.networth-card .dashboard-card-header {
-    margin-bottom: 20px;
-}
-
 .networth-summary {
     display: flex;
     flex-direction: column;
     gap: 2px;
     margin-bottom: 18px;
 }
-
-/* No balances anywhere: the summary would be two em dashes above the empty
-   state. dashboard.js sets .is-empty so the notice gets the whole card body
-   (and its centre). A range that simply has no points keeps the figures. */
-.networth-card.is-empty .networth-summary { display: none; }
 
 /* Hero numerical value — paired with the small eyebrow above for contrast
    (semibold tiny label sitting on top of a light display number). */
@@ -328,7 +319,7 @@
 }
 
 
-/* ─── 6. Accounts card (donut + legend) ──────────────────────────────────── */
+/* ─── 6. Balances card (donut + legend) ──────────────────────────────────── */
 /* Legend list on the left, ring on the right. The card sits in a third-width
    grid column, which a fixed 220px ring would eat whole, so the ring is sized
    as a share of the body (square via aspect-ratio, capped at its old 220px) and
@@ -355,7 +346,7 @@
 
 /* The ring and the legend rows are styled in donut.css, shared with Portfolio. */
 
-/* ─── 7. Income & Expenses + Account Balances ────────────────────────────── */
+/* ─── 7. Selector chips + the card gear ──────────────────────────────────── */
 
 /* Selector chips (shared by both cards) — click to toggle a series in/out
    of the chart. */
@@ -404,11 +395,37 @@
 .account-toggle.active:hover { color: var(--pill-ink, var(--text-primary)); }
 
 
-/* Range-selector dropdown moved to ui.css (shared across Dashboard / Trends /
-   Forecast — was duplicated in all three page stylesheets). */
+/* A card's gear (Account Balances: which accounts its chips offer) sits at the
+   right of its header row, before the period picker, and opens the card's
+   own popover (§15). */
+
+.card-gear-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    margin: -1px 0;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.card-gear-btn[hidden] { display: none; }
+.card-gear-btn svg { width: 16px; height: 16px; }
+.card-gear-btn:hover,
+.card-gear-btn[aria-expanded="true"] { background: var(--surface3); color: var(--text-primary); }
+.card-gear-btn:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
+
+/* In a card body the donut and its legend share whatever box the card has. */
+.dash-card-body .accounts-body { flex: 1 1 auto; min-height: 0; }
 
 
-/* ─── 9. Charts: unified frame chrome + entrance animation ───────────────── */
+/* ─── 8. Charts: unified frame chrome + entrance animation ───────────────── */
 /* All three line charts share the .dashboard-chart renderer in widgets/chart.js —
    one frame, one grid, one label style. Chrome colors come from theme variables
    so a palette change (or the light theme) retones the charts too. */
@@ -491,7 +508,7 @@
 }
 
 
-/* ─── 10. Active hover on the line charts ────────────────────────────────── */
+/* ─── 9. Active hover on the line charts ───────────────────────────────── */
 /* Reading a month off a line chart, built in dashboard.js (buildHoverLayer +
    wireChartHover): a transparent hit rect per month takes the pointer for its
    whole column, a dashed rule marks it, the month's dots come up out of the
@@ -614,16 +631,7 @@
 
 
 
-/* ─── 11. Month to Month section (cash-flow + spending bar charts) ──────── */
-
-/* The year + month pickers sit on the section's heading row (see §1) and use the
-   shared .stepper component (ui.css); Statements' year stepper uses the same one.
-   A bare year does not need the wide month-name label slot, same as
-   .stmt-year-stepper. */
-#dashboard-year-picker {
-    --stepper-label-min: 56px;
-}
-
+/* ─── 10. Bar charts (cash-flow + spending) ─────────────────────────────── */
 
 /* Bars grow up from the baseline on entrance; per-bar delays are set inline
    by the renderer (dashboard.js), same pattern as the line charts' draw-in. */
@@ -709,4 +717,959 @@
         animation: none;
         opacity: 1;
     }
+}
+
+
+/* ─── 10b. The goal rule ─────────────────────────────────────────────────── */
+/* Savings Rate's 20% goal, drawn across the columns as the zero line is. */
+.dashboard-chart .chart-goal {
+    stroke: var(--text-tertiary);
+    stroke-width: 1.5;
+    stroke-dasharray: 5 4;
+}
+
+/* "Monthly average": what a cash-flow bar is once the card covers a span. */
+.dash-card-note {
+    flex: none;
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+}
+
+
+/* ─── 11. List cards ─────────────────────────────────────────────────────── */
+/* Budgets, Top Merchants, Recent Transactions and Upcoming Bills show as many
+   44px rows as their card has room for (dashcards.js ROW_H), divided by the
+   hairline the Balances legend uses. A row that opens something is an <a>. */
+.dash-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: none;
+}
+
+/* The card's headline figure, in the Net Worth figure's voice. */
+.dash-stat-value {
+    color: var(--text-primary);
+    font-family: var(--font-h1);
+    font-size: var(--size-h1);
+    font-weight: var(--weight-regular);
+    line-height: var(--lh-tight);
+    letter-spacing: var(--track-normal);
+    font-variant-numeric: tabular-nums;
+}
+
+.dash-stat-value.is-neg { color: var(--accent-negative); }
+
+.dash-stat-sub {
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-variant-numeric: tabular-nums;
+}
+
+.dash-card-alert {
+    flex: none;
+    color: var(--accent-negative);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+    line-height: var(--lh-snug);
+}
+
+.dash-list {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.dash-row {
+    display: grid;
+    align-items: center;
+    column-gap: var(--space-8);
+    flex: 0 0 44px;
+    height: 44px;
+    box-sizing: border-box;
+    border-top: var(--border-width) solid var(--stroke-divider);
+    color: inherit;
+    text-decoration: none;
+}
+
+.dash-row:first-child { border-top: none; }
+
+a.dash-row .dash-row-title { transition: color 0.15s ease; }
+a.dash-row:hover .dash-row-title { color: var(--accent-primary); }
+a.dash-row:focus { outline: none; }
+a.dash-row:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: -2px;
+    border-radius: 6px;
+}
+
+.dash-row-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.dash-row-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+}
+
+.dash-row-sub,
+.dash-row-date {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+    font-variant-numeric: tabular-nums;
+}
+
+.dash-row-amt {
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    text-align: right;
+}
+
+.dash-row-amt.is-over { color: var(--accent-negative); }
+.dash-row-of { color: var(--text-tertiary); font-weight: var(--weight-regular); }
+
+/* A ledger row's amount, coloured the way the ledger colours it
+   (transactions.css .tx-amount-*). */
+.dash-amt-income   { color: var(--accent-positive); }
+.dash-amt-expense  { color: var(--accent-negative); }
+.dash-amt-transfer { color: var(--accent-info); }
+
+/* Bar rows: name and amount over a track. */
+.dash-row-bar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    row-gap: 6px;
+    align-content: center;
+}
+.dash-row-bar .dash-track { grid-column: 1 / -1; }
+.dash-row-bar.has-avatar { grid-template-columns: 28px minmax(0, 1fr) auto; }
+.dash-row-bar.has-avatar .avatar-circle { grid-row: 1 / span 2; }
+.dash-row-bar.has-avatar .dash-track { grid-column: 2 / -1; }
+
+.dash-track {
+    position: relative;
+    display: block;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--frost-2);
+}
+
+.dash-track-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: 3px;
+    transform-origin: left center;
+    animation: chart-hbar-grow 0.6s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+}
+
+/* Ledger rows: avatar, name over date and category, amount. Wide cards spread
+   the same row into columns, with the category as the ledger's pill. */
+.dash-row-tx { grid-template-columns: 28px minmax(0, 1fr) auto; }
+.dash-row-tx.is-wide { grid-template-columns: 52px 28px minmax(0, 1fr) auto auto; }
+.dash-row-tx .tx-category-pill { font-size: var(--size-micro); padding: 2px 10px; }
+
+/* Bill rows: the due date as a chip, then the merchant. */
+.dash-row-bill { grid-template-columns: 36px 28px minmax(0, 1fr) auto; }
+.dash-row-bill.is-tight { grid-template-columns: 36px minmax(0, 1fr) auto; }
+
+.dash-datechip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    width: 36px;
+    height: 36px;
+    box-sizing: border-box;
+    border-radius: 8px;
+    background: var(--surface2);
+    line-height: 1;
+}
+
+.dash-datechip span {
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: 9px;
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+}
+
+.dash-datechip b {
+    color: var(--text-primary);
+    font-family: var(--font-numeric);
+    font-size: var(--size-small);
+    font-weight: var(--weight-bold);
+    font-variant-numeric: tabular-nums;
+}
+
+.dash-datechip.is-today {
+    background: var(--chip-active-bg);
+    box-shadow: inset 0 0 0 var(--border-width) var(--chip-active-stroke);
+}
+.dash-datechip.is-today span,
+.dash-datechip.is-today b { color: var(--chip-active-text); }
+
+/* The last row when there are more items than rows. */
+.dash-more {
+    display: flex;
+    align-items: center;
+    flex: 0 0 44px;
+    height: 44px;
+    box-sizing: border-box;
+    border-top: var(--border-width) solid var(--stroke-divider);
+    color: var(--text-secondary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+.dash-more:hover { color: var(--accent-primary); }
+.dash-more:focus { outline: none; }
+.dash-more:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -2px; border-radius: 6px; }
+
+/* Upcoming Bills on a wide card: the month's calendar beside the list. */
+.dash-bills {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    gap: var(--space-24);
+}
+.dash-bills .dash-list { flex: 1 1 auto; min-width: 0; }
+
+.dash-cal { flex: 0 0 196px; }
+
+.dash-cal-title {
+    margin-bottom: var(--space-8);
+    color: var(--text-tertiary);
+    font-family: var(--font-h3);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--track-widest);
+    text-transform: uppercase;
+}
+
+.dash-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+
+.dash-cal-dow,
+.dash-cal-day {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 24px;
+    border-radius: 6px;
+    font-family: var(--font-numeric);
+    font-size: var(--size-micro);
+    font-variant-numeric: tabular-nums;
+}
+.dash-cal-dow { color: var(--text-tertiary); font-weight: var(--weight-semibold); }
+.dash-cal-day { color: var(--text-secondary); }
+.dash-cal-day.is-due {
+    background: color-mix(in srgb, var(--accent-primary) 18%, transparent);
+    color: var(--text-primary);
+    font-weight: var(--weight-bold);
+}
+.dash-cal-day.is-today { box-shadow: inset 0 0 0 var(--border-width) var(--text-primary); }
+
+
+/* ─── 12. Balance Forecast card ──────────────────────────────────────────── */
+/* The Reports forecast's two halves in miniature (forecast.css carries the
+   why): recorded weeks solid over a filled area and drawn in, the projection
+   dashed and a step back, the divider at today. */
+.dash-forecast-chart .dash-fc-actual {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: chart-draw 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.dash-forecast-chart .dash-fc-projected {
+    stroke-dasharray: 6 5;
+    stroke-linecap: butt;
+    opacity: 0;
+    animation: chart-fade 0.45s ease 0.5s forwards;
+}
+
+.dash-forecast-chart .dash-fc-area {
+    opacity: 0;
+    animation: chart-fade 0.5s ease 0.4s forwards;
+}
+
+.dash-forecast-chart .dash-fc-today {
+    stroke: var(--text-tertiary);
+    stroke-width: 1;
+    opacity: 0.55;
+}
+
+.dash-forecast-chart .dash-fc-today-label {
+    fill: var(--text-secondary);
+    font-weight: var(--weight-superbold);
+}
+
+.dash-forecast-chart .dash-fc-dot { r: 2.5; }
+.dash-forecast-chart .dash-fc-dot:hover { r: 5; }
+.dash-forecast-chart .dash-fc-dot.is-projected { fill-opacity: 0.5; }
+.dash-forecast-chart .dash-fc-dot.is-neg { fill: var(--accent-negative); fill-opacity: 1; }
+.dash-forecast-chart .dash-fc-dot.is-anchor {
+    r: 3.5;
+    stroke: var(--text-primary);
+    stroke-width: 1.5;
+    fill-opacity: 1;
+}
+
+.chart-no-anim .dash-fc-actual {
+    animation: none;
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+}
+.chart-no-anim .dash-fc-projected,
+.chart-no-anim .dash-fc-area { animation: none; opacity: 1; }
+
+
+/* ─── 13. Toolbar ────────────────────────────────────────────────────────── */
+/* Layout tabs left (the app's segmented control, ui.css .dash-tabs), Customize
+   right. The toolbar spans the grid's column only, so Customize stays at the
+   grid's right edge, and the Customize panel takes the column beside both rows,
+   its heading in the toolbar's row. No row gap: the grid keeps its distance
+   with padding, and the panel's card matches it. */
+.dash-shell {
+    /* The bar's height: the layout tabs' track, a tab plus 4px of padding and a
+       1px hairline on each side (ui.css .dash-tabs). The panel's heading shares it. */
+    --dash-bar-h: calc(var(--control-height) + 10px);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    /* The grid's row flexible, so the panel, spanning both rows, grows only it
+       when the panel is the taller of the two. An auto row here would take a
+       share of that height and open a gap under the toolbar. */
+    grid-template-rows: auto 1fr;
+    align-items: start;
+}
+
+.dash-toolbar {
+    grid-column: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+    min-height: var(--dash-bar-h);
+}
+
+/* Column 1 named outright: under 900px the panel leaves the grid's flow, and
+   auto-placement would otherwise drop the grid into the panel's empty column. */
+.dash-main {
+    grid-column: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+    padding-top: var(--space-16);
+}
+
+/* Sticky while customizing, so the bar stays level with the panel's heading
+   wherever the grid is scrolled to. Its backdrop is a solid cover that reaches
+   up through the page's padding and 8px past the bar on each side. The grid's
+   cells stick out 2px past the canvas, so a cover only as wide as the bar left
+   their edges showing at its sides, and scrolling cells ran up past the bar. */
+.is-editing .dash-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+}
+
+.is-editing .dash-toolbar::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: calc(-1 * var(--page-pad));
+    bottom: 0;
+    left: -8px;
+    right: -8px;
+    background: var(--background);
+    pointer-events: none;
+}
+
+/* A solid band under the bar, so the cells scrolling beneath it end on a clean
+   edge with room to spare instead of being cut right against the bar. 2px shorter
+   than the gap above the grid, so the first row's 2px rim is not covered. */
+.is-editing .dash-toolbar::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: 100%;
+    left: -8px;
+    right: -8px;
+    height: calc(var(--space-16) - 2px);
+    background: var(--background);
+    pointer-events: none;
+}
+
+.dash-layouts,
+.dash-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    min-width: 0;
+}
+
+.dash-layouts .dash-tabs { min-width: 0; overflow-x: auto; scrollbar-width: none; }
+
+/* Icon only: the glyph size. The square and the fills are .button-icon
+   (buttons.css). */
+.dash-customize svg { width: 14px; height: 14px; flex: none; }
+
+.dash-toolbar .p-menu-btn svg { width: 16px; height: 16px; }
+/* ─── 14. The grid ───────────────────────────────────────────────────────── */
+/* Cards are placed absolutely by dashboard.js on a 12-column grid of 48px rows
+   with 16px gaps, so a move or a resize animates every card it pushes. Below
+   640px the cards stack in reading order instead. */
+.dash-canvas {
+    position: relative;
+    min-height: 0;
+}
+
+.dash-card {
+    position: absolute;
+    top: 0;
+    left: 0;
+    box-sizing: border-box;
+    transition: transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1),
+                width 0.24s cubic-bezier(0.2, 0.8, 0.2, 1),
+                height 0.24s cubic-bezier(0.2, 0.8, 0.2, 1),
+                box-shadow 0.15s ease;
+}
+
+/* The info tip (style.css §4) opens from its badge, and even hidden its box
+   counts toward the page's scroll width, so a card near the right edge widened
+   the page. In a card it opens across the card under the header instead, and
+   its card is lifted over the next one in case it runs past the bottom. */
+.dash-card .fc-info { position: static; }
+.dash-card .fc-info::after {
+    top: 64px;
+    left: 28px;
+    right: 28px;
+    width: auto;
+    max-width: none;
+}
+.dash-card:has(.fc-info:hover),
+.dash-card:has(.fc-info:focus-visible) { z-index: 5; }
+
+.dash-canvas.no-anim .dash-card,
+.dash-canvas.no-anim .dash-placeholder { transition: none; }
+
+.dash-card.is-entering { animation: dash-card-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.dash-card.is-flash { animation: dash-card-flash 0.9s ease; }
+
+@keyframes dash-card-in {
+    from { opacity: 0; translate: 0 8px; }
+    to   { opacity: 1; translate: 0 0; }
+}
+
+@keyframes dash-card-flash {
+    from { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 55%, transparent); }
+    to   { box-shadow: 0 0 0 3px transparent; }
+}
+
+.dash-empty { padding: var(--space-48) 0; }
+.dash-empty[hidden] { display: none; }
+
+/* Customize: every card shows it can be picked up. */
+.is-editing .dash-card {
+    cursor: grab;
+    /* No border of its own: the grid cell behind it, 2px larger on every side,
+       shows around it as the edge. The colour is cleared, not the width, so the
+       card's content does not move. */
+    border-color: transparent;
+    box-shadow: none;
+    user-select: none;
+    touch-action: none;
+}
+.is-editing .dash-card:focus { outline: none; }
+.is-editing .dash-card:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 3px; }
+
+/* Customize: the grid drawn as cells, one per column and row, so a card's snap
+   positions and the size it will land at are visible. The pitch is one column plus
+   its 16px gap across and one 48px row plus its gap (64px) down, matching
+   dashboard.js. Each tile is a solid fill masked to the cell (grid-cell.svg, a
+   rounded rect with the gap cut out of its right and bottom). Every cell is 2px
+   larger on each side (the layer is inset -2px and the cut-out gap is 12px), so a
+   card sitting on the grid leaves a 2px rim of cell showing, which reads as the
+   card's border. The cell's 14px corner radius is the card's 12px plus that rim.
+   Painted under the cards, and not at all once they stack. */
+.is-editing .dash-canvas::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    pointer-events: none;
+    background: oklch(from var(--accent-primary) calc(l + 0.08) calc(c * 1.7) h / 0.2);
+    -webkit-mask-image: url("../icons/dashboard/grid-cell.svg");
+    -webkit-mask-size: calc((100% + 12px) / 12) 64px;
+    -webkit-mask-repeat: repeat;
+    mask-image: url("../icons/dashboard/grid-cell.svg");
+    mask-size: calc((100% + 12px) / 12) 64px;
+    mask-repeat: repeat;
+    animation: dash-grid-in 0.24s ease both;
+}
+
+/* One step stronger on the dark theme, where the same tint reads weaker. */
+html[data-theme="dark"] .is-editing .dash-canvas::before {
+    background: oklch(from var(--accent-primary) calc(l + 0.08) calc(c * 1.7) h / 0.28);
+}
+
+@keyframes dash-grid-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.is-editing.is-stacked .dash-canvas::before { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+    .is-editing .dash-canvas::before { animation: none; }
+}
+
+/* A card's own links, chips and hover are off while it is being arranged. */
+.is-editing .dash-card-body { pointer-events: none; }
+
+.dash-card.is-dragging {
+    z-index: 20;
+    cursor: grabbing;
+    box-shadow: var(--shadow-menu);
+    transition: none;
+}
+.dash-card.is-resizing { z-index: 20; transition: none; }
+
+.dash-grip {
+    display: none;
+    flex: none;
+    width: 10px;
+    height: 16px;
+    color: var(--text-tertiary);
+}
+.dash-grip svg { width: 10px; height: 16px; }
+.is-editing .dash-grip { display: inline-flex; }
+
+/* Settings and Remove, bottom left, while a card is hovered or selected. */
+.dash-card-tools {
+    position: absolute;
+    left: var(--space-12);
+    bottom: var(--space-12);
+    z-index: 2;
+    display: none;
+    gap: var(--space-4);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+.is-editing .dash-card-tools { display: flex; }
+.is-editing .dash-card:hover .dash-card-tools,
+.is-editing .dash-card:focus-within .dash-card-tools { opacity: 1; }
+.dash-card.is-dragging .dash-card-tools { opacity: 0; }
+
+.dash-tool {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.dash-tool svg { width: 16px; height: 16px; }
+.dash-tool:hover { background: var(--surface3); color: var(--text-primary); }
+.dash-tool:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -2px; }
+/* Remove mirrors the Transactions delete button: red outline and icon at rest,
+   filled red with a white icon on hover. --danger-text, not a theme text token,
+   so the icon stays white on both themes. */
+.dash-tool[data-act="remove"] {
+    border: 2px solid var(--accent-negative);
+    background: var(--surface1);
+    color: var(--accent-negative);
+    box-shadow: var(--shadow-popover);
+}
+.dash-tool[data-act="remove"]:hover {
+    background: var(--accent-negative);
+    border-color: var(--accent-negative);
+    color: var(--danger-text);
+}
+
+/* The resize corner: a larger hit area around a small drawn corner. */
+.dash-resize {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    display: none;
+    width: 24px;
+    height: 24px;
+    cursor: nwse-resize;
+}
+.dash-resize::after {
+    content: '';
+    position: absolute;
+    right: 7px;
+    bottom: 7px;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid var(--text-tertiary);
+    border-bottom: 2px solid var(--text-tertiary);
+    border-bottom-right-radius: 3px;
+}
+.is-editing .dash-resize { display: block; }
+.dash-resize:hover::after,
+.dash-card.is-resizing .dash-resize::after { border-color: var(--accent-primary); }
+
+/* Where a moved card, a resized one or a dropped widget will land. */
+.dash-placeholder {
+    position: absolute;
+    top: 0;
+    left: 0;
+    box-sizing: border-box;
+    border: 2px dashed color-mix(in srgb, var(--accent-primary) 60%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+    pointer-events: none;
+    transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
+                width 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
+                height 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.dash-placeholder[hidden] { display: none; }
+
+.dash-size-badge {
+    position: absolute;
+    right: var(--space-32);
+    bottom: var(--space-8);
+    z-index: 3;
+    padding: 2px var(--space-8);
+    border-radius: 6px;
+    background: var(--accent-primary);
+    color: var(--button-text);
+    font-family: var(--font-numeric);
+    font-size: var(--size-micro);
+    font-weight: var(--weight-bold);
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dash-card,
+    .dash-placeholder,
+    .dash-card-tools { transition: none; }
+    .dash-card.is-entering,
+    .dash-card.is-flash,
+    .dash-track-fill { animation: none; }
+    .dash-forecast-chart .dash-fc-actual {
+        animation: none;
+        stroke-dasharray: none;
+        stroke-dashoffset: 0;
+    }
+    .dash-forecast-chart .dash-fc-projected,
+    .dash-forecast-chart .dash-fc-area { animation: none; opacity: 1; }
+}
+
+
+/* ─── 15. Popovers ───────────────────────────────────────────────────────── */
+/* Menus wear the app's dropdown (.p-table-dropdown) and the period picker and
+   gear the Transactions filter popover (.tx-filter-popover, its eyebrows and
+   pills). Both are fixed to the viewport by dashboard.js, which places them, so
+   a card or the page's scroll box cannot clip them. Two classes in every
+   selector: transactions.css loads after this file. */
+.p-table-dropdown.dash-menu {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: auto;
+    z-index: 600;
+    min-width: 180px;
+}
+
+/* Focus starts on the first item (arrow keys move it), so it needs the app's
+   ring rather than the browser's. */
+.dash-menu .p-dropdown-item:focus { outline: none; }
+.dash-menu .p-dropdown-item:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: -2px;
+}
+.dash-menu .p-dropdown-item:disabled { opacity: 0.45; cursor: not-allowed; background: none; }
+
+.tx-filter-popover.dash-pop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 600;
+}
+
+.tx-filter-popover.dash-period-pop {
+    width: 328px;
+    box-sizing: border-box;
+    padding: var(--space-16);
+    gap: var(--space-12);
+}
+.tx-filter-popover.dash-gear-pop { min-width: 200px; max-width: 260px; }
+
+/* The period picker reads as one centred column: every group the full width of
+   the popover, its segments sharing that width equally. */
+.dash-period-pop .tx-pop-field { align-items: stretch; text-align: center; }
+.dash-period-pop .range-group { display: flex; width: 100%; }
+.dash-period-pop .stepper { align-self: center; }
+.dash-period-pop .range-group-btn { flex: 1 1 0; min-width: 0; padding: 0; justify-content: center; }
+
+
+.dash-pop .tx-pop-preset:disabled { opacity: 0.35; cursor: not-allowed; }
+.dash-pop .tx-pop-preset:disabled:hover { background: transparent; color: var(--text-secondary); }
+
+.dash-pop .tx-pop-preset.dash-pop-wide { width: 100%; }
+
+
+
+/* ─── 16. Customize panel ────────────────────────────────────────────────── */
+/* Beside the grid and the toolbar while customizing, pushing both narrower
+   rather than covering them, and pinned at the page's visible height while the
+   grid scrolls. Its tabs sit in the toolbar's row, and the card under them
+   starts level with the grid's first row. Under 900px it covers the grid
+   instead, from the right edge, as one card with its heading inside. */
+.dash-drawer {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    width: 0;
+    height: calc(100vh - 40px - 2 * var(--page-pad));
+    margin-left: 0;
+    overflow: hidden;
+    visibility: hidden;
+    transition: width 0.22s ease, margin-left 0.22s ease, visibility 0s linear 0.22s;
+}
+
+.dash-drawer.is-open {
+    width: 340px;
+    margin-left: var(--space-16);
+    visibility: visible;
+    transition: width 0.22s ease, margin-left 0.22s ease;
+}
+
+.dash-drawer-head {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: var(--dash-bar-h);
+}
+
+.dash-drawer-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-family: var(--font-h3);
+    font-size: var(--size-h3);
+    font-weight: var(--weight-semibold);
+}
+
+/* The grid's top padding (.dash-main) above it, so its top meets the cards'. */
+.dash-drawer-card {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    margin-top: var(--space-16);
+    overflow: hidden;
+    border: var(--card-border-width) solid var(--border);
+    border-radius: 12px;
+    background: var(--surface1);
+    box-shadow: var(--shadow-card);
+}
+
+.dash-drawer-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+    padding: var(--space-16);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+
+@media (max-width: 900px) {
+    .dash-drawer,
+    .dash-drawer.is-open {
+        position: fixed;
+        top: 48px;
+        right: var(--space-8);
+        bottom: var(--space-8);
+        z-index: 70;
+        width: min(340px, calc(100vw - 16px));
+        height: auto;
+        margin: 0;
+        box-sizing: border-box;
+        border: var(--card-border-width) solid var(--border);
+        border-radius: 12px;
+        background: var(--surface1);
+        box-shadow: var(--shadow-menu);
+    }
+    .dash-drawer {
+        transform: translateX(calc(100% + 16px));
+        transition: transform 0.22s ease, visibility 0s linear 0.22s;
+    }
+    .dash-drawer.is-open {
+        transform: none;
+        transition: transform 0.22s ease;
+    }
+    .dash-drawer-head { padding: var(--space-16) var(--space-16) var(--space-12); }
+    .dash-drawer-card {
+        margin-top: 0;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dash-drawer,
+    .dash-drawer.is-open { transition: none; }
+}
+
+/* Widgets: the Categories editor's group cards (categories.css). */
+.dash-widget-list {
+    margin: 0;
+    padding: 0 var(--space-8) var(--space-8);
+    list-style: none;
+}
+.dash-widget-list[hidden] { display: none; }
+
+/* Round the header's own hover wash, so an open group's bottom corners match. */
+.dash-group .cat-group-head { border-radius: 8px; }
+
+.dash-widget {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    padding: var(--space-8) var(--space-12) var(--space-8) var(--space-12);
+    border-radius: 8px;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    transition: background 0.15s ease;
+}
+.dash-widget:hover { background: var(--frost-2); }
+.dash-widget:active { cursor: grabbing; }
+
+.dash-widget-thumb {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 72px;
+    height: 46px;
+    border: var(--border-width) solid var(--border);
+    border-radius: 6px;
+    background: var(--background);
+}
+
+.dash-thumb { width: 60px; height: 36px; display: block; }
+
+.dash-widget-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.dash-widget-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+}
+
+.dash-widget-meta {
+    color: var(--text-tertiary);
+    font-family: var(--font-menu);
+    font-size: var(--size-micro);
+}
+
+/* A widget being dragged onto the grid. */
+.dash-drag-ghost {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 700;
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    padding: var(--space-8) var(--space-12) var(--space-8) var(--space-8);
+    border: var(--border-width) solid var(--border);
+    border-radius: 8px;
+    background: var(--surface1);
+    box-shadow: var(--shadow-menu);
+    pointer-events: none;
+    opacity: 0.85;
+}
+.dash-drag-ghost.is-over { opacity: 1; border-color: var(--accent-primary); }
+
+/* The thumbnails' three inks: the series colours, a muted shape, the frame. */
+.dash-thumb .t-ink   { fill: var(--text-tertiary); opacity: 0.6; }
+.dash-thumb .t-mute  { fill: var(--border); color: var(--border); }
+.dash-thumb .t-fill,
+.dash-thumb .t-chip  { fill: currentColor; }
+.dash-thumb .t-line  { fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; }
+.dash-thumb .t-ring  { fill: none; stroke: currentColor; stroke-width: 7; }
+.dash-thumb .t-dash  { stroke-dasharray: 5 4; }
+.dash-thumb .t-goal  { fill: none; stroke: var(--text-tertiary); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.dash-thumb .t-a     { color: var(--accent-primary); }
+.dash-thumb .t-b     { color: var(--chart-expense); }
+.dash-thumb .t-c     { color: var(--chart-transfer); }
+.dash-thumb .t-pos   { color: var(--accent-positive); }
+.dash-thumb .t-neg   { color: var(--accent-negative); }
+
+.dash-rename-dialog .dash-rename-input { margin-bottom: var(--space-16); }
+
+.dash-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
 }

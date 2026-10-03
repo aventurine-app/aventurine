@@ -131,7 +131,14 @@
   // under its x axis. It only ever GROWS to the box — a box shorter than the
   // ratio is left alone, since the answer to a cramped chart is not a flatter
   // one.
-  function boxHeight(W, boxH = 0, fill = false) {
+  //
+  // `fit` is the other answer, for a chart whose box is someone else's choice: a
+  // Dashboard card is as tall as the user sized it on the grid, so its chart
+  // takes that height exactly, shorter than the ratio included. Floored where
+  // the axis labels would start to collide.
+  const FIT_MIN_H = 96;
+  function boxHeight(W, boxH = 0, fill = false, fit = false) {
+    if (fit && boxH > 0) return Math.max(Math.round(boxH), FIT_MIN_H);
     const ratio = Math.max(Math.round(W * CHART_RATIO), 170);
     return fill ? Math.max(ratio, Math.round(boxH) || 0) : ratio;
   }
@@ -174,13 +181,13 @@
    *  SECURITY: series.label is user-controlled (a column name) and is escaped
    *  wherever it is written. Every other interpolated value is a number, a
    *  month name, or an attribute-safe constant. */
-  function buildChartSVG({ series, slots, W, boxH = 0, fill = false, animate = true,
+  function buildChartSVG({ series, slots, W, boxH = 0, fill = false, fit = false, animate = true,
     zeroBase = false, centred = false, hover = false }) {
     const N = slots.length;
     const allValues = series.flatMap((s) => s.points.map((p) => p.value));
     if (allValues.length === 0) return null;
 
-    const H = boxHeight(W, boxH, fill);
+    const H = boxHeight(W, boxH, fill, fit);
     const { r: PR, t: PT, b: PB } = CHART_PAD;
     const CH = H - PT - PB;
 

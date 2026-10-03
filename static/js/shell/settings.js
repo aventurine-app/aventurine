@@ -223,7 +223,7 @@
                 el.textContent = window.aventurineZoom.percent() + '%';
             });
         };
-        document.querySelectorAll('.settings-zoom-btn, .settings-zoom-reset').forEach(btn => {
+        document.querySelectorAll('[data-zoom-action]').forEach(btn => {
             btn.addEventListener('click', () => {
                 const action = btn.dataset.zoomAction;
                 if (action === 'in') window.aventurineZoom.zoomIn();

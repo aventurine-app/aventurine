@@ -17,7 +17,7 @@
 //   - the v_* views pre-join the normalized tables into human-readable,
 //     chronologically-sortable shapes for ad-hoc querying.
 
-const SCHEMA_VERSION = 20;
+const SCHEMA_VERSION = 21;
 
 // Months persist as 1-12 integers so `ORDER BY year, month` sorts
 // chronologically (the app translates to/from English names at its API
@@ -255,6 +255,22 @@ const DDL = [
      last_date DATE,  -- anchor date for a MANUAL schedule's own projection
      adopted INTEGER DEFAULT 0 NOT NULL CHECK (adopted IN (0, 1)),
      PRIMARY KEY ("key")
+   )`,
+  `CREATE TABLE dashboard_layouts (
+     -- The user's saved Dashboard layouts: one row per tab, in tab order by
+     -- position. cards holds the layout's cards as one JSON array, each card
+     -- { id, type, x, y, w, h, settings, period, color }: its widget type, its
+     -- cell on the Dashboard's 12-column grid (x and w in columns, y and h in
+     -- rows), its own display settings, its own period ({ preset, month }) and
+     -- the colour that links its period to other cards (or null).
+     -- handlers/dashboard.js validates every write; the Dashboard page owns
+     -- what each widget type draws. An empty table means the Dashboard was
+     -- never customized, and it shows its default.
+     id VARCHAR(40) NOT NULL,
+     name VARCHAR(32) NOT NULL,
+     position INTEGER NOT NULL,
+     cards TEXT DEFAULT '[]' NOT NULL CHECK (json_valid(cards)),
+     PRIMARY KEY (id)
    )`,
   `CREATE INDEX ix_balance_entries_year ON balance_entries (year)`,
   `CREATE INDEX ix_credit_cards_category_id ON credit_cards (category_id)`,

@@ -277,6 +277,14 @@
     height: 16px;
 }
 
+/* Edit and Add take the shared icon-only secondary button (.button-secondary
+   .button-icon, buttons.css). Only the glyph size is set here. */
+.tx-icon-btn svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
 /* ── Filter chips ──────────────────────────────────────────────────────────
    The chip is the visual unit; its two child buttons (clear ×, label) sit
    transparently inside the shared border. Inactive → solid outline, grayed,
@@ -435,8 +443,8 @@
     gap: 10px;
     min-width: 220px;
     padding: 10px;
-    background: var(--dialog-surface);
-    border: var(--border-width) solid var(--dialog-stroke);
+    background: var(--surface1);
+    border: var(--border-width) solid var(--border);
     border-radius: 10px;
     box-shadow: var(--shadow-menu);
 }
@@ -506,8 +514,8 @@
     /* Thin frosted scrollbar, stated explicitly (not left to inheritance from
        .page) so every dropdown list scrolls with the same bar — see
        .p-dropdown-scroll in ui.css. Transparent track: the inherited surface1
-       track only looked trackless because --dialog-surface happens to equal
-       surface1; make that intent literal so it survives theme changes. */
+       track only looked trackless because the list's fill is surface1; make that
+       intent literal so it survives theme changes. */
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
     /* Let the option hover fill reach the popover's padding edge. */
@@ -1128,27 +1136,8 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     height: 22px;
 }
 
-.tx-action-btn {
-    width: 32px;
-    height: 32px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: var(--border-width) solid var(--border);
-    background: var(--surface2);
-    color: var(--text-secondary);
-    border-radius: 6px;
-    cursor: pointer;
-    padding: 0;
-    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.tx-action-btn:hover {
-    background: var(--surface3);
-    color: var(--text-primary);
-    border-color: var(--text-tertiary);
-}
-
+/* The row's Save / Cancel wear the square icon button (.button-icon,
+   buttons.css); only the glyph size and the Save accent are set here. */
 .tx-action-btn svg {
     width: 16px;
     height: 16px;
@@ -1160,16 +1149,15 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
    ink on an accent fill is the one that flips with it. --text-primary is the
    page's ink, which on light resolves to a near-black on mid-green. */
 .tx-action-btn.tx-action-save {
-    background: var(--accent-primary);
-    border-color: var(--accent-primary);
+    background-color: var(--accent-primary);
     color: var(--button-text);
 }
 
 /* Hover has to LEAVE the resting fill — restating --accent-primary here meant
    this button had no hover state at all, in either theme. */
-.tx-action-btn.tx-action-save:hover {
-    background: var(--accent-primary-hover);
-    border-color: var(--accent-primary-hover);
+.tx-action-btn.tx-action-save:not(:disabled):hover {
+    background-color: var(--accent-primary-hover);
+    color: var(--button-text);
 }
 
 
@@ -1203,10 +1191,6 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     width: 90vw;
     max-width: 740px;
     max-height: 88vh;
-    background: var(--dialog-surface);
-    border: var(--border-width) solid var(--dialog-stroke);
-    border-radius: 10px;
-    box-shadow: var(--shadow-modal);
     overflow: hidden;
 }
 
@@ -1271,7 +1255,7 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     align-items: center;
     justify-content: space-between;
     padding: 18px 22px 16px;
-    border-bottom: var(--border-width) solid var(--dialog-stroke);
+    border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
 }
 
@@ -1464,7 +1448,7 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     align-items: center;
     justify-content: space-between;
     padding: 14px 22px 18px;
-    border-top: var(--border-width) solid var(--dialog-stroke);
+    border-top: var(--border-width) solid var(--border);
     flex-shrink: 0;
 }
 
@@ -1501,7 +1485,7 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     flex-direction: column;
     gap: 10px;
     padding: 12px 22px;
-    border-top: var(--border-width) solid var(--dialog-stroke);
+    border-top: var(--border-width) solid var(--border);
     flex-shrink: 0;
 }
 /* .tx-found-note's margin-top assumes it follows other content in a scrolling
@@ -1527,10 +1511,6 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     width: 90vw;
     max-width: 600px;
     max-height: 80vh;
-    background: var(--dialog-surface);
-    border: var(--border-width) solid var(--dialog-stroke);
-    border-radius: 10px;
-    box-shadow: var(--shadow-modal);
     overflow: hidden;
 }
 
@@ -1539,7 +1519,7 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     align-items: center;
     justify-content: space-between;
     padding: 18px 22px 16px;
-    border-bottom: var(--border-width) solid var(--dialog-stroke);
+    border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
 }
 
@@ -1630,26 +1610,8 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     justify-content: flex-end;
     gap: 10px;
     padding: 14px 22px 18px;
-    border-top: var(--border-width) solid var(--dialog-stroke);
+    border-top: var(--border-width) solid var(--border);
     flex-shrink: 0;
-}
-
-.tx-similar-skip {
-    background: none;
-    border: var(--border-width) solid var(--border);
-    color: var(--text-secondary);
-    font-family: var(--font-menu);
-    font-size: var(--size-small);
-    font-weight: var(--weight-medium);
-    padding: 8px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease;
-}
-
-.tx-similar-skip:hover {
-    background: var(--surface2);
-    color: var(--text-primary);
 }
 
 .tx-similar-apply:disabled {
@@ -1662,8 +1624,8 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 /* Shares the import modal shell (section 7); below are only the pieces the
    export flow adds — the format picker, the destination row, and the
    progress bar. The search bar's Export button reuses the Import styling via
-   the shared selectors in section 1, and the Browse… button reuses .db-btn
-   from dbmodal.css (loaded on every page). */
+   the shared selectors in section 1, and the Browse… button reuses
+   .button-secondary from buttons.css (loaded on every page). */
 
 .tx-export-dialog {
     max-width: 560px;
@@ -1868,10 +1830,6 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
        with every slider query, and a height that tracked it would make the
        whole dialog jump. */
     height: 82vh;
-    background: var(--dialog-surface);
-    border: var(--border-width) solid var(--dialog-stroke);
-    border-radius: 10px;
-    box-shadow: var(--shadow-modal);
     overflow: hidden;
 }
 
@@ -1901,7 +1859,7 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     align-items: center;
     justify-content: space-between;
     padding: 18px 22px 16px;
-    border-bottom: var(--border-width) solid var(--dialog-stroke);
+    border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
 }
 
@@ -1962,7 +1920,7 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
     top: 0;
     z-index: 2;
     padding-top: 16px;
-    background: var(--dialog-surface);
+    background: var(--surface1);
 }
 
 /* The two panels: one holds the column headers WITH the control row they label,
@@ -2055,7 +2013,7 @@ html[data-theme="dark"] .tx-account-tag:not(.tx-account-empty) {
 }
 
 .tx-bulk-row + .tx-bulk-row td {
-    border-top: var(--border-width) solid var(--dialog-stroke);
+    border-top: var(--border-width) solid var(--border);
 }
 
 .tx-bulk-row td.tx-col-date,
@@ -2124,7 +2082,7 @@ html[data-theme="dark"] .tx-bulk-none { opacity: 0.78; }
     justify-content: flex-end;
     gap: 10px;
     padding: 14px 22px 18px;
-    border-top: var(--border-width) solid var(--dialog-stroke);
+    border-top: var(--border-width) solid var(--border);
     flex-shrink: 0;
 }
 
@@ -2307,7 +2265,7 @@ html[data-theme="dark"] .tx-bulk-none { opacity: 0.78; }
 }
 
 .tx-review-table tbody tr + tr td {
-    border-top: var(--border-width) solid var(--dialog-stroke);
+    border-top: var(--border-width) solid var(--border);
 }
 
 .tx-review-table td.tx-col-date,

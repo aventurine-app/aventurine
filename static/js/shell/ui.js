@@ -92,12 +92,14 @@
 //       closed on a backdrop click, and only the two with a text input closed
 //       on Escape.
 //
-//   UI.toast(message, { type = 'info', duration = 5000 })
+//   UI.toast(message, { type = 'info', duration = 5000, action })
 //       Small transient notice, bottom-center. type: 'info' | 'error'.
 //       One toast at a time: a repeat call replaces the text and restarts the
 //       timer, so a burst of identical failures (e.g. the backend unreachable
 //       while several cells are edited) shows once instead of stacking.
-//       Click dismisses early. Styling: .ui-toast in ui.css.
+//       Click dismisses early. `action` ({ label, run }) adds one button after
+//       the message — the Dashboard's Undo — which runs and then dismisses.
+//       Styling: .ui-toast in ui.css.
 //
 // SECURITY: title/desc/label run through escapeHtml (global, from escape.js).
 // ============================================================================
@@ -366,7 +368,7 @@
          *  `actionBtn(action, value, icon, label, extra)` both cards call. */
         function cardActions(prefix, dataAttr) {
             return (action, value, icon, label, extraCls = '') =>
-                `<button type="button" class="${prefix}-action-btn ${extraCls}" data-action="${escapeHtml(action)}"
+                `<button type="button" class="button-icon ${prefix}-action-btn ${extraCls}" data-action="${escapeHtml(action)}"
       data-${dataAttr}="${escapeHtml(String(value))}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${CARD_ICONS[icon]}</button>`;
         }
 
@@ -537,10 +539,10 @@
                 const { overlay, close } = dialog(`
                 ${message}
                 <div class="confirm-actions">
-                    <button class="db-btn confirm-cancel">Cancel</button>
-                    <button class="db-btn ${danger ? 'db-btn-danger confirm-delete' : 'db-btn-primary confirm-add'}">${escapeHtml(confirmLabel)}</button>
+                    <button class="button-secondary confirm-cancel">Cancel</button>
+                    <button class="${danger ? 'db-btn db-btn-danger confirm-delete' : 'button-primary confirm-add'}">${escapeHtml(confirmLabel)}</button>
                 </div>`, { zIndex, dismissOnBackdrop: true, onClose: () => resolve(confirmed) });
-                overlay.querySelector('.confirm-actions .db-btn:last-child').addEventListener('click', () => {
+                overlay.querySelector('.confirm-actions > :last-child').addEventListener('click', () => {
                     confirmed = true;
                     close();
                 });
@@ -560,7 +562,7 @@
             _toastTimer = null;
         }
 
-        function toast(message, { type = 'info', duration = 5000 } = {}) {
+        function toast(message, { type = 'info', duration = 5000, action = null } = {}) {
             if (!_toastEl) {
                 _toastEl = document.createElement('div');
                 _toastEl.className = 'ui-toast';
@@ -568,6 +570,20 @@
                 document.body.appendChild(_toastEl);
             }
             _toastEl.textContent = message;
+            if (action) {
+                // A real button after the text node, so the message itself is
+                // still set through textContent and cannot carry markup.
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'ui-toast-action';
+                btn.textContent = action.label;
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    _hideToast();
+                    action.run();
+                });
+                _toastEl.appendChild(btn);
+            }
             _toastEl.classList.toggle('ui-toast-error', type === 'error');
             // 'alert' announces errors assertively to screen readers; 'status'
             // queues politely. Set per call since the element is reused.

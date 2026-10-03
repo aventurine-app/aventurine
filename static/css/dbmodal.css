@@ -98,7 +98,7 @@ html[data-db-locked] .db-modal-overlay {
     margin: -8px 0 0;
     display: flex;
     flex-wrap: wrap;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     gap: 4px 12px;
     font-size: var(--size-micro);
@@ -115,11 +115,7 @@ html[data-db-locked] .db-modal-overlay {
 
 .db-location-label { color: var(--text-tertiary); }
 
-.db-location .db-btn-link {
-    flex: none;
-    padding: 0;
-    font-size: var(--size-micro);
-}
+.db-location .button-secondary { flex: none; }
 
 /* In-modal filesystem browser (non-Electron Browse…) */
 .db-browser {
@@ -226,6 +222,9 @@ html[data-db-locked] .db-modal-overlay {
 
 .db-modal-actions-spacer { flex: 1; }
 
+/* The dialog button shape. Only the destructive buttons wear it now (.db-btn
+   .db-btn-danger, settings.css): every other dialog button, Cancel and Browse
+   included, is an action button (buttons.css). */
 .db-btn {
     background: var(--surface2);
     border: var(--border-width) solid var(--border);
@@ -236,36 +235,4 @@ html[data-db-locked] .db-modal-overlay {
     cursor: pointer;
     transition: background-color 120ms ease, border-color 120ms ease;
     white-space: nowrap;
-}
-
-/* Border lightens on hover too, belt-and-braces: the surface2 → surface3 step is
-   a real one in both themes now (dark resolves 900 → 800), but the border-color
-   delta keeps the affordance legible where the fill step is subtle — same
-   pattern as .range-selector-btn / .empty-state-action. */
-.db-btn:not(:disabled):not(.db-btn-link):not(.db-btn-primary):hover { background: var(--surface3); border-color: var(--text-tertiary); }
-
-.db-btn-primary {
-    background: var(--accent-primary);
-    border-color: var(--accent-primary);
-    color: var(--button-text);
-}
-
-/* Same lift as the action-shape primary (.button-primary, buttons.css) rather
-   than a brightness() filter, so the app's two button shapes hover to the same
-   colour. The filter also lightened the LABEL along with the fill, which the
-   token swap leaves alone. */
-.db-btn-primary:not(:disabled):hover { background: var(--accent-primary-hover); border-color: var(--accent-primary-hover); }
-.db-btn-primary:disabled { opacity: 0.6; cursor: default; }
-
-.db-btn-link {
-    background: transparent;
-    border-color: transparent;
-    color: var(--text-tertiary);
-    padding-left: 0;
-}
-
-.db-btn-link:hover {
-    background: transparent;
-    color: var(--text-primary);
-    text-decoration: underline;
 }

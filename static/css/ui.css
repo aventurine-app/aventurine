@@ -82,6 +82,7 @@
        used to copy, which stayed near-white on dark. */
     border: var(--border-width) solid var(--accent-neutral-border);
     background: none;
+    background-clip: padding-box;   /* see .button-secondary (buttons.css) */
     color: var(--accent-neutral);
     font-family: var(--font-menu);
     font-size: var(--size-micro);
@@ -98,7 +99,7 @@
    shape, so it takes the same two tokens rather than the ramp rung it used to
    copy from it. */
 .empty-state-action:hover {
-    background: var(--accent-neutral-fill);
+    background-color: var(--accent-neutral-fill);
     color: var(--accent-neutral-text);
 }
 .empty-state-action:focus-visible {
@@ -384,10 +385,11 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
 .rep-panel:focus, .stmt-panel:focus { outline: none; }
 
 /* ─── Segmented tab control + toolbar row ───────────────────────────────────
- * Shared by Statements (.stmt-*), Dashboard (.dashboard-*), Reports (.rep-*)
- * and the manager modal's panel switch (.mgr-*, built by openManagerModal in
- * tables.js — the track sits in the modal rather than on a toolbar row, but it
- * is the same control doing the same job).
+ * Shared by Statements (.stmt-*), Reports (.rep-*), the manager modal's panel
+ * switch (.mgr-*, built by openManagerModal in tables.js — the track sits in
+ * the modal rather than on a toolbar row, but it is the same control doing the
+ * same job) and the Dashboard (.dash-*): its layout tabs on the toolbar row and
+ * the Widgets / Settings switch in its customize panel.
  * Moved here from statements.css when Dashboard adopted it.
  *
  * The tabs are a segmented control: a hairline-outlined grey track holding both
@@ -405,7 +407,7 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
  * that hides one. */
 .stepper[hidden] { display: none; }
 
-.stmt-tabs, .rep-tabs, .mgr-tabs {
+.stmt-tabs, .rep-tabs, .mgr-tabs, .dash-tabs {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -428,7 +430,7 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
 /* Type + box tokens mirror the action-button shape (buttons.css) — same
    32px control height, uppercase micro type — so the segments read as
    siblings of the other 32px controls across the row. */
-.stmt-tab, .rep-tab, .mgr-tab {
+.stmt-tab, .rep-tab, .mgr-tab, .dash-tab {
     appearance: none;
     background: transparent;
     /* Transparent hairline reserves the active tab's border so the label never
@@ -456,7 +458,7 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
 
 /* One stop along the base ramp from the track, rather than a translucent frost
    tint — an opaque rung reads the same wherever the toolbar sits. */
-.stmt-tab:hover, .rep-tab:hover, .mgr-tab:hover {
+.stmt-tab:hover, .rep-tab:hover, .mgr-tab:hover, .dash-tab:hover {
     color: var(--text-primary);
     background: var(--segctl-hover);
 }
@@ -466,13 +468,14 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
    carries the selected state on its own. */
 .stmt-tab.active, .stmt-tab[aria-selected="true"],
 .rep-tab.active, .rep-tab[aria-selected="true"],
-.mgr-tab.active, .mgr-tab[aria-selected="true"] {
+.mgr-tab.active, .mgr-tab[aria-selected="true"],
+.dash-tab[aria-selected="true"] {
     color: var(--segctl-active-text);
     background: var(--segctl-active);
     border-color: var(--segctl-active);
 }
 
-.stmt-tab:focus-visible, .rep-tab:focus-visible, .mgr-tab:focus-visible {
+.stmt-tab:focus-visible, .rep-tab:focus-visible, .mgr-tab:focus-visible, .dash-tab:focus-visible {
     outline: 2px solid var(--color-accent-400);
     outline-offset: -2px;
 }
@@ -481,12 +484,13 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
    ring in the label colour instead. */
 .stmt-tab.active:focus-visible, .stmt-tab[aria-selected="true"]:focus-visible,
 .rep-tab.active:focus-visible, .rep-tab[aria-selected="true"]:focus-visible,
-.mgr-tab.active:focus-visible, .mgr-tab[aria-selected="true"]:focus-visible {
+.mgr-tab.active:focus-visible, .mgr-tab[aria-selected="true"]:focus-visible,
+.dash-tab[aria-selected="true"]:focus-visible {
     outline-color: var(--segctl-active-text);
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .stmt-tab, .rep-tab, .mgr-tab { transition: none; }
+    .stmt-tab, .rep-tab, .mgr-tab, .dash-tab { transition: none; }
 }
 
 /* ─── Segmented switch ────────────────────────────────────────────────────────
@@ -809,8 +813,8 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
     transform: translate(-50%, 8px);
     max-width: 420px;
     padding: var(--space-12) var(--space-16);
-    background: var(--dialog-surface);
-    border: var(--border-width) solid var(--dialog-stroke);
+    background: var(--surface1);
+    border: var(--border-width) solid var(--border);
     border-radius: 6px;
     box-shadow: var(--shadow-menu);
     color: var(--text-primary);
@@ -832,6 +836,27 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
 
 .ui-toast-error {
     border-color: color-mix(in srgb, var(--accent-negative) 55%, transparent);
+}
+
+/* The one action a toast can carry (UI.toast's `action`, the Dashboard's Undo):
+   accent text set off from the message, an inline link rather than a filled
+   button inside a notice. */
+.ui-toast-action {
+    margin-left: var(--space-12);
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent-primary);
+    font-family: var(--font-menu);
+    font-size: var(--size-small);
+    font-weight: var(--weight-semibold);
+    cursor: pointer;
+}
+.ui-toast-action:hover { text-decoration: underline; }
+.ui-toast-action:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+    border-radius: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {

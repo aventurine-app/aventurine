@@ -247,7 +247,7 @@
         btnGroup.appendChild(removeBtn);
 
         const menuBtn = document.createElement('button');
-        menuBtn.className   = 'p-menu-btn';
+        menuBtn.className   = 'button-icon p-menu-btn';
         menuBtn.textContent = '⋮';
         menuBtn.title       = 'Table options';
         menuBtn.addEventListener('click', e => {
@@ -336,8 +336,8 @@
             <p>Rename account:</p>
             <input class="p-rename-input" type="text" value="${escapeHtml(account.name)}" />
             <div class="confirm-actions">
-                <button class="db-btn confirm-cancel">Cancel</button>
-                <button class="db-btn db-btn-primary confirm-add">Rename</button>
+                <button class="button-secondary confirm-cancel">Cancel</button>
+                <button class="button-primary confirm-add">Rename</button>
             </div>`);
 
         const input = overlay.querySelector('.p-rename-input');
@@ -740,7 +740,7 @@
             UI.dialog(`
                 <p><strong>No assets to remove</strong></p>
                 <div class="confirm-actions">
-                    <button class="db-btn confirm-cancel">Close</button>
+                    <button class="button-secondary confirm-cancel">Close</button>
                 </div>`, { className: 'pick-dialog' });
             return;
         }

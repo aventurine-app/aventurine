@@ -442,6 +442,18 @@ const MIGRATIONS = [
       if (cols.includes(col)) db.exec(`ALTER TABLE recurring_overrides DROP COLUMN ${col}`);
     }
   }],
+  // v21 — saved Dashboard layouts (see schema.js baseline). The Dashboard became
+  // customizable: tabs of cards on a grid, each card with its own period.
+  // Nothing is carried over into it. A database with no rows here shows the
+  // default dashboard, which is the one every existing database already had,
+  // so an upgrade changes nothing a user can see until they customize.
+  //
+  // Created from the baseline's own text, the way v8 and v10 recreate their
+  // view, so a migrated database and a fresh one cannot drift apart.
+  [21, (db) => {
+    if (tableExists(db, 'dashboard_layouts')) return;
+    db.exec(DDL.find((stmt) => stmt.startsWith('CREATE TABLE dashboard_layouts')));
+  }],
 ];
 
 /**

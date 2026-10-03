@@ -45,10 +45,7 @@
   transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
-/* Matches the negation shape of dbmodal.css's generic .db-btn hover so this
-   wins on equal specificity (settings.css loads after dbmodal.css); otherwise
-   the generic rule would repaint the fill to --surface3. */
-.db-btn-danger:not(:disabled):not(.db-btn-link):not(.db-btn-primary):hover {
+.db-btn-danger:not(:disabled):hover {
   background: var(--accent-negative);
   border-color: var(--accent-negative);
   color: var(--danger-text);
@@ -339,24 +336,6 @@
   font-size: var(--size-body);
   font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
-}
-
-.settings-zoom-reset {
-  margin-left: 4px;
-  padding: 6px 14px;
-  border: var(--border-width) solid var(--border);
-  border-radius: 5px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: var(--size-small);
-  font-weight: var(--weight-medium);
-  cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
-}
-
-.settings-zoom-reset:hover {
-  border-color: var(--text-tertiary);
-  color: var(--text-primary);
 }
 
 /* ── Two-option settings switch ────────────────────────────────────────

@@ -2,8 +2,11 @@
    buttons.css — the canonical button system. Loaded globally (head.html).
    ============================================================================
    The app has two deliberate button SHAPES:
-     • Dialog button   (.db-btn / -primary / -link)  — normal-case, small text.
-       Modals, settings, inline Browse/Cancel.  Defined in dbmodal.css.
+     • Dialog button   (.db-btn-danger)  — normal-case, small text. Only the
+       destructive Delete / Remove buttons in modals and settings. Defined in
+       dbmodal.css and settings.css. Everything else in a dialog, Save, Cancel,
+       Browse…, Change…, wears the action buttons below, so the filled accent
+       and the outlined neutral each have one definition.
      • Action button   (.button-primary / -secondary) — uppercase micro "eyebrow".
        The page call-to-action (Add Year, Export, Add Card …). The tail of
        page-specific aliases that used to share this shape is gone; the last of
@@ -28,9 +31,8 @@
 .button-secondary:focus-visible,
 .tx-add-btn:focus-visible,
 /* icon / close buttons — these all lacked a focus ring entirely */
-.tx-action-btn:focus-visible,
+.button-icon:focus-visible,
 .cat-icon-btn:focus-visible,
-.p-menu-btn:focus-visible,
 .dialog-close-btn:focus-visible {
     outline: 2px solid var(--accent-primary);
     outline-offset: 2px;
@@ -40,8 +42,7 @@
    A 1px nudge on active press. Skipped for disabled buttons. */
 .button-primary:not(:disabled):active,
 .button-secondary:not(:disabled):active,
-.tx-action-btn:not(:disabled):active,
-.p-menu-btn:not(:disabled):active {
+.button-icon:not(:disabled):active {
     transform: translateY(0px);
 }
 
@@ -52,7 +53,7 @@
 .button-primary:disabled,
 .button-secondary:disabled,
 .tx-add-btn:disabled,
-.tx-action-btn:disabled {
+.button-icon:disabled {
     cursor: not-allowed;
     opacity: 0.6;
 }
@@ -106,7 +107,8 @@
    Neutral fill with the accent carried by the text + border, so it reads as a
    quieter sibling of the accent-filled primary action.
 
-   The border is --accent-neutral-border, NOT a ramp rung. The same bug the hover
+   The border is --accent-neutral-border, the same colour as the hover fill, NOT
+   a ramp rung. The same bug the hover
    rule below documents was still live on the resting state: base-200 is a LIGHT
    grey tuned for the light theme and it does not flip, so on dark these buttons
    wore a near-white hairline (#cdd0ce on #0c0d0d), which made the Portfolio's
@@ -127,6 +129,10 @@
       same shape, has always set `background: none` — this rule is the copy
       that forgot, which is also why only this one had the bug. */
    background: transparent;
+   /* Keep the hover fill inside the border: on dark both are the same
+      translucent colour, and painting the fill under the border would stack
+      them into a lighter ring. */
+   background-clip: padding-box;
    color: var(--accent-neutral);
    font-weight: var(--weight-superbold);
    border: var(--border-width) solid var(--accent-neutral-border);
@@ -140,7 +146,9 @@
    ~1.35:1 — a hover state you could not read. The text has to move with the
    fill, hence the colour line; leaving it out is how the old rule got there. */
 .button-secondary:not(:disabled):hover {
-    background: var(--accent-neutral-fill);
+    /* background-color, not the shorthand: the shorthand would reset the
+       padding-box clip set on .button-secondary. */
+    background-color: var(--accent-neutral-fill);
     color: var(--accent-neutral-text);
 }
 /* Disabled outlined secondary — drop the accent so it reads inert: gray text
@@ -148,6 +156,37 @@
 .button-secondary:disabled {
     color: var(--text-tertiary);
     border-color: var(--border);
+}
+
+/* Square icon button (Edit, Add, Customize, the ⋮ menu, row Save / Cancel): a
+   control-height square, no border, filled with the widget surface (surface1).
+   Hover, and the open state of a button that opens a panel (aria-pressed), take
+   the secondary hover fill. Variants that carry meaning (Save's accent, a
+   delete's danger) override the fill in their own file. */
+.button-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: var(--control-height);
+    height: var(--control-height);
+    padding: 0;
+    margin: 0;
+    border: 0;
+    border-radius: 8px;
+    background-color: var(--icon-button-fill);
+    color: var(--icon-button-ink);
+    font-family: var(--font-menu);
+    font-size: var(--size-h3);
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+.button-icon[hidden] { display: none; }
+.button-icon:not(:disabled):hover,
+.button-icon[aria-pressed="true"] {
+    background-color: var(--accent-neutral-fill);
+    color: var(--accent-neutral-text);
 }
 
 /* Accent fill — the primary call-to-action (Add Year, Add Account, Export …) */

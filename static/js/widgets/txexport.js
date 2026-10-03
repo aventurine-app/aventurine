@@ -108,7 +108,7 @@
                 <input type="text" class="tx-input tx-export-path"
                        placeholder="e.g. ~/Documents/transactions-${esc(todayIso())}.csv"
                        spellcheck="false" autocomplete="off">
-                <button type="button" class="db-btn tx-export-browse">Browse…</button>
+                <button type="button" class="button-secondary tx-export-browse">Browse…</button>
             </div>
             <p class="tx-export-error" hidden></p>
         `;

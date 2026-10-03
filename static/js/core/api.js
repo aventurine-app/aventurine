@@ -635,6 +635,9 @@
         { category: 'food', amount: 500 },
       ],
     },
+    // static/js/pages/dashboard.js — no saved layouts, so the page draws its
+    // default (the Overview template), the same answer a fresh database gives.
+    '/api/dashboard': { active: null, layouts: [] },
   };
 
   // Serves one GET fixture (or 404) by exact path match, ignoring query

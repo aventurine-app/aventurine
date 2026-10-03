@@ -29,11 +29,32 @@ const {
 const { applyBuiltinCategorize, applyDisplayNames } = require('../services/categorize');
 const { adoptAccount } = require('../services/accounts');
 
-function list(ctx) {
+// The most rows a bounded read may ask for. A slice is for a summary card, not a
+// paging API, and a card has room for a screenful at most.
+const MAX_LIST_LIMIT = 100;
+
+/**
+ * The ledger, newest first, with the categories its rows' ids resolve to.
+ *
+ * With no query this is every row, which is what the Transactions page loads.
+ * `limit` bounds it for a reader that wants only the newest rows: the
+ * Dashboard's Recent Transactions card, where reading the whole ledger to draw
+ * a screenful would charge a large ledger its entire size on every Dashboard
+ * visit.
+ */
+function list(ctx, { query = {} } = {}) {
   const db = ctx.db();
+  const params = [];
+  let limitSql = '';
+  if (query.limit != null) {
+    const n = Number(query.limit);
+    if (!Number.isInteger(n) || n < 1 || n > MAX_LIST_LIMIT) bad(`limit must be 1 to ${MAX_LIST_LIMIT}`);
+    limitSql = ' LIMIT ?';
+    params.push(n);
+  }
   const rows = db
-    .prepare('SELECT * FROM transactions ORDER BY date DESC, id DESC')
-    .all();
+    .prepare(`SELECT * FROM transactions ORDER BY date DESC, id DESC${limitSql}`)
+    .all(...params);
   const cats = db.prepare('SELECT * FROM categories ORDER BY position').all();
   // Derive each row's direction from its category so rows written before a
   // category was re-typed still render with the category's current type.

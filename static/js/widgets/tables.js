@@ -106,8 +106,8 @@
             <p>${message}</p>
             <input type="number" class="year-prompt-input" min="1000" max="9999" placeholder="e.g. 2024">
             <div class="confirm-actions">
-                <button class="db-btn confirm-cancel">Cancel</button>
-                <button class="db-btn db-btn-primary confirm-add">${escapeHtml(confirmLabel)}</button>
+                <button class="button-secondary confirm-cancel">Cancel</button>
+                <button class="button-primary confirm-add">${escapeHtml(confirmLabel)}</button>
             </div>`);
 
         const input  = overlay.querySelector('.year-prompt-input');
