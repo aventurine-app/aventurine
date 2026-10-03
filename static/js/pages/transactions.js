@@ -581,8 +581,8 @@
         <tr class="tx-row tx-new" data-id="${rowId}">
             <td class="tx-col-select tx-new-actions">
                 <div class="tx-action-group">
-                    <button class="tx-action-btn tx-action-save"   data-action="save"   data-id="${rowId}" title="Save">${TX_ICONS.check}</button>
-                    <button class="tx-action-btn tx-action-cancel" data-action="cancel" data-id="${rowId}" title="Cancel">${TX_ICONS.cross}</button>
+                    <button class="button-icon tx-action-btn tx-action-save"   data-action="save"   data-id="${rowId}" title="Save">${TX_ICONS.check}</button>
+                    <button class="button-icon tx-action-btn tx-action-cancel" data-action="cancel" data-id="${rowId}" title="Cancel">${TX_ICONS.cross}</button>
                 </div>
             </td>
             <td class="tx-col-avatar"></td>
@@ -1731,8 +1731,8 @@
                     <input type="checkbox" class="tx-checkbox" id="tx-cascade-cb">
                     <span>Apply to similar transactions</span>
                 </label>
-                <button class="tx-similar-skip" id="tx-edit-back" hidden>Back</button>
-                <button class="tx-similar-skip" id="tx-edit-cancel">Cancel</button>
+                <button class="button-secondary" id="tx-edit-back" hidden>Back</button>
+                <button class="button-secondary" id="tx-edit-cancel">Cancel</button>
                 <button class="button-primary" id="tx-edit-next">Next</button>
             </div>
         </div>`;
@@ -2406,7 +2406,7 @@
                 </div>
                 <div class="tx-similar-body">${groupsHtml}</div>
                 <div class="tx-similar-footer">
-                    <button class="tx-similar-skip" id="tx-similar-skip">Skip</button>
+                    <button class="button-secondary" id="tx-similar-skip">Skip</button>
                     <button class="button-primary tx-similar-apply" id="tx-similar-apply">
                         Apply to ${totalMatches} selected
                     </button>

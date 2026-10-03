@@ -814,8 +814,8 @@ html[data-theme="dark"] {
 
 /* Nothing ticked → nothing to add, so the confirm button is disabled rather than
    posting a request the backend would reject. The dimming and the cursor come
-   from the shared .db-btn:disabled rule (buttons.css), same as every other
-   disabled dialog button. */
+   from the shared .button-primary:disabled rule (buttons.css), same as every
+   other disabled dialog button. */
 
 /* ─── The schedule editor ─────────────────────────────────────────────────── */
 /* One dialog for creating and for editing, and the only place a schedule is
@@ -983,7 +983,7 @@ html[data-theme="dark"] {
     padding: var(--space-4);
     border: var(--border-width) solid var(--border);
     border-radius: 8px;
-    background: var(--dialog-surface);
+    background: var(--surface1);
     box-shadow: var(--shadow-popover);
 }
 .rec-suggest[hidden] { display: none; }

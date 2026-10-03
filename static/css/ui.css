@@ -82,6 +82,7 @@
        used to copy, which stayed near-white on dark. */
     border: var(--border-width) solid var(--accent-neutral-border);
     background: none;
+    background-clip: padding-box;   /* see .button-secondary (buttons.css) */
     color: var(--accent-neutral);
     font-family: var(--font-menu);
     font-size: var(--size-micro);
@@ -98,7 +99,7 @@
    shape, so it takes the same two tokens rather than the ramp rung it used to
    copy from it. */
 .empty-state-action:hover {
-    background: var(--accent-neutral-fill);
+    background-color: var(--accent-neutral-fill);
     color: var(--accent-neutral-text);
 }
 .empty-state-action:focus-visible {
@@ -812,8 +813,8 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
     transform: translate(-50%, 8px);
     max-width: 420px;
     padding: var(--space-12) var(--space-16);
-    background: var(--dialog-surface);
-    border: var(--border-width) solid var(--dialog-stroke);
+    background: var(--surface1);
+    border: var(--border-width) solid var(--border);
     border-radius: 6px;
     box-shadow: var(--shadow-menu);
     color: var(--text-primary);
@@ -838,8 +839,8 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
 }
 
 /* The one action a toast can carry (UI.toast's `action`, the Dashboard's Undo):
-   accent text set off from the message, the inline-link weight the dialogs'
-   .db-btn-link uses rather than a filled button inside a notice. */
+   accent text set off from the message, an inline link rather than a filled
+   button inside a notice. */
 .ui-toast-action {
     margin-left: var(--space-12);
     padding: 0;

@@ -368,7 +368,7 @@
          *  `actionBtn(action, value, icon, label, extra)` both cards call. */
         function cardActions(prefix, dataAttr) {
             return (action, value, icon, label, extraCls = '') =>
-                `<button type="button" class="${prefix}-action-btn ${extraCls}" data-action="${escapeHtml(action)}"
+                `<button type="button" class="button-icon ${prefix}-action-btn ${extraCls}" data-action="${escapeHtml(action)}"
       data-${dataAttr}="${escapeHtml(String(value))}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${CARD_ICONS[icon]}</button>`;
         }
 
@@ -539,10 +539,10 @@
                 const { overlay, close } = dialog(`
                 ${message}
                 <div class="confirm-actions">
-                    <button class="db-btn confirm-cancel">Cancel</button>
-                    <button class="db-btn ${danger ? 'db-btn-danger confirm-delete' : 'db-btn-primary confirm-add'}">${escapeHtml(confirmLabel)}</button>
+                    <button class="button-secondary confirm-cancel">Cancel</button>
+                    <button class="${danger ? 'db-btn db-btn-danger confirm-delete' : 'button-primary confirm-add'}">${escapeHtml(confirmLabel)}</button>
                 </div>`, { zIndex, dismissOnBackdrop: true, onClose: () => resolve(confirmed) });
-                overlay.querySelector('.confirm-actions .db-btn:last-child').addEventListener('click', () => {
+                overlay.querySelector('.confirm-actions > :last-child').addEventListener('click', () => {
                     confirmed = true;
                     close();
                 });

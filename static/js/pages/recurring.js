@@ -639,7 +639,7 @@
            nothing to delete yet. -->
       <div class="confirm-actions">
         ${creating ? '' : '<button class="db-btn db-btn-danger rec-edit-delete" id="rec-edit-delete">Delete</button>'}
-        <button class="db-btn db-btn-primary" id="rec-edit-save">${creating ? 'Create' : 'Save'}</button>
+        <button class="button-primary" id="rec-edit-save">${creating ? 'Create' : 'Save'}</button>
       </div>`;
   }
 
@@ -990,7 +990,7 @@
         <p><strong>No new recurring schedules found</strong></p>
         <p class="rec-detect-note">A pattern needs a few charges at a steady interval before it can be spotted. Import more history, or add a schedule by hand with the + on the day it falls on.</p>
         <div class="confirm-actions">
-          <button class="db-btn confirm-cancel">Close</button>
+          <button class="button-secondary confirm-cancel">Close</button>
         </div>`, { className: 'rec-detect-dialog' });
       return;
     }
@@ -1004,8 +1004,8 @@
       </label>
       <div class="rec-cand-list">${candidates.map(candidateRowHtml).join('')}</div>
       <div class="confirm-actions">
-        <button class="db-btn confirm-cancel">Cancel</button>
-        <button class="db-btn db-btn-primary confirm-add" id="rec-cand-ok">Add selected</button>
+        <button class="button-secondary confirm-cancel">Cancel</button>
+        <button class="button-primary confirm-add" id="rec-cand-ok">Add selected</button>
       </div>`, { className: 'rec-detect-dialog' });
 
     const allBox = overlay.querySelector('#rec-cand-all');

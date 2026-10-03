@@ -796,8 +796,8 @@
           min="${escapeHtml(todayIso())}" max="${escapeHtml(maxPlannedDate())}">
       </label>
       <div class="confirm-actions">
-        <button class="db-btn confirm-cancel">Cancel</button>
-        <button class="db-btn db-btn-primary confirm-add">Add</button>
+        <button class="button-secondary confirm-cancel">Cancel</button>
+        <button class="button-primary confirm-add">Add</button>
       </div>`, { className: 'fc-add-dialog' });
 
     const labelInput = overlay.querySelector('#fc-add-label');

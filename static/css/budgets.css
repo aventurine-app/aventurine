@@ -383,6 +383,7 @@
 
 .bud-modal-actions {
     display: flex;
+    align-items: center;
     justify-content: flex-end;
     gap: var(--space-8);
     padding: var(--space-16) var(--space-24);

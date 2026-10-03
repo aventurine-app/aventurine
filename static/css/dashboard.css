@@ -1269,28 +1269,11 @@ a.dash-row:focus-visible {
 
 .dash-layouts .dash-tabs { min-width: 0; overflow-x: auto; scrollbar-width: none; }
 
-/* Icon only, in both states: a square the height of the other controls. */
-.dash-customize { width: var(--control-height); padding: 0; }
+/* Icon only: the glyph size. The square and the fills are .button-icon
+   (buttons.css). */
 .dash-customize svg { width: 14px; height: 14px; flex: none; }
 
 .dash-toolbar .p-menu-btn svg { width: 16px; height: 16px; }
-.dash-toolbar .p-menu-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.dash-toolbar .p-menu-btn:disabled:hover {
-    background: var(--surface1);
-    color: var(--text-secondary);
-    border-color: var(--border);
-}
-
-/* Hover is the shared .button-secondary fill. Pressed (the panel is open) fills
-   with the button's own border colour, and stays that way under the pointer. */
-.dash-customize[aria-pressed="true"]:not(:disabled):hover,
-.dash-customize[aria-pressed="true"] {
-    background: var(--accent-neutral-border);
-    border-color: var(--accent-neutral-border);
-    color: var(--text-primary);
-}
-
-
 /* ─── 14. The grid ───────────────────────────────────────────────────────── */
 /* Cards are placed absolutely by dashboard.js on a 12-column grid of 48px rows
    with 16px gaps, so a move or a resize animates every card it pushes. Below

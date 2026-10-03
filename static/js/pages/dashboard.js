@@ -648,15 +648,15 @@
         // New layout and Layout options are Customize tools, so they only show
         // while customizing.
         dom.tabs.innerHTML = `<div class="dash-tabs" role="tablist" aria-label="Layouts">${tabs}</div>
-            ${ui.editing ? `<button type="button" class="p-menu-btn" data-act="new-layout" title="New layout" aria-label="New layout"${full ? ' disabled' : ''}>${ICONS.plus}</button>
-            <button type="button" class="p-menu-btn" data-act="layout-menu" title="Layout options"
+            ${ui.editing ? `<button type="button" class="button-icon p-menu-btn" data-act="new-layout" title="New layout" aria-label="New layout"${full ? ' disabled' : ''}>${ICONS.plus}</button>
+            <button type="button" class="button-icon p-menu-btn" data-act="layout-menu" title="Layout options"
                 aria-label="Layout options" aria-haspopup="menu" aria-expanded="false">${ICONS.dots}</button>` : ''}`;
     }
 
     /** The Customize button, built once and then kept in step by syncControls,
      *  so a click never replaces the button it landed on. */
     function buildControls() {
-        dom.actions.innerHTML = `<button type="button" class="button-secondary dash-customize" data-act="customize"
+        dom.actions.innerHTML = `<button type="button" class="button-icon dash-customize" data-act="customize"
             aria-label="Customize" title="Customize" aria-pressed="false" disabled>${ICONS.sliders}</button>`;
         dom.customize = dom.actions.firstElementChild;
     }
@@ -802,8 +802,8 @@
             <p><strong>Rename layout</strong></p>
             <input type="text" class="tx-input dash-rename-input" maxlength="${NAME_MAX}" aria-label="Layout name">
             <div class="confirm-actions">
-                <button type="button" class="db-btn confirm-cancel">Cancel</button>
-                <button type="button" class="db-btn db-btn-primary confirm-add">Rename</button>
+                <button type="button" class="button-secondary confirm-cancel">Cancel</button>
+                <button type="button" class="button-primary confirm-add">Rename</button>
             </div>`, { className: 'dash-rename-dialog' });
         const input = overlay.querySelector('.dash-rename-input');
         input.value = layout.name;
