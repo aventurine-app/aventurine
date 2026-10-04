@@ -61,6 +61,7 @@
     const stroke = (inner) => `<svg viewBox="0 0 256 256" fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
     const ICONS = {
         plus: ph('M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z'),
+        link: ph('M240,88.23a54.43,54.43,0,0,1-16,37L189.25,160a54.27,54.27,0,0,1-38.63,16h-.05A54.63,54.63,0,0,1,96,119.84a8,8,0,0,1,16,.45A38.62,38.62,0,0,0,150.58,160h0a38.39,38.39,0,0,0,27.31-11.31l34.75-34.75a38.63,38.63,0,0,0-54.63-54.63l-11,11A8,8,0,0,1,135.7,59l11-11A54.65,54.65,0,0,1,224,48,54.86,54.86,0,0,1,240,88.23ZM109,185.66l-11,11A38.41,38.41,0,0,1,70.6,208h0a38.63,38.63,0,0,1-27.29-65.94L78,107.31A38.63,38.63,0,0,1,144,135.71a8,8,0,0,0,16,.45A54.86,54.86,0,0,0,144,96a54.65,54.65,0,0,0-77.27,0L32,130.75A54.62,54.62,0,0,0,70.56,224h0a54.28,54.28,0,0,0,38.64-16l11-11A8,8,0,0,0,109,185.66Z'),
         trash: ph('M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z'),
         dots: ph('M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z'),
         gear: ph('M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm88-29.84q.06-2.16,0-4.32l14.92-18.64a8,8,0,0,0,1.48-7.06,107.21,107.21,0,0,0-10.88-26.25,8,8,0,0,0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186,40.54a8,8,0,0,0-3.94-6,107.71,107.71,0,0,0-26.25-10.87,8,8,0,0,0-7.06,1.49L130.16,40Q128,40,125.84,40L107.2,25.11a8,8,0,0,0-7.06-1.48A107.6,107.6,0,0,0,73.89,34.51a8,8,0,0,0-3.93,6L67.32,64.27q-1.56,1.49-3,3L40.54,70a8,8,0,0,0-6,3.94,107.71,107.71,0,0,0-10.87,26.25,8,8,0,0,0,1.49,7.06L40,125.84Q40,128,40,130.16L25.11,148.8a8,8,0,0,0-1.48,7.06,107.21,107.21,0,0,0,10.88,26.25,8,8,0,0,0,6,3.93l23.72,2.64q1.49,1.56,3,3L70,215.46a8,8,0,0,0,3.94,6,107.71,107.71,0,0,0,26.25,10.87,8,8,0,0,0,7.06-1.49L125.84,216q2.16.06,4.32,0l18.64,14.92a8,8,0,0,0,7.06,1.48,107.21,107.21,0,0,0,26.25-10.88,8,8,0,0,0,3.93-6l2.64-23.72q1.56-1.48,3-3L215.46,186a8,8,0,0,0,6-3.94,107.71,107.71,0,0,0,10.87-26.25,8,8,0,0,0-1.49-7.06Zm-16.1-6.5a73.93,73.93,0,0,1,0,8.68,8,8,0,0,0,1.74,5.48l14.19,17.73a91.57,91.57,0,0,1-6.23,15L187,173.11a8,8,0,0,0-5.1,2.64,74.11,74.11,0,0,1-6.14,6.14,8,8,0,0,0-2.64,5.1l-2.51,22.58a91.32,91.32,0,0,1-15,6.23l-17.74-14.19a8,8,0,0,0-5-1.75h-.48a73.93,73.93,0,0,1-8.68,0,8,8,0,0,0-5.48,1.74L100.45,215.8a91.57,91.57,0,0,1-15-6.23L82.89,187a8,8,0,0,0-2.64-5.1,74.11,74.11,0,0,1-6.14-6.14,8,8,0,0,0-5.1-2.64L46.43,170.6a91.32,91.32,0,0,1-6.23-15l14.19-17.74a8,8,0,0,0,1.74-5.48,73.93,73.93,0,0,1,0-8.68,8,8,0,0,0-1.74-5.48L40.2,100.45a91.57,91.57,0,0,1,6.23-15L69,82.89a8,8,0,0,0,5.1-2.64,74.11,74.11,0,0,1,6.14-6.14A8,8,0,0,0,82.89,69L85.4,46.43a91.32,91.32,0,0,1,15-6.23l17.74,14.19a8,8,0,0,0,5.48,1.74,73.93,73.93,0,0,1,8.68,0,8,8,0,0,0,5.48-1.74L155.55,40.2a91.57,91.57,0,0,1,15,6.23L173.11,69a8,8,0,0,0,2.64,5.1,74.11,74.11,0,0,1,6.14,6.14,8,8,0,0,0,5.1,2.64l22.58,2.51a91.32,91.32,0,0,1,6.23,15l-14.19,17.74A8,8,0,0,0,199.87,123.66Z'),
@@ -988,6 +989,7 @@
         const host = el.querySelector('.dash-pop-stepper');
         if (!host) return;
         const chosen = card.period.preset === 'month' ? resolvePeriod(card).first : null;
+        const following = card.period.preset === 'month' && !card.period.month;
         MonthStepper.create(host, {
             label: `${cardTitle(card)} month`,
             yearOptions: () => pickerYears(card),
@@ -997,6 +999,9 @@
                 renderPicker(el, card.id, '[data-pick="month"]');
             },
         });
+        // Following the current month locks the picker until the box is unticked.
+        host.classList.toggle('is-locked', following);
+        if (following) host.querySelectorAll('button').forEach((b) => { b.disabled = true; });
     }
 
     /** Redraw the open picker for the card's current period, then refocus. */
@@ -1014,9 +1019,6 @@
         const spec = card.period;
         const now = new Date();
         const current = { year: now.getFullYear(), monthIdx: now.getMonth() };
-        const pill = (action, label, on, { title = '', disabled = false, cls = '' } = {}) =>
-            `<button type="button" class="tx-pop-preset${on ? ' is-selected' : ''}${cls ? ` ${cls}` : ''}" data-pp="${action}"
-                aria-pressed="${on}"${title ? ` title="${escapeHtml(title)}"` : ''}${disabled ? ' disabled' : ''}>${escapeHtml(label)}</button>`;
         // The joined segmented control (.range-group, ui.css): one shape with
         // rounded ends and an accent fill on the chosen segment.
         const rangeButtons = (items) => items.map(({ action, text, on, title }) =>
@@ -1030,7 +1032,9 @@
             html += `<div class="tx-pop-field">
                 <span class="tx-pop-label">Month</span>
                 <div class="dash-pop-stepper"></div>
-                ${pill('latest', 'This month', following, { cls: 'dash-pop-wide', title: DashPeriod.longLabel([current]) })}
+                <button type="button" class="tx-pop-option${following ? ' is-selected' : ''}" data-pp="latest" role="checkbox" aria-checked="${following}"
+                    title="${escapeHtml(DashPeriod.longLabel([current]))}">
+                    <span class="tx-pop-box">${ICONS.tick}</span><span class="tx-pop-option-label">Current month</span></button>
             </div>`;
         }
 
@@ -1052,7 +1056,7 @@
             return `<button type="button" class="dash-swatch${on ? ' is-selected' : ''}" data-pp="color:${key}" data-color="${key}"
                 role="radio" aria-checked="${on}" aria-label="${name}" title="${name}"></button>`;
         };
-        html += `<div class="tx-pop-field"><span class="tx-pop-label">Link</span>
+        html += `<div class="tx-pop-field"><span class="tx-pop-label dash-link-label">${ICONS.link}Link</span>
             <div class="dash-swatches" role="radiogroup" aria-label="Link color">${
                 Object.entries(COLORS).map(([key, name]) => swatch(key, name)).join('')}${swatch('', 'No link')}</div></div>`;
         return html;
@@ -1064,7 +1068,14 @@
         if (!card) return false;
         const [verb, arg] = action.split(':');
         switch (verb) {
-            case 'latest': setPeriod(id, { ...card.period, preset: 'month', month: null }); return false;
+            case 'latest': {
+                // Ticked: follow the calendar. Unticked: pin today's month so the stepper unlocks on it.
+                const following = card.period.preset === 'month' && !card.period.month;
+                const now = new Date();
+                const pinned = DashPeriod.formatMonth({ year: now.getFullYear(), monthIdx: now.getMonth() });
+                setPeriod(id, { ...card.period, preset: 'month', month: following ? pinned : null });
+                return true;
+            }
             case 'month': setPeriod(id, { ...card.period, preset: 'month', month: arg }); return false;
             case 'preset': setPeriod(id, { ...card.period, preset: arg, month: null }); return false;
             case 'color': setColor(id, arg || null); return true;

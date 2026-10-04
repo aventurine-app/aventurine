@@ -1,7 +1,7 @@
 'use strict';
 
 // ─── donut.js ───────────────────────────────────────────────────────────────
-// The segmented ring the Dashboard's Balances card and the Portfolio page share.
+// The segmented ring the Dashboard's Breakdown card and the Portfolio page share.
 //
 // Each slice is a circle stroke whose dash is the length of its arc, rotated to
 // start at 12 o'clock. Slices meet edge to edge: their colours separate them,

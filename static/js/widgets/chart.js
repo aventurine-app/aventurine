@@ -409,7 +409,7 @@
       + ` L ${x + w - rr} ${y} A ${rr} ${rr} 0 0 1 ${x + w} ${y + rr} L ${x + w} ${y + h} Z"/>`;
   }
 
-  function buildStackedSVG({ series, slots, W, animate = true }) {
+  function buildStackedSVG({ series, slots, W, boxH = 0, fit = false, animate = true }) {
     const N = slots.length;
     if (!N || !series.length) return null;
 
@@ -417,7 +417,7 @@
     const maxTotal = Math.max(...totals);
     if (!(maxTotal > 0)) return null;
 
-    const H = boxHeight(W);
+    const H = boxHeight(W, boxH, false, fit);
     const { r: PR, t: PT, b: PB } = CHART_PAD;
     const CH = H - PT - PB;
 
@@ -773,5 +773,7 @@
     // The bare line builder, for a page that mounts the chart itself
     // (dashboard.js, which clears its hover reading on every redraw).
     buildLine: buildChartSVG,
+    // The bare stacked-column builder, for the Dashboard's Spending card.
+    buildStacked: buildStackedSVG,
   };
 }());

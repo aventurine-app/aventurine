@@ -15,7 +15,7 @@
 //   defaults, fields       its settings, and the segmented choices for them
 //                          that the header gear offers
 //   gear                   a checkbox list in the header gear (Account
-//                          Balances only), once its data has entries:
+//                          Breakdown only), once its data has entries:
 //                          { title, label, heading, options(ctx),
 //                            toggle(ctx, key) → settings patch, available(ctx) }
 //   chip(ctx, key)         → the settings patch for a click on one of its chips
@@ -59,7 +59,7 @@
     const readToken = (name, fallback) =>
         getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 
-    // The BALANCE ramp: eight grey steps (style.css). The Balances donut takes
+    // The BALANCE ramp: eight grey steps (style.css). The Breakdown donut takes
     // three of them and the Account Balances chart walks all eight, one per
     // account, so a line in that chart is the same family of colour as its slice
     // in the donut. Grey is what an account BALANCE is in this app: money held
@@ -124,10 +124,9 @@
     /**
      * A period's statement, sliced the way the month cards read it: per-type
      * totals, each type's categories (positive cells only, in column order) and
-     * the expense categories alone. `divisor` turns the totals into a monthly
-     * average, which is how Monthly Cash Flow reads a span of months.
+     * the expense categories alone.
      */
-    function sliceStatement(data, slots, divisor = 1) {
+    function sliceStatement(data, slots) {
         const byKey = statementTotals(data, slots);
         const totals = { income: 0, expense: 0, transfer: 0 };
         const segments = { income: [], expense: [], transfer: [] };
@@ -135,7 +134,7 @@
         for (const col of data.columns || []) {
             const raw = byKey.get(col.key);
             if (typeof raw !== 'number') continue;
-            const val = raw / divisor;
+            const val = raw;
             if (col.type in totals) {
                 totals[col.type] += val;
                 if (val > 0) segments[col.type].push({ key: col.key, name: col.label, value: val });
@@ -196,7 +195,7 @@
     /**
      * Net worth over every populated month, oldest first: { year, monthIdx,
      * value }. Debt columns count negative. Each month carries every column's
-     * most recent value forward (the same carry-forward the Balances donut uses),
+     * most recent value forward (the same carry-forward the Breakdown donut uses),
      * so a month that updates one account still reports net worth across all of
      * them. A column contributes nothing until its first entry.
      */
@@ -418,63 +417,6 @@
         return `${svg}</svg>`;
     }
 
-    /**
-     * Vertical bars, one per category: bars [{ key, label, color, value }].
-     * Height is the box's; past a point the category names tilt rather than
-     * shrinking to initials, and buy their room out of the bottom padding.
-     */
-    function buildBarChartSVG({ bars, W, avail, animate, period }) {
-        if (bars.length === 0) return null;
-        const { l: PL, r: PR, t: PT } = CHART_PAD;
-        const CW = W - PL - PR;
-        const slotW = CW / bars.length;
-        const f2 = (n) => Math.round(n * 100) / 100;
-        const LABEL_PX = 6.5;
-        const flatChars = Math.max(4, Math.floor(slotW / LABEL_PX));
-        const longest = Math.max(...bars.map((b) => b.label.length));
-        const rotate = flatChars < Math.min(longest, 8);
-        const TILT = 35;
-        const fitChars = Math.floor((PL + slotW / 2) / (LABEL_PX * Math.cos(TILT * Math.PI / 180)));
-        const maxChars = rotate ? Math.max(6, Math.min(16, fitChars)) : flatChars;
-        const labels = bars.map((b) => (b.label.length > maxChars ? b.label.slice(0, maxChars - 1).trimEnd() + '…' : b.label));
-        const extra = rotate
-            ? Math.round(Math.max(...labels.map((l) => l.length)) * LABEL_PX * Math.sin(TILT * Math.PI / 180))
-            : 0;
-        const PB = CHART_PAD.b + extra;
-        const H = Math.max(avail, 110);
-        const CH = Math.max(20, H - PT - PB);
-        const peak = Math.max(...bars.map((b) => b.value));
-        const yTicks = ChartMath.niceTicks(0, peak, 4);
-        const maxVal = yTicks[yTicks.length - 1] || 1;
-        const yScale = (v) => PT + CH - (v / maxVal) * CH;
-        const baseY = PT + CH;
-
-        let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" class="dashboard-chart${animate ? '' : ' chart-no-anim'}" style="display:block;">`;
-        const fmtAxis = axisFormatter(yTicks);
-        for (const v of yTicks) {
-            const y = yScale(v);
-            svg += `<line class="chart-grid" x1="${PL}" y1="${y}" x2="${W - PR}" y2="${y}"/>`;
-            svg += `<text class="chart-label" x="${PL - 10}" y="${y}" text-anchor="end" dominant-baseline="middle">${escapeHtml(fmtAxis(v))}</text>`;
-        }
-        const barW = Math.min(slotW * 0.6, 64);
-        bars.forEach((b, i) => {
-            const cx = PL + slotW * (i + 0.5);
-            const x = cx - barW / 2;
-            const y = yScale(b.value);
-            const r = Math.min(4, barW / 2, baseY - y);
-            const d = `M ${f2(x)} ${f2(baseY)} L ${f2(x)} ${f2(y + r)} Q ${f2(x)} ${f2(y)} ${f2(x + r)} ${f2(y)}`
-                    + ` L ${f2(x + barW - r)} ${f2(y)} Q ${f2(x + barW)} ${f2(y)} ${f2(x + barW)} ${f2(y + r)} L ${f2(x + barW)} ${f2(baseY)} Z`;
-            svg += linkShape(period, b.key, b.label, b.value,
-                `<path class="chart-bar" d="${d}" fill="${b.color}" style="animation-delay:${i * 60}ms">
-            <title>${escapeHtml(b.label)}: ${fmtValue(b.value)}</title></path>`);
-            const ly = H - PB + 18;
-            svg += rotate
-                ? `<text class="chart-label" x="${f2(cx)}" y="${ly}" text-anchor="end" transform="rotate(-${TILT} ${f2(cx)} ${ly})">${escapeHtml(labels[i])}</text>`
-                : `<text class="chart-label" x="${f2(cx)}" y="${ly}" text-anchor="middle">${escapeHtml(labels[i])}</text>`;
-        });
-        return `${svg}</svg>`;
-    }
-
     /** An empty state sized for a card (UI.emptyState, no glyph tile: across a
      *  grid of cards, a row of icons reads as clutter rather than illustration). */
     const empty = (title, action = null) => UI.emptyState({ icon: null, compact: true, title, action });
@@ -590,6 +532,14 @@
         };
     }
 
+    /** The legend beside a ring, one line per slice: name, amount, share.
+     *  rows: [{ label, color, valueText, share (0-1), href }] */
+    const donutLegendHtml = (rows) => `<div class="spend-legend">${rows.map((r) => `<a class="spend-legend-item" href="${escapeHtml(r.href)}">
+            <span class="accounts-legend-dot" style="background:${r.color}"></span>
+            <span class="spend-legend-label">${escapeHtml(r.label)}</span>
+            <span class="spend-legend-value">${r.valueText}</span>
+            <span class="spend-legend-pct">${(r.share * 100).toFixed(0)}%</span></a>`).join('')}</div>`;
+
     function renderDonut(host, ctx) {
         const data = ctx.data;
         const cutoff = ctx.period.last;
@@ -620,19 +570,13 @@
 
         // Assets minus debt at the shown month: Net Worth's sign convention.
         const net = raw.reduce((t, s) => t + (s.label === 'Debt' ? -s.signed : s.signed), 0);
-        const legend = slices.map((s) => `<a class="accounts-legend-item" href="${BALANCE_SHEET_HREF}">
-            <span class="accounts-legend-dot" style="background:${s.color}"></span>
-            <div class="accounts-legend-text">
-                <div class="accounts-legend-head">
-                    <div class="accounts-legend-label">${escapeHtml(s.label)}</div>
-                    <div class="accounts-legend-pct">${((s.value / total) * 100).toFixed(1)}%</div>
-                </div>
-                <div class="accounts-legend-value">${fmtValue(s.signed)}</div>
-            </div></a>`).join('');
+        const legend = donutLegendHtml(slices.map((s) => ({
+            label: s.label, color: s.color, valueText: fmtValue(s.signed), share: s.value / total, href: BALANCE_SHEET_HREF,
+        })));
         // A card too narrow for the ring beside the legend keeps the legend: the
         // figures are the reading, and the ring is their picture.
         const showRing = ctx.w >= 300;
-        host.innerHTML = `<div class="accounts-body"><div class="accounts-legend">${legend}</div>${showRing ? '<div class="accounts-pie"></div>' : ''}</div>`;
+        host.innerHTML = `<div class="accounts-body spend-body">${legend}${showRing ? '<div class="accounts-pie"></div>' : ''}</div>`;
         if (!showRing) return;
         DonutChart.render(host.querySelector('.accounts-pie'), {
             slices: slices.map((s) => ({
@@ -646,6 +590,79 @@
             centerValue: fmtValue(net),
             linkHint: 'open the Balance Sheet',
             animate: Boolean(ctx.animate),   // a resize redraw skips the sweep
+        });
+    }
+
+    // ─── Spending ────────────────────────────────────────────────────────────
+    /** One series per expense category, biggest first so the largest band is the
+     *  bottom of every column. Colours come from the period's amount-rank map, the
+     *  one the Monthly Cash Flow card uses, so a category keeps its colour across
+     *  the cards. */
+    function spendingSeries(data, slots) {
+        const slice = sliceStatement(data, slots);
+        const colors = buildFlowColorMap(slice.segments);
+        const ramp = ChartRamp.outflow();
+        return [...slice.categories].sort((a, b) => b.total - a.total).map((c, i) => {
+            const points = [];
+            for (const s of slots) {
+                const cells = ((data.entries || {})[String(s.year)] || {})[MONTHS[s.monthIdx]] || {};
+                if (typeof cells[c.key] === 'number' && cells[c.key] > 0) points.push({ year: s.year, monthIdx: s.monthIdx, value: cells[c.key] });
+            }
+            return { label: c.name, color: colors.get(c.key) || ramp[i % ramp.length], points };
+        });
+    }
+
+    function renderSpending(host, ctx) {
+        const { period } = ctx;
+        const slots = slotsOf(period);
+        const series = spendingSeries(ctx.data, slots);
+        if (series.length === 0) {
+            host.innerHTML = empty(`Nothing in ${period.label}`, ADD_TRANSACTIONS);
+            return;
+        }
+        const { plot, W, H } = chartBody(host);
+        plot.innerHTML = FinanceChart.buildStacked({ series, slots, W, boxH: H, fit: true, animate: ctx.animate }) || '';
+    }
+
+    // The donut keeps its biggest categories and folds the rest into one slice,
+    // so a month with a dozen categories still reads as a ring and a legend.
+    const DONUT_CATEGORIES = 6;
+
+    function renderMonthlySpending(host, ctx) {
+        const { period } = ctx;
+        const slice = sliceStatement(ctx.data, slotsOf(period));
+        if (slice.categories.length === 0) {
+            host.innerHTML = period.isCurrentMonth
+                ? empty('No spending this month yet', ADD_TRANSACTIONS)
+                : empty(`Nothing in ${period.label}`);
+            return;
+        }
+        const colors = buildFlowColorMap(slice.segments);
+        const ranked = [...slice.categories].sort((a, b) => b.total - a.total);
+        const shown = ranked.length > DONUT_CATEGORIES + 1 ? ranked.slice(0, DONUT_CATEGORIES) : ranked;
+        const slices = shown.map((c) => ({
+            label: c.name, value: c.total, color: colors.get(c.key), href: ledgerHref(period, { cat: c.key }),
+        }));
+        const rest = ranked.slice(shown.length);
+        if (rest.length) {
+            slices.push({
+                label: 'Other', value: rest.reduce((s, c) => s + c.total, 0),
+                color: readToken('--chart-balance-4', '#787b7e'), href: ledgerHref(period),
+            });
+        }
+        const total = slices.reduce((s, x) => s + x.value, 0);
+        const legend = donutLegendHtml(slices.map((s) => ({
+            label: s.label, color: s.color, valueText: fmtValue(s.value), share: s.value / total, href: s.href,
+        })));
+        const showRing = ctx.w >= 300;
+        host.innerHTML = `<div class="accounts-body spend-body">${legend}${showRing ? '<div class="accounts-pie"></div>' : ''}</div>`;
+        if (!showRing) return;
+        DonutChart.render(host.querySelector('.accounts-pie'), {
+            slices: slices.map((s) => ({ ...s, valueText: fmtValue(s.value) })),
+            centerLabel: 'Spent',
+            centerValue: fmtValue(total),
+            linkHint: 'view transactions',
+            animate: Boolean(ctx.animate),
         });
     }
 
@@ -998,18 +1015,14 @@
         cashflow: {
             name: 'Monthly Cash Flow', group: 'Cash flow',
             info: 'Where the shown month’s money went: total income, expenses, and transfers from your transactions ledger. Transfers are money moved to your own savings or brokerage accounts — neither income nor spending.',
-            periods: SPAN, period: THIS_MONTH,
+            periods: ['month'], period: THIS_MONTH,
             sizes: { S: [3, 5], M: [4, 6], L: [6, 5], XL: [8, 6] }, min: [3, 4],
             defaults: {}, fields: [],
             uses: ['ie'],
             load: (ctx) => ctx.hub.store('ie'),
             render(host, ctx) {
                 const { period } = ctx;
-                const slots = slotsOf(period);
-                // Over a span of months each bar is the AVERAGE month, which is
-                // what a card named Monthly Cash Flow shows, and it says so.
-                const span = slots.length > 1;
-                const month = sliceStatement(ctx.data, slots, slots.length);
+                const month = sliceStatement(ctx.data, slotsOf(period));
                 // One colour map for both month cards: a category is the same
                 // colour as a segment here and as a bar in Spending.
                 const colors = buildFlowColorMap(month.segments);
@@ -1023,14 +1036,13 @@
                     host.innerHTML = empty(period.isCurrentMonth ? 'No activity this month yet' : `Nothing in ${period.label}`, OPEN_STATEMENTS);
                     return;
                 }
-                const note = span ? '<div class="dash-card-note">Monthly average</div>' : '';
-                const { plot, W, H } = chartBody(host, { head: note });
+                const { plot, W, H } = chartBody(host);
                 plot.innerHTML = buildHBarChartSVG({ rows, W, avail: H, animate: ctx.animate, period }) || '';
             },
         },
 
         balances: {
-            name: 'Balances', group: 'Overview',
+            name: 'Breakdown', group: 'Overview',
             info: 'How your Balance Sheet splits across account types in the shown month — cash, investment, retirement, and debt. Each account contributes its most recent balance from that month or earlier, carried forward until you record a newer one.',
             // A snapshot: one month, as of its end.
             periods: ['month'], period: THIS_MONTH,
@@ -1044,30 +1056,25 @@
 
         spending: {
             name: 'Spending', group: 'Spending',
-            info: 'What you’ve spent in each category in the shown month, from your transactions ledger.',
-            periods: SPAN, period: THIS_MONTH,
+            info: 'What you’ve spent each month, stacked by category, from your transactions ledger.',
+            periods: TREND, period: YEAR_TO_DATE,
             sizes: { S: [3, 5], M: [4, 6], L: [6, 6], XL: [8, 6] }, min: [3, 4],
             defaults: {}, fields: [],
             uses: ['ie'],
             load: (ctx) => ctx.hub.store('ie'),
-            render(host, ctx) {
-                const { period } = ctx;
-                const slice = sliceStatement(ctx.data, slotsOf(period));
-                if (slice.categories.length === 0) {
-                    host.innerHTML = period.isCurrentMonth
-                        ? empty('No spending this month yet', ADD_TRANSACTIONS)
-                        : empty(`Nothing in ${period.label}`);
-                    return;
-                }
-                const colors = buildFlowColorMap(slice.segments);
-                const ramp = ChartRamp.outflow();
-                const bars = slice.categories.map((c, i) => ({
-                    key: c.key, label: c.name, value: c.total,
-                    color: colors.get(c.key) || ramp[i % ramp.length],
-                }));
-                const { plot, W, H } = chartBody(host);
-                plot.innerHTML = buildBarChartSVG({ bars, W, avail: H, animate: ctx.animate, period }) || '';
-            },
+            render: renderSpending,
+        },
+
+        monthlySpending: {
+            name: 'Monthly Spending', group: 'Spending',
+            info: 'How the shown month’s spending splits across categories, from your transactions ledger.',
+            periods: ['month'], period: THIS_MONTH,
+            sizes: { S: [3, 5], M: [4, 6], L: [6, 6] }, min: [3, 4],
+            defaults: {}, fields: [],
+            skeleton: 'rows',
+            uses: ['ie'],
+            load: (ctx) => ctx.hub.store('ie'),
+            render: renderMonthlySpending,
         },
 
         // ─── Cards new with the customizable Dashboard ───────────────────────
@@ -1337,9 +1344,13 @@
         balances: '<circle class="t-ring t-mute" cx="84" cy="36" r="20"/><path class="t-ring t-a" d="M84 16 A20 20 0 0 1 103 42"/>'
             + '<path class="t-ring t-b" d="M103 42 A20 20 0 0 1 72 52"/><rect class="t-ink" x="8" y="18" width="34" height="6" rx="2"/>'
             + '<rect class="t-mute" x="8" y="30" width="26" height="5" rx="2"/><rect class="t-ink" x="8" y="44" width="30" height="6" rx="2"/>',
-        spending: '<rect class="t-fill t-b" x="12" y="18" width="12" height="44" rx="2"/><rect class="t-fill t-b" x="32" y="30" width="12" height="32" rx="2"/>'
-            + '<rect class="t-fill t-b" x="52" y="38" width="12" height="24" rx="2"/><rect class="t-fill t-b" x="72" y="46" width="12" height="16" rx="2"/>'
-            + '<rect class="t-fill t-b" x="92" y="52" width="12" height="10" rx="2"/>',
+        spending: '<rect class="t-fill t-b" x="12" y="30" width="12" height="32" rx="2"/><rect class="t-fill t-mute" x="12" y="18" width="12" height="10" rx="2"/>'
+            + '<rect class="t-fill t-b" x="36" y="22" width="12" height="40" rx="2"/><rect class="t-fill t-mute" x="36" y="12" width="12" height="8" rx="2"/>'
+            + '<rect class="t-fill t-b" x="60" y="38" width="12" height="24" rx="2"/><rect class="t-fill t-mute" x="60" y="28" width="12" height="8" rx="2"/>'
+            + '<rect class="t-fill t-b" x="84" y="32" width="12" height="30" rx="2"/><rect class="t-fill t-mute" x="84" y="20" width="12" height="10" rx="2"/>',
+        monthlySpending: '<circle class="t-ring t-mute" cx="84" cy="36" r="20"/><path class="t-ring t-b" d="M84 16 A20 20 0 0 1 103 42"/>'
+            + '<path class="t-ring t-b" d="M103 42 A20 20 0 0 1 72 52" opacity="0.6"/><rect class="t-ink" x="8" y="18" width="34" height="6" rx="2"/>'
+            + '<rect class="t-mute" x="8" y="30" width="26" height="5" rx="2"/><rect class="t-ink" x="8" y="44" width="30" height="6" rx="2"/>',
         budgets: '<rect class="t-mute" x="8" y="12" width="104" height="6" rx="3"/><rect class="t-fill t-a" x="8" y="12" width="70" height="6" rx="3"/>'
             + '<rect class="t-mute" x="8" y="32" width="104" height="6" rx="3"/><rect class="t-fill t-neg" x="8" y="32" width="104" height="6" rx="3"/>'
             + '<rect class="t-mute" x="8" y="52" width="104" height="6" rx="3"/><rect class="t-fill t-c" x="8" y="52" width="44" height="6" rx="3"/>',
