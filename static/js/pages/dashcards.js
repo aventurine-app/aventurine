@@ -1178,7 +1178,7 @@
                 }
                 const spent = ctx.data.total || 0;
                 const max = merchants[0].total || 1;
-                const color = 'var(--chart-expense)';
+                const color = 'var(--accent-primary)';
                 const { list, fits } = listBody(host);
                 fillList(list, merchants, fits, (m) => {
                     const share = spent > 0 ? `, ${pctText(m.total / spent)} of spending` : '';
