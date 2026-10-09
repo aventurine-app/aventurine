@@ -475,3 +475,115 @@ html[data-theme="dark"] .settings-graph-swatch[data-graph-theme="gemstone"] {
     --chart-balance-7: #74cee0;   /* donut: retirement */
     --chart-balance-8: #a0dfec;
 }
+
+
+/* ─── Opal graphs ─────────────────────────────────────────────────────────────
+   Opalescent: soft, milky stones with a pearly flash instead of Gemstone's deep
+   jewel tones. Eight distinct hues like Gemstone, but lower in chroma and lifted
+   in lightness, so a chart reads as pastel iridescence rather than saturated ink.
+
+     1 Periwinkle   2 Orchid    3 Aqua      4 Peach
+     5 Lilac        6 Seafoam   7 Coral     8 Sky
+
+   Fixed hex, not accent mixes, for the same reason Gemstone is: the job is to be
+   eight DIFFERENT colours. Picking Opal does not follow the UI accent.
+
+   The three flow/balance families keep the app-wide meaning and only change
+   stones. Money arriving is a seafoam green, money leaving walks orchid-rose out
+   to peach, and balances walk lavender to sky. Each ramp reuses the lightness
+   steps of the Aventurine ramp it replaces (style.css), so the contrast and
+   adjacent-pair spacing that were checked there carry over. The named trio
+   (--chart-income, --chart-expense, --chart-transfer), --chart-net, --chart-debt
+   and --chart-networth are aliases of those ramps, so they follow with nothing to
+   restate and keep the Aventurine slots (income step 2, expense step 4).
+
+   Ink on a --chart-1 fill is not set here: the default (--button-text) is already
+   near-white on the light set's periwinkle and dark on the dark set's.
+
+   The categorical deal (--cat-*) puts seafoam last, so green stays with income
+   on the big outflow bands, the same call Gemstone makes with emerald. Dark is a
+   SELECTED set re-picked against the dark surface, not a lightened copy. */
+html[data-graph-theme="opal"],
+.settings-graph-swatch[data-graph-theme="opal"] {   /* the Preferences preview */
+    --chart-1: #4e65a8;   /* periwinkle */
+    --chart-2: #b16389;   /* orchid */
+    --chart-3: #339797;   /* aqua */
+    --chart-4: #cc8463;   /* peach */
+    --chart-5: #8e70b0;   /* lilac */
+    --chart-6: #4ea683;   /* seafoam */
+    --chart-7: #a75a61;   /* coral */
+    --chart-8: #4d9cc7;   /* sky */
+
+    --chart-inflow-1: #015c44;
+    --chart-inflow-2: #0a7355;
+    --chart-inflow-3: #2f8865;
+    --chart-inflow-4: #499c77;
+    --chart-inflow-5: #61b188;
+    --chart-inflow-6: #78c69a;
+
+    --chart-outflow-1: #994a6f;
+    --chart-outflow-2: #a75675;
+    --chart-outflow-3: #b6657d;
+    --chart-outflow-4: #c57585;
+    --chart-outflow-5: #d6868f;
+    --chart-outflow-6: #e6979a;
+    --chart-outflow-7: #f6a9a6;
+    --chart-outflow-8: #ffc1b9;
+
+    --chart-balance-1: #564771;   /* donut: cash */
+    --chart-balance-2: #5e5882;
+    --chart-balance-3: #656992;
+    --chart-balance-4: #6c79a0;   /* donut: investments */
+    --chart-balance-5: #758bad;
+    --chart-balance-6: #819ebc;
+    --chart-balance-7: #8eb1ca;   /* donut: retirement */
+    --chart-balance-8: #9fc5d9;
+
+    --cat-1: var(--chart-1);   /* periwinkle */
+    --cat-2: var(--chart-2);   /* orchid */
+    --cat-3: var(--chart-3);   /* aqua */
+    --cat-4: var(--chart-4);   /* peach */
+    --cat-5: var(--chart-5);   /* lilac */
+    --cat-6: var(--chart-7);   /* coral */
+    --cat-7: var(--chart-8);   /* sky */
+    --cat-8: var(--chart-6);   /* seafoam */
+}
+
+/* The same stones re-picked for the dark surface. Two attributes deep, so it
+   outweighs the light block above whichever order they land in. */
+html[data-graph-theme="opal"][data-theme="dark"],
+html[data-theme="dark"] .settings-graph-swatch[data-graph-theme="opal"] {
+    --chart-1: #6f89cf;   /* periwinkle */
+    --chart-2: #d281a8;   /* orchid */
+    --chart-3: #57b6b6;   /* aqua */
+    --chart-4: #e79d7b;   /* peach */
+    --chart-5: #ad8ed1;   /* lilac */
+    --chart-6: #68bf9b;   /* seafoam */
+    --chart-7: #c8787e;   /* coral */
+    --chart-8: #67b5e1;   /* sky */
+
+    --chart-inflow-1: #027b5c;
+    --chart-inflow-2: #23906c;
+    --chart-inflow-3: #41a47d;
+    --chart-inflow-4: #5bb98e;
+    --chart-inflow-5: #73cd9f;
+    --chart-inflow-6: #8ae1af;
+
+    --chart-outflow-1: #a65f7f;
+    --chart-outflow-2: #b76d88;
+    --chart-outflow-3: #c97b91;
+    --chart-outflow-4: #dc8b9b;
+    --chart-outflow-5: #ed9ba5;
+    --chart-outflow-6: #feadb0;
+    --chart-outflow-7: #ffc8c5;
+    --chart-outflow-8: #ffddd8;
+
+    --chart-balance-1: #685884;   /* donut: cash */
+    --chart-balance-2: #6e6893;
+    --chart-balance-3: #7579a3;
+    --chart-balance-4: #7e8bb3;   /* donut: investments */
+    --chart-balance-5: #889ec1;
+    --chart-balance-6: #95b2d1;
+    --chart-balance-7: #a4c7e0;   /* donut: retirement */
+    --chart-balance-8: #b7def1;
+}

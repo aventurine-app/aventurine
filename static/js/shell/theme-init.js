@@ -31,7 +31,7 @@
 
     // Graph palette — a SECOND, independent axis from the surface theme above
     // (see the block at the foot of themes.css). Stored 'graph-theme' values:
-    // '' (the accent-derived Aventurine ramp, the default) or 'gemstone'. Set
+    // '' (the accent-derived Aventurine ramp, the default), 'gemstone' or 'opal'. Set
     // pre-paint for the same reason as the theme: the charts read these tokens at
     // draw time, and a page painted under the wrong palette would need a
     // repaint.

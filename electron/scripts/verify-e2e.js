@@ -222,6 +222,16 @@ app.whenReady().then(async () => {
         && !document.querySelector("[data-modal='preferences']").hidden
         && document.querySelector(".settings-graph-btn[data-graph-theme='gemstone']").classList.contains('active');
     })()`));
+    // Opal rides the same attribute and has to move the same tokens.
+    check('opal graph palette re-points the chart tokens', await evalJs(`(() => {
+      const chart1 = () => getComputedStyle(document.documentElement)
+        .getPropertyValue('--chart-1').trim();
+      const before = chart1();
+      document.querySelector(".settings-graph-btn[data-graph-theme='opal']").click();
+      return document.documentElement.dataset.graphTheme === 'opal'
+        && chart1() !== before
+        && document.querySelector(".settings-graph-btn[data-graph-theme='opal']").classList.contains('active');
+    })()`));
     // Back to the accent ramp, same as the theme above.
     await evalJs('document.querySelector(".settings-graph-btn[data-graph-theme=\'\']").click()');
 

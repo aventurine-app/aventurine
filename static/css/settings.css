@@ -168,9 +168,9 @@
    because what changes here is what the CHARTS are painted with, not the page.
 
    Each variant only sets --sw-1..4; the bars themselves are one rule. Aventurine
-   reads --chart-accent-* (style.css) and Gemstone reads --chart-* from its own
-   data-graph-theme context (themes.css), which is why either preview shows its
-   true colours while the other palette is the live one. */
+   reads --chart-accent-* (style.css) and Gemstone and Opal read --chart-* from
+   their own data-graph-theme context (themes.css), which is why each preview
+   shows its true colours while another palette is the live one. */
 .settings-graph-btn {
     display: flex;
     flex-direction: column;
@@ -211,7 +211,8 @@
     --sw-4: var(--chart-accent-4);
 }
 
-.settings-graph-swatch[data-graph-theme="gemstone"] {
+.settings-graph-swatch[data-graph-theme="gemstone"],
+.settings-graph-swatch[data-graph-theme="opal"] {
     --sw-1: var(--chart-1);
     --sw-2: var(--chart-2);
     --sw-3: var(--chart-3);
