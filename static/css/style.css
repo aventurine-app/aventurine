@@ -554,10 +554,9 @@
    --stroke-medium:    rgba(0,0,0, 0.16);
    --stroke-strong:    rgba(0,0,0, 0.22);
 
-   /* Segmented control (Statements/Dashboard/Reports tabs) — a grey track holding
-      the options, outlined with the same hairline as every other bordered
-      control, with the active option carrying the accent fill of a primary
-      button (.button-primary in buttons.css). The track takes the sidebar
+   /* Segmented control (Statements/Dashboard/Reports tabs) — an unbordered grey
+      track holding the options, with the active option carrying the accent
+      fill of a primary button (.button-primary in buttons.css). The track takes the sidebar
       nav's fill (--surface1, nav.css) so the two chrome surfaces match. Most
       of these route through a token that already flips per theme, so the dark
       theme redefines only one: hover is two stops along the base ramp from the
@@ -565,7 +564,6 @@
       sits at the dark end, so two stops off it is base-700. */
    --segctl-track:         var(--surface1);
    --segctl-hover:         var(--color-base-200);
-   --segctl-stroke:        var(--border);
    --segctl-active:        var(--accent-primary);
    --segctl-active-text:   var(--button-text);
 
@@ -587,6 +585,21 @@
    --chip-active-bg-hover: var(--color-accent-300);
    --chip-active-stroke:   var(--color-accent-700);
    --chip-active-text:     var(--color-accent-700);
+
+   /* Transactions filter chips — solid fills, no outline. Resting is a grey
+      chip with --text-tertiary ink, a step quieter than the page's body text so
+      it reads as grayed out; --surface3 keeps it off the page behind it in both
+      themes. Filled takes the rung above the primary button's accent
+      (--accent-primary-hover) with the button's own ink. All of these route
+      through tokens that already flip per theme, so themes.css has nothing to
+      add. (--chip-active-* above still serves the popover presets.) */
+   --filter-chip-bg:           var(--surface3);
+   --filter-chip-bg-hover:     color-mix(in srgb, var(--text-primary) 8%, var(--surface3));
+   --filter-chip-text:         var(--text-tertiary);
+   --filter-chip-text-hover:   var(--text-secondary);
+   --filter-chip-active-bg:    var(--accent-primary-hover);
+   --filter-chip-active-hover: var(--accent-primary);
+   --filter-chip-active-text:  var(--button-text);
 
    /* Selected table row (Transactions ledger) — an accent wash over the CARD
       the rows sit on (--surface1), never over --background: the page behind the

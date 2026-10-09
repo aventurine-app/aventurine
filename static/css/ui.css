@@ -392,7 +392,7 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
  * the Widgets / Settings switch in its customize panel.
  * Moved here from statements.css when Dashboard adopted it.
  *
- * The tabs are a segmented control: a hairline-outlined grey track holding both
+ * The tabs are a segmented control: an unbordered grey track holding both
  * labels, with the active one filled in the accent — the same fill/text pair
  * .button-primary uses (buttons.css), so a selected tab reads as a sibling of
  * the page's primary action. The track hugs its content.
@@ -413,9 +413,6 @@ html[data-theme="dark"] .avatar-circle-7 { background: var(--spectrum-mid-8); }
     gap: 4px;
     padding: 4px;
     background: var(--segctl-track);
-    /* The same 1px hairline as every other bordered control, so the track matches
-       them rather than reading as an unbordered grey block. */
-    border: 1px solid var(--segctl-stroke);
     /* Rounded rectangle, not a pill. The radius is concentric with the
        segments inside it: 8px segment + the 4px track padding = 12px, so the
        track's inner edge runs parallel to a segment's corner instead of

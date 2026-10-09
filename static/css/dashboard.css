@@ -1106,9 +1106,9 @@ a.dash-row:focus-visible {
    its heading in the toolbar's row. No row gap: the grid keeps its distance
    with padding, and the panel's card matches it. */
 .dash-shell {
-    /* The bar's height: the layout tabs' track, a tab plus 4px of padding and a
-       1px hairline on each side (ui.css .dash-tabs). The panel's heading shares it. */
-    --dash-bar-h: calc(var(--control-height) + 10px);
+    /* The bar's height: the layout tabs' track, a tab plus 4px of padding on
+       each side (ui.css .dash-tabs). The panel's heading shares it. */
+    --dash-bar-h: calc(var(--control-height) + 8px);
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     /* The grid's row flexible, so the panel, spanning both rows, grows only it

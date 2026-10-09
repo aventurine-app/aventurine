@@ -287,47 +287,44 @@
 
 /* ── Filter chips ──────────────────────────────────────────────────────────
    The chip is the visual unit; its two child buttons (clear ×, label) sit
-   transparently inside the shared border. Inactive → solid outline, grayed,
-   just the field name. Active → solid accent-green identity with the leading
-   × revealed and the " : value" half shown.
+   transparently inside the shared shape. Inactive → solid grey fill with muted
+   ink, just the field name. Active → solid accent fill with the primary
+   button's ink, the leading × revealed and the " : value" half shown.
 
-   The inactive outline is the chip's own border on the neutral --border token —
-   one step quieter than the label's --text-tertiary, and the same outline every
-   input and card wears, so a resting chip reads as a control rather than as
-   text with a box round it. */
+   Both states are filled, so the border stays transparent: it holds the 1px
+   the outline used to take and keeps the chip's size the same either way.
+   Colours come from the --filter-chip-* tokens (style.css). */
 .tx-filter-chip {
     position: relative;
     display: inline-flex;
     align-items: stretch;
     height: 32px;
-    border: 1px solid var(--border);
+    border: 1px solid transparent;
     border-radius: 8px;
-    background: transparent;
-    color: var(--text-tertiary);
+    background: var(--filter-chip-bg);
+    color: var(--filter-chip-text);
     font-family: var(--font-menu);
     font-size: var(--size-small);
     transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
-/* Inactive hover lifts the text + fill so the chip reads clickable. The outline
-   holds at --border — lifting it too would undo the quieter resting weight. */
+/* Inactive hover darkens the fill and lifts the text so the chip reads clickable. */
 .tx-filter-chip:not(.is-active):hover {
-    color: var(--text-secondary);
-    background: var(--frost-2);
+    color: var(--filter-chip-text-hover);
+    background: var(--filter-chip-bg-hover);
 }
 
-/* Active → the selected-chip accent (style.css/themes.css): a tinted fill with
-   a solid deeper border + label. Tokens, not raw ramp stops — the ramp is
-   declared once and never flips, so hard-coded stops kept the light theme's
-   pale mint on dark, where it glared. */
+/* Active → a solid accent fill, one rung lighter than the primary button's, with
+   the button's ink. Tokens, not raw ramp stops — the ramp never flips, so the
+   per-theme rung and ink have to come from the tokens. Hover drops back to the
+   primary button's own accent. */
 .tx-filter-chip.is-active {
-    border-color: var(--chip-active-stroke);
-    background: var(--chip-active-bg);
-    color: var(--chip-active-text);
+    background: var(--filter-chip-active-bg);
+    color: var(--filter-chip-active-text);
 }
 
 .tx-filter-chip.is-active:hover {
-    background: var(--chip-active-bg-hover);
+    background: var(--filter-chip-active-hover);
 }
 
 /* The label button: field name, then a full-height divider + value once active. */
@@ -375,9 +372,9 @@
 /* The leading × — only in flow on an active chip. Its SVG wears a perfect
    circle (equal box + border-radius:50%) around the glyph; the button itself is
    just the hit area + left spacing. Ring and glyph are ONE colour: the circle
-   borders on currentColor, so the chip's own accent stroke at rest and the
-   negative accent on hover move both together — a grey ring round a coloured ×
-   read as two controls, and the hover has to promise the whole thing clears. */
+   borders on currentColor, so both follow the chip's ink and dim together on
+   hover — a grey ring round a coloured × read as two controls, and the hover
+   has to promise the whole thing clears. */
 .tx-filter-clear {
     display: none;
     align-items: center;
@@ -387,9 +384,9 @@
     padding: 3px;
     border: 0;
     background: transparent;
-    color: var(--chip-active-stroke);
+    color: inherit;
     cursor: pointer;
-    transition: color 0.15s ease;
+    transition: opacity 0.15s ease;
 }
 .tx-filter-chip.is-active .tx-filter-clear { display: inline-flex; }
 .tx-filter-clear svg {
@@ -400,7 +397,7 @@
     border: 1px solid currentColor;
     border-radius: 50%;
 }
-.tx-filter-clear:hover { color: var(--accent-negative); }
+.tx-filter-clear:hover { opacity: 0.65; }
 
 /* Keyboard focus rings. The label ring is inset so the chip's rounded border
    doesn't clip it; the × ring hugs its circle. */
@@ -413,6 +410,13 @@
     outline: 2px solid var(--accent-primary);
     outline-offset: 1px;
     border-radius: 50%;
+}
+
+/* On the accent fill the accent-coloured ring above would vanish, so it takes
+   the chip's ink instead. */
+.tx-filter-chip.is-active .tx-filter-main:focus-visible,
+.tx-filter-chip.is-active .tx-filter-clear:focus-visible {
+    outline-color: var(--filter-chip-active-text);
 }
 
 /* Clear all — a quiet text button shown only while ≥1 filter is on. */
